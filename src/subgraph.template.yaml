@@ -1,6 +1,6 @@
 specVersion: 0.0.4
 description: The liquid staking protocol
-repository: https://github.com/stakewise/subgraph
+repository: https://github.com/stakewise/v3-subgraph
 schema:
   file: ./schema.graphql
 dataSources:
@@ -25,3 +25,24 @@ dataSources:
       eventHandlers:
         - event: VaultCreated(indexed address,indexed address,indexed address,address,uint128,uint16)
           handler: handleVaultCreated
+templates:
+  - kind: ethereum/contract
+    name: Vault
+    network: {{ network }}
+    source:
+      abi: Vault
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      file: ./mappings/vault.ts
+      entities:
+        - Vault
+      abis:
+        - name: Vault
+          file: ./abis/Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
+        - event: ValidatorsRootUpdated(indexed address,bytes32,string)
+          handler: handleValidatorsRootUpdated
