@@ -7,10 +7,12 @@
   "private": true,
   "scripts": {
     "---GOERLI---": "",
-    "yml:goerli": "mustache src/config/goerli.json src/subgraph.template.yaml > src/subgraph-goerli.yaml",
-    "types:goerli": "graph codegen src/subgraph-goerli.yaml",
-    "generate:goerli": "graph build src/subgraph-goerli.yaml",
-    "build:goerli": "npm run yml:goerli && npm run types:goerli && npm run generate:goerli",
+    "generate-yaml:goerli": "mustache src/config/goerli.json src/subgraph.template.yaml > src/subgraph-goerli.yaml",
+    "generate-types:goerli": "graph codegen src/subgraph-goerli.yaml",
+    "generate-wasm:goerli": "graph build src/subgraph-goerli.yaml",
+    "prepare:goerli": "npm run generate-yaml:goerli && npm run generate-types:goerli",
+    "build:goerli": "npm run prepare:goerli && npm run generate-wasm:goerli",
+    "deploy:goerli": "",
     "---GRAPH---": "",
     "graph:auth": "graph auth https://api.thegraph.com/deploy/ $GRAPH_TOKEN"
   },
@@ -23,8 +25,5 @@
     "eslint": "8.11.0",
     "mustache": "4.2.0",
     "typescript": "4.6.2"
-  },
-  "dependencies": {
-    "const": "file:packages/constants"
   }
 }
