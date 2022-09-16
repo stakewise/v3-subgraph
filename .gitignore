@@ -1,0 +1,25 @@
+.idea
+.vscode
+.DS_Store
+
+# Dependencies
+node_modules
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Graph build files
+build/
+generated/
+packages/constants/index.ts
+subgraph-*.yaml
