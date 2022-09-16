@@ -1,4 +1,26 @@
 """
+Share
+"""
+type Share @entity {
+    "Vault id + Staker id"
+    id: ID!
+
+    "Share amount"
+    value: BigInt!
+}
+
+"""
+Staker
+"""
+type Staker @entity {
+    "Staker address"
+    id: ID!
+
+    "Shares in vaults the staker participates"
+    shares: [Share!]!
+}
+
+"""
 Vault
 """
 type Vault @entity {
@@ -22,6 +44,9 @@ type Vault @entity {
 
     "The vault IPFS hash with all the validators deposit data"
     validatorsIpfsHash: String
+
+    "The vault stakers"
+    stakers: [Staker!]!
 
     "The block number the vault was created at"
     createdAtBlock: BigInt!
