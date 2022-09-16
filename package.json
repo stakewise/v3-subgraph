@@ -9,7 +9,7 @@
     "---GOERLI---": "",
     "generate-yaml:goerli": "mustache src/config/goerli.json src/subgraph.template.yaml > src/subgraph-goerli.yaml",
     "generate-types:goerli": "graph codegen src/subgraph-goerli.yaml",
-    "generate-wasm:goerli": "graph build src/subgraph-goerli.yaml",
+    "generate-wasm:goerli": "graph build src/subgraph-goerli.yaml -o build/goerli",
     "prepare:goerli": "npm run generate-yaml:goerli && npm run generate-types:goerli",
     "build:goerli": "npm run prepare:goerli && npm run generate-wasm:goerli",
     "deploy:goerli": "",

@@ -10,7 +10,7 @@ dataSources:
     source:
       address: '{{ vaultFactory.address }}'
       abi: VaultFactory
-      startBlock: {{ startBlock }}
+      startBlock: {{ vaultFactory.startBlock }}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
