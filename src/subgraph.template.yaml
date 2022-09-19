@@ -18,7 +18,6 @@ dataSources:
       file: ./mappings/vaultFactory.ts
       entities:
         - Vault
-        - Staker
       abis:
         - name: VaultFactory
           file: ./abis/VaultFactory.json
@@ -38,6 +37,7 @@ templates:
       file: ./mappings/vault.ts
       entities:
         - Vault
+        - Staker
       abis:
         - name: Vault
           file: ./abis/Vault.json

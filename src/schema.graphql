@@ -1,23 +1,18 @@
 """
-Share
+Vault Staker
 """
-type Share @entity {
-    "Vault id + Staker id"
+type VaultStaker @entity {
+    "<Vault ID>-<Staker address>"
     id: ID!
 
-    "Share amount"
-    value: BigInt!
-}
+    "The vault staker address"
+    address: Bytes!
 
-"""
-Staker
-"""
-type Staker @entity {
-    "Staker address"
-    id: ID!
+    "The vault staker shares amount"
+    shares: BigInt!
 
-    "Shares in vaults the staker participates"
-    shares: [Share!]!
+    "The staker vault"
+    vault: Vault!
 }
 
 """
@@ -46,7 +41,7 @@ type Vault @entity {
     validatorsIpfsHash: String
 
     "The vault stakers"
-    stakers: [Staker!]!
+    stakers: [VaultStaker!]! @derivedFrom(field: "vault")
 
     "The block number the vault was created at"
     createdAtBlock: BigInt!

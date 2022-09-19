@@ -10,6 +10,7 @@ const handleVaultCreated = (event: VaultCreated): void => {
 
   const vault = new Vault(vaultAddress.toHexString())
 
+  vault.stakers = []
   vault.operator = params.operator
   vault.feesEscrow = params.feesEscrow
   vault.feePercent = params.feePercent
