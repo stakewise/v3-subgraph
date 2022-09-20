@@ -1,4 +1,4 @@
-import { Address } from '@graphprotocol/graph-ts'
+import { Address, log } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
 import { Transfer, ValidatorsRootUpdated } from '../../generated/templates/Vault/Vault'
@@ -32,6 +32,15 @@ const handleVaultTransfer = (event: Transfer): void => {
     stakerTo.shares = stakerTo.shares.plus(value)
     stakerTo.save()
   }
+
+  log.info(
+    '[Vault] Transfer from={} to={} value={}',
+    [
+      params.from.toHexString(),
+      params.to.toHexString(),
+      params.value,
+    ]
+  )
 }
 
 const handleValidatorsRootUpdated = (event: ValidatorsRootUpdated): void => {
@@ -46,6 +55,14 @@ const handleValidatorsRootUpdated = (event: ValidatorsRootUpdated): void => {
   vault.validatorsIpfsHash = validatorsIpfsHash
 
   vault.save()
+
+  log.info(
+    '[Vault] ValidatorsRootUpdated validatorsRoot={} validatorsIpfsHash={}',
+    [
+      validatorsRoot.toHexString(),
+      validatorsIpfsHash,
+    ]
+  )
 }
 
 

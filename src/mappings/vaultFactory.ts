@@ -1,3 +1,5 @@
+import { log } from '@graphprotocol/graph-ts'
+
 import { Vault } from '../../generated/schema'
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import { Vault as VaultTemplate } from '../../generated/templates'
@@ -20,6 +22,16 @@ const handleVaultCreated = (event: VaultCreated): void => {
 
   vault.save()
   VaultTemplate.create(vaultAddress)
+
+  log.info(
+    '[VaultFactory] VaultCreated operator={} feesEscrow={} feePercent={} maxTotalAssets={}',
+    [
+      params.operator.toHexString(),
+      params.feesEscrow.toHexString(),
+      params.feePercent,
+      params.maxTotalAssets,
+    ]
+  )
 }
 
 
