@@ -28,7 +28,7 @@ type Vault @entity {
     "The vault operator address"
     operator: Bytes!
 
-    "The vault max available assets amount"
+    "The vault max total assets amount"
     maxTotalAssets: BigInt!
 
     "The vault fee percent"
