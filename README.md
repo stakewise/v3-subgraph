@@ -14,7 +14,7 @@ and entities within the StakeWise ecosystem.
    npm install
    ```
 
-2. Prepare subgraphs for the network you want to deploy on
+2. Prepare subgraph for the network you want to deploy on
 (currently supports only goerli):
 
    ```shell script
