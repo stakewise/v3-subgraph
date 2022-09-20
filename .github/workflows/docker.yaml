@@ -19,7 +19,7 @@ jobs:
         uses: docker/metadata-action@v3
         with:
           images: |
-            europe-west4-docker.pkg.dev/stakewiselabs/public/subgraphs
+            europe-west4-docker.pkg.dev/stakewiselabs/public/v3-subgraph
           tags: |
             type=ref,event=branch
             type=ref,event=tag
