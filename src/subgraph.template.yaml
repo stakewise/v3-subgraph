@@ -37,7 +37,7 @@ templates:
       file: ./mappings/vault.ts
       entities:
         - Vault
-        - Staker
+        - VaultStaker
       abis:
         - name: Vault
           file: ./abis/Vault.json
