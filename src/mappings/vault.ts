@@ -16,7 +16,7 @@ const handleVaultTransfer = (event: Transfer): void => {
   const value = params.value
   const vaultAddress = event.address
 
-  const isMint = from.equals(vaultAddress) || from.equals(ADDRESS_ZERO)
+  const isMint = from.equals(ADDRESS_ZERO)
   const isBurn = to.equals(vaultAddress) || to.equals(ADDRESS_ZERO)
 
   if (!isMint) {
