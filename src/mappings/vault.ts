@@ -17,7 +17,7 @@ const handleVaultTransfer = (event: Transfer): void => {
   const vaultAddress = event.address
 
   const isMint = from.equals(ADDRESS_ZERO)
-  const isBurn = to.equals(vaultAddress) || to.equals(ADDRESS_ZERO)
+  const isBurn = to.equals(ADDRESS_ZERO)
 
   if (!isMint) {
     const stakerFrom = createOrLoadStaker(from, vaultAddress)
