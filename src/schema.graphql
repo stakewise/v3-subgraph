@@ -1,0 +1,51 @@
+"""
+Vault Staker
+"""
+type VaultStaker @entity {
+    "<Vault ID>-<Staker address>"
+    id: ID!
+
+    "The vault staker address"
+    address: Bytes!
+
+    "The vault staker shares amount"
+    shares: BigInt!
+
+    "The staker vault"
+    vault: Vault!
+}
+
+"""
+Vault
+"""
+type Vault @entity {
+    "Vault address"
+    id: ID!
+
+    "The fees escrow address"
+    feesEscrow: Bytes!
+
+    "The vault operator address"
+    operator: Bytes!
+
+    "The vault max available assets amount"
+    maxTotalAssets: BigInt!
+
+    "The vault fee percent"
+    feePercent: Int!
+
+    "The vault validators merkle tree root"
+    validatorsRoot: Bytes
+
+    "The vault IPFS hash with all the validators deposit data"
+    validatorsIpfsHash: String
+
+    "The vault stakers"
+    stakers: [VaultStaker!]! @derivedFrom(field: "vault")
+
+    "The block number the vault was created at"
+    createdAtBlock: BigInt!
+
+    "The timestamp the vault was created at"
+    createdTimestamp: BigInt!
+}
