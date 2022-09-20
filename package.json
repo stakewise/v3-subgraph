@@ -1,5 +1,5 @@
 {
-  "name": "stakewise-subgraphs",
+  "name": "v3-subgraph",
   "version": "0.0.1",
   "description": "Subgraph for the StakeWise Protocol",
   "repository": "https://github.com/stakewise/v3-subgraph",
