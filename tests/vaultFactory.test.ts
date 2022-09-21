@@ -1,10 +1,10 @@
 import { Address, ethereum } from '@graphprotocol/graph-ts'
 import { beforeAll, describe, test, assert, clearStore, newMockEvent } from 'matchstick-as'
 
-import { Vault } from '../../generated/schema'
-import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
+import { Vault } from '../generated/schema'
+import { VaultCreated } from '../generated/VaultFactory/VaultFactory'
 
-import { handleVaultCreated } from './vaultFactory'
+import { handleVaultCreated } from '../src/mappings/vaultFactory'
 
 
 // Random addresses

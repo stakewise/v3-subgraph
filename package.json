@@ -12,7 +12,7 @@
     "generate-wasm:goerli": "graph build src/subgraph-goerli.yaml -o build/goerli",
     "prepare:goerli": "npm run generate-yaml:goerli && npm run generate-types:goerli",
     "build:goerli": "npm run prepare:goerli && npm run generate-wasm:goerli",
-    "test:goerli": "npm run prepare:goerli && graph test src/subgraph-goerli.yaml",
+    "test:goerli": "npm run prepare:goerli && graph test",
     "deploy:goerli": ""
   },
   "devDependencies": {

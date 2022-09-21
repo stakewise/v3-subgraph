@@ -1,7 +1,7 @@
 import { store } from '@graphprotocol/graph-ts'
 import { describe, test } from 'matchstick-as'
 
-import { handleVaultTransfer, handleValidatorsRootUpdated } from './vault'
+import { handleVaultTransfer, handleValidatorsRootUpdated } from '../src/mappings/vault'
 
 
 describe('vault', () => {
