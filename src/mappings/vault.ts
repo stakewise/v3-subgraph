@@ -38,7 +38,7 @@ const handleVaultTransfer = (event: Transfer): void => {
     [
       params.from.toHexString(),
       params.to.toHexString(),
-      params.value,
+      params.value.toString(),
     ]
   )
 }

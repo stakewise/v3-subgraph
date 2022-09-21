@@ -28,8 +28,8 @@ const handleVaultCreated = (event: VaultCreated): void => {
     [
       params.operator.toHexString(),
       params.feesEscrow.toHexString(),
-      params.feePercent,
-      params.maxTotalAssets,
+      params.feePercent.toString(),
+      params.maxTotalAssets.toString(),
     ]
   )
 }
