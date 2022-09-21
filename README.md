@@ -28,13 +28,6 @@ before deploying:
     npm run build:goerli
     ```
 
-4. Authenticate to the Graph API for deployment:
-    ```shell script
-    npm run graph auth 
-    ```
-
-5. Deploy the subgraph (WIP)
-
 ## Documentation
 
 The documentation for all the GraphQL object fields can be
