@@ -28,6 +28,11 @@ before deploying:
     npm run build:goerli
     ```
 
+4. Optionally, test the subgraph:
+   ```shell script
+   npm run test:goerli
+   ```
+
 ## Documentation
 
 The documentation for all the GraphQL object fields can be
