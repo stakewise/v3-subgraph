@@ -21,5 +21,4 @@ yarn-error.log*
 # Graph build files
 build/
 generated/
-packages/constants/index.ts
 subgraph-*.yaml
