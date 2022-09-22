@@ -32,7 +32,7 @@ describe('vault', () => {
 
   describe('handleVaultTransfer', () => {
 
-    test('mints shares', () => {
+    test('mints shares if transaction from zero address', () => {
       const amount = '10000'
 
       const transferEvent = createTransferEvent(
@@ -55,7 +55,7 @@ describe('vault', () => {
       store.remove('VaultStaker', vaultStakerId)
     })
 
-    test('burns shares', () => {
+    test('burns shares if transaction to zero address', () => {
       const amount = '10000'
 
       const mintTransferEvent = createTransferEvent(
@@ -86,7 +86,7 @@ describe('vault', () => {
       store.remove('VaultStaker', vaultStakerId)
     })
 
-    test('transfer shares', () => {
+    test('transfers shares from one staker to another', () => {
       const amount = '10000'
 
       const mintTransferEvent = createTransferEvent(
