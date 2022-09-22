@@ -14,6 +14,11 @@ and entities within the StakeWise ecosystem.
    npm install
    ```
 
+   Optionally, to run tests postgresql should be installed:
+   ```shell script
+   brew reinstall postgresql
+   ```
+
 2. Prepare subgraph for the network you want to deploy on
 (currently supports only goerli):
 
@@ -29,6 +34,7 @@ before deploying:
     ```
 
 4. Optionally, test the subgraph:
+
    ```shell script
    npm run test:goerli
    ```

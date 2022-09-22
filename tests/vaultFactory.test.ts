@@ -1,17 +1,11 @@
 import { Address, ethereum } from '@graphprotocol/graph-ts'
-import { beforeAll, describe, test, assert, clearStore, newMockEvent } from 'matchstick-as'
+import { afterEach, describe, test, assert, clearStore, newMockEvent } from 'matchstick-as'
 
 import { Vault } from '../generated/schema'
 import { VaultCreated } from '../generated/VaultFactory/VaultFactory'
 
 import { handleVaultCreated } from '../src/mappings/vaultFactory'
 
-
-// Random addresses
-const callerAddress = Address.fromString('0x42E7Ea23B96cff802734BbAB5Fb73d94a5187Da0')
-const vaultAddress = Address.fromString('0x509DDA978268EA6cCcFE23415ddd0377ee767d6F')
-const feesEscrowAddress = Address.fromString('0x9E92f7aFE7B44d8b0aD25673d178FD6bDb0bD90A')
-const operatorAddress = Address.fromString('0x86E315Ff4Ec092072FE520A14a62A165C65de6Ff')
 
 const createVaultEvent = (
   caller: Address,
@@ -53,7 +47,7 @@ const createVaultEvent = (
   return mockVaultCreatedEvent
 }
 
-beforeAll(() => {
+afterEach(() => {
   clearStore()
 })
 
@@ -62,6 +56,12 @@ describe('vaultFactory', () => {
   describe('handleVaultCreated', () => {
 
     test('creates a new Vault', () => {
+      // Random addresses
+      const callerAddress = Address.fromString('0x42E7Ea23B96cff802734BbAB5Fb73d94a5187Da0')
+      const vaultAddress = Address.fromString('0x509DDA978268EA6cCcFE23415ddd0377ee767d6F')
+      const feesEscrowAddress = Address.fromString('0x9E92f7aFE7B44d8b0aD25673d178FD6bDb0bD90A')
+      const operatorAddress = Address.fromString('0x86E315Ff4Ec092072FE520A14a62A165C65de6Ff')
+
       const maxTotalAssets = 10000
       const feePercent = 10
 

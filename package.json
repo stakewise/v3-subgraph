@@ -8,11 +8,12 @@
   "scripts": {
     "---GOERLI---": "",
     "generate-yaml:goerli": "mustache src/config/goerli.json src/subgraph.template.yaml > src/subgraph-goerli.yaml",
+    "generate-tests-yaml:goerli": "mustache src/config/goerli.json matchstick.template.yaml > matchstick.yaml",
     "generate-types:goerli": "graph codegen src/subgraph-goerli.yaml",
     "generate-wasm:goerli": "graph build src/subgraph-goerli.yaml -o build/goerli",
     "prepare:goerli": "npm run generate-yaml:goerli && npm run generate-types:goerli",
     "build:goerli": "npm run prepare:goerli && npm run generate-wasm:goerli",
-    "test:goerli": "npm run prepare:goerli && graph test",
+    "test:goerli": "npm run prepare:goerli && npm run generate-tests-yaml:goerli && graph test",
     "deploy:goerli": ""
   },
   "devDependencies": {
