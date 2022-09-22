@@ -16,7 +16,7 @@ and entities within the StakeWise ecosystem.
 
    Optionally, to run tests postgresql should be installed:
    ```shell script
-   brew reinstall postgresql
+   brew install postgresql
    ```
 
 2. Prepare subgraph for the network you want to deploy on
