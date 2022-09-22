@@ -24,8 +24,9 @@ const handleVaultCreated = (event: VaultCreated): void => {
   VaultTemplate.create(vaultAddress)
 
   log.info(
-    '[VaultFactory] VaultCreated operator={} feesEscrow={} feePercent={} maxTotalAssets={}',
+    '[VaultFactory] VaultCreated address={} operator={} feesEscrow={} feePercent={} maxTotalAssets={}',
     [
+      params.vault.toHexString(),
       params.operator.toHexString(),
       params.feesEscrow.toHexString(),
       params.feePercent.toString(),

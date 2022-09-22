@@ -34,8 +34,9 @@ const handleVaultTransfer = (event: Transfer): void => {
   }
 
   log.info(
-    '[Vault] Transfer from={} to={} value={}',
+    '[Vault] Transfer vault={} from={} to={} value={}',
     [
+      vaultAddress.toHexString(),
       params.from.toHexString(),
       params.to.toHexString(),
       params.value.toString(),
