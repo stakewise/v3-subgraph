@@ -1,7 +1,12 @@
 import { Address, log } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
-import { Transfer, ValidatorsRootUpdated } from '../../generated/templates/Vault/Vault'
+import {
+  Transfer,
+  ExitQueueEntered,
+  ExitedAssetsClaimed,
+  ValidatorsRootUpdated
+} from '../../generated/templates/Vault/Vault'
 
 import { createOrLoadStaker } from '../entities/staker'
 
@@ -18,6 +23,15 @@ const handleVaultTransfer = (event: Transfer): void => {
 
   const isMint = from.equals(ADDRESS_ZERO)
   const isBurn = to.equals(ADDRESS_ZERO)
+  const isQueuedSharesBurn = isBurn && from.equals(vaultAddress)
+
+  // Burn locked shares on staker exit
+  if (isQueuedSharesBurn) {
+    const vault = Vault.load(vaultAddress.toHex()) as Vault
+
+    vault.queuedShares = vault.queuedShares.minus(value)
+    vault.save()
+  }
 
   if (!isMint) {
     const stakerFrom = createOrLoadStaker(from, vaultAddress)
@@ -66,8 +80,27 @@ const handleValidatorsRootUpdated = (event: ValidatorsRootUpdated): void => {
   )
 }
 
+const handleExitQueueEntered = (event: ExitQueueEntered): void => {
+  const vault = Vault.load(event.address.toHex()) as Vault
+
+  vault.queuedShares = vault.queuedShares.plus(event.params.shares)
+  vault.save()
+}
+
+const handleExitedAssetsClaimed = (event: ExitedAssetsClaimed): void => {
+  const params = event.params
+
+  const caller = params.caller
+  const receiver = params.receiver
+  const prevExitQueueId = params.prevExitQueueId
+  const newExitQueueId = params.newExitQueueId
+  const withdrawnAssets = params.withdrawnAssets
+}
+
 
 export {
   handleVaultTransfer,
+  handleExitQueueEntered,
+  handleExitedAssetsClaimed,
   handleValidatorsRootUpdated,
 }

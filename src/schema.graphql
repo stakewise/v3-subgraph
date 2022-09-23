@@ -43,6 +43,15 @@ type Vault @entity {
     "The vault stakers"
     stakers: [VaultStaker!]! @derivedFrom(field: "vault")
 
+    "The vault shares to burn on stakers exit"
+    queuedShares: BigInt!
+
+    "The vault shares burned on stakers exit"
+    withdrawnShares: BigInt!
+
+    "The vault assets claimed by stakers after burning shares"
+    claimedAssets: BigInt!
+
     "The block number the vault was created at"
     createdAtBlock: BigInt!
 

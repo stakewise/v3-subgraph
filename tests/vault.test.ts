@@ -2,13 +2,18 @@ import { BigInt, Bytes, store } from '@graphprotocol/graph-ts'
 import { beforeAll, afterAll, clearStore, describe, test, assert } from 'matchstick-as'
 
 import { handleVaultCreated } from '../src/mappings/vaultFactory'
-import { handleVaultTransfer, handleValidatorsRootUpdated } from '../src/mappings/vault'
+import { handleVaultTransfer, handleValidatorsRootUpdated, handleExitQueueEntered } from '../src/mappings/vault'
 
-import { createVaultEvent, createValidatorsRootUpdatedEvent, createTransferEvent } from './util/events'
+import {
+  createVaultEvent,
+  createValidatorsRootUpdatedEvent,
+  createTransferEvent,
+  createExitQueueEnteredEvent
+} from './util/events'
 import { address, addressString } from './util/mock'
 
 
-beforeAll(() => {
+const createVault = (): void => {
   const maxTotalAssets = 10000
   const feePercent = 10
 
@@ -22,6 +27,15 @@ beforeAll(() => {
   )
 
   handleVaultCreated(vaultEvent)
+}
+
+const resetVault = (): void => {
+  clearStore()
+  createVault()
+}
+
+beforeAll(() => {
+  createVault()
 })
 
 afterAll(() => {
@@ -29,6 +43,31 @@ afterAll(() => {
 })
 
 describe('vault', () => {
+
+  describe('handleExitQueueEntered', () => {
+
+    test('increases queuedShares', () => {
+      const amount = '10000'
+      const exitQueueId = '1'
+
+      const exitQueueEnteredEvent = createExitQueueEnteredEvent(
+        address.get('operator'),
+        address.get('operator'),
+        address.get('operator'),
+        BigInt.fromString(exitQueueId),
+        BigInt.fromString(amount),
+        address.get('vault'),
+      )
+
+      handleExitQueueEntered(exitQueueEnteredEvent)
+
+      const vaultId = addressString.get('vault')
+
+      assert.fieldEquals('Vault', vaultId, 'queuedShares', '10000')
+
+      resetVault()
+    })
+  })
 
   describe('handleVaultTransfer', () => {
 
@@ -118,6 +157,36 @@ describe('vault', () => {
 
       store.remove('VaultStaker', vaultStakerFromId)
       store.remove('VaultStaker', vaultStakerToId)
+    })
+
+    test('decreases queuedShares if transaction from the vault to zero address', () => {
+      const amount = '10000'
+      const exitQueueId = '1'
+
+      // increase queuedShares
+      const exitQueueEnteredEvent = createExitQueueEnteredEvent(
+        address.get('operator'),
+        address.get('operator'),
+        address.get('operator'),
+        BigInt.fromString(exitQueueId),
+        BigInt.fromString(amount),
+        address.get('vault'),
+      )
+
+      // decrease queuedShares
+      const burnTransferEvent = createTransferEvent(
+        address.get('vault'),
+        address.get('zero'),
+        BigInt.fromString(amount),
+        address.get('vault'),
+      )
+
+      handleExitQueueEntered(exitQueueEnteredEvent)
+      handleVaultTransfer(burnTransferEvent)
+
+      const vaultId = addressString.get('vault')
+
+      assert.fieldEquals('Vault', vaultId, 'queuedShares', '0')
     })
   })
 

@@ -1,7 +1,7 @@
 import { newMockEvent } from 'matchstick-as'
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 
-import { Transfer, ValidatorsRootUpdated } from '../../generated/templates/Vault/Vault'
+import { ExitQueueEntered, Transfer, ValidatorsRootUpdated } from '../../generated/templates/Vault/Vault'
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 
 
@@ -77,6 +77,44 @@ const createTransferEvent = (
   return mockTransferEvent
 }
 
+const createExitQueueEnteredEvent = (
+  caller: Address,
+  receiver: Address,
+  owner: Address,
+  exitQueueId: BigInt,
+  shares: BigInt,
+  vaultAddress: Address
+): ExitQueueEntered => {
+  const mockEvent = newMockEvent()
+
+  const mockExitQueueEnteredEvent = new ExitQueueEntered(
+    vaultAddress,
+    mockEvent.logIndex,
+    mockEvent.transactionLogIndex,
+    mockEvent.logType,
+    mockEvent.block,
+    mockEvent.transaction,
+    mockEvent.parameters,
+    null
+  )
+
+  mockExitQueueEnteredEvent.parameters = new Array()
+
+  const callerParam = new ethereum.EventParam('caller', ethereum.Value.fromAddress(caller))
+  const receiverParam = new ethereum.EventParam('receiver', ethereum.Value.fromAddress(receiver))
+  const ownerParam = new ethereum.EventParam('owner', ethereum.Value.fromAddress(owner))
+  const exitQueueIdParam = new ethereum.EventParam('exitQueueId', ethereum.Value.fromUnsignedBigInt(exitQueueId))
+  const sharesParam = new ethereum.EventParam('shares', ethereum.Value.fromUnsignedBigInt(shares))
+
+  mockExitQueueEnteredEvent.parameters.push(callerParam)
+  mockExitQueueEnteredEvent.parameters.push(receiverParam)
+  mockExitQueueEnteredEvent.parameters.push(ownerParam)
+  mockExitQueueEnteredEvent.parameters.push(exitQueueIdParam)
+  mockExitQueueEnteredEvent.parameters.push(sharesParam)
+
+  return mockExitQueueEnteredEvent
+}
+
 const createValidatorsRootUpdatedEvent = (
   caller: Address,
   newValidatorsRoot: Bytes,
@@ -113,5 +151,6 @@ const createValidatorsRootUpdatedEvent = (
 export {
   createVaultEvent,
   createTransferEvent,
+  createExitQueueEnteredEvent,
   createValidatorsRootUpdatedEvent,
 }

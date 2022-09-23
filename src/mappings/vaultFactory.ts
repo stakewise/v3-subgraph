@@ -1,4 +1,4 @@
-import { log } from '@graphprotocol/graph-ts'
+import { BigInt, log } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
@@ -13,6 +13,10 @@ const handleVaultCreated = (event: VaultCreated): void => {
   const vault = new Vault(vaultAddress.toHexString())
 
   vault.stakers = []
+  vault.queuedShares = BigInt.fromI32(0)
+  vault.claimedAssets = BigInt.fromI32(0)
+  vault.withdrawnShares = BigInt.fromI32(0)
+
   vault.operator = params.operator
   vault.feesEscrow = params.feesEscrow
   vault.feePercent = params.feePercent

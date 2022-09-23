@@ -44,5 +44,9 @@ templates:
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
+        - event: ExitQueueEntered(indexed address,indexed address,indexed address,uint256,uint256)
+          handler: handleExitQueueEntered
+        - event: ExitedAssetsClaimed(indexed address,indexed address,uint256,uint256,uint256)
+          handler: handleExitedAssetsClaimed
         - event: ValidatorsRootUpdated(indexed address,bytes32,string)
           handler: handleValidatorsRootUpdated
