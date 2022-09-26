@@ -23,7 +23,7 @@ type VaultCheckpoint @entity {
     id: ID!
 
     "The checkpoint index"
-    checkpointIndex: BigInt!
+    index: BigInt!
 
     "The cumulative number of burned shares"
     sharesCounter: BigInt!
@@ -31,7 +31,7 @@ type VaultCheckpoint @entity {
     "The amount of exited assets"
     exitedAssets: BigInt!
 
-    "The vault of the checkpoint"
+    "The checkpoint vault"
     vault: Vault!
 }
 
@@ -45,13 +45,13 @@ type Vault @entity {
     "The fees escrow address"
     feesEscrow: Bytes!
 
-    "The vault operator address"
+    "The address of the Vault operator"
     operator: Bytes!
 
-    "The vault max total assets amount"
+    "The max total assets that can be staked into the Vault"
     maxTotalAssets: BigInt!
 
-    "The vault fee percent"
+    "The fee percent that is charged by the Vault operator"
     feePercent: Int!
 
     "The vault validators merkle tree root"

@@ -32,11 +32,11 @@ describe('exitQueue', () => {
 
       handleCheckpointCreated(checkpointCreatedEvent)
 
+      const index = '0'
       const vaultId = addressString.get('vault')
-      const checkpointIndex = '0'
-      const checkpointId = `${vaultId}-${checkpointIndex}`
+      const checkpointId = `${vaultId}-${index}`
 
-      assert.fieldEquals('VaultCheckpoint', checkpointId, 'checkpointIndex', checkpointIndex)
+      assert.fieldEquals('VaultCheckpoint', checkpointId, 'index', index)
       assert.fieldEquals('VaultCheckpoint', checkpointId, 'sharesCounter', sharesCounter)
       assert.fieldEquals('VaultCheckpoint', checkpointId, 'exitedAssets', exitedAssets)
       assert.fieldEquals('VaultCheckpoint', checkpointId, 'vault', vaultId)

@@ -96,6 +96,12 @@ const handleExitedAssetsClaimed = (event: ExitedAssetsClaimed): void => {
   const newExitQueueId = params.newExitQueueId
   const withdrawnAssets = params.withdrawnAssets
 
+  const vault = Vault.load(event.address.toHex()) as Vault
+  // const vaultCheckpoint = Vault.load(event.address.toHex()) as Vault
+
+  vault.claimedAssets = vault.claimedAssets.plus(withdrawnAssets)
+  // TODO check checkpoint to get withdrawnShares?
+  vault.save()
 }
 
 

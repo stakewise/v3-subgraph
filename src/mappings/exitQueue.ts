@@ -1,6 +1,7 @@
-import { Vault, VaultCheckpoint } from '../../generated/schema'
-import { CheckpointCreated } from '../../generated/templates/ExitQueue/ExitQueue'
 import { BigInt, log } from '@graphprotocol/graph-ts'
+
+import { CheckpointCreated } from '../../generated/templates/ExitQueue/ExitQueue'
+import { Vault, VaultCheckpoint } from '../../generated/schema'
 
 
 const handleCheckpointCreated = (event: CheckpointCreated): void => {
@@ -11,12 +12,12 @@ const handleCheckpointCreated = (event: CheckpointCreated): void => {
   const vaultAddress = event.address
 
   const vault = Vault.load(vaultAddress.toHexString()) as Vault
-  const checkpointIndex = vault.checkpoints.length
-  const vaultCheckpointId = `${vaultAddress.toHexString()}-${checkpointIndex}`
+  const index = vault.checkpoints.length
+  const vaultCheckpointId = `${vaultAddress.toHexString()}-${index}`
 
   const vaultCheckpoint = new VaultCheckpoint(vaultCheckpointId)
 
-  vaultCheckpoint.checkpointIndex = BigInt.fromI32(checkpointIndex)
+  vaultCheckpoint.index = BigInt.fromI32(index)
   vaultCheckpoint.sharesCounter = sharesCounter
   vaultCheckpoint.exitedAssets = exitedAssets
   vaultCheckpoint.vault = vaultAddress.toHexString()
@@ -26,7 +27,7 @@ const handleCheckpointCreated = (event: CheckpointCreated): void => {
   log.info(
     '[ExitQueue] CheckpointCreated index={} sharesCounter={} exitedAssets={}',
     [
-      checkpointIndex.toString(),
+      index.toString(),
       sharesCounter.toString(),
       exitedAssets.toString(),
     ]
