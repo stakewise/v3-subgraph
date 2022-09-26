@@ -46,7 +46,25 @@ templates:
           handler: handleTransfer
         - event: ExitQueueEntered(indexed address,indexed address,indexed address,uint256,uint256)
           handler: handleExitQueueEntered
-        - event: ExitedAssetsClaimed(indexed address,indexed address,uint256,uint256,uint256)
+        - event: ExitedAssetsClaimed(indexed address,indexed address,indexed uint256,uint256,uint256)
           handler: handleExitedAssetsClaimed
         - event: ValidatorsRootUpdated(indexed address,bytes32,string)
           handler: handleValidatorsRootUpdated
+  - kind: ethereum/contract
+    name: ExitQueue
+    network: {{ network }}
+    source:
+      abi: ExitQueue
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      file: ./mappings/exitQueue.ts
+      entities:
+        - VaultCheckpoint
+      abis:
+        - name: ExitQueue
+          file: ./abis/ExitQueue.json
+      eventHandlers:
+        - event: CheckpointCreated(uint160,uint96)
+          handler: handleCheckpointCreated

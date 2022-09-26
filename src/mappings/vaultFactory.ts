@@ -13,6 +13,7 @@ const handleVaultCreated = (event: VaultCreated): void => {
   const vault = new Vault(vaultAddress.toHexString())
 
   vault.stakers = []
+  vault.checkpoints = []
   vault.queuedShares = BigInt.fromI32(0)
   vault.claimedAssets = BigInt.fromI32(0)
   vault.withdrawnShares = BigInt.fromI32(0)

@@ -1,8 +1,9 @@
 import { newMockEvent } from 'matchstick-as'
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 
-import { ExitQueueEntered, Transfer, ValidatorsRootUpdated } from '../../generated/templates/Vault/Vault'
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
+import { CheckpointCreated } from '../../generated/templates/ExitQueue/ExitQueue'
+import { Transfer, ExitQueueEntered, ValidatorsRootUpdated } from '../../generated/templates/Vault/Vault'
 
 
 const createVaultEvent = (
@@ -10,8 +11,8 @@ const createVaultEvent = (
   vault: Address,
   feesEscrow: Address,
   operator: Address,
-  maxTotalAssets: i32,
-  feePercent: i32,
+  maxTotalAssets: string,
+  feePercent: string,
 ): VaultCreated => {
   const mockEvent = newMockEvent()
 
@@ -32,8 +33,8 @@ const createVaultEvent = (
   const vaultParam = new ethereum.EventParam('vault', ethereum.Value.fromAddress(vault))
   const feesEscrowParam = new ethereum.EventParam('feesEscrow', ethereum.Value.fromAddress(feesEscrow))
   const operatorParam = new ethereum.EventParam('operator', ethereum.Value.fromAddress(operator))
-  const maxTotalAssetsParam = new ethereum.EventParam('maxTotalAssets', ethereum.Value.fromI32(maxTotalAssets))
-  const feePercentParam = new ethereum.EventParam('feePercent', ethereum.Value.fromI32(feePercent))
+  const maxTotalAssetsParam = new ethereum.EventParam('maxTotalAssets', ethereum.Value.fromUnsignedBigInt(BigInt.fromString(maxTotalAssets)))
+  const feePercentParam = new ethereum.EventParam('feePercent', ethereum.Value.fromUnsignedBigInt(BigInt.fromString(feePercent)))
 
   mockVaultCreatedEvent.parameters.push(callerParam)
   mockVaultCreatedEvent.parameters.push(vaultParam)
@@ -115,6 +116,35 @@ const createExitQueueEnteredEvent = (
   return mockExitQueueEnteredEvent
 }
 
+const createCheckpointCreatedEvent = (
+  sharesCounter: BigInt,
+  exitedAssets: BigInt,
+  vaultAddress: Address
+): CheckpointCreated => {
+  const mockEvent = newMockEvent()
+
+  const mockCheckpointCreatedEvent = new CheckpointCreated(
+    vaultAddress,
+    mockEvent.logIndex,
+    mockEvent.transactionLogIndex,
+    mockEvent.logType,
+    mockEvent.block,
+    mockEvent.transaction,
+    mockEvent.parameters,
+    null
+  )
+
+  mockCheckpointCreatedEvent.parameters = new Array()
+
+  const sharesCounterParam = new ethereum.EventParam('sharesCounter', ethereum.Value.fromUnsignedBigInt(sharesCounter))
+  const exitedAssetsParam = new ethereum.EventParam('exitedAssets', ethereum.Value.fromUnsignedBigInt(exitedAssets))
+
+  mockCheckpointCreatedEvent.parameters.push(sharesCounterParam)
+  mockCheckpointCreatedEvent.parameters.push(exitedAssetsParam)
+
+  return mockCheckpointCreatedEvent
+}
+
 const createValidatorsRootUpdatedEvent = (
   caller: Address,
   newValidatorsRoot: Bytes,
@@ -152,5 +182,6 @@ export {
   createVaultEvent,
   createTransferEvent,
   createExitQueueEnteredEvent,
+  createCheckpointCreatedEvent,
   createValidatorsRootUpdatedEvent,
 }

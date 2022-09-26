@@ -1,33 +1,20 @@
 import { BigInt, Bytes, store } from '@graphprotocol/graph-ts'
 import { beforeAll, afterAll, clearStore, describe, test, assert } from 'matchstick-as'
 
-import { handleVaultCreated } from '../src/mappings/vaultFactory'
-import { handleVaultTransfer, handleValidatorsRootUpdated, handleExitQueueEntered } from '../src/mappings/vault'
+import {
+  handleVaultTransfer,
+  handleExitQueueEntered,
+  handleValidatorsRootUpdated,
+} from '../src/mappings/vault'
 
 import {
-  createVaultEvent,
-  createValidatorsRootUpdatedEvent,
   createTransferEvent,
-  createExitQueueEnteredEvent
+  createExitQueueEnteredEvent,
+  createValidatorsRootUpdatedEvent
 } from './util/events'
+import { createVault } from './util/helpers'
 import { address, addressString } from './util/mock'
 
-
-const createVault = (): void => {
-  const maxTotalAssets = 10000
-  const feePercent = 10
-
-  const vaultEvent = createVaultEvent(
-    address.get('caller'),
-    address.get('vault'),
-    address.get('feesEscrow'),
-    address.get('operator'),
-    maxTotalAssets,
-    feePercent,
-  )
-
-  handleVaultCreated(vaultEvent)
-}
 
 const resetVault = (): void => {
   clearStore()

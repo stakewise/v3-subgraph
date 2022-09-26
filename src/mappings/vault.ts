@@ -95,6 +95,7 @@ const handleExitedAssetsClaimed = (event: ExitedAssetsClaimed): void => {
   const prevExitQueueId = params.prevExitQueueId
   const newExitQueueId = params.newExitQueueId
   const withdrawnAssets = params.withdrawnAssets
+
 }
 
 

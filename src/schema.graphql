@@ -16,6 +16,26 @@ type VaultStaker @entity {
 }
 
 """
+Vault Checkpoint
+"""
+type VaultCheckpoint @entity {
+    "<Vault ID>-<Checkpoint index>"
+    id: ID!
+
+    "The checkpoint index"
+    checkpointIndex: BigInt!
+
+    "The cumulative number of burned shares"
+    sharesCounter: BigInt!
+
+    "The amount of exited assets"
+    exitedAssets: BigInt!
+
+    "The vault of the checkpoint"
+    vault: Vault!
+}
+
+"""
 Vault
 """
 type Vault @entity {
@@ -42,6 +62,9 @@ type Vault @entity {
 
     "The vault stakers"
     stakers: [VaultStaker!]! @derivedFrom(field: "vault")
+
+    "The vault checkpoints"
+    checkpoints: [VaultCheckpoint!]! @derivedFrom(field: "vault")
 
     "The vault shares to burn on stakers exit"
     queuedShares: BigInt!
