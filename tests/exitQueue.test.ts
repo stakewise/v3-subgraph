@@ -8,6 +8,11 @@ import { address, addressString } from './util/mock'
 import { createCheckpointCreatedEvent } from './util/events'
 
 
+const resetStore = (): void => {
+  clearStore()
+  createVault()
+}
+
 beforeAll(() => {
   createVault()
 })
@@ -41,7 +46,7 @@ describe('exitQueue', () => {
       assert.fieldEquals('VaultCheckpoint', checkpointId, 'exitedAssets', exitedAssets)
       assert.fieldEquals('VaultCheckpoint', checkpointId, 'vault', vaultId)
 
-      store.remove('VaultCheckpoint', checkpointId)
+      resetStore()
     })
   })
 })

@@ -9,18 +9,22 @@ const handleCheckpointCreated = (event: CheckpointCreated): void => {
 
   const sharesCounter = params.sharesCounter
   const exitedAssets = params.exitedAssets
-  const vaultAddress = event.address
+  const vaultAddress = event.address.toHex()
 
-  const vault = Vault.load(vaultAddress.toHexString()) as Vault
+  const vault = Vault.load(vaultAddress) as Vault
+
   const index = vault.checkpoints.length
-  const vaultCheckpointId = `${vaultAddress.toHexString()}-${index}`
+  const vaultCheckpointId = `${vaultAddress}-${index}`
+
+  vault.unclaimedAssets = vault.unclaimedAssets.plus(exitedAssets)
+  vault.save()
 
   const vaultCheckpoint = new VaultCheckpoint(vaultCheckpointId)
 
   vaultCheckpoint.index = BigInt.fromI32(index)
   vaultCheckpoint.sharesCounter = sharesCounter
   vaultCheckpoint.exitedAssets = exitedAssets
-  vaultCheckpoint.vault = vaultAddress.toHexString()
+  vaultCheckpoint.vault = vaultAddress
 
   vaultCheckpoint.save()
 

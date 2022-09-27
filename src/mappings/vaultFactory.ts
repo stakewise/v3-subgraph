@@ -10,13 +10,13 @@ const handleVaultCreated = (event: VaultCreated): void => {
   const params = event.params
   const vaultAddress = params.vault
 
-  const vault = new Vault(vaultAddress.toHexString())
+  const vault = new Vault(vaultAddress.toHex())
 
   vault.stakers = []
   vault.checkpoints = []
+  vault.exitQueueRequests = []
   vault.queuedShares = BigInt.fromI32(0)
-  vault.claimedAssets = BigInt.fromI32(0)
-  vault.withdrawnShares = BigInt.fromI32(0)
+  vault.unclaimedAssets = BigInt.fromI32(0)
 
   vault.operator = params.operator
   vault.feesEscrow = params.feesEscrow
@@ -31,9 +31,9 @@ const handleVaultCreated = (event: VaultCreated): void => {
   log.info(
     '[VaultFactory] VaultCreated address={} operator={} feesEscrow={} feePercent={} maxTotalAssets={}',
     [
-      params.vault.toHexString(),
-      params.operator.toHexString(),
-      params.feesEscrow.toHexString(),
+      params.vault.toHex(),
+      params.operator.toHex(),
+      params.feesEscrow.toHex(),
       params.feePercent.toString(),
       params.maxTotalAssets.toString(),
     ]

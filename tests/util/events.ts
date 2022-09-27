@@ -3,7 +3,12 @@ import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import { CheckpointCreated } from '../../generated/templates/ExitQueue/ExitQueue'
-import { Transfer, ExitQueueEntered, ValidatorsRootUpdated } from '../../generated/templates/Vault/Vault'
+import {
+  Transfer,
+  ExitQueueEntered,
+  ExitedAssetsClaimed,
+  ValidatorsRootUpdated,
+} from '../../generated/templates/Vault/Vault'
 
 
 const createVaultEvent = (
@@ -84,7 +89,7 @@ const createExitQueueEnteredEvent = (
   owner: Address,
   exitQueueId: BigInt,
   shares: BigInt,
-  vaultAddress: Address
+  vaultAddress: Address,
 ): ExitQueueEntered => {
   const mockEvent = newMockEvent()
 
@@ -119,7 +124,7 @@ const createExitQueueEnteredEvent = (
 const createCheckpointCreatedEvent = (
   sharesCounter: BigInt,
   exitedAssets: BigInt,
-  vaultAddress: Address
+  vaultAddress: Address,
 ): CheckpointCreated => {
   const mockEvent = newMockEvent()
 
@@ -145,11 +150,49 @@ const createCheckpointCreatedEvent = (
   return mockCheckpointCreatedEvent
 }
 
+const createExitedAssetsClaimedEvent = (
+  caller: Address,
+  receiver: Address,
+  prevExitQueueId: BigInt,
+  nextExitQueueId: BigInt,
+  withdrawnAssets: BigInt,
+  vaultAddress: Address,
+): ExitedAssetsClaimed => {
+  const mockEvent = newMockEvent()
+
+  const mockExitedAssetsClaimedEvent = new ExitedAssetsClaimed(
+    vaultAddress,
+    mockEvent.logIndex,
+    mockEvent.transactionLogIndex,
+    mockEvent.logType,
+    mockEvent.block,
+    mockEvent.transaction,
+    mockEvent.parameters,
+    null
+  )
+
+  mockExitedAssetsClaimedEvent.parameters = new Array()
+
+  const callerParam = new ethereum.EventParam('caller', ethereum.Value.fromAddress(caller))
+  const receiverParam = new ethereum.EventParam('receiver', ethereum.Value.fromAddress(receiver))
+  const prevExitQueueIdParam = new ethereum.EventParam('prevExitQueueId', ethereum.Value.fromUnsignedBigInt(prevExitQueueId))
+  const nextExitQueueIdParam = new ethereum.EventParam('nextExitQueueId', ethereum.Value.fromUnsignedBigInt(nextExitQueueId))
+  const withdrawnAssetsParam = new ethereum.EventParam('withdrawnAssets', ethereum.Value.fromUnsignedBigInt(withdrawnAssets))
+
+  mockExitedAssetsClaimedEvent.parameters.push(callerParam)
+  mockExitedAssetsClaimedEvent.parameters.push(receiverParam)
+  mockExitedAssetsClaimedEvent.parameters.push(prevExitQueueIdParam)
+  mockExitedAssetsClaimedEvent.parameters.push(nextExitQueueIdParam)
+  mockExitedAssetsClaimedEvent.parameters.push(withdrawnAssetsParam)
+
+  return mockExitedAssetsClaimedEvent
+}
+
 const createValidatorsRootUpdatedEvent = (
   caller: Address,
   newValidatorsRoot: Bytes,
   newValidatorsIpfsHash: string,
-  vaultAddress: Address
+  vaultAddress: Address,
 ): ValidatorsRootUpdated => {
   const mockEvent = newMockEvent()
 
@@ -183,5 +226,6 @@ export {
   createTransferEvent,
   createExitQueueEnteredEvent,
   createCheckpointCreatedEvent,
+  createExitedAssetsClaimedEvent,
   createValidatorsRootUpdatedEvent,
 }

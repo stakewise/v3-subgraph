@@ -36,6 +36,35 @@ type VaultCheckpoint @entity {
 }
 
 """
+Vault exit queue request
+"""
+type VaultExitQueueRequest @entity {
+    "<Vault ID>-<Exit queue id>"
+    id: ID!
+
+    "The exit queue id"
+    exitQueueId: BigInt!
+
+    "The exit queue request shares owner"
+    owner: Bytes!
+
+    "The exit queue request assets receiver"
+    receiver: Bytes!
+
+    "The number of shares queued for exit"
+    totalShares: BigInt!
+
+    "The number of shares withdrawn"
+    withdrawnShares: BigInt!
+
+    "The number of assets withdrawn"
+    withdrawnAssets: BigInt!
+
+    "The exit queue request vault"
+    vault: Vault!
+}
+
+"""
 Vault
 """
 type Vault @entity {
@@ -66,14 +95,14 @@ type Vault @entity {
     "The vault checkpoints"
     checkpoints: [VaultCheckpoint!]! @derivedFrom(field: "vault")
 
+    "The vault exit queue requests"
+    exitQueueRequests: [VaultExitQueueRequest!]! @derivedFrom(field: "vault")
+
     "The vault shares to burn on stakers exit"
     queuedShares: BigInt!
 
-    "The vault shares burned on stakers exit"
-    withdrawnShares: BigInt!
-
-    "The vault assets claimed by stakers after burning shares"
-    claimedAssets: BigInt!
+    "The vault assets unclaimed by stakers after burning shares"
+    unclaimedAssets: BigInt!
 
     "The block number the vault was created at"
     createdAtBlock: BigInt!
