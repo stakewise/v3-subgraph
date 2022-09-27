@@ -13,6 +13,7 @@ import { createOrLoadStaker } from '../entities/staker'
 
 const ADDRESS_ZERO = Address.zero()
 
+// Event emitted on mint, burn or transfer shares between stakers
 const handleVaultTransfer = (event: Transfer): void => {
   const params = event.params
 
@@ -58,6 +59,7 @@ const handleVaultTransfer = (event: Transfer): void => {
   )
 }
 
+// Event emitted on validators root and IPFS hash update
 const handleValidatorsRootUpdated = (event: ValidatorsRootUpdated): void => {
   const params = event.params
 
@@ -80,6 +82,8 @@ const handleValidatorsRootUpdated = (event: ValidatorsRootUpdated): void => {
   )
 }
 
+// Event emitted when a staker enters to the exit queue.
+// Shares locked, but assets can't be claimed until shares burned (on CheckpointCreated event)
 const handleExitQueueEntered = (event: ExitQueueEntered): void => {
   const params = event.params
 
@@ -119,6 +123,8 @@ const handleExitQueueEntered = (event: ExitQueueEntered): void => {
   )
 }
 
+// Event emitted when a staker claim assets partially or completely.
+// If assets claimed completely ExitQueueRequest deleted
 const handleExitedAssetsClaimed = (event: ExitedAssetsClaimed): void => {
   const params = event.params
 

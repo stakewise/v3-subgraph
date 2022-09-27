@@ -4,6 +4,7 @@ import { CheckpointCreated } from '../../generated/templates/ExitQueue/ExitQueue
 import { Vault, VaultCheckpoint } from '../../generated/schema'
 
 
+// Event emitted when shares burned. After that assets become available for claim
 const handleCheckpointCreated = (event: CheckpointCreated): void => {
   const params = event.params
 
