@@ -98,7 +98,7 @@ type Vault @entity {
     "The vault exit queue requests"
     exitQueueRequests: [VaultExitQueueRequest!]! @derivedFrom(field: "vault")
 
-    "The vault shares to burn on stakers exit"
+    "The number of shares queued for the exit"
     queuedShares: BigInt!
 
     "The vault assets unclaimed by stakers after burning shares"
