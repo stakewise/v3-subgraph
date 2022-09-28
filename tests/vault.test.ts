@@ -87,8 +87,8 @@ describe('vault', () => {
       const vaultStakerId = `${vaultId}-${stakerId}`
 
       assert.fieldEquals('VaultStaker', vaultStakerId, 'address', stakerId)
-      assert.fieldEquals('VaultStaker', vaultStakerId, 'vault', vaultId)
       assert.fieldEquals('VaultStaker', vaultStakerId, 'shares', amount)
+      assert.fieldEquals('VaultStaker', vaultStakerId, 'vault', vaultId)
 
       store.remove('VaultStaker', vaultStakerId)
     })
