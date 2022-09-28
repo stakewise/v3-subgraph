@@ -82,7 +82,7 @@ const handleValidatorsRootUpdated = (event: ValidatorsRootUpdated): void => {
   )
 }
 
-// Event emitted when a staker enters to the exit queue.
+// Event emitted when a staker enters the exit queue.
 // Shares locked, but assets can't be claimed until shares burned (on CheckpointCreated event)
 const handleExitQueueEntered = (event: ExitQueueEntered): void => {
   const params = event.params
