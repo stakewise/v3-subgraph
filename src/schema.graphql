@@ -45,7 +45,7 @@ type VaultExitQueueRequest @entity {
     "The exit queue id"
     exitQueueId: BigInt!
 
-    "The exit queue request shares owner"
+    "The exiting shares owner"
     owner: Bytes!
 
     "The exit queue request assets receiver"
