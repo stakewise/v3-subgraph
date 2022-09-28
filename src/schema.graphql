@@ -48,7 +48,7 @@ type VaultExitQueueRequest @entity {
     "The exiting shares owner"
     owner: Bytes!
 
-    "The exit queue request assets receiver"
+    "The exited assets receiver"
     receiver: Bytes!
 
     "The number of shares queued for exit"
