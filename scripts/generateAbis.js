@@ -40,7 +40,9 @@ const generateAbis = async () => {
     await execAsync('git clone git@github.com:stakewise/v3-core.git ./v3-core')
   }
   catch (error) {
-    if (error?.code === 128) {
+    const isDirectoryExist = error?.code === 128
+
+    if (isDirectoryExist) {
       await execAsync('cd ./v3-core && git pull && cd ../')
     }
     else {
