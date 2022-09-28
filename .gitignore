@@ -18,6 +18,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# v3-core repository
+v3-core/
+
 # Graph build files
 build/
 generated/
