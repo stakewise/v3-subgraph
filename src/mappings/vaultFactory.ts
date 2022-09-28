@@ -1,18 +1,24 @@
-import { log } from '@graphprotocol/graph-ts'
+import { BigInt, log } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import { Vault as VaultTemplate } from '../../generated/templates'
 
 
+// Event emitted on vault create
 const handleVaultCreated = (event: VaultCreated): void => {
   const block = event.block
   const params = event.params
   const vaultAddress = params.vault
 
-  const vault = new Vault(vaultAddress.toHexString())
+  const vault = new Vault(vaultAddress.toHex())
 
   vault.stakers = []
+  vault.checkpoints = []
+  vault.exitRequests = []
+  vault.queuedShares = BigInt.fromI32(0)
+  vault.unclaimedAssets = BigInt.fromI32(0)
+
   vault.operator = params.operator
   vault.feesEscrow = params.feesEscrow
   vault.feePercent = params.feePercent
@@ -26,9 +32,9 @@ const handleVaultCreated = (event: VaultCreated): void => {
   log.info(
     '[VaultFactory] VaultCreated address={} operator={} feesEscrow={} feePercent={} maxTotalAssets={}',
     [
-      params.vault.toHexString(),
-      params.operator.toHexString(),
-      params.feesEscrow.toHexString(),
+      params.vault.toHex(),
+      params.operator.toHex(),
+      params.feesEscrow.toHex(),
       params.feePercent.toString(),
       params.maxTotalAssets.toString(),
     ]

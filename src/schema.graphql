@@ -16,6 +16,55 @@ type VaultStaker @entity {
 }
 
 """
+Vault Checkpoint
+"""
+type VaultCheckpoint @entity {
+    "<Vault ID>-<Checkpoint index>"
+    id: ID!
+
+    "The checkpoint index"
+    index: BigInt!
+
+    "The cumulative number of burned shares"
+    sharesCounter: BigInt!
+
+    "The amount of exited assets"
+    exitedAssets: BigInt!
+
+    "The checkpoint vault"
+    vault: Vault!
+}
+
+"""
+Vault exit request
+"""
+type VaultExitRequest @entity {
+    "<Vault ID>-<Exit queue id>"
+    id: ID!
+
+    "The exit queue id"
+    exitQueueId: BigInt!
+
+    "The exiting shares owner"
+    owner: Bytes!
+
+    "The exited assets receiver"
+    receiver: Bytes!
+
+    "The number of shares queued for exit"
+    totalShares: BigInt!
+
+    "The number of shares withdrawn"
+    withdrawnShares: BigInt!
+
+    "The number of assets withdrawn"
+    withdrawnAssets: BigInt!
+
+    "The exit request vault"
+    vault: Vault!
+}
+
+"""
 Vault
 """
 type Vault @entity {
@@ -25,13 +74,13 @@ type Vault @entity {
     "The fees escrow address"
     feesEscrow: Bytes!
 
-    "The vault operator address"
+    "The address of the vault operator"
     operator: Bytes!
 
-    "The vault max total assets amount"
+    "The max total assets that can be staked into the vault"
     maxTotalAssets: BigInt!
 
-    "The vault fee percent"
+    "The fee percent that is charged by the vault operator"
     feePercent: Int!
 
     "The vault validators merkle tree root"
@@ -42,6 +91,18 @@ type Vault @entity {
 
     "The vault stakers"
     stakers: [VaultStaker!]! @derivedFrom(field: "vault")
+
+    "The vault checkpoints"
+    checkpoints: [VaultCheckpoint!]! @derivedFrom(field: "vault")
+
+    "The vault exit requests"
+    exitRequests: [VaultExitRequest!]! @derivedFrom(field: "vault")
+
+    "The number of shares queued for the exit"
+    queuedShares: BigInt!
+
+    "The number of assets that are waiting to be claimed"
+    unclaimedAssets: BigInt!
 
     "The block number the vault was created at"
     createdAtBlock: BigInt!

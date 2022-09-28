@@ -15,11 +15,11 @@ address.set('feesEscrow', feesEscrowAddress)
 address.set('operator', operatorAddress)
 
 const addressString = new Map<string, string>()
-addressString.set('zero', zeroAddress.toHexString())
-addressString.set('caller', callerAddress.toHexString())
-addressString.set('vault', vaultAddress.toHexString())
-addressString.set('feesEscrow', feesEscrowAddress.toHexString())
-addressString.set('operator', operatorAddress.toHexString())
+addressString.set('zero', zeroAddress.toHex())
+addressString.set('caller', callerAddress.toHex())
+addressString.set('vault', vaultAddress.toHex())
+addressString.set('feesEscrow', feesEscrowAddress.toHex())
+addressString.set('operator', operatorAddress.toHex())
 
 
 export {

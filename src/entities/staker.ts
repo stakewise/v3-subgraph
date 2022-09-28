@@ -4,7 +4,7 @@ import { VaultStaker } from '../../generated/schema'
 
 
 const createOrLoadStaker = (stakerAddress: Address, vaultAddress: Address): VaultStaker => {
-  const vaultStakerAddress = `${vaultAddress.toHexString()}-${stakerAddress.toHexString()}`
+  const vaultStakerAddress = `${vaultAddress.toHex()}-${stakerAddress.toHex()}`
 
   let vaultStaker = VaultStaker.load(vaultStakerAddress)
 
@@ -12,7 +12,7 @@ const createOrLoadStaker = (stakerAddress: Address, vaultAddress: Address): Vaul
     vaultStaker = new VaultStaker(vaultStakerAddress)
     vaultStaker.shares = BigInt.fromI32(0)
     vaultStaker.address = stakerAddress
-    vaultStaker.vault = vaultAddress.toHexString()
+    vaultStaker.vault = vaultAddress.toHex()
     vaultStaker.save()
   }
 
