@@ -101,7 +101,7 @@ type Vault @entity {
     "The number of shares queued for the exit"
     queuedShares: BigInt!
 
-    "The vault assets unclaimed by stakers after burning shares"
+    "The number of assets that are waiting to be claimed"
     unclaimedAssets: BigInt!
 
     "The block number the vault was created at"
