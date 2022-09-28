@@ -124,7 +124,7 @@ const handleExitQueueEntered = (event: ExitQueueEntered): void => {
 }
 
 // Event emitted when a staker claim assets partially or completely.
-// If assets claimed completely ExitQueueRequest deleted
+// If assets are claimed completely ExitQueueRequest will be deleted
 const handleExitedAssetsClaimed = (event: ExitedAssetsClaimed): void => {
   const params = event.params
 
