@@ -74,13 +74,13 @@ type Vault @entity {
     "The fees escrow address"
     feesEscrow: Bytes!
 
-    "The address of the Vault operator"
+    "The address of the vault operator"
     operator: Bytes!
 
-    "The max total assets that can be staked into the Vault"
+    "The max total assets that can be staked into the vault"
     maxTotalAssets: BigInt!
 
-    "The fee percent that is charged by the Vault operator"
+    "The fee percent that is charged by the vault operator"
     feePercent: Int!
 
     "The vault validators merkle tree root"
