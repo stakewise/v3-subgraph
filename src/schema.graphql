@@ -36,9 +36,9 @@ type VaultCheckpoint @entity {
 }
 
 """
-Vault exit queue request
+Vault exit request
 """
-type VaultExitQueueRequest @entity {
+type VaultExitRequest @entity {
     "<Vault ID>-<Exit queue id>"
     id: ID!
 
@@ -60,7 +60,7 @@ type VaultExitQueueRequest @entity {
     "The number of assets withdrawn"
     withdrawnAssets: BigInt!
 
-    "The exit queue request vault"
+    "The exit request vault"
     vault: Vault!
 }
 
@@ -95,8 +95,8 @@ type Vault @entity {
     "The vault checkpoints"
     checkpoints: [VaultCheckpoint!]! @derivedFrom(field: "vault")
 
-    "The vault exit queue requests"
-    exitQueueRequests: [VaultExitQueueRequest!]! @derivedFrom(field: "vault")
+    "The vault exit requests"
+    exitRequests: [VaultExitRequest!]! @derivedFrom(field: "vault")
 
     "The number of shares queued for the exit"
     queuedShares: BigInt!

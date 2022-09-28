@@ -38,7 +38,7 @@ describe('vaultFactory', () => {
       assert.fieldEquals('Vault', vaultId, 'feePercent', feePercent)
       assert.fieldEquals('Vault', vaultId, 'stakers', '[]')
       assert.fieldEquals('Vault', vaultId, 'checkpoints', '[]')
-      assert.fieldEquals('Vault', vaultId, 'exitQueueRequests', '[]')
+      assert.fieldEquals('Vault', vaultId, 'exitRequests', '[]')
       assert.fieldEquals('Vault', vaultId, 'queuedShares', '0')
       assert.fieldEquals('Vault', vaultId, 'unclaimedAssets', '0')
       assert.fieldEquals('Vault', vaultId, 'createdAtBlock', '1')

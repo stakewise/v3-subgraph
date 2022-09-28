@@ -15,7 +15,7 @@ const handleVaultCreated = (event: VaultCreated): void => {
 
   vault.stakers = []
   vault.checkpoints = []
-  vault.exitQueueRequests = []
+  vault.exitRequests = []
   vault.queuedShares = BigInt.fromI32(0)
   vault.unclaimedAssets = BigInt.fromI32(0)
 
