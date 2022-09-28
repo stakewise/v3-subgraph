@@ -6,6 +6,8 @@
   "license": "AGPL-3.0-only",
   "private": true,
   "scripts": {
+    "---ABIS---": "",
+    "generate-abis": "node ./scripts/generateAbis.js",
     "---GOERLI---": "",
     "generate-yaml:goerli": "mustache src/config/goerli.json src/subgraph.template.yaml > src/subgraph-goerli.yaml",
     "generate-tests-yaml:goerli": "mustache src/config/goerli.json matchstick.template.yaml > matchstick.yaml",
