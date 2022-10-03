@@ -19,6 +19,11 @@ and entities within the StakeWise ecosystem.
    brew install postgresql
    ```
 
+   Optionally, generate contract abis:
+   ```shell script
+   npm run generate-abis
+   ```
+
 2. Prepare subgraph for the network you want to deploy on
 (currently supports only goerli):
 
