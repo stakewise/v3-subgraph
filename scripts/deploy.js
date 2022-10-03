@@ -18,7 +18,7 @@ const deploy = async () => {
   const GRAPH_TOKEN = process.env.GRAPH_TOKEN
 
   if (GRAPH_TOKEN) {
-    const { network, version } = args
+    const { network } = args
 
     const srcDirectory = path.resolve(__dirname, `../src`)
     const buildDirectory = path.resolve(__dirname, `../build/${network}`)
@@ -33,7 +33,6 @@ const deploy = async () => {
       .join(' && ')
 
     await execAsync(command)
-
   }
   else {
     throw new Error('GRAPH_TOKEN is not exist in env')
