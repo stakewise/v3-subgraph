@@ -1,6 +1,7 @@
 const fs = require('fs')
 const path = require('path')
-const { exec } = require('child_process')
+
+const { execAsync } = require('./util')
 
 
 const abis = [
@@ -17,19 +18,6 @@ const abis = [
     to: '../src/abis/ExitQueue.json',
   },
 ]
-
-const execAsync = (command) => (
-  new Promise((resolve, reject) => {
-    exec(command, (error, stdout) => {
-      if (error) {
-        reject(error)
-      }
-      else {
-        resolve(stdout.trim())
-      }
-    })
-  })
-)
 
 const generateAbis = async () => {
   console.log('Abis generating started')

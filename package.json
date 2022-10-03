@@ -6,8 +6,9 @@
   "license": "AGPL-3.0-only",
   "private": true,
   "scripts": {
-    "---ABIS---": "",
+    "---SCRIPTS---": "",
     "generate-abis": "node ./scripts/generateAbis.js",
+    "deploy": "node ./scripts/deploy.js",
     "---GOERLI---": "",
     "generate-yaml:goerli": "mustache src/config/goerli.json src/subgraph.template.yaml > src/subgraph-goerli.yaml",
     "generate-tests-yaml:goerli": "mustache src/config/goerli.json matchstick.template.yaml > matchstick.yaml",
@@ -16,7 +17,7 @@
     "prepare:goerli": "npm run generate-yaml:goerli && npm run generate-types:goerli",
     "build:goerli": "npm run prepare:goerli && npm run generate-wasm:goerli",
     "test:goerli": "npm run prepare:goerli && npm run generate-tests-yaml:goerli && graph test",
-    "deploy:goerli": ""
+    "deploy:goerli": "npm run prepare:goerli && npm run deploy network:goerli version:0.1.1"
   },
   "devDependencies": {
     "@graphprotocol/graph-cli": "0.33.1",
@@ -24,6 +25,7 @@
     "@types/node": "18.7.18",
     "@typescript-eslint/eslint-plugin": "5.16.0",
     "@typescript-eslint/parser": "5.16.0",
+    "dotenv": "16.0.2",
     "eslint": "8.11.0",
     "matchstick-as": "0.5.0",
     "mustache": "4.2.0",
