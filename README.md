@@ -45,11 +45,11 @@ before deploying:
    ```
 
 5. To deploy the subgraph to the hosted service 
-you need to add `GRAPH_TOKEN` to the .env file.
-And run the script:
+you need to add `HOSTED_GRAPH_TOKEN` and `HOSTED_SUBGRAPH_URL_GOERLI`
+to the .env file. And run the script:
 
    ```shell script
-   npm run deploy:goerli
+   npm run deploy-hosted:goerli
    ```
 
 ## Documentation
