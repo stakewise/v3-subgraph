@@ -5,7 +5,7 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "caller",
+        "name": "admin",
         "type": "address"
       },
       {
@@ -21,22 +21,47 @@
         "type": "address"
       },
       {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "capacity",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "validatorsRoot",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint16",
+            "name": "feePercent",
+            "type": "uint16"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "symbol",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "validatorsIpfsHash",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "metadataIpfsHash",
+            "type": "string"
+          }
+        ],
         "indexed": false,
-        "internalType": "address",
-        "name": "operator",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint128",
-        "name": "maxTotalAssets",
-        "type": "uint128"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint16",
-        "name": "feePercent",
-        "type": "uint16"
+        "internalType": "struct IEthVaultFactory.VaultParams",
+        "name": "params",
+        "type": "tuple"
       }
     ],
     "name": "VaultCreated",
@@ -46,18 +71,69 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "operator",
+        "name": "deployer",
+        "type": "address"
+      }
+    ],
+    "name": "computeAddresses",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "vault",
         "type": "address"
       },
       {
-        "internalType": "uint128",
-        "name": "maxTotalAssets",
-        "type": "uint128"
-      },
+        "internalType": "address",
+        "name": "feesEscrow",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {
-        "internalType": "uint16",
-        "name": "feePercent",
-        "type": "uint16"
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "capacity",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "validatorsRoot",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint16",
+            "name": "feePercent",
+            "type": "uint16"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "symbol",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "validatorsIpfsHash",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "metadataIpfsHash",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct IEthVaultFactory.VaultParams",
+        "name": "params",
+        "type": "tuple"
       }
     ],
     "name": "createVault",
@@ -79,25 +155,12 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "vaultId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getVaultAddress",
-    "outputs": [
-      {
         "internalType": "address",
-        "name": "",
+        "name": "deployer",
         "type": "address"
       }
     ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "lastVaultId",
+    "name": "nonces",
     "outputs": [
       {
         "internalType": "uint256",
@@ -110,22 +173,25 @@
   },
   {
     "inputs": [],
-    "name": "parameters",
+    "name": "registry",
+    "outputs": [
+      {
+        "internalType": "contract IRegistry",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "vaultImplementation",
     "outputs": [
       {
         "internalType": "address",
-        "name": "operator",
+        "name": "",
         "type": "address"
-      },
-      {
-        "internalType": "uint128",
-        "name": "maxTotalAssets",
-        "type": "uint128"
-      },
-      {
-        "internalType": "uint16",
-        "name": "feePercent",
-        "type": "uint16"
       }
     ],
     "stateMutability": "view",

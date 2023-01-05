@@ -1,20 +1,85 @@
-import { Address, BigInt, log, store } from '@graphprotocol/graph-ts'
+import { Address, BigInt, ipfs, log, store, Value } from '@graphprotocol/graph-ts'
 
 import { Vault, VaultExitRequest } from '../../generated/schema'
 import {
   Transfer,
   ExitQueueEntered,
   ExitedAssetsClaimed,
-  ValidatorsRootUpdated
+  ValidatorsRootUpdated, MetadataUpdated, Deposit, Withdraw, StateUpdated
 } from '../../generated/templates/Vault/Vault'
 
-import { createOrLoadStaker } from '../entities/staker'
+import { createOrLoadAllocator } from '../entities/allocator'
+import { updateMetadata } from '../entities/metadata'
 
 
 const ADDRESS_ZERO = Address.zero()
 
-// Event emitted on mint, burn or transfer shares between stakers
-const handleVaultTransfer = (event: Transfer): void => {
+// Event emitted on transfer assets from allocator to vault
+const handleDeposit = (event: Deposit): void => {
+  const params = event.params
+  const assets = params.assets
+  const vaultAddress = event.address
+
+  const vault = Vault.load(vaultAddress.toHex()) as Vault
+
+  vault.totalAssets = vault.totalAssets.plus(assets)
+
+  vault.save()
+
+  log.info(
+    '[Vault] Deposit vault={} assets={}',
+    [
+      vaultAddress.toHex(),
+      assets.toString(),
+    ]
+  )
+}
+
+// Event emitted on withdraw assets from vault to allocator
+const handleWithdraw = (event: Withdraw): void => {
+  const params = event.params
+  const assets = params.assets
+  const vaultAddress = event.address
+
+  const vault = Vault.load(vaultAddress.toHex()) as Vault
+
+  vault.totalAssets = vault.totalAssets.minus(assets)
+
+  vault.save()
+
+  log.info(
+    '[Vault] Withdraw vault={} assets={}',
+    [
+      vaultAddress.toHex(),
+      assets.toString(),
+    ]
+  )
+}
+
+// Event emitted on vault state update, called by the Keeper
+const handleStateUpdated = (event: StateUpdated): void => {
+  const params = event.params
+  const assetsDelta = params.assetsDelta
+  const vaultAddress = event.address
+
+  const vault = Vault.load(vaultAddress.toHex()) as Vault
+
+  // assetsDelta can be a negative number
+  vault.totalAssets = vault.totalAssets.plus(assetsDelta)
+
+  vault.save()
+
+  log.info(
+    '[Vault] StateUpdated vault={} assetsDelta={}',
+    [
+      vaultAddress.toHex(),
+      assetsDelta.toString(),
+    ]
+  )
+}
+
+// Event emitted on mint, burn or transfer shares between allocators
+const handleTransfer = (event: Transfer): void => {
   const params = event.params
 
   const from = params.from
@@ -26,7 +91,7 @@ const handleVaultTransfer = (event: Transfer): void => {
   const isBurn = to.equals(ADDRESS_ZERO)
   const isQueuedSharesBurn = isBurn && from.equals(vaultAddress)
 
-  // Burn locked shares on staker exit
+  // Burn locked shares on allocator exit
   if (isQueuedSharesBurn) {
     const vault = Vault.load(vaultAddress.toHex()) as Vault
 
@@ -35,17 +100,17 @@ const handleVaultTransfer = (event: Transfer): void => {
   }
 
   if (!isMint) {
-    const stakerFrom = createOrLoadStaker(from, vaultAddress)
+    const allocatorFrom = createOrLoadAllocator(from, vaultAddress)
 
-    stakerFrom.shares = stakerFrom.shares.minus(value)
-    stakerFrom.save()
+    allocatorFrom.shares = allocatorFrom.shares.minus(value)
+    allocatorFrom.save()
   }
 
   if (!isBurn) {
-    const stakerTo = createOrLoadStaker(to, vaultAddress)
+    const allocatorTo = createOrLoadAllocator(to, vaultAddress)
 
-    stakerTo.shares = stakerTo.shares.plus(value)
-    stakerTo.save()
+    allocatorTo.shares = allocatorTo.shares.plus(value)
+    allocatorTo.save()
   }
 
   log.info(
@@ -59,12 +124,32 @@ const handleVaultTransfer = (event: Transfer): void => {
   )
 }
 
+// Event emitted on metadata IPFS hash update
+const handleMetadataUpdated = (event: MetadataUpdated): void => {
+  const params = event.params
+
+  const vault = Vault.load(event.address.toHex()) as Vault
+
+  vault.metadataIpfsHash = params.metadataIpfsHash
+
+  vault.save()
+
+  ipfs.mapJSON(params.metadataIpfsHash, 'updateMetadata', Value.fromAddress(event.address))
+
+  log.info(
+    '[Vault] MetadataUpdated metadataIpfsHash={}',
+    [
+      params.metadataIpfsHash,
+    ]
+  )
+}
+
 // Event emitted on validators root and IPFS hash update
 const handleValidatorsRootUpdated = (event: ValidatorsRootUpdated): void => {
   const params = event.params
 
-  const validatorsRoot = params.newValidatorsRoot
-  const validatorsIpfsHash = params.newValidatorsIpfsHash
+  const validatorsRoot = params.validatorsRoot
+  const validatorsIpfsHash = params.validatorsIpfsHash
 
   const vault = Vault.load(event.address.toHex()) as Vault
 
@@ -82,7 +167,7 @@ const handleValidatorsRootUpdated = (event: ValidatorsRootUpdated): void => {
   )
 }
 
-// Event emitted when a staker enters the exit queue.
+// Event emitted when an allocator enters the exit queue.
 // Shares locked, but assets can't be claimed until shares burned (on CheckpointCreated event)
 const handleExitQueueEntered = (event: ExitQueueEntered): void => {
   const params = event.params
@@ -123,7 +208,7 @@ const handleExitQueueEntered = (event: ExitQueueEntered): void => {
   )
 }
 
-// Event emitted when a staker claim assets partially or completely.
+// Event emitted when an allocator claim assets partially or completely.
 // If assets are claimed completely ExitQueueRequest will be deleted
 const handleExitedAssetsClaimed = (event: ExitedAssetsClaimed): void => {
   const params = event.params
@@ -177,7 +262,11 @@ const handleExitedAssetsClaimed = (event: ExitedAssetsClaimed): void => {
 
 
 export {
-  handleVaultTransfer,
+  handleDeposit,
+  handleWithdraw,
+  handleTransfer,
+  handleStateUpdated,
+  handleMetadataUpdated,
   handleExitQueueEntered,
   handleExitedAssetsClaimed,
   handleValidatorsRootUpdated,
