@@ -76,7 +76,7 @@ const deploy = async () => {
   }
   if (node === 'local') {
     authCommand = `graph create --node ${LOCAL_GRAPH_URL} stakewise/stakewise`
-    deployCommand = `graph deploy --version-label 1.0.0 --node ${LOCAL_GRAPH_URL} --ipfs ${IPFS_URL} stakewise/stakewise`
+    deployCommand = `graph deploy --node ${LOCAL_GRAPH_URL} --ipfs ${IPFS_URL} stakewise/stakewise`
   }
 
   const command = [
