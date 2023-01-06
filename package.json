@@ -17,7 +17,8 @@
     "prepare:goerli": "npm run generate-yaml:goerli && npm run generate-types:goerli",
     "build:goerli": "npm run prepare:goerli && npm run generate-wasm:goerli",
     "test:goerli": "npm run prepare:goerli && npm run generate-tests-yaml:goerli && graph test",
-    "deploy-hosted:goerli": "npm run prepare:goerli && npm run deploy network:goerli node:hosted"
+    "deploy-hosted:goerli": "npm run prepare:goerli && npm run deploy network:goerli node:hosted",
+    "deploy-local:goerli": "npm run prepare:goerli && npm run deploy network:goerli node:local"
   },
   "devDependencies": {
     "@graphprotocol/graph-cli": "0.37.1",

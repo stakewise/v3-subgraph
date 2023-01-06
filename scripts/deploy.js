@@ -4,6 +4,11 @@ const { execAsync } = require('./util')
 require('dotenv').config()
 
 
+// LOCAL
+const IPFS_URL = process.env.IPFS_URL
+const LOCAL_GRAPH_URL = process.env.LOCAL_GRAPH_URL
+
+// HOSTED
 const HOSTED_GRAPH_TOKEN = process.env.HOSTED_GRAPH_TOKEN
 const HOSTED_SUBGRAPH_URL_GOERLI = process.env.HOSTED_SUBGRAPH_URL_GOERLI
 
@@ -26,13 +31,21 @@ const validateEnv = () => {
       throw new Error('HOSTED_SUBGRAPH_URL_GOERLI is required env variable for "node:hosted" deployment')
     }
   }
+  if (args.node === 'local') {
+    if (!LOCAL_GRAPH_URL) {
+      throw new Error('LOCAL_GRAPH_URL is required env variable for "node:local" deployment')
+    }
+    if (!IPFS_URL) {
+      throw new Error('IPFS_URL is required env variable for "node:local" deployment')
+    }
+  }
 }
 
 const validateArgs = () => {
   const { network, node } = args
 
   const allowedNetworks = [ 'goerli' ]
-  const allowedNodes = [ 'hosted' ]
+  const allowedNodes = [ 'hosted', 'local' ]
 
   if (!network) {
     throw new Error('Argument "network" is required')
@@ -60,6 +73,10 @@ const deploy = async () => {
   if (node === 'hosted') {
     authCommand = `graph auth --product hosted-service ${HOSTED_GRAPH_TOKEN}`
     deployCommand = `graph deploy --product hosted-service ${HOSTED_SUBGRAPH_URL_GOERLI} --output-dir ${buildDirectory} --access-token ${HOSTED_GRAPH_TOKEN}`
+  }
+  if (node === 'local') {
+    authCommand = `graph create --node ${LOCAL_GRAPH_URL} stakewise/stakewise`
+    deployCommand = `graph deploy --version-label 1.0.0 --node ${LOCAL_GRAPH_URL} --ipfs ${IPFS_URL} stakewise/stakewise`
   }
 
   const command = [
