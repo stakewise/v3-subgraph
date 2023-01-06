@@ -96,7 +96,7 @@ type Vault @entity {
     capacity: BigInt!
 
     "The MEV and priority fees escrow address"
-    feesEscrow: Bytes!
+    mevEscrow: Bytes!
 
     "The staking fee percent charged by the vault"
     feePercent: Int!
@@ -105,13 +105,13 @@ type Vault @entity {
     feeRecipient: Bytes!
 
     "The vault validators merkle tree root"
-    validatorsRoot: Bytes!
+    validatorsRoot: Bytes
 
     "The vault IPFS hash with all the validators deposit data"
-    validatorsIpfsHash: String!
+    validatorsIpfsHash: String
 
     "The vault metadata IPFS hash"
-    metadataIpfsHash: String!
+    metadataIpfsHash: String
 
     "The vault allocators"
     allocators: [Allocator!]! @derivedFrom(field: "vault")

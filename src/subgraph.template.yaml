@@ -22,7 +22,7 @@ dataSources:
         - name: VaultFactory
           file: ./abis/VaultFactory.json
       eventHandlers:
-        - event: VaultCreated(indexed address,indexed address,indexed address,(uint256,bytes32,uint16,string,string,string,string))
+        - event: VaultCreated(indexed address,indexed address,indexed address,uint256,uint16,string,string)
           handler: handleVaultCreated
 templates:
   - kind: ethereum/contract
