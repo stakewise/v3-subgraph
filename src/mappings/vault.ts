@@ -14,7 +14,7 @@ import { updateMetadata } from '../entities/metadata'
 
 const ADDRESS_ZERO = Address.zero()
 
-// Event emitted on transfer assets from allocator to vault
+// Event emitted on assets transfer from allocator to vault
 const handleDeposit = (event: Deposit): void => {
   const params = event.params
   const assets = params.assets
@@ -35,7 +35,7 @@ const handleDeposit = (event: Deposit): void => {
   )
 }
 
-// Event emitted on withdraw assets from vault to allocator
+// Event emitted on assets withdraw from vault to allocator
 const handleWithdraw = (event: Withdraw): void => {
   const params = event.params
   const assets = params.assets
