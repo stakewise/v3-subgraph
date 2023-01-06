@@ -56,7 +56,7 @@ const handleWithdraw = (event: Withdraw): void => {
   )
 }
 
-// Event emitted on vault state update, called by the Keeper
+// Event emitted on vault state update
 const handleStateUpdated = (event: StateUpdated): void => {
   const params = event.params
   const assetsDelta = params.assetsDelta
