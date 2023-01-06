@@ -26,8 +26,7 @@ const updateMetadata = (metadata: Metadata, vaultAddress: Value): void => {
     }
 
     if (metadata.imageUrl) {
-      // TODO update chain id
-      const isImageUrlValid = metadata.imageUrl === `https://static.stakewise.io/5/${vaultAddress.toString()}`
+      const isImageUrlValid = metadata.imageUrl.startsWith('https://static.stakewise.io/')
 
       vault.imageUrl = isImageUrlValid ? metadata.imageUrl : ''
     }
