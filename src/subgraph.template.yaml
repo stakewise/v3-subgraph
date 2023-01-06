@@ -22,7 +22,7 @@ dataSources:
         - name: VaultFactory
           file: ./abis/VaultFactory.json
       eventHandlers:
-        - event: VaultCreated(indexed address,indexed address,indexed address,address,uint128,uint16)
+        - event: VaultCreated(indexed address,indexed address,indexed address,uint256,uint16,string,string)
           handler: handleVaultCreated
 templates:
   - kind: ethereum/contract
@@ -44,12 +44,20 @@ templates:
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
+        - event: Deposit(indexed address,indexed address,uint256,uint256)
+          handler: handleDeposit
+        - event: Withdraw(indexed address,indexed address,indexed address,uint256,uint256)
+          handler: handleWithdraw
+        - event: StateUpdated(int256)
+          handler: handleStateUpdated
         - event: ExitQueueEntered(indexed address,indexed address,indexed address,uint256,uint256)
           handler: handleExitQueueEntered
         - event: ExitedAssetsClaimed(indexed address,indexed address,indexed uint256,uint256,uint256)
           handler: handleExitedAssetsClaimed
-        - event: ValidatorsRootUpdated(indexed address,bytes32,string)
+        - event: ValidatorsRootUpdated(indexed bytes32,string)
           handler: handleValidatorsRootUpdated
+        - event: MetadataUpdated(string)
+          handler: handleMetadataUpdated
   - kind: ethereum/contract
     name: ExitQueue
     network: {{ network }}

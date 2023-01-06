@@ -13,30 +13,47 @@ const handleVaultCreated = (event: VaultCreated): void => {
 
   const vault = new Vault(vaultAddress.toHex())
 
-  vault.stakers = []
+  // These properties are empty on vault creating
+  // they will be updated on future vault events
+  vault.imageUrl = null
+  vault.displayName = null
+  vault.description = null
+  vault.validatorsRoot = null
+  vault.metadataIpfsHash = null
+  vault.validatorsIpfsHash = null
+  vault.allocators = []
   vault.checkpoints = []
+  vault.daySnapshots = []
   vault.exitRequests = []
+  vault.allocatorActions = []
+  vault.totalShares = BigInt.fromI32(0)
+  vault.totalAssets = BigInt.fromI32(0)
   vault.queuedShares = BigInt.fromI32(0)
   vault.unclaimedAssets = BigInt.fromI32(0)
 
-  vault.operator = params.operator
-  vault.feesEscrow = params.feesEscrow
+  // Properties from event params
+  vault.admin = params.admin
+  vault.capacity = params.capacity
+  vault.tokenName = params.name
+  vault.mevEscrow = params.mevEscrow
   vault.feePercent = params.feePercent
-  vault.maxTotalAssets = params.maxTotalAssets
-  vault.createdAtBlock = block.number
-  vault.createdTimestamp = block.timestamp
+  vault.tokenSymbol = params.symbol
+  vault.feeRecipient = params.admin
+  vault.factory = event.address
+  vault.createdAt = block.timestamp
 
   vault.save()
+
   VaultTemplate.create(vaultAddress)
 
   log.info(
-    '[VaultFactory] VaultCreated address={} operator={} feesEscrow={} feePercent={} maxTotalAssets={}',
+    '[VaultFactory] VaultCreated address={} admin={} mevEscrow={} feePercent={} capacity={}',
     [
       params.vault.toHex(),
-      params.operator.toHex(),
-      params.feesEscrow.toHex(),
+      params.admin.toHex(),
+      params.mevEscrow.toHex(),
       params.feePercent.toString(),
-      params.maxTotalAssets.toString(),
+      params.capacity.toString(),
     ]
   )
 }

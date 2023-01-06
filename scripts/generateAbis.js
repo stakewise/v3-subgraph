@@ -6,15 +6,15 @@ const { execAsync } = require('./util')
 
 const abis = [
   {
-    from: '../v3-core/artifacts/contracts/vaults/EthVault.sol/EthVault.json',
+    from: '../v3-core/abi/IEthVault.json',
     to: '../src/abis/Vault.json',
   },
   {
-    from: '../v3-core/artifacts/contracts/vaults/EthVaultFactory.sol/EthVaultFactory.json',
+    from: '../v3-core/abi/IEthVaultFactory.json',
     to: '../src/abis/VaultFactory.json',
   },
   {
-    from: '../v3-core/artifacts/contracts/libraries/ExitQueue.sol/ExitQueue.json',
+    from: '../v3-core/abi/ExitQueue.json',
     to: '../src/abis/ExitQueue.json',
   },
 ]
@@ -38,12 +38,6 @@ const generateAbis = async () => {
     }
   }
 
-  console.log(' - install node_modules')
-  await execAsync('npm ci --prefix ./v3-core')
-
-  console.log(' - compile contracts')
-  await execAsync('npm run compile --prefix ./v3-core')
-
   console.log(' - copy contract abis')
   abis.forEach(({ from, to }) => {
     const fromPath = path.resolve(__dirname, from)
@@ -51,7 +45,7 @@ const generateAbis = async () => {
 
     const fromFile = fs.readFileSync(fromPath, 'utf8')
     const fromJSON = JSON.parse(fromFile)
-    const toFile = JSON.stringify(fromJSON.abi, null, 2)
+    const toFile = JSON.stringify(fromJSON, null, 2)
 
     const abiTitle = toPath.replace(/.*\/|\.json/, '')
 

@@ -17,6 +17,7 @@ const handleCheckpointCreated = (event: CheckpointCreated): void => {
   const index = vault.checkpoints.length
   const vaultCheckpointId = `${vaultAddress}-${index}`
 
+  vault.totalAssets = vault.totalAssets.minus(exitedAssets)
   vault.unclaimedAssets = vault.unclaimedAssets.plus(exitedAssets)
   vault.save()
 

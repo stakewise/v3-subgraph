@@ -1,17 +1,17 @@
 """
-Vault Staker
+Vault allocator
 """
-type VaultStaker @entity {
-    "<Vault ID>-<Staker address>"
+type Allocator @entity {
+    "<Vault ID>-<Allocator address>"
     id: ID!
 
-    "The vault staker address"
+    "The allocator's address"
     address: Bytes!
 
-    "The vault staker shares amount"
+    "The allocator's shares amount"
     shares: BigInt!
 
-    "The staker vault"
+    "The vault of the allocator"
     vault: Vault!
 }
 
@@ -71,17 +71,38 @@ type Vault @entity {
     "Vault address"
     id: ID!
 
-    "The fees escrow address"
-    feesEscrow: Bytes!
+    "The vault token name"
+    tokenName: String!
 
-    "The address of the vault operator"
-    operator: Bytes!
+    "The vault token symbol"
+    tokenSymbol: String!
 
-    "The max total assets that can be staked into the vault"
-    maxTotalAssets: BigInt!
+    "The optional vault name"
+    displayName: String
 
-    "The fee percent that is charged by the vault operator"
+    "The optional description extracted from metadata IPFS file"
+    description: String
+
+    "The optional image URL extracted from metadata IPFS file"
+    imageUrl: String
+
+    "The address of the factory used to create vault"
+    factory: Bytes!
+
+    "The address of the vault admin"
+    admin: Bytes!
+
+    "The max total assets that can be allocated into the vault"
+    capacity: BigInt!
+
+    "The MEV and priority fees escrow address"
+    mevEscrow: Bytes!
+
+    "The staking fee percent charged by the vault"
     feePercent: Int!
+
+    "The address of the vault's fee recipient"
+    feeRecipient: Bytes!
 
     "The vault validators merkle tree root"
     validatorsRoot: Bytes
@@ -89,8 +110,14 @@ type Vault @entity {
     "The vault IPFS hash with all the validators deposit data"
     validatorsIpfsHash: String
 
-    "The vault stakers"
-    stakers: [VaultStaker!]! @derivedFrom(field: "vault")
+    "The vault metadata IPFS hash"
+    metadataIpfsHash: String
+
+    "The vault allocators"
+    allocators: [Allocator!]! @derivedFrom(field: "vault")
+
+    "The vault allocators' actions"
+    allocatorActions: [AllocatorAction!]! @derivedFrom(field: "vault")
 
     "The vault checkpoints"
     checkpoints: [VaultCheckpoint!]! @derivedFrom(field: "vault")
@@ -98,15 +125,82 @@ type Vault @entity {
     "The vault exit requests"
     exitRequests: [VaultExitRequest!]! @derivedFrom(field: "vault")
 
+    "The vault day snapshots"
+    daySnapshots: [VaultDaySnapshot!]! @derivedFrom(field: "vault")
+
+    "The total number of shares"
+    totalShares: BigInt!
+
+    "The total number of assets"
+    totalAssets: BigInt!
+
     "The number of shares queued for the exit"
     queuedShares: BigInt!
 
     "The number of assets that are waiting to be claimed"
     unclaimedAssets: BigInt!
 
-    "The block number the vault was created at"
-    createdAtBlock: BigInt!
-
     "The timestamp the vault was created at"
-    createdTimestamp: BigInt!
+    createdAt: BigInt!
+}
+
+enum AllocatorActionType {
+    Deposit
+    Withdraw
+    ExitQueueEntered
+    ExitedAssetsClaimed
+}
+
+"""
+Allocator action
+"""
+type AllocatorAction @entity {
+    "Set to `transaction hash-log index`"
+    id: ID!
+
+    "The allocator's vault"
+    vault: Vault!
+
+    "The allocator's address"
+    address: Bytes!
+
+    "The type of the action"
+    actionType: AllocatorActionType!
+
+    "The amount of action's assets"
+    assets: BigInt
+
+    "The amount of action's shares"
+    shares: BigInt
+
+    "The timestamp the action was created at"
+    createdAt: BigInt!
+}
+
+type VaultDaySnapshot @entity {
+    "<Vault ID>-<date>"
+    id: ID!
+
+    "The timestamp rounded to current day by dividing by 86400"
+    date: Int!
+
+    "The total number of assets"
+    totalAssets: BigInt!
+
+    "The vault consensus reward"
+    consensusReward: BigInt!
+
+    "The vault execution reward"
+    executionReward: BigInt!
+
+    "The snapshot's vault"
+    vault: Vault!
+}
+
+"""
+StakeWise V3 transaction
+"""
+type Transaction @entity {
+    "Transaction hash"
+    id: ID!
 }
