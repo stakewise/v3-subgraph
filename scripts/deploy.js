@@ -75,8 +75,10 @@ const deploy = async () => {
     deployCommand = `graph deploy --product hosted-service ${HOSTED_SUBGRAPH_URL_GOERLI} --output-dir ${buildDirectory} --access-token ${HOSTED_GRAPH_TOKEN}`
   }
   if (node === 'local') {
+    const { version } = require('../package.json')
+
     authCommand = `graph create --node ${LOCAL_GRAPH_URL} stakewise/stakewise`
-    deployCommand = `graph deploy --node ${LOCAL_GRAPH_URL} --ipfs ${IPFS_URL} stakewise/stakewise`
+    deployCommand = `graph deploy --version-label ${version} --node ${LOCAL_GRAPH_URL} --ipfs ${IPFS_URL} stakewise/stakewise`
   }
 
   const command = [
