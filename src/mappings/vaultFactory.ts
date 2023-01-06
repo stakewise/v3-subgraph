@@ -6,7 +6,7 @@ import { Vault as VaultTemplate } from '../../generated/templates'
 
 
 // Event emitted on vault create
-const handleVaultCreated = (event: VaultCreated): void => {
+export function handleVaultCreated(event: VaultCreated): void {
   const block = event.block
   const params = event.params
   const vaultAddress = params.vault
@@ -56,9 +56,4 @@ const handleVaultCreated = (event: VaultCreated): void => {
       params.capacity.toString(),
     ]
   )
-}
-
-
-export {
-  handleVaultCreated,
 }

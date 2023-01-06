@@ -15,7 +15,7 @@ import { updateMetadata } from '../entities/metadata'
 const ADDRESS_ZERO = Address.zero()
 
 // Event emitted on assets transfer from allocator to vault
-const handleDeposit = (event: Deposit): void => {
+export function handleDeposit(event: Deposit): void {
   const params = event.params
   const assets = params.assets
   const vaultAddress = event.address
@@ -36,7 +36,7 @@ const handleDeposit = (event: Deposit): void => {
 }
 
 // Event emitted on assets withdraw from vault to allocator
-const handleWithdraw = (event: Withdraw): void => {
+export function handleWithdraw(event: Withdraw): void {
   const params = event.params
   const assets = params.assets
   const vaultAddress = event.address
@@ -57,7 +57,7 @@ const handleWithdraw = (event: Withdraw): void => {
 }
 
 // Event emitted on vault state update
-const handleStateUpdated = (event: StateUpdated): void => {
+export function handleStateUpdated(event: StateUpdated): void {
   const params = event.params
   const assetsDelta = params.assetsDelta
   const vaultAddress = event.address
@@ -79,7 +79,7 @@ const handleStateUpdated = (event: StateUpdated): void => {
 }
 
 // Event emitted on mint, burn or transfer shares between allocators
-const handleTransfer = (event: Transfer): void => {
+export function handleTransfer(event: Transfer): void {
   const params = event.params
 
   const from = params.from
@@ -125,7 +125,7 @@ const handleTransfer = (event: Transfer): void => {
 }
 
 // Event emitted on metadata IPFS hash update
-const handleMetadataUpdated = (event: MetadataUpdated): void => {
+export function handleMetadataUpdated(event: MetadataUpdated): void {
   const params = event.params
 
   const vault = Vault.load(event.address.toHex()) as Vault
@@ -145,7 +145,7 @@ const handleMetadataUpdated = (event: MetadataUpdated): void => {
 }
 
 // Event emitted on validators root and IPFS hash update
-const handleValidatorsRootUpdated = (event: ValidatorsRootUpdated): void => {
+export function handleValidatorsRootUpdated(event: ValidatorsRootUpdated): void {
   const params = event.params
 
   const validatorsRoot = params.validatorsRoot
@@ -169,7 +169,7 @@ const handleValidatorsRootUpdated = (event: ValidatorsRootUpdated): void => {
 
 // Event emitted when an allocator enters the exit queue.
 // Shares locked, but assets can't be claimed until shares burned (on CheckpointCreated event)
-const handleExitQueueEntered = (event: ExitQueueEntered): void => {
+export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const params = event.params
 
   const owner = params.owner
@@ -210,7 +210,7 @@ const handleExitQueueEntered = (event: ExitQueueEntered): void => {
 
 // Event emitted when an allocator claim assets partially or completely.
 // If assets are claimed completely ExitQueueRequest will be deleted
-const handleExitedAssetsClaimed = (event: ExitedAssetsClaimed): void => {
+export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const params = event.params
 
   const receiver = params.receiver
@@ -258,16 +258,4 @@ const handleExitedAssetsClaimed = (event: ExitedAssetsClaimed): void => {
       vault.unclaimedAssets.toString(),
     ]
   )
-}
-
-
-export {
-  handleDeposit,
-  handleWithdraw,
-  handleTransfer,
-  handleStateUpdated,
-  handleMetadataUpdated,
-  handleExitQueueEntered,
-  handleExitedAssetsClaimed,
-  handleValidatorsRootUpdated,
 }

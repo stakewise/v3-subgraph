@@ -9,7 +9,7 @@ class Metadata {
   description: string
 }
 
-const updateMetadata = (metadata: Metadata, vaultAddress: Value): void => {
+export function updateMetadata(metadata: Metadata, vaultAddress: Value): void {
   const vault = Vault.load(vaultAddress.toString())
 
   if (vault) {
@@ -33,9 +33,4 @@ const updateMetadata = (metadata: Metadata, vaultAddress: Value): void => {
 
     vault.save()
   }
-}
-
-
-export {
-  updateMetadata,
 }

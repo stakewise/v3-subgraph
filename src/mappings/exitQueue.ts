@@ -5,7 +5,7 @@ import { Vault, VaultCheckpoint } from '../../generated/schema'
 
 
 // Event emitted when shares burned. After that assets become available for claim
-const handleCheckpointCreated = (event: CheckpointCreated): void => {
+export function handleCheckpointCreated(event: CheckpointCreated): void {
   const params = event.params
 
   const sharesCounter = params.sharesCounter
@@ -38,9 +38,4 @@ const handleCheckpointCreated = (event: CheckpointCreated): void => {
       exitedAssets.toString(),
     ]
   )
-}
-
-
-export {
-  handleCheckpointCreated,
 }
