@@ -3,6 +3,8 @@ description: The liquid staking protocol
 repository: https://github.com/stakewise/v3-subgraph
 schema:
   file: ./schema.graphql
+features:
+  - ipfsOnEthereumContracts
 dataSources:
   - kind: ethereum/contract
     name: VaultFactory
