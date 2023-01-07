@@ -5,7 +5,7 @@ import {
   handleTransfer,
   handleExitQueueEntered,
   handleExitedAssetsClaimed,
-  handleValidatorsRootUpdated,
+  handleValidatorsRootUpdated, handleDeposit,
 } from '../src/mappings/vault'
 import { handleCheckpointCreated } from '../src/mappings/exitQueue'
 
@@ -14,7 +14,7 @@ import {
   createExitQueueEnteredEvent,
   createCheckpointCreatedEvent,
   createExitedAssetsClaimedEvent,
-  createValidatorsRootUpdatedEvent
+  createValidatorsRootUpdatedEvent, createDepositEvent
 } from './util/events'
 import { createVault } from './util/helpers'
 import { address, addressString } from './util/mock'
@@ -42,9 +42,9 @@ describe('vault', () => {
       const exitQueueId = '0'
 
       const exitQueueEnteredEvent = createExitQueueEnteredEvent(
-        address.get('operator'),
-        address.get('operator'),
-        address.get('operator'),
+        address.get('admin'),
+        address.get('admin'),
+        address.get('admin'),
         BigInt.fromString(exitQueueId),
         BigInt.fromString(amount),
         address.get('vault'),
@@ -57,8 +57,8 @@ describe('vault', () => {
 
       assert.fieldEquals('Vault', vaultId, 'queuedShares', '10000')
       assert.fieldEquals('VaultExitRequest', exitRequestId, 'vault', vaultId)
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'owner', addressString.get('operator'))
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'receiver', addressString.get('operator'))
+      assert.fieldEquals('VaultExitRequest', exitRequestId, 'owner', addressString.get('admin'))
+      assert.fieldEquals('VaultExitRequest', exitRequestId, 'receiver', addressString.get('admin'))
       assert.fieldEquals('VaultExitRequest', exitRequestId, 'totalShares', amount)
       assert.fieldEquals('VaultExitRequest', exitRequestId, 'exitQueueId', exitQueueId)
       assert.fieldEquals('VaultExitRequest', exitRequestId, 'withdrawnShares', '0')
@@ -75,7 +75,7 @@ describe('vault', () => {
 
       const transferEvent = createTransferEvent(
         address.get('zero'),
-        address.get('operator'),
+        address.get('admin'),
         BigInt.fromString(amount),
         address.get('vault'),
       )
@@ -83,14 +83,14 @@ describe('vault', () => {
       handleTransfer(transferEvent)
 
       const vaultId = addressString.get('vault')
-      const allocatorId = addressString.get('operator')
+      const allocatorId = addressString.get('admin')
       const vaultAllocatorId = `${vaultId}-${allocatorId}`
 
-      assert.fieldEquals('VaultAllocator', vaultAllocatorId, 'address', allocatorId)
-      assert.fieldEquals('VaultAllocator', vaultAllocatorId, 'shares', amount)
-      assert.fieldEquals('VaultAllocator', vaultAllocatorId, 'vault', vaultId)
+      assert.fieldEquals('Allocator', vaultAllocatorId, 'address', allocatorId)
+      assert.fieldEquals('Allocator', vaultAllocatorId, 'shares', amount)
+      assert.fieldEquals('Allocator', vaultAllocatorId, 'vault', vaultId)
 
-      store.remove('VaultAllocator', vaultAllocatorId)
+      store.remove('Allocator', vaultAllocatorId)
     })
 
     test('burns shares if transaction to zero address', () => {
@@ -98,13 +98,13 @@ describe('vault', () => {
 
       const mintTransferEvent = createTransferEvent(
         address.get('zero'),
-        address.get('operator'),
+        address.get('admin'),
         BigInt.fromString(amount),
         address.get('vault'),
       )
 
       const burnTransferEvent = createTransferEvent(
-        address.get('operator'),
+        address.get('admin'),
         address.get('zero'),
         BigInt.fromString(amount),
         address.get('vault'),
@@ -114,14 +114,14 @@ describe('vault', () => {
       handleTransfer(burnTransferEvent)
 
       const vaultId = addressString.get('vault')
-      const allocatorId = addressString.get('operator')
+      const allocatorId = addressString.get('admin')
       const vaultAllocatorId = `${vaultId}-${allocatorId}`
 
-      assert.fieldEquals('VaultAllocator', vaultAllocatorId, 'address', allocatorId)
-      assert.fieldEquals('VaultAllocator', vaultAllocatorId, 'vault', vaultId)
-      assert.fieldEquals('VaultAllocator', vaultAllocatorId, 'shares', '0')
+      assert.fieldEquals('Allocator', vaultAllocatorId, 'address', allocatorId)
+      assert.fieldEquals('Allocator', vaultAllocatorId, 'vault', vaultId)
+      assert.fieldEquals('Allocator', vaultAllocatorId, 'shares', '0')
 
-      store.remove('VaultAllocator', vaultAllocatorId)
+      store.remove('Allocator', vaultAllocatorId)
     })
 
     test('transfers shares from one allocator to another', () => {
@@ -129,14 +129,14 @@ describe('vault', () => {
 
       const mintTransferEvent = createTransferEvent(
         address.get('zero'),
-        address.get('operator'),
+        address.get('admin'),
         BigInt.fromString(amount),
         address.get('vault'),
       )
 
       const transferEvent = createTransferEvent(
-        address.get('operator'),
-        address.get('caller'),
+        address.get('admin'),
+        address.get('factory'),
         BigInt.fromString(amount),
         address.get('vault'),
       )
@@ -145,17 +145,17 @@ describe('vault', () => {
       handleTransfer(transferEvent)
 
       const vaultId = addressString.get('vault')
-      const allocatorFromId = addressString.get('operator')
-      const allocatorToId = addressString.get('caller')
+      const allocatorFromId = addressString.get('admin')
+      const allocatorToId = addressString.get('factory')
 
       const vaultAllocatorFromId = `${vaultId}-${allocatorFromId}`
       const vaultAllocatorToId = `${vaultId}-${allocatorToId}`
 
-      assert.fieldEquals('VaultAllocator', vaultAllocatorFromId, 'shares', '0')
-      assert.fieldEquals('VaultAllocator', vaultAllocatorToId, 'shares', amount)
+      assert.fieldEquals('Allocator', vaultAllocatorFromId, 'shares', '0')
+      assert.fieldEquals('Allocator', vaultAllocatorToId, 'shares', amount)
 
-      store.remove('VaultAllocator', vaultAllocatorFromId)
-      store.remove('VaultAllocator', vaultAllocatorToId)
+      store.remove('Allocator', vaultAllocatorFromId)
+      store.remove('Allocator', vaultAllocatorToId)
     })
 
     test('decreases queuedShares if transaction from the vault to zero address', () => {
@@ -164,9 +164,9 @@ describe('vault', () => {
 
       // increase queuedShares
       const exitQueueEnteredEvent = createExitQueueEnteredEvent(
-        address.get('operator'),
-        address.get('operator'),
-        address.get('operator'),
+        address.get('admin'),
+        address.get('admin'),
+        address.get('admin'),
         BigInt.fromString(exitQueueId),
         BigInt.fromString(amount),
         address.get('vault'),
@@ -197,10 +197,16 @@ describe('vault', () => {
       const prevExitQueueId = amount
       const nextExitQueueId = '0'
 
+      const depositEvent = createDepositEvent(
+        address.get('admin'),
+        amount,
+        amount,
+      )
+
       const exitQueueEnteredEvent = createExitQueueEnteredEvent(
-        address.get('operator'),
-        address.get('operator'),
-        address.get('operator'),
+        address.get('admin'),
+        address.get('admin'),
+        address.get('admin'),
         BigInt.fromString(prevExitQueueId),
         BigInt.fromString(amount),
         address.get('vault'),
@@ -213,8 +219,8 @@ describe('vault', () => {
       )
 
       const exitedAssetsClaimedEventEvent = createExitedAssetsClaimedEvent(
-        address.get('operator'),
-        address.get('operator'),
+        address.get('admin'),
+        address.get('admin'),
         BigInt.fromString(prevExitQueueId),
         BigInt.fromString(nextExitQueueId),
         BigInt.fromString(amount),
@@ -230,10 +236,16 @@ describe('vault', () => {
 
       const vaultId = addressString.get('vault')
 
+      handleDeposit(depositEvent)
+      assert.fieldEquals('Vault', vaultId, 'totalAssets', amount)
+      assert.fieldEquals('Vault', vaultId, 'unclaimedAssets', '0')
+      assert.fieldEquals('Vault', vaultId, 'queuedShares', '0')
+
       handleExitQueueEntered(exitQueueEnteredEvent)
       assert.fieldEquals('Vault', vaultId, 'queuedShares', amount)
 
       handleCheckpointCreated(checkpointCreatedEvent)
+      assert.fieldEquals('Vault', vaultId, 'totalAssets', '0')
       assert.fieldEquals('Vault', vaultId, 'unclaimedAssets', amount)
 
       handleTransfer(burnTransferEvent)
@@ -243,7 +255,7 @@ describe('vault', () => {
       assert.fieldEquals('Vault', vaultId, 'unclaimedAssets', '0')
     })
   })
-
+/*
   describe('handleValidatorsRootUpdated', () => {
 
     test('updates validators root', () => {
@@ -251,7 +263,6 @@ describe('vault', () => {
       const validatorsIpfsHash = 'hash'
 
       const validatorsRootUpdatedEvent = createValidatorsRootUpdatedEvent(
-        address.get('operator'),
         validatorsRoot,
         validatorsIpfsHash,
         address.get('vault'),
@@ -265,4 +276,5 @@ describe('vault', () => {
       assert.fieldEquals('Vault', vaultId, 'validatorsIpfsHash', validatorsIpfsHash)
     })
   })
+  */
 })

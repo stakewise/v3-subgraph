@@ -1,4 +1,4 @@
-import { BigInt, store } from '@graphprotocol/graph-ts'
+import { BigInt } from '@graphprotocol/graph-ts'
 import { afterEach, describe, test, assert, clearStore, beforeAll } from 'matchstick-as'
 
 import { handleCheckpointCreated } from '../src/mappings/exitQueue'

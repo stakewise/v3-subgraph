@@ -4,11 +4,14 @@ import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import { CheckpointCreated } from '../../generated/templates/ExitQueue/ExitQueue'
 import {
+  Deposit,
   Transfer,
   ExitQueueEntered,
   ExitedAssetsClaimed,
   ValidatorsRootUpdated,
 } from '../../generated/templates/Vault/Vault'
+
+import { address } from './mock'
 
 
 const createVaultEvent = (
@@ -53,6 +56,39 @@ const createVaultEvent = (
   mockVaultCreatedEvent.parameters.push(symbolParam)
 
   return mockVaultCreatedEvent
+}
+
+const createDepositEvent = (
+  owner: Address,
+  assets: string,
+  shares: string,
+): Deposit => {
+  const mockEvent = newMockEvent()
+
+  const mockDepositEvent = new Deposit(
+    address.get('vault'),
+    mockEvent.logIndex,
+    mockEvent.transactionLogIndex,
+    mockEvent.logType,
+    mockEvent.block,
+    mockEvent.transaction,
+    mockEvent.parameters,
+    null
+  )
+
+  mockDepositEvent.parameters = new Array()
+
+  const callerParam = new ethereum.EventParam('caller', ethereum.Value.fromAddress(owner))
+  const ownerParam = new ethereum.EventParam('owner', ethereum.Value.fromAddress(owner))
+  const assetsParam = new ethereum.EventParam('assets', ethereum.Value.fromUnsignedBigInt(BigInt.fromString(assets)))
+  const sharesParam = new ethereum.EventParam('shares', ethereum.Value.fromUnsignedBigInt(BigInt.fromString(shares)))
+
+  mockDepositEvent.parameters.push(callerParam)
+  mockDepositEvent.parameters.push(ownerParam)
+  mockDepositEvent.parameters.push(assetsParam)
+  mockDepositEvent.parameters.push(sharesParam)
+
+  return mockDepositEvent
 }
 
 const createTransferEvent = (
@@ -193,9 +229,8 @@ const createExitedAssetsClaimedEvent = (
 }
 
 const createValidatorsRootUpdatedEvent = (
-  caller: Address,
-  newValidatorsRoot: Bytes,
-  newValidatorsIpfsHash: string,
+  validatorsRoot: Bytes,
+  validatorsIpfsHash: string,
   vaultAddress: Address,
 ): ValidatorsRootUpdated => {
   const mockEvent = newMockEvent()
@@ -213,13 +248,11 @@ const createValidatorsRootUpdatedEvent = (
 
   mockValidatorsRootUpdatedEvent.parameters = new Array()
 
-  const callerParam = new ethereum.EventParam('caller', ethereum.Value.fromAddress(caller))
-  const newValidatorsRootParam = new ethereum.EventParam('newValidatorsRoot', ethereum.Value.fromBytes(newValidatorsRoot))
-  const newValidatorsIpfsHashParam = new ethereum.EventParam('newValidatorsIpfsHash', ethereum.Value.fromString(newValidatorsIpfsHash))
+  const validatorsRootParam = new ethereum.EventParam('validatorsRoot', ethereum.Value.fromBytes(validatorsRoot))
+  const validatorsIpfsHashParam = new ethereum.EventParam('validatorsIpfsHash', ethereum.Value.fromString(validatorsIpfsHash))
 
-  mockValidatorsRootUpdatedEvent.parameters.push(callerParam)
-  mockValidatorsRootUpdatedEvent.parameters.push(newValidatorsRootParam)
-  mockValidatorsRootUpdatedEvent.parameters.push(newValidatorsIpfsHashParam)
+  mockValidatorsRootUpdatedEvent.parameters.push(validatorsRootParam)
+  mockValidatorsRootUpdatedEvent.parameters.push(validatorsIpfsHashParam)
 
   return mockValidatorsRootUpdatedEvent
 }
@@ -227,6 +260,7 @@ const createValidatorsRootUpdatedEvent = (
 
 export {
   createVaultEvent,
+  createDepositEvent,
   createTransferEvent,
   createExitQueueEnteredEvent,
   createCheckpointCreatedEvent,
