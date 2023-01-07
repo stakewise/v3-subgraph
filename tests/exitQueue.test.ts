@@ -32,7 +32,6 @@ describe('exitQueue', () => {
       const checkpointCreatedEvent = createCheckpointCreatedEvent(
         BigInt.fromString(sharesCounter),
         BigInt.fromString(exitedAssets),
-        address.get('vault'),
       )
 
       handleCheckpointCreated(checkpointCreatedEvent)

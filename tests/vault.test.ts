@@ -47,7 +47,6 @@ describe('vault', () => {
         address.get('admin'),
         BigInt.fromString(exitQueueId),
         BigInt.fromString(amount),
-        address.get('vault'),
       )
 
       handleExitQueueEntered(exitQueueEnteredEvent)
@@ -77,7 +76,6 @@ describe('vault', () => {
         address.get('zero'),
         address.get('admin'),
         BigInt.fromString(amount),
-        address.get('vault'),
       )
 
       handleTransfer(transferEvent)
@@ -100,14 +98,12 @@ describe('vault', () => {
         address.get('zero'),
         address.get('admin'),
         BigInt.fromString(amount),
-        address.get('vault'),
       )
 
       const burnTransferEvent = createTransferEvent(
         address.get('admin'),
         address.get('zero'),
         BigInt.fromString(amount),
-        address.get('vault'),
       )
 
       handleTransfer(mintTransferEvent)
@@ -131,14 +127,12 @@ describe('vault', () => {
         address.get('zero'),
         address.get('admin'),
         BigInt.fromString(amount),
-        address.get('vault'),
       )
 
       const transferEvent = createTransferEvent(
         address.get('admin'),
         address.get('factory'),
         BigInt.fromString(amount),
-        address.get('vault'),
       )
 
       handleTransfer(mintTransferEvent)
@@ -169,7 +163,6 @@ describe('vault', () => {
         address.get('admin'),
         BigInt.fromString(exitQueueId),
         BigInt.fromString(amount),
-        address.get('vault'),
       )
 
       // decrease queuedShares
@@ -177,7 +170,6 @@ describe('vault', () => {
         address.get('vault'),
         address.get('zero'),
         BigInt.fromString(amount),
-        address.get('vault'),
       )
 
       const vaultId = addressString.get('vault')
@@ -208,13 +200,11 @@ describe('vault', () => {
         address.get('admin'),
         BigInt.fromString(prevExitQueueId),
         BigInt.fromString(amount),
-        address.get('vault'),
       )
 
       const checkpointCreatedEvent = createCheckpointCreatedEvent(
         BigInt.fromString(amount),
         BigInt.fromString(amount),
-        address.get('vault'),
       )
 
       const exitedAssetsClaimedEventEvent = createExitedAssetsClaimedEvent(
@@ -223,14 +213,12 @@ describe('vault', () => {
         BigInt.fromString(prevExitQueueId),
         BigInt.fromString(nextExitQueueId),
         BigInt.fromString(amount),
-        address.get('vault'),
       )
 
       const burnTransferEvent = createTransferEvent(
         address.get('vault'),
         address.get('zero'),
         BigInt.fromString(amount),
-        address.get('vault'),
       )
 
       const vaultId = addressString.get('vault')
@@ -266,7 +254,6 @@ describe('vault', () => {
       const validatorsRootUpdatedEvent = createValidatorsRootUpdatedEvent(
         validatorsRoot,
         validatorsIpfsHash,
-        address.get('vault'),
       )
 
       handleValidatorsRootUpdated(validatorsRootUpdatedEvent)

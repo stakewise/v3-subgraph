@@ -94,12 +94,11 @@ const createTransferEvent = (
   from: Address,
   to: Address,
   amount: BigInt,
-  vaultAddress: Address,
 ): Transfer => {
   const mockEvent = newMockEvent()
 
   const mockTransferEvent = new Transfer(
-    vaultAddress,
+    address.get('vault'),
     mockEvent.logIndex,
     mockEvent.transactionLogIndex,
     mockEvent.logType,
@@ -128,12 +127,11 @@ const createExitQueueEnteredEvent = (
   owner: Address,
   exitQueueId: BigInt,
   shares: BigInt,
-  vaultAddress: Address,
 ): ExitQueueEntered => {
   const mockEvent = newMockEvent()
 
   const mockExitQueueEnteredEvent = new ExitQueueEntered(
-    vaultAddress,
+    address.get('vault'),
     mockEvent.logIndex,
     mockEvent.transactionLogIndex,
     mockEvent.logType,
@@ -163,12 +161,11 @@ const createExitQueueEnteredEvent = (
 const createCheckpointCreatedEvent = (
   sharesCounter: BigInt,
   exitedAssets: BigInt,
-  vaultAddress: Address,
 ): CheckpointCreated => {
   const mockEvent = newMockEvent()
 
   const mockCheckpointCreatedEvent = new CheckpointCreated(
-    vaultAddress,
+    address.get('vault'),
     mockEvent.logIndex,
     mockEvent.transactionLogIndex,
     mockEvent.logType,
@@ -195,12 +192,11 @@ const createExitedAssetsClaimedEvent = (
   prevExitQueueId: BigInt,
   nextExitQueueId: BigInt,
   withdrawnAssets: BigInt,
-  vaultAddress: Address,
 ): ExitedAssetsClaimed => {
   const mockEvent = newMockEvent()
 
   const mockExitedAssetsClaimedEvent = new ExitedAssetsClaimed(
-    vaultAddress,
+    address.get('vault'),
     mockEvent.logIndex,
     mockEvent.transactionLogIndex,
     mockEvent.logType,
@@ -230,12 +226,11 @@ const createExitedAssetsClaimedEvent = (
 const createValidatorsRootUpdatedEvent = (
   validatorsRoot: Bytes,
   validatorsIpfsHash: string,
-  vaultAddress: Address,
 ): ValidatorsRootUpdated => {
   const mockEvent = newMockEvent()
 
   const mockValidatorsRootUpdatedEvent = new ValidatorsRootUpdated(
-    vaultAddress,
+    address.get('vault'),
     mockEvent.logIndex,
     mockEvent.transactionLogIndex,
     mockEvent.logType,
