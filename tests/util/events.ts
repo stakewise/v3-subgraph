@@ -60,8 +60,7 @@ const createVaultEvent = (
 
 const createDepositEvent = (
   owner: Address,
-  assets: string,
-  shares: string,
+  assets: BigInt,
 ): Deposit => {
   const mockEvent = newMockEvent()
 
@@ -80,8 +79,8 @@ const createDepositEvent = (
 
   const callerParam = new ethereum.EventParam('caller', ethereum.Value.fromAddress(owner))
   const ownerParam = new ethereum.EventParam('owner', ethereum.Value.fromAddress(owner))
-  const assetsParam = new ethereum.EventParam('assets', ethereum.Value.fromUnsignedBigInt(BigInt.fromString(assets)))
-  const sharesParam = new ethereum.EventParam('shares', ethereum.Value.fromUnsignedBigInt(BigInt.fromString(shares)))
+  const assetsParam = new ethereum.EventParam('assets', ethereum.Value.fromUnsignedBigInt(assets))
+  const sharesParam = new ethereum.EventParam('shares', ethereum.Value.fromUnsignedBigInt(assets))
 
   mockDepositEvent.parameters.push(callerParam)
   mockDepositEvent.parameters.push(ownerParam)

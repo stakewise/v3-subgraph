@@ -199,8 +199,7 @@ describe('vault', () => {
 
       const depositEvent = createDepositEvent(
         address.get('admin'),
-        amount,
-        amount,
+        BigInt.fromString(amount),
       )
 
       const exitQueueEnteredEvent = createExitQueueEnteredEvent(
@@ -236,10 +235,12 @@ describe('vault', () => {
 
       const vaultId = addressString.get('vault')
 
+      assert.fieldEquals('Vault', vaultId, 'totalAssets', '0')
+      assert.fieldEquals('Vault', vaultId, 'queuedShares', '0')
+      assert.fieldEquals('Vault', vaultId, 'unclaimedAssets', '0')
+
       handleDeposit(depositEvent)
       assert.fieldEquals('Vault', vaultId, 'totalAssets', amount)
-      assert.fieldEquals('Vault', vaultId, 'unclaimedAssets', '0')
-      assert.fieldEquals('Vault', vaultId, 'queuedShares', '0')
 
       handleExitQueueEntered(exitQueueEnteredEvent)
       assert.fieldEquals('Vault', vaultId, 'queuedShares', amount)
@@ -255,7 +256,7 @@ describe('vault', () => {
       assert.fieldEquals('Vault', vaultId, 'unclaimedAssets', '0')
     })
   })
-/*
+
   describe('handleValidatorsRootUpdated', () => {
 
     test('updates validators root', () => {
@@ -276,5 +277,4 @@ describe('vault', () => {
       assert.fieldEquals('Vault', vaultId, 'validatorsIpfsHash', validatorsIpfsHash)
     })
   })
-  */
 })
