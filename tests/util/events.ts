@@ -13,16 +13,18 @@ import {
 
 const createVaultEvent = (
   caller: Address,
+  admin: Address,
   vault: Address,
-  feesEscrow: Address,
-  operator: Address,
-  maxTotalAssets: string,
+  mevEscrow: Address,
+  name: string,
+  symbol: string,
+  capacity: string,
   feePercent: string,
 ): VaultCreated => {
   const mockEvent = newMockEvent()
 
   const mockVaultCreatedEvent = new VaultCreated(
-    mockEvent.address,
+    caller,
     mockEvent.logIndex,
     mockEvent.transactionLogIndex,
     mockEvent.logType,
@@ -34,19 +36,21 @@ const createVaultEvent = (
 
   mockVaultCreatedEvent.parameters = new Array()
 
-  const callerParam = new ethereum.EventParam('caller', ethereum.Value.fromAddress(caller))
+  const adminParam = new ethereum.EventParam('admin', ethereum.Value.fromAddress(admin))
   const vaultParam = new ethereum.EventParam('vault', ethereum.Value.fromAddress(vault))
-  const feesEscrowParam = new ethereum.EventParam('feesEscrow', ethereum.Value.fromAddress(feesEscrow))
-  const operatorParam = new ethereum.EventParam('operator', ethereum.Value.fromAddress(operator))
-  const maxTotalAssetsParam = new ethereum.EventParam('maxTotalAssets', ethereum.Value.fromUnsignedBigInt(BigInt.fromString(maxTotalAssets)))
+  const mevEscrowParam = new ethereum.EventParam('mevEscrow', ethereum.Value.fromAddress(mevEscrow))
+  const nameParam = new ethereum.EventParam('name', ethereum.Value.fromString(name))
+  const symbolParam = new ethereum.EventParam('symbol', ethereum.Value.fromString(symbol))
+  const capacityParam = new ethereum.EventParam('capacity', ethereum.Value.fromUnsignedBigInt(BigInt.fromString(capacity)))
   const feePercentParam = new ethereum.EventParam('feePercent', ethereum.Value.fromUnsignedBigInt(BigInt.fromString(feePercent)))
 
-  mockVaultCreatedEvent.parameters.push(callerParam)
+  mockVaultCreatedEvent.parameters.push(adminParam)
   mockVaultCreatedEvent.parameters.push(vaultParam)
-  mockVaultCreatedEvent.parameters.push(feesEscrowParam)
-  mockVaultCreatedEvent.parameters.push(operatorParam)
-  mockVaultCreatedEvent.parameters.push(maxTotalAssetsParam)
+  mockVaultCreatedEvent.parameters.push(mevEscrowParam)
+  mockVaultCreatedEvent.parameters.push(capacityParam)
   mockVaultCreatedEvent.parameters.push(feePercentParam)
+  mockVaultCreatedEvent.parameters.push(nameParam)
+  mockVaultCreatedEvent.parameters.push(symbolParam)
 
   return mockVaultCreatedEvent
 }

@@ -2,7 +2,7 @@ import { BigInt, Bytes, store } from '@graphprotocol/graph-ts'
 import { beforeAll, afterAll, clearStore, describe, test, assert } from 'matchstick-as'
 
 import {
-  handleVaultTransfer,
+  handleTransfer,
   handleExitQueueEntered,
   handleExitedAssetsClaimed,
   handleValidatorsRootUpdated,
@@ -68,7 +68,7 @@ describe('vault', () => {
     })
   })
 
-  describe('handleVaultTransfer', () => {
+  describe('handleTransfer', () => {
 
     test('mints shares if transaction from zero address', () => {
       const amount = '10000'
@@ -80,17 +80,17 @@ describe('vault', () => {
         address.get('vault'),
       )
 
-      handleVaultTransfer(transferEvent)
+      handleTransfer(transferEvent)
 
       const vaultId = addressString.get('vault')
-      const stakerId = addressString.get('operator')
-      const vaultStakerId = `${vaultId}-${stakerId}`
+      const allocatorId = addressString.get('operator')
+      const vaultAllocatorId = `${vaultId}-${allocatorId}`
 
-      assert.fieldEquals('VaultStaker', vaultStakerId, 'address', stakerId)
-      assert.fieldEquals('VaultStaker', vaultStakerId, 'shares', amount)
-      assert.fieldEquals('VaultStaker', vaultStakerId, 'vault', vaultId)
+      assert.fieldEquals('VaultAllocator', vaultAllocatorId, 'address', allocatorId)
+      assert.fieldEquals('VaultAllocator', vaultAllocatorId, 'shares', amount)
+      assert.fieldEquals('VaultAllocator', vaultAllocatorId, 'vault', vaultId)
 
-      store.remove('VaultStaker', vaultStakerId)
+      store.remove('VaultAllocator', vaultAllocatorId)
     })
 
     test('burns shares if transaction to zero address', () => {
@@ -110,21 +110,21 @@ describe('vault', () => {
         address.get('vault'),
       )
 
-      handleVaultTransfer(mintTransferEvent)
-      handleVaultTransfer(burnTransferEvent)
+      handleTransfer(mintTransferEvent)
+      handleTransfer(burnTransferEvent)
 
       const vaultId = addressString.get('vault')
-      const stakerId = addressString.get('operator')
-      const vaultStakerId = `${vaultId}-${stakerId}`
+      const allocatorId = addressString.get('operator')
+      const vaultAllocatorId = `${vaultId}-${allocatorId}`
 
-      assert.fieldEquals('VaultStaker', vaultStakerId, 'address', stakerId)
-      assert.fieldEquals('VaultStaker', vaultStakerId, 'vault', vaultId)
-      assert.fieldEquals('VaultStaker', vaultStakerId, 'shares', '0')
+      assert.fieldEquals('VaultAllocator', vaultAllocatorId, 'address', allocatorId)
+      assert.fieldEquals('VaultAllocator', vaultAllocatorId, 'vault', vaultId)
+      assert.fieldEquals('VaultAllocator', vaultAllocatorId, 'shares', '0')
 
-      store.remove('VaultStaker', vaultStakerId)
+      store.remove('VaultAllocator', vaultAllocatorId)
     })
 
-    test('transfers shares from one staker to another', () => {
+    test('transfers shares from one allocator to another', () => {
       const amount = '10000'
 
       const mintTransferEvent = createTransferEvent(
@@ -141,21 +141,21 @@ describe('vault', () => {
         address.get('vault'),
       )
 
-      handleVaultTransfer(mintTransferEvent)
-      handleVaultTransfer(transferEvent)
+      handleTransfer(mintTransferEvent)
+      handleTransfer(transferEvent)
 
       const vaultId = addressString.get('vault')
-      const stakerFromId = addressString.get('operator')
-      const stakerToId = addressString.get('caller')
+      const allocatorFromId = addressString.get('operator')
+      const allocatorToId = addressString.get('caller')
 
-      const vaultStakerFromId = `${vaultId}-${stakerFromId}`
-      const vaultStakerToId = `${vaultId}-${stakerToId}`
+      const vaultAllocatorFromId = `${vaultId}-${allocatorFromId}`
+      const vaultAllocatorToId = `${vaultId}-${allocatorToId}`
 
-      assert.fieldEquals('VaultStaker', vaultStakerFromId, 'shares', '0')
-      assert.fieldEquals('VaultStaker', vaultStakerToId, 'shares', amount)
+      assert.fieldEquals('VaultAllocator', vaultAllocatorFromId, 'shares', '0')
+      assert.fieldEquals('VaultAllocator', vaultAllocatorToId, 'shares', amount)
 
-      store.remove('VaultStaker', vaultStakerFromId)
-      store.remove('VaultStaker', vaultStakerToId)
+      store.remove('VaultAllocator', vaultAllocatorFromId)
+      store.remove('VaultAllocator', vaultAllocatorToId)
     })
 
     test('decreases queuedShares if transaction from the vault to zero address', () => {
@@ -185,7 +185,7 @@ describe('vault', () => {
       handleExitQueueEntered(exitQueueEnteredEvent)
       assert.fieldEquals('Vault', vaultId, 'queuedShares', amount)
 
-      handleVaultTransfer(burnTransferEvent)
+      handleTransfer(burnTransferEvent)
       assert.fieldEquals('Vault', vaultId, 'queuedShares', '0')
     })
   })
@@ -236,7 +236,7 @@ describe('vault', () => {
       handleCheckpointCreated(checkpointCreatedEvent)
       assert.fieldEquals('Vault', vaultId, 'unclaimedAssets', amount)
 
-      handleVaultTransfer(burnTransferEvent)
+      handleTransfer(burnTransferEvent)
       assert.fieldEquals('Vault', vaultId, 'queuedShares', '0')
 
       handleExitedAssetsClaimed(exitedAssetsClaimedEventEvent)
