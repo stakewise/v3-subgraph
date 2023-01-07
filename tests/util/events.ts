@@ -6,6 +6,7 @@ import { CheckpointCreated } from '../../generated/templates/ExitQueue/ExitQueue
 import {
   Deposit,
   Transfer,
+  Withdraw,
   MetadataUpdated,
   ExitQueueEntered,
   ExitedAssetsClaimed,
@@ -89,6 +90,38 @@ const createDepositEvent = (
   mockDepositEvent.parameters.push(sharesParam)
 
   return mockDepositEvent
+}
+
+const createWithdrawEvent = (
+  owner: Address,
+  assets: BigInt,
+): Withdraw => {
+  const mockEvent = newMockEvent()
+
+  const mockWithdrawEvent = new Withdraw(
+    address.get('vault'),
+    mockEvent.logIndex,
+    mockEvent.transactionLogIndex,
+    mockEvent.logType,
+    mockEvent.block,
+    mockEvent.transaction,
+    mockEvent.parameters,
+    null
+  )
+
+  mockWithdrawEvent.parameters = new Array()
+
+  const callerParam = new ethereum.EventParam('caller', ethereum.Value.fromAddress(owner))
+  const ownerParam = new ethereum.EventParam('owner', ethereum.Value.fromAddress(owner))
+  const assetsParam = new ethereum.EventParam('assets', ethereum.Value.fromUnsignedBigInt(assets))
+  const sharesParam = new ethereum.EventParam('shares', ethereum.Value.fromUnsignedBigInt(assets))
+
+  mockWithdrawEvent.parameters.push(callerParam)
+  mockWithdrawEvent.parameters.push(ownerParam)
+  mockWithdrawEvent.parameters.push(assetsParam)
+  mockWithdrawEvent.parameters.push(sharesParam)
+
+  return mockWithdrawEvent
 }
 
 const createTransferEvent = (
@@ -281,6 +314,7 @@ const createValidatorsRootUpdatedEvent = (
 export {
   createVaultEvent,
   createDepositEvent,
+  createWithdrawEvent,
   createTransferEvent,
   createMetadataUpdatedEvent,
   createExitQueueEnteredEvent,

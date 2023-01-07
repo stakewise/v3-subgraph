@@ -1,11 +1,11 @@
 import { BigInt, Bytes, store } from '@graphprotocol/graph-ts'
-import { beforeAll, afterAll, clearStore, describe, test, assert, mockIpfsFile } from 'matchstick-as'
+import { beforeAll, afterAll, clearStore, describe, test, assert, mockIpfsFile, afterEach } from 'matchstick-as'
 
 import {
   handleTransfer,
   handleExitQueueEntered,
   handleExitedAssetsClaimed,
-  handleValidatorsRootUpdated, handleDeposit, handleMetadataUpdated,
+  handleValidatorsRootUpdated, handleDeposit, handleMetadataUpdated, handleWithdraw,
 } from '../src/mappings/vault'
 import { handleCheckpointCreated } from '../src/mappings/exitQueue'
 
@@ -14,7 +14,7 @@ import {
   createExitQueueEnteredEvent,
   createCheckpointCreatedEvent,
   createExitedAssetsClaimedEvent,
-  createValidatorsRootUpdatedEvent, createDepositEvent, createMetadataUpdatedEvent
+  createValidatorsRootUpdatedEvent, createDepositEvent, createMetadataUpdatedEvent, createWithdrawEvent
 } from './util/events'
 import { createVault } from './util/helpers'
 import { address, addressString } from './util/mock'
@@ -29,6 +29,10 @@ const resetVault = (): void => {
 
 beforeAll(() => {
   createVault()
+})
+
+afterEach(() => {
+  resetVault()
 })
 
 afterAll(() => {
@@ -64,8 +68,47 @@ describe('vault', () => {
       assert.fieldEquals('VaultExitRequest', exitRequestId, 'exitQueueId', exitQueueId)
       assert.fieldEquals('VaultExitRequest', exitRequestId, 'withdrawnShares', '0')
       assert.fieldEquals('VaultExitRequest', exitRequestId, 'withdrawnAssets', '0')
+    })
+  })
 
-      resetVault()
+  describe('handleDeposit', () => {
+
+    test('increases totalAssets on deposit', () => {
+      const amount = '10000'
+      const vaultId = addressString.get('vault')
+
+      const depositEvent = createDepositEvent(
+        address.get('admin'),
+        BigInt.fromString(amount),
+      )
+
+      handleDeposit(depositEvent)
+
+      assert.fieldEquals('Vault', vaultId, 'totalAssets', amount)
+    })
+  })
+
+  describe('handleWithdraw', () => {
+
+    test('decreases totalAssets on withdraw', () => {
+      const amount = '10000'
+      const vaultId = addressString.get('vault')
+
+      const depositEvent = createDepositEvent(
+        address.get('admin'),
+        BigInt.fromString(amount),
+      )
+
+      const withdrawEvent = createWithdrawEvent(
+        address.get('admin'),
+        BigInt.fromString(amount),
+      )
+
+      handleDeposit(depositEvent)
+      assert.fieldEquals('Vault', vaultId, 'totalAssets', amount)
+
+      handleWithdraw(withdrawEvent)
+      assert.fieldEquals('Vault', vaultId, 'totalAssets', '0')
     })
   })
 
