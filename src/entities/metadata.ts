@@ -1,34 +1,36 @@
-import { Value } from '@graphprotocol/graph-ts'
+import { JSONValue, Value } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
 
 
-class Metadata {
-  imageUrl: string
-  displayName: string
-  description: string
-}
-
-export function updateMetadata(metadata: Metadata, vaultAddress: Value): void {
+export function updateMetadata(metadata: JSONValue, vaultAddress: Value): void {
+  const json = metadata.toObject()
   const vault = Vault.load(vaultAddress.toString())
 
+  const imageUrl = json.get('imageUrl')
+  const displayName = json.get('displayName')
+  const description = json.get('description')
+
   if (vault) {
-    if (metadata.description) {
-      const isDescriptionValid = metadata.description.length <= 1000
+    if (description) {
+      const descriptionString = description.toString()
+      const isDescriptionValid = descriptionString.length <= 1000
 
-      vault.description = isDescriptionValid ? metadata.description : ''
+      vault.description = isDescriptionValid ? descriptionString : ''
     }
 
-    if (metadata.displayName) {
-      const isDisplayNameValid = metadata.displayName.length <= 30
+    if (displayName) {
+      const displayNameString = displayName.toString()
+      const isDisplayNameValid = displayNameString.length <= 30
 
-      vault.displayName = isDisplayNameValid ? metadata.displayName : ''
+      vault.displayName = isDisplayNameValid ? displayNameString : ''
     }
 
-    if (metadata.imageUrl) {
-      const isImageUrlValid = metadata.imageUrl.startsWith('https://static.stakewise.io/')
+    if (imageUrl) {
+      const imageUrlString = imageUrl.toString()
+      const isImageUrlValid = imageUrlString.startsWith('https://static.stakewise.io/')
 
-      vault.imageUrl = isImageUrlValid ? metadata.imageUrl : ''
+      vault.imageUrl = isImageUrlValid ? imageUrlString : ''
     }
 
     vault.save()

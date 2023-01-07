@@ -1,11 +1,11 @@
 import { BigInt, Bytes, store } from '@graphprotocol/graph-ts'
-import { beforeAll, afterAll, clearStore, describe, test, assert } from 'matchstick-as'
+import { beforeAll, afterAll, clearStore, describe, test, assert, mockIpfsFile } from 'matchstick-as'
 
 import {
   handleTransfer,
   handleExitQueueEntered,
   handleExitedAssetsClaimed,
-  handleValidatorsRootUpdated, handleDeposit,
+  handleValidatorsRootUpdated, handleDeposit, handleMetadataUpdated,
 } from '../src/mappings/vault'
 import { handleCheckpointCreated } from '../src/mappings/exitQueue'
 
@@ -14,10 +14,12 @@ import {
   createExitQueueEnteredEvent,
   createCheckpointCreatedEvent,
   createExitedAssetsClaimedEvent,
-  createValidatorsRootUpdatedEvent, createDepositEvent
+  createValidatorsRootUpdatedEvent, createDepositEvent, createMetadataUpdatedEvent
 } from './util/events'
 import { createVault } from './util/helpers'
 import { address, addressString } from './util/mock'
+
+export { updateMetadata } from '../src/entities/metadata'
 
 
 const resetVault = (): void => {
@@ -249,7 +251,7 @@ describe('vault', () => {
 
     test('updates validators root', () => {
       const validatorsRoot = Bytes.fromUTF8('root')
-      const validatorsIpfsHash = 'hash'
+      const validatorsIpfsHash = 'validatorsHash'
 
       const validatorsRootUpdatedEvent = createValidatorsRootUpdatedEvent(
         validatorsRoot,
@@ -262,6 +264,43 @@ describe('vault', () => {
 
       assert.fieldEquals('Vault', vaultId, 'validatorsRoot', validatorsRoot.toHex())
       assert.fieldEquals('Vault', vaultId, 'validatorsIpfsHash', validatorsIpfsHash)
+    })
+  })
+
+  describe('handleMetadataUpdated', () => {
+
+    test('updates vault valid metadata', () => {
+      const metadataIpfsHash = 'metadataHash'
+
+      mockIpfsFile(metadataIpfsHash, `tests/ipfs/metadataValid.json`)
+
+      const metadataUpdatedEvent = createMetadataUpdatedEvent(metadataIpfsHash)
+
+      handleMetadataUpdated(metadataUpdatedEvent)
+
+      const vaultId = addressString.get('vault')
+
+      assert.fieldEquals('Vault', vaultId, 'metadataIpfsHash', metadataIpfsHash)
+      assert.fieldEquals('Vault', vaultId, 'displayName', 'Display Name')
+      assert.fieldEquals('Vault', vaultId, 'description', 'Description')
+      assert.fieldEquals('Vault', vaultId, 'imageUrl', 'https://static.stakewise.io/image.jpg')
+    })
+
+    test('resets vault invalid metadata', () => {
+      const metadataIpfsHash = 'metadataHash'
+
+      mockIpfsFile(metadataIpfsHash, `tests/ipfs/metadataInvalid.json`)
+
+      const metadataUpdatedEvent = createMetadataUpdatedEvent(metadataIpfsHash)
+
+      handleMetadataUpdated(metadataUpdatedEvent)
+
+      const vaultId = addressString.get('vault')
+
+      assert.fieldEquals('Vault', vaultId, 'metadataIpfsHash', metadataIpfsHash)
+      assert.fieldEquals('Vault', vaultId, 'displayName', 'null')
+      assert.fieldEquals('Vault', vaultId, 'description', 'null')
+      assert.fieldEquals('Vault', vaultId, 'imageUrl', 'null')
     })
   })
 })

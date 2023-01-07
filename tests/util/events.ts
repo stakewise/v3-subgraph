@@ -6,6 +6,7 @@ import { CheckpointCreated } from '../../generated/templates/ExitQueue/ExitQueue
 import {
   Deposit,
   Transfer,
+  MetadataUpdated,
   ExitQueueEntered,
   ExitedAssetsClaimed,
   ValidatorsRootUpdated,
@@ -223,6 +224,31 @@ const createExitedAssetsClaimedEvent = (
   return mockExitedAssetsClaimedEvent
 }
 
+const createMetadataUpdatedEvent = (
+  metadataIpfsHash: string,
+): MetadataUpdated => {
+  const mockEvent = newMockEvent()
+
+  const mockMetadataUpdatedEvent = new MetadataUpdated(
+    address.get('vault'),
+    mockEvent.logIndex,
+    mockEvent.transactionLogIndex,
+    mockEvent.logType,
+    mockEvent.block,
+    mockEvent.transaction,
+    mockEvent.parameters,
+    null
+  )
+
+  mockMetadataUpdatedEvent.parameters = new Array()
+
+  const metadataIpfsHashParam = new ethereum.EventParam('metadataIpfsHash', ethereum.Value.fromString(metadataIpfsHash))
+
+  mockMetadataUpdatedEvent.parameters.push(metadataIpfsHashParam)
+
+  return mockMetadataUpdatedEvent
+}
+
 const createValidatorsRootUpdatedEvent = (
   validatorsRoot: Bytes,
   validatorsIpfsHash: string,
@@ -256,6 +282,7 @@ export {
   createVaultEvent,
   createDepositEvent,
   createTransferEvent,
+  createMetadataUpdatedEvent,
   createExitQueueEnteredEvent,
   createCheckpointCreatedEvent,
   createExitedAssetsClaimedEvent,
