@@ -5,15 +5,19 @@ import { address } from './mock'
 
 
 const createVault = (
-  maxTotalAssets: string = '10000',
+  name: string = 'name',
+  symbol: string = 'symbol',
+  capacity: string = '10000',
   feePercent: string = '10',
 ): void => {
   const vaultEvent = createVaultEvent(
-    address.get('caller'),
+    address.get('factory'),
+    address.get('admin'),
     address.get('vault'),
-    address.get('feesEscrow'),
-    address.get('operator'),
-    maxTotalAssets,
+    address.get('mevEscrow'),
+    name,
+    symbol,
+    capacity,
     feePercent,
   )
 

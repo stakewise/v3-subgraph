@@ -128,13 +128,14 @@ export function handleTransfer(event: Transfer): void {
 export function handleMetadataUpdated(event: MetadataUpdated): void {
   const params = event.params
 
-  const vault = Vault.load(event.address.toHex()) as Vault
+  const vaultAddress = event.address.toHex()
+  const vault = Vault.load(vaultAddress) as Vault
 
   vault.metadataIpfsHash = params.metadataIpfsHash
 
   vault.save()
 
-  ipfs.mapJSON(params.metadataIpfsHash, 'updateMetadata', Value.fromAddress(event.address))
+  ipfs.mapJSON(params.metadataIpfsHash, 'updateMetadata', Value.fromString(vaultAddress))
 
   log.info(
     '[Vault] MetadataUpdated metadataIpfsHash={}',
