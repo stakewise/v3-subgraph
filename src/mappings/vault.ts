@@ -135,7 +135,7 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
 
   vault.save()
 
-  ipfs.mapJSON(params.metadataIpfsHash, 'updateMetadata', Value.fromString(vaultAddress))
+  // ipfs.mapJSON(params.metadataIpfsHash, 'updateMetadata', Value.fromString(vaultAddress))
 
   log.info(
     '[Vault] MetadataUpdated metadataIpfsHash={}',

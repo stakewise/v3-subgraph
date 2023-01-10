@@ -21,11 +21,11 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.validatorsRoot = null
   vault.metadataIpfsHash = null
   vault.validatorsIpfsHash = null
-  vault.allocators = []
-  vault.checkpoints = []
-  vault.daySnapshots = []
-  vault.exitRequests = []
-  vault.allocatorActions = []
+  // vault.allocators = []
+  // vault.checkpoints = []
+  // vault.daySnapshots = []
+  // vault.exitRequests = []
+  // vault.allocatorActions = []
   vault.totalShares = BigInt.fromI32(0)
   vault.totalAssets = BigInt.fromI32(0)
   vault.queuedShares = BigInt.fromI32(0)
