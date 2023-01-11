@@ -104,6 +104,9 @@ type Vault @entity {
   "The address of the vault's fee recipient"
   feeRecipient: Bytes!
 
+  "Reward on one asset"
+  rewardAsset: BigInt!
+
   "The vault validators merkle tree root"
   validatorsRoot: Bytes
 
