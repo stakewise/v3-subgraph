@@ -3,19 +3,25 @@ import { beforeAll, afterAll, clearStore, describe, test, assert, mockIpfsFile, 
 
 import { Vault } from '../generated/schema'
 import {
+  handleDeposit,
+  handleWithdraw,
   handleTransfer,
+  handleMetadataUpdated,
   handleExitQueueEntered,
   handleExitedAssetsClaimed,
-  handleValidatorsRootUpdated, handleDeposit, handleMetadataUpdated, handleWithdraw,
+  handleValidatorsRootUpdated,
 } from '../src/mappings/vault'
 import { handleCheckpointCreated } from '../src/mappings/exitQueue'
 
 import {
+  createDepositEvent,
+  createWithdrawEvent,
   createTransferEvent,
+  createMetadataUpdatedEvent,
   createExitQueueEnteredEvent,
   createCheckpointCreatedEvent,
   createExitedAssetsClaimedEvent,
-  createValidatorsRootUpdatedEvent, createDepositEvent, createMetadataUpdatedEvent, createWithdrawEvent
+  createValidatorsRootUpdatedEvent,
 } from './util/events'
 import { createVault } from './util/helpers'
 import { address, addressString } from './util/mock'

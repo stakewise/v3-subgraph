@@ -10,6 +10,7 @@ import {
 
 import { createOrLoadAllocator } from '../entities/allocator'
 import { updateMetadata } from '../entities/metadata'
+import { createOrLoadDaySnapshot } from '../entities/daySnapshot'
 
 
 const ADDRESS_ZERO = Address.zero()
@@ -34,6 +35,12 @@ export function handleDeposit(event: Deposit): void {
   allocatorAction.shares = params.shares
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
+
+  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault.id)
+
+  daySnapshot.totalAssets = daySnapshot.totalAssets.plus(assets)
+  daySnapshot.principalAssets = daySnapshot.principalAssets.plus(assets)
+  daySnapshot.save()
 
   log.info(
     '[Vault] Deposit vault={} assets={}',
@@ -65,6 +72,12 @@ export function handleWithdraw(event: Withdraw): void {
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
 
+  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault.id)
+
+  daySnapshot.totalAssets = daySnapshot.totalAssets.minus(assets)
+  daySnapshot.principalAssets = daySnapshot.principalAssets.minus(assets)
+  daySnapshot.save()
+
   log.info(
     '[Vault] Withdraw vault={} assets={}',
     [
@@ -84,8 +97,14 @@ export function handleStateUpdated(event: StateUpdated): void {
 
   // assetsDelta can be a negative number
   vault.totalAssets = vault.totalAssets.plus(assetsDelta)
-
+  vault.executionReward = BigInt.fromI32(0)
+  vault.consensusReward = BigInt.fromI32(0)
   vault.save()
+
+  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault.id)
+
+  daySnapshot.principalAssets = vault.totalAssets
+  daySnapshot.save()
 
   log.info(
     '[Vault] StateUpdated vault={} assetsDelta={}',

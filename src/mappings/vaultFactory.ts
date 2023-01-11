@@ -30,10 +30,13 @@ export function handleVaultCreated(event: VaultCreated): void {
   // vault.daySnapshots = []
   // vault.exitRequests = []
   // vault.allocatorActions = []
+  vault.rewardAsset = BigInt.fromI32(0)
   vault.totalShares = BigInt.fromI32(0)
   vault.totalAssets = BigInt.fromI32(0)
   vault.queuedShares = BigInt.fromI32(0)
   vault.unclaimedAssets = BigInt.fromI32(0)
+  vault.executionReward = BigInt.fromI32(0)
+  vault.consensusReward = BigInt.fromI32(0)
 
   // Properties from event params
   vault.admin = params.admin
