@@ -211,3 +211,14 @@ type Transaction @entity {
   "Transaction hash"
   id: ID!
 }
+
+"""
+Network data
+"""
+type Network @entity {
+  "Always 0"
+  id: ID!
+
+  "Total vaults"
+  vaultsTotal: Int!
+}

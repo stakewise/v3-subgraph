@@ -1,6 +1,6 @@
 import { Address, BigInt, ipfs, log, store, json } from '@graphprotocol/graph-ts'
 
-import { Vault, VaultExitRequest } from '../../generated/schema'
+import { AllocatorAction, Vault, VaultExitRequest } from '../../generated/schema'
 import {
   Transfer,
   ExitQueueEntered,
@@ -23,8 +23,17 @@ export function handleDeposit(event: Deposit): void {
   const vault = Vault.load(vaultAddress.toHex()) as Vault
 
   vault.totalAssets = vault.totalAssets.plus(assets)
-
   vault.save()
+
+  const allocatorAction = new AllocatorAction(`${event.transaction.hash}-${event.transactionLogIndex}`)
+
+  allocatorAction.vault = vault.id
+  allocatorAction.address = params.caller
+  allocatorAction.actionType = 'Deposit'
+  allocatorAction.assets = assets
+  allocatorAction.shares = params.shares
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
 
   log.info(
     '[Vault] Deposit vault={} assets={}',
@@ -44,8 +53,17 @@ export function handleWithdraw(event: Withdraw): void {
   const vault = Vault.load(vaultAddress.toHex()) as Vault
 
   vault.totalAssets = vault.totalAssets.minus(assets)
-
   vault.save()
+
+  const allocatorAction = new AllocatorAction(`${event.transaction.hash}-${event.transactionLogIndex}`)
+
+  allocatorAction.vault = vault.id
+  allocatorAction.address = params.caller
+  allocatorAction.actionType = 'Withdraw'
+  allocatorAction.assets = assets
+  allocatorAction.shares = params.shares
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
 
   log.info(
     '[Vault] Withdraw vault={} assets={}',
@@ -134,12 +152,15 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
   vault.metadataIpfsHash = params.metadataIpfsHash
 
   const data = ipfs.cat(params.metadataIpfsHash)
+
   if (data) {
     const parsedJson = json.try_fromBytes(data)
+
     if (parsedJson.isOk && !parsedJson.isError) {
       updateMetadata(parsedJson.value, vault)
     }
   }
+
   vault.save()
 
   log.info(
@@ -190,6 +211,16 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   vault.queuedShares = vault.queuedShares.plus(shares)
   vault.save()
 
+  const allocatorAction = new AllocatorAction(`${event.transaction.hash}-${event.transactionLogIndex}`)
+
+  allocatorAction.vault = vault.id
+  allocatorAction.address = params.caller
+  allocatorAction.actionType = 'ExitQueueEntered'
+  allocatorAction.assets = null
+  allocatorAction.shares = params.shares
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
+
   // Create exit request
   const exitRequestId = `${vaultAddress}-${exitQueueId}`
   const exitRequest = new VaultExitRequest(exitRequestId)
@@ -201,7 +232,6 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   exitRequest.exitQueueId = exitQueueId
   exitRequest.withdrawnShares = BigInt.fromI32(0)
   exitRequest.withdrawnAssets = BigInt.fromI32(0)
-
   exitRequest.save()
 
   log.info(
@@ -226,10 +256,18 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const vaultAddress = event.address.toHex()
 
   const vault = Vault.load(vaultAddress) as Vault
+  const allocatorAction = new AllocatorAction(`${event.transaction.hash}-${event.transactionLogIndex}`)
 
   vault.unclaimedAssets = vault.unclaimedAssets.minus(withdrawnAssets)
-
   vault.save()
+
+  allocatorAction.vault = vault.id
+  allocatorAction.address = params.caller
+  allocatorAction.actionType = 'ExitedAssetsClaimed'
+  allocatorAction.assets = withdrawnAssets
+  allocatorAction.shares = null
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
 
   const prevVaultExitRequestId = `${vaultAddress}-${prevExitQueueId}`
   const prevVaultExitRequest = VaultExitRequest.load(prevVaultExitRequestId) as VaultExitRequest
