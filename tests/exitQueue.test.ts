@@ -4,7 +4,7 @@ import { afterEach, describe, test, assert, clearStore, beforeAll } from 'matchs
 import { handleCheckpointCreated } from '../src/mappings/exitQueue'
 
 import { createVault } from './util/helpers'
-import { address, addressString } from './util/mock'
+import { addressString } from './util/mock'
 import { createCheckpointCreatedEvent } from './util/events'
 
 

@@ -1,4 +1,4 @@
-import { Address, BigInt, ipfs, log, store, Value } from '@graphprotocol/graph-ts'
+import { Address, BigInt, ipfs, log, store, json } from '@graphprotocol/graph-ts'
 
 import { Vault, VaultExitRequest } from '../../generated/schema'
 import {
@@ -133,9 +133,14 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
 
   vault.metadataIpfsHash = params.metadataIpfsHash
 
+  const data = ipfs.cat(params.metadataIpfsHash)
+  if (data) {
+    const parsedJson = json.try_fromBytes(data)
+    if (parsedJson.isOk && !parsedJson.isError) {
+      updateMetadata(parsedJson.value, vault)
+    }
+  }
   vault.save()
-
-  ipfs.mapJSON(params.metadataIpfsHash, 'updateMetadata', Value.fromString(vaultAddress))
 
   log.info(
     '[Vault] MetadataUpdated metadataIpfsHash={}',
