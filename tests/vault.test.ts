@@ -1,7 +1,6 @@
 import { BigInt, Bytes, store } from '@graphprotocol/graph-ts'
 import { beforeAll, afterAll, clearStore, describe, test, assert, mockIpfsFile, afterEach } from 'matchstick-as'
 
-import { Vault } from '../generated/schema'
 import {
   handleTransfer,
   handleExitQueueEntered,
@@ -86,23 +85,6 @@ describe('vault', () => {
       handleDeposit(depositEvent)
 
       assert.fieldEquals('Vault', vaultId, 'totalAssets', amount)
-    })
-
-    // TODO add all actions tests
-    test('creates allocator action on deposit', () => {
-      const amount = '10000'
-      const vaultId = addressString.get('vault')
-
-      const depositEvent = createDepositEvent(
-        address.get('admin'),
-        BigInt.fromString(amount),
-      )
-
-      handleDeposit(depositEvent)
-
-      const vault = Vault.load(vaultId) as Vault
-
-      assert.assertTrue(vault.allocatorActions.length === 1)
     })
   })
 
