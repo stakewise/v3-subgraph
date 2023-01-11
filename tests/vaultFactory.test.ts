@@ -67,5 +67,27 @@ describe('vaultFactory', () => {
       assert.fieldEquals('Vault', vaultAddress, 'queuedShares', '0')
       assert.fieldEquals('Vault', vaultAddress, 'unclaimedAssets', '0')
     })
+
+    test('increases vaults count', () => {
+      const name = 'name'
+      const symbol = 'symbol'
+      const capacity = '10000'
+      const feePercent = '10'
+
+      const vaultEvent = createVaultEvent(
+        address.get('factory'),
+        address.get('admin'),
+        address.get('vault'),
+        address.get('mevEscrow'),
+        name,
+        symbol,
+        capacity,
+        feePercent,
+      )
+
+      handleVaultCreated(vaultEvent)
+
+      assert.fieldEquals('Network', '0', 'vaultsTotal', '1')
+    })
   })
 })

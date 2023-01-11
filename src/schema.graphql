@@ -2,205 +2,216 @@
 Vault allocator
 """
 type Allocator @entity {
-    "<Vault ID>-<Allocator address>"
-    id: ID!
+  "<Vault ID>-<Allocator address>"
+  id: ID!
 
-    "The allocator's address"
-    address: Bytes!
+  "The allocator's address"
+  address: Bytes!
 
-    "The allocator's shares amount"
-    shares: BigInt!
+  "The allocator's shares amount"
+  shares: BigInt!
 
-    "The vault of the allocator"
-    vault: Vault!
+  "The vault of the allocator"
+  vault: Vault!
 }
 
 """
 Vault Checkpoint
 """
 type VaultCheckpoint @entity {
-    "<Vault ID>-<Checkpoint index>"
-    id: ID!
+  "<Vault ID>-<Checkpoint index>"
+  id: ID!
 
-    "The checkpoint index"
-    index: BigInt!
+  "The checkpoint index"
+  index: BigInt!
 
-    "The cumulative number of burned shares"
-    sharesCounter: BigInt!
+  "The cumulative number of burned shares"
+  sharesCounter: BigInt!
 
-    "The amount of exited assets"
-    exitedAssets: BigInt!
+  "The amount of exited assets"
+  exitedAssets: BigInt!
 
-    "The checkpoint vault"
-    vault: Vault!
+  "The checkpoint vault"
+  vault: Vault!
 }
 
 """
 Vault exit request
 """
 type VaultExitRequest @entity {
-    "<Vault ID>-<Exit queue id>"
-    id: ID!
+  "<Vault ID>-<Exit queue id>"
+  id: ID!
 
-    "The exit queue id"
-    exitQueueId: BigInt!
+  "The exit queue id"
+  exitQueueId: BigInt!
 
-    "The exiting shares owner"
-    owner: Bytes!
+  "The exiting shares owner"
+  owner: Bytes!
 
-    "The exited assets receiver"
-    receiver: Bytes!
+  "The exited assets receiver"
+  receiver: Bytes!
 
-    "The number of shares queued for exit"
-    totalShares: BigInt!
+  "The number of shares queued for exit"
+  totalShares: BigInt!
 
-    "The number of shares withdrawn"
-    withdrawnShares: BigInt!
+  "The number of shares withdrawn"
+  withdrawnShares: BigInt!
 
-    "The number of assets withdrawn"
-    withdrawnAssets: BigInt!
+  "The number of assets withdrawn"
+  withdrawnAssets: BigInt!
 
-    "The exit request vault"
-    vault: Vault!
+  "The exit request vault"
+  vault: Vault!
 }
 
 """
 Vault
 """
 type Vault @entity {
-    "Vault address"
-    id: ID!
+  "Vault address"
+  id: ID!
 
-    "The vault token name"
-    tokenName: String!
+  "The vault token name"
+  tokenName: String!
 
-    "The vault token symbol"
-    tokenSymbol: String!
+  "The vault token symbol"
+  tokenSymbol: String!
 
-    "The optional vault name"
-    displayName: String
+  "The optional vault name"
+  displayName: String
 
-    "The optional description extracted from metadata IPFS file"
-    description: String
+  "The optional description extracted from metadata IPFS file"
+  description: String
 
-    "The optional image URL extracted from metadata IPFS file"
-    imageUrl: String
+  "The optional image URL extracted from metadata IPFS file"
+  imageUrl: String
 
-    "The address of the factory used to create vault"
-    factory: Bytes!
+  "The address of the factory used to create vault"
+  factory: Bytes!
 
-    "The address of the vault admin"
-    admin: Bytes!
+  "The address of the vault admin"
+  admin: Bytes!
 
-    "The max total assets that can be allocated into the vault"
-    capacity: BigInt!
+  "The max total assets that can be allocated into the vault"
+  capacity: BigInt!
 
-    "The MEV and priority fees escrow address"
-    mevEscrow: Bytes!
+  "The MEV and priority fees escrow address"
+  mevEscrow: Bytes!
 
-    "The staking fee percent charged by the vault"
-    feePercent: Int!
+  "The staking fee percent charged by the vault"
+  feePercent: Int!
 
-    "The address of the vault's fee recipient"
-    feeRecipient: Bytes!
+  "The address of the vault's fee recipient"
+  feeRecipient: Bytes!
 
-    "The vault validators merkle tree root"
-    validatorsRoot: Bytes
+  "The vault validators merkle tree root"
+  validatorsRoot: Bytes
 
-    "The vault IPFS hash with all the validators deposit data"
-    validatorsIpfsHash: String
+  "The vault IPFS hash with all the validators deposit data"
+  validatorsIpfsHash: String
 
-    "The vault metadata IPFS hash"
-    metadataIpfsHash: String
+  "The vault metadata IPFS hash"
+  metadataIpfsHash: String
 
-    "The vault allocators"
-    allocators: [Allocator!]! @derivedFrom(field: "vault")
+  "The vault allocators"
+  allocators: [Allocator!]! @derivedFrom(field: "vault")
 
-    "The vault allocators' actions"
-    allocatorActions: [AllocatorAction!]! @derivedFrom(field: "vault")
+  "The vault allocators' actions"
+  allocatorActions: [AllocatorAction!]! @derivedFrom(field: "vault")
 
-    "The vault checkpoints"
-    checkpoints: [VaultCheckpoint!]! @derivedFrom(field: "vault")
+  "The vault checkpoints"
+  checkpoints: [VaultCheckpoint!]! @derivedFrom(field: "vault")
 
-    "The vault exit requests"
-    exitRequests: [VaultExitRequest!]! @derivedFrom(field: "vault")
+  "The vault exit requests"
+  exitRequests: [VaultExitRequest!]! @derivedFrom(field: "vault")
 
-    "The vault day snapshots"
-    daySnapshots: [VaultDaySnapshot!]! @derivedFrom(field: "vault")
+  "The vault day snapshots"
+  daySnapshots: [VaultDaySnapshot!]! @derivedFrom(field: "vault")
 
-    "The total number of shares"
-    totalShares: BigInt!
+  "The total number of shares"
+  totalShares: BigInt!
 
-    "The total number of assets"
-    totalAssets: BigInt!
+  "The total number of assets"
+  totalAssets: BigInt!
 
-    "The number of shares queued for the exit"
-    queuedShares: BigInt!
+  "The number of shares queued for the exit"
+  queuedShares: BigInt!
 
-    "The number of assets that are waiting to be claimed"
-    unclaimedAssets: BigInt!
+  "The number of assets that are waiting to be claimed"
+  unclaimedAssets: BigInt!
 
-    "The timestamp the vault was created at"
-    createdAt: BigInt!
+  "The timestamp the vault was created at"
+  createdAt: BigInt!
 }
 
 enum AllocatorActionType {
-    Deposit
-    Withdraw
-    ExitQueueEntered
-    ExitedAssetsClaimed
+  Deposit
+  Withdraw
+  ExitQueueEntered
+  ExitedAssetsClaimed
 }
 
 """
 Allocator action
 """
 type AllocatorAction @entity {
-    "Set to `transaction hash-log index`"
-    id: ID!
+  "Set to `transaction hash-log index`"
+  id: ID!
 
-    "The allocator's vault"
-    vault: Vault!
+  "The allocator's vault"
+  vault: Vault!
 
-    "The allocator's address"
-    address: Bytes!
+  "The allocator's address"
+  address: Bytes!
 
-    "The type of the action"
-    actionType: AllocatorActionType!
+  "The type of the action"
+  actionType: AllocatorActionType!
 
-    "The amount of action's assets"
-    assets: BigInt
+  "The amount of action's assets"
+  assets: BigInt
 
-    "The amount of action's shares"
-    shares: BigInt
+  "The amount of action's shares"
+  shares: BigInt
 
-    "The timestamp the action was created at"
-    createdAt: BigInt!
+  "The timestamp the action was created at"
+  createdAt: BigInt!
 }
 
 type VaultDaySnapshot @entity {
-    "<Vault ID>-<date>"
-    id: ID!
+  "<Vault ID>-<date>"
+  id: ID!
 
-    "The timestamp rounded to current day by dividing by 86400"
-    date: Int!
+  "The timestamp rounded to current day by dividing by 86400"
+  date: Int!
 
-    "The total number of assets"
-    totalAssets: BigInt!
+  "The total number of assets"
+  totalAssets: BigInt!
 
-    "The vault consensus reward"
-    consensusReward: BigInt!
+  "The vault consensus reward"
+  consensusReward: BigInt!
 
-    "The vault execution reward"
-    executionReward: BigInt!
+  "The vault execution reward"
+  executionReward: BigInt!
 
-    "The snapshot's vault"
-    vault: Vault!
+  "The snapshot's vault"
+  vault: Vault!
 }
 
 """
 StakeWise V3 transaction
 """
 type Transaction @entity {
-    "Transaction hash"
-    id: ID!
+  "Transaction hash"
+  id: ID!
+}
+
+"""
+Network data
+"""
+type Network @entity {
+  "Always 0"
+  id: ID!
+
+  "Total vaults"
+  vaultsTotal: Int!
 }

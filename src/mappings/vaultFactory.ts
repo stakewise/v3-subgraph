@@ -3,6 +3,7 @@ import { BigInt, log } from '@graphprotocol/graph-ts'
 import { Vault } from '../../generated/schema'
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import { Vault as VaultTemplate } from '../../generated/templates'
+import { createOrLoadNetwork } from '../entities/network'
 
 
 // Event emitted on vault create
@@ -12,6 +13,9 @@ export function handleVaultCreated(event: VaultCreated): void {
   const vaultAddress = params.vault
 
   const vault = new Vault(vaultAddress.toHex())
+  const network = createOrLoadNetwork()
+
+  network.vaultsTotal = network.vaultsTotal + 1
 
   // These properties are empty on vault creating
   // they will be updated on future vault events
@@ -43,6 +47,7 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.createdAt = block.timestamp
 
   vault.save()
+  network.save()
 
   VaultTemplate.create(vaultAddress)
 
