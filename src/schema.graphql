@@ -104,6 +104,15 @@ type Vault @entity {
   "The address of the vault's fee recipient"
   feeRecipient: Bytes!
 
+  "Reward on one asset"
+  rewardAsset: BigInt!
+
+  "The vault consensus reward"
+  consensusReward: BigInt!
+
+  "The vault execution reward"
+  executionReward: BigInt!
+
   "The vault validators merkle tree root"
   validatorsRoot: Bytes
 
@@ -126,7 +135,7 @@ type Vault @entity {
   exitRequests: [VaultExitRequest!]! @derivedFrom(field: "vault")
 
   "The vault day snapshots"
-  daySnapshots: [VaultDaySnapshot!]! @derivedFrom(field: "vault")
+  daySnapshots: [DaySnapshot!]! @derivedFrom(field: "vault")
 
   "The total number of shares"
   totalShares: BigInt!
@@ -177,7 +186,7 @@ type AllocatorAction @entity {
   createdAt: BigInt!
 }
 
-type VaultDaySnapshot @entity {
+type DaySnapshot @entity {
   "<Vault ID>-<date>"
   id: ID!
 
@@ -187,11 +196,9 @@ type VaultDaySnapshot @entity {
   "The total number of assets"
   totalAssets: BigInt!
 
-  "The vault consensus reward"
-  consensusReward: BigInt!
+  principalAssets: BigInt!
 
-  "The vault execution reward"
-  executionReward: BigInt!
+  rewardPerAsset: BigInt!
 
   "The snapshot's vault"
   vault: Vault!
