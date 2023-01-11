@@ -38,7 +38,7 @@ type VaultCheckpoint @entity {
 """
 Vault exit request
 """
-type VaultExitRequest @entity {
+type ExitRequest @entity {
   "<Vault ID>-<Exit queue id>"
   id: ID!
 
@@ -132,7 +132,7 @@ type Vault @entity {
   checkpoints: [VaultCheckpoint!]! @derivedFrom(field: "vault")
 
   "The vault exit requests"
-  exitRequests: [VaultExitRequest!]! @derivedFrom(field: "vault")
+  exitRequests: [ExitRequest!]! @derivedFrom(field: "vault")
 
   "The vault day snapshots"
   daySnapshots: [DaySnapshot!]! @derivedFrom(field: "vault")

@@ -50,7 +50,7 @@ describe('vault', () => {
 
   describe('handleExitQueueEntered', () => {
 
-    test('creates VaultExitRequest and increases queuedShares', () => {
+    test('creates ExitRequest and increases queuedShares', () => {
       const amount = '10000'
       const exitQueueId = '0'
 
@@ -68,13 +68,13 @@ describe('vault', () => {
       const exitRequestId = `${vaultId}-${exitQueueId}`
 
       assert.fieldEquals('Vault', vaultId, 'queuedShares', '10000')
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'vault', vaultId)
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'owner', addressString.get('admin'))
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'receiver', addressString.get('admin'))
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'totalShares', amount)
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'exitQueueId', exitQueueId)
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'withdrawnShares', '0')
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'withdrawnAssets', '0')
+      assert.fieldEquals('ExitRequest', exitRequestId, 'vault', vaultId)
+      assert.fieldEquals('ExitRequest', exitRequestId, 'owner', addressString.get('admin'))
+      assert.fieldEquals('ExitRequest', exitRequestId, 'receiver', addressString.get('admin'))
+      assert.fieldEquals('ExitRequest', exitRequestId, 'totalShares', amount)
+      assert.fieldEquals('ExitRequest', exitRequestId, 'exitQueueId', exitQueueId)
+      assert.fieldEquals('ExitRequest', exitRequestId, 'withdrawnShares', '0')
+      assert.fieldEquals('ExitRequest', exitRequestId, 'withdrawnAssets', '0')
     })
   })
 

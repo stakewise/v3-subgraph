@@ -17,6 +17,14 @@ const abis = [
     from: '../v3-core/abi/ExitQueue.json',
     to: '../src/abis/ExitQueue.json',
   },
+  {
+    from: '../v3-core/abi/IKeeper.json',
+    to: '../src/abis/Keeper.json',
+  },
+  {
+    from: '../v3-core/abi/IMevEscrow.json',
+    to: '../src/abis/MewEscrow.json',
+  },
 ]
 
 const generateAbis = async () => {

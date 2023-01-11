@@ -20,6 +20,7 @@ dataSources:
       file: ./mappings/vaultFactory.ts
       entities:
         - Vault
+        - Network
       abis:
         - name: VaultFactory
           file: ./abis/VaultFactory.json
@@ -39,7 +40,10 @@ templates:
       file: ./mappings/vault.ts
       entities:
         - Vault
-        - VaultStaker
+        - Allocator
+        - ExitRequest
+        - DaySnapshot
+        - AllocatorAction
       abis:
         - name: Vault
           file: ./abis/Vault.json
@@ -72,6 +76,7 @@ templates:
       file: ./mappings/exitQueue.ts
       entities:
         - VaultCheckpoint
+        - DaySnapshot
       abis:
         - name: ExitQueue
           file: ./abis/ExitQueue.json

@@ -1,11 +1,15 @@
 import { Address, BigInt, ipfs, log, store, json } from '@graphprotocol/graph-ts'
 
-import { AllocatorAction, Vault, VaultExitRequest } from '../../generated/schema'
+import { AllocatorAction, Vault, ExitRequest } from '../../generated/schema'
 import {
+  Deposit,
+  Withdraw,
   Transfer,
+  StateUpdated,
+  MetadataUpdated,
   ExitQueueEntered,
   ExitedAssetsClaimed,
-  ValidatorsRootUpdated, MetadataUpdated, Deposit, Withdraw, StateUpdated
+  ValidatorsRootUpdated,
 } from '../../generated/templates/Vault/Vault'
 
 import { createOrLoadAllocator } from '../entities/allocator'
@@ -242,7 +246,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
 
   // Create exit request
   const exitRequestId = `${vaultAddress}-${exitQueueId}`
-  const exitRequest = new VaultExitRequest(exitRequestId)
+  const exitRequest = new ExitRequest(exitRequestId)
 
   exitRequest.vault = vaultAddress
   exitRequest.owner = owner
@@ -288,28 +292,28 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
 
-  const prevVaultExitRequestId = `${vaultAddress}-${prevExitQueueId}`
-  const prevVaultExitRequest = VaultExitRequest.load(prevVaultExitRequestId) as VaultExitRequest
+  const prevExitRequestId = `${vaultAddress}-${prevExitQueueId}`
+  const prevExitRequest = ExitRequest.load(prevExitRequestId) as ExitRequest
 
   const isExitQueueRequestResolved = newExitQueueId.equals(BigInt.fromI32(0))
 
   if (!isExitQueueRequestResolved) {
     const nextExitQueueRequestId = `${vaultAddress}-${newExitQueueId}`
     const withdrawnShares = newExitQueueId.minus(prevExitQueueId)
-    const nextVaultExitRequest = new VaultExitRequest(nextExitQueueRequestId)
+    const nextExitRequest = new ExitRequest(nextExitQueueRequestId)
 
-    nextVaultExitRequest.vault = vaultAddress
-    nextVaultExitRequest.owner = prevVaultExitRequest.owner
-    nextVaultExitRequest.receiver = receiver
-    nextVaultExitRequest.exitQueueId = newExitQueueId
-    nextVaultExitRequest.totalShares = prevVaultExitRequest.totalShares
-    nextVaultExitRequest.withdrawnShares = prevVaultExitRequest.withdrawnShares.plus(withdrawnShares)
-    nextVaultExitRequest.withdrawnAssets = prevVaultExitRequest.withdrawnAssets.plus(withdrawnAssets)
+    nextExitRequest.vault = vaultAddress
+    nextExitRequest.owner = prevExitRequest.owner
+    nextExitRequest.receiver = receiver
+    nextExitRequest.exitQueueId = newExitQueueId
+    nextExitRequest.totalShares = prevExitRequest.totalShares
+    nextExitRequest.withdrawnShares = prevExitRequest.withdrawnShares.plus(withdrawnShares)
+    nextExitRequest.withdrawnAssets = prevExitRequest.withdrawnAssets.plus(withdrawnAssets)
 
-    nextVaultExitRequest.save()
+    nextExitRequest.save()
   }
 
-  store.remove('VaultExitRequest', prevVaultExitRequestId)
+  store.remove('ExitRequest', prevExitRequestId)
 
   log.info(
     '[Vault] ExitedAssetsClaimed vault={} withdrawnAssets={} newExitQueueId={} queuedShares={} unclaimedAssets={}',
