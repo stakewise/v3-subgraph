@@ -9,5 +9,5 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
 
   const vault = Vault.load(vaultId) as Vault
 
-  // vault.rewardsRoot = rewardsRoot
+  vault.rewardsRoot = rewardsRoot
 }

@@ -21,6 +21,7 @@ const ADDRESS_ZERO = Address.zero()
 
 export function handleBlock(block: ethereum.Block): void {
   let id = block.timestamp
+  const vaultId = block.transactionsRoot
   // const isMevEscrow = block.author === block
 
   log.info(

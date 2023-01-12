@@ -122,6 +122,15 @@ type Vault @entity {
   "The vault metadata IPFS hash"
   metadataIpfsHash: String
 
+  "The vault rewards root"
+  rewardsRoot: Bytes
+
+  rewardsRootTimestamp: String
+
+  proofReward: BigInt
+
+  proof: Bytes
+
   "The vault allocators"
   allocators: [Allocator!]! @derivedFrom(field: "vault")
 
