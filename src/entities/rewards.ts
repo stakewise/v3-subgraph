@@ -1,6 +1,6 @@
 import { BigInt, JSONValue, JSONValueKind } from '@graphprotocol/graph-ts'
 
-import {Vault} from '../../generated/schema'
+import { Vault } from '../../generated/schema'
 
 
 export function updateRewards(rewards: JSONValue): void {
@@ -21,7 +21,9 @@ export function updateRewards(rewards: JSONValue): void {
       if (vault) {
         vault.consensusReward = vault.consensusReward.plus(rewardNumber).minus(vault.proofReward as BigInt)
         vault.proofReward = rewardNumber
-        // vault.proof = proof
+        vault.proof = proof
+        // vault.consensusReward = vault.consensusReward.plus(rewardNumber)
+        vault.totalAssets = vault.totalAssets.plus(rewardNumber)
       }
     }
   })
