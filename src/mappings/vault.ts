@@ -1,4 +1,4 @@
-import { Address, BigInt, ipfs, log, store, json } from '@graphprotocol/graph-ts'
+import { Address, BigInt, ipfs, log, store, json, ethereum } from '@graphprotocol/graph-ts'
 
 import { AllocatorAction, Vault, ExitRequest } from '../../generated/schema'
 import {
@@ -18,6 +18,18 @@ import { createOrLoadDaySnapshot } from '../entities/daySnapshot'
 
 
 const ADDRESS_ZERO = Address.zero()
+
+export function handleBlock(block: ethereum.Block): void {
+  let id = block.timestamp
+  // const isMevEscrow = block.author === block
+
+  log.info(
+    '[Vault] Block timestamp={}',
+    [
+      block.timestamp.toString(),
+    ]
+  )
+}
 
 // Event emitted on assets transfer from allocator to vault
 export function handleDeposit(event: Deposit): void {

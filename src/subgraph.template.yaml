@@ -64,6 +64,8 @@ templates:
           handler: handleValidatorsRootUpdated
         - event: MetadataUpdated(string)
           handler: handleMetadataUpdated
+      blockHandlers:
+        - handler: handleBlock
   - kind: ethereum/contract
     name: ExitQueue
     network: {{ network }}
@@ -83,3 +85,41 @@ templates:
       eventHandlers:
         - event: CheckpointCreated(uint160,uint96)
           handler: handleCheckpointCreated
+  - kind: ethereum/contract
+    name: MevEscrow
+    network: {{ network }}
+    source:
+      abi: MevEscrow
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      file: ./mappings/mevEscrow.ts
+      entities:
+        - Vault
+        - DaySnapshot
+      abis:
+        - name: MevEscrow
+          file: ./abis/MevEscrow.json
+      eventHandlers:
+        - event: MevReceived(uint256)
+          handler: handleMevReceived
+  - kind: ethereum/contract
+    name: Keeper
+    network: {{ network }}
+    source:
+      abi: Keeper
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      file: ./mappings/keeper.ts
+      entities:
+        - Vault
+        - DaySnapshot
+      abis:
+        - name: Keeper
+          file: ./abis/Keeper.json
+      eventHandlers:
+        - event: RewardsRootUpdated(indexed address,indexed bytes32,uint64,uint96,string)
+          handler: handleRewardsRootUpdated

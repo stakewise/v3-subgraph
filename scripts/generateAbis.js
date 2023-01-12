@@ -23,7 +23,7 @@ const abis = [
   },
   {
     from: '../v3-core/abi/IMevEscrow.json',
-    to: '../src/abis/MewEscrow.json',
+    to: '../src/abis/MevEscrow.json',
   },
 ]
 
