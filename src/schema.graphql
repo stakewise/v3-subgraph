@@ -129,7 +129,7 @@ type Vault @entity {
 
   proofReward: BigInt
 
-  proof: [Bytes!]
+  proof: [String!]
 
   "The vault allocators"
   allocators: [Allocator!]! @derivedFrom(field: "vault")

@@ -18,7 +18,8 @@ export function handleMevReceived(event: MevReceived): void {
 
   // rewardPerAsset += reward * (maxFeePercent - vault.feePercent) / maxFeePercent / principalAssets
   const maxFeePercent = BigInt.fromI32(10000)
-  const percent = maxFeePercent.minus(vault.feePercent)
+  const vaultFeePercent = BigInt.fromI32(vault.feePercent)
+  const percent = maxFeePercent.minus(vaultFeePercent)
   const rewardPerAsset = reward.times(percent).div(maxFeePercent).div(daySnapshot.principalAssets)
 
   daySnapshot.rewardPerAsset = daySnapshot.rewardPerAsset.plus(rewardPerAsset)

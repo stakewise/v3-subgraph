@@ -14,14 +14,15 @@ export function updateRewards(rewards: JSONValue): void {
     const reward = value.get('reward')
     const proof = value.get('proof')
 
-    if (typeof vaultId === 'string' && reward && proof) {
-      const vault = Vault.load(vaultId) as Vault
-      const rewardNumber = BigInt.fromI32(reward)
+    if (vaultId && reward && proof) {
+      const vault = Vault.load(vaultId.toString())
 
       if (vault) {
+        const rewardNumber = BigInt.fromString(reward.toString())
+
         vault.consensusReward = vault.consensusReward.plus(rewardNumber).minus(vault.proofReward as BigInt)
         vault.proofReward = rewardNumber
-        vault.proof = proof
+        vault.proof = proof.toArray().map<string>((proofValue: JSONValue) => proofValue.toString())
         // vault.consensusReward = vault.consensusReward.plus(rewardNumber)
         vault.totalAssets = vault.totalAssets.plus(rewardNumber)
       }
