@@ -1,6 +1,6 @@
 import { Address, BigInt, ipfs, log, store, json, ethereum } from '@graphprotocol/graph-ts'
 
-import { AllocatorAction, Vault, ExitRequest } from '../../generated/schema'
+import { AllocatorAction, Vault, ExitRequest, MevEscrow } from '../../generated/schema'
 import {
   Deposit,
   Withdraw,
@@ -14,22 +14,47 @@ import {
 
 import { createOrLoadAllocator } from '../entities/allocator'
 import { updateMetadata } from '../entities/metadata'
-import { createOrLoadDaySnapshot } from '../entities/daySnapshot'
+import { createOrLoadDaySnapshot, getRewardPerAsset } from '../entities/daySnapshot'
 
 
 const ADDRESS_ZERO = Address.zero()
 
-export function handleBlock(block: ethereum.Block): void {
-  let id = block.timestamp
-  const vaultId = block.transactionsRoot
-  // const isMevEscrow = block.author === block
+// TODO add contract call
+const multicall = {
+  getEthBalance: async (mevEscrow: string) => {
+    return BigInt.fromI32(0)
+  }
+}
 
-  log.info(
-    '[Vault] Block timestamp={}',
-    [
-      block.timestamp.toString(),
-    ]
-  )
+export async function handleBlock(block: ethereum.Block): void {
+  const mevEscrowAddress = block.author.toHex()
+  const mevEscrow = MevEscrow.load(mevEscrowAddress)
+
+  if (mevEscrow) {
+    const vaultAddress = mevEscrow.vault
+    const vault = Vault.load(vaultAddress) as Vault
+    const mevEscrowBalance = await multicall.getEthBalance(mevEscrowAddress)
+    const reward = (mevEscrowBalance as BigInt).minus(vault.executionReward)
+
+    vault.executionReward = vault.executionReward.plus(reward)
+    vault.totalAssets = vault.totalAssets.plus(reward)
+
+    const daySnapshot = createOrLoadDaySnapshot(block.timestamp, vaultAddress)
+    const rewardPerAsset = getRewardPerAsset(reward, vault.feePercent, daySnapshot.principalAssets)
+
+    daySnapshot.totalAssets = daySnapshot.totalAssets.plus(reward)
+    daySnapshot.rewardPerAsset = daySnapshot.rewardPerAsset.plus(rewardPerAsset)
+
+    vault.save()
+    daySnapshot.save()
+
+    log.info(
+      '[Vault] Block timestamp={}',
+      [
+        block.timestamp.toString(),
+      ]
+    )
+  }
 }
 
 // Event emitted on assets transfer from allocator to vault

@@ -5,7 +5,6 @@ import { RewardsRootUpdated } from '../../generated/templates/Keeper/Keeper'
 import { updateRewards } from '../entities/rewards'
 
 
-
 export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
   const vaultId = event.address.toHex()
   const rewardsRoot = event.params.rewardsRoot

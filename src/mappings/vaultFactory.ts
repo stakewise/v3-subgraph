@@ -1,7 +1,7 @@
 import { BigInt, log } from '@graphprotocol/graph-ts'
 
-import { Vault } from '../../generated/schema'
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
+import { MevEscrow, Vault } from '../../generated/schema'
 import { Vault as VaultTemplate } from '../../generated/templates'
 import { createOrLoadNetwork } from '../entities/network'
 
@@ -12,10 +12,13 @@ export function handleVaultCreated(event: VaultCreated): void {
   const params = event.params
   const vaultAddress = params.vault
 
-  const vault = new Vault(vaultAddress.toHex())
   const network = createOrLoadNetwork()
-
   network.vaultsTotal = network.vaultsTotal + 1
+
+  const mevEscrow = new MevEscrow(params.mevEscrow.toHex())
+  mevEscrow.vault = vaultAddress.toHex()
+
+  const vault = new Vault(vaultAddress.toHex())
 
   // These properties are empty on vault creating
   // they will be updated on future vault events
@@ -42,7 +45,6 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.admin = params.admin
   vault.capacity = params.capacity
   vault.tokenName = params.name
-  vault.mevEscrow = params.mevEscrow
   vault.feePercent = params.feePercent
   vault.tokenSymbol = params.symbol
   vault.feeRecipient = params.admin
@@ -51,6 +53,7 @@ export function handleVaultCreated(event: VaultCreated): void {
 
   vault.save()
   network.save()
+  mevEscrow.save()
 
   VaultTemplate.create(vaultAddress)
 

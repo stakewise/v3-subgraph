@@ -96,7 +96,7 @@ type Vault @entity {
   capacity: BigInt!
 
   "The MEV and priority fees escrow address"
-  mevEscrow: Bytes!
+  mevEscrow: MevEscrow @derivedFrom(field: "vault")
 
   "The staking fee percent charged by the vault"
   feePercent: Int!
@@ -230,4 +230,15 @@ type Network @entity {
 
   "Total vaults"
   vaultsTotal: Int!
+}
+
+"""
+Mev escrow
+"""
+type MevEscrow @entity {
+  "Mev escrow address"
+  id: ID!
+
+  "The vault of the mev escrow"
+  vault: Vault!
 }
