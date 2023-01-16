@@ -11,30 +11,26 @@ import {
   ExitedAssetsClaimed,
   ValidatorsRootUpdated,
 } from '../../generated/templates/Vault/Vault'
+import { Multicall } from '../../generated/templates/Vault/Multicall'
 
-import { createOrLoadAllocator } from '../entities/allocator'
 import { updateMetadata } from '../entities/metadata'
+import { createOrLoadAllocator } from '../entities/allocator'
 import { createOrLoadDaySnapshot, getRewardPerAsset } from '../entities/daySnapshot'
 
 
 const ADDRESS_ZERO = Address.zero()
-
-// TODO add contract call
-const multicall = {
-  getEthBalance: async (mevEscrow: string) => {
-    return BigInt.fromI32(0)
-  }
-}
 
 export async function handleBlock(block: ethereum.Block): void {
   const mevEscrowAddress = block.author.toHex()
   const mevEscrow = MevEscrow.load(mevEscrowAddress)
 
   if (mevEscrow) {
+    const multicallContract = Multicall.bind(Address.fromString('0x77dCa2C955b15e9dE4dbBCf1246B4B85b651e50e'))
+    const mevEscrowBalance = multicallContract.getEthBalance(block.author)
+
     const vaultAddress = mevEscrow.vault
     const vault = Vault.load(vaultAddress) as Vault
-    const mevEscrowBalance = await multicall.getEthBalance(mevEscrowAddress)
-    const reward = (mevEscrowBalance as BigInt).minus(vault.executionReward)
+    const reward = mevEscrowBalance.minus(vault.executionReward)
 
     vault.executionReward = vault.executionReward.plus(reward)
     vault.totalAssets = vault.totalAssets.plus(reward)
