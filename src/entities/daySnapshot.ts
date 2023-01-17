@@ -1,6 +1,6 @@
 import { BigInt } from '@graphprotocol/graph-ts'
 
-import { DaySnapshot } from '../../generated/schema'
+import { DaySnapshot, Vault } from '../../generated/schema'
 
 
 export function getRewardPerAsset(reward: BigInt, feePercent: number, principalAssets: BigInt): BigInt {
@@ -11,21 +11,44 @@ export function getRewardPerAsset(reward: BigInt, feePercent: number, principalA
   return reward.times(percent).div(maxFeePercent).div(principalAssets)
 }
 
-export function createOrLoadDaySnapshot(date: BigInt, vaultAddress: string): DaySnapshot {
-  const daySnapshotId = `${vaultAddress}-${date}`
+function getLastSnapshot(vaultId: string): DaySnapshot | null {
+  const vault = Vault.load(vaultId)
 
-  let vaultDaySnapshot = DaySnapshot.load(daySnapshotId)
+  if (vault && vault.daySnapshots) {
+    const lastSnapshotId = vault.daySnapshots[0]
 
-  if (vaultDaySnapshot === null) {
-    vaultDaySnapshot = new DaySnapshot(daySnapshotId)
-    vaultDaySnapshot.date = date.toI32()
-    vaultDaySnapshot.totalAssets = BigInt.fromI32(0)
-    vaultDaySnapshot.principalAssets = BigInt.fromI32(0)
-    vaultDaySnapshot.rewardPerAsset = BigInt.fromI32(0)
-    vaultDaySnapshot.vault = vaultAddress
-
-    vaultDaySnapshot.save()
+    if (lastSnapshotId) {
+      return DaySnapshot.load(lastSnapshotId)
+    }
   }
 
-  return vaultDaySnapshot
+  return null
+}
+
+const day = 24 * 60 * 60 * 1000
+
+export function createOrLoadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot {
+  let daySnapshotId = `${vaultId}-${timestamp}`
+
+  const lastSnapshot = getLastSnapshot(vaultId)
+
+  if (lastSnapshot) {
+    const diff = timestamp.minus(lastSnapshot.date).toI32()
+
+    if (diff < day) {
+      return lastSnapshot
+    }
+  }
+
+  const daySnapshot = new DaySnapshot(daySnapshotId)
+
+  daySnapshot.date = timestamp.toI32()
+  daySnapshot.totalAssets = BigInt.fromI32(0)
+  daySnapshot.principalAssets = BigInt.fromI32(0)
+  daySnapshot.rewardPerAsset = BigInt.fromI32(0)
+  daySnapshot.vault = vaultId
+
+  daySnapshot.save()
+
+  return daySnapshot
 }
