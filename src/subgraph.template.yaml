@@ -23,7 +23,7 @@ dataSources:
         - Network
       abis:
         - name: VaultFactory
-          file: ./abis/VaultFactory.json
+          file: ./abis/v3/VaultFactory.json
       eventHandlers:
         - event: VaultCreated(indexed address,indexed address,indexed address,uint256,uint16,string,string)
           handler: handleVaultCreated
@@ -46,7 +46,7 @@ templates:
         - AllocatorAction
       abis:
         - name: Vault
-          file: ./abis/Vault.json
+          file: ./abis/v3/Vault.json
         - name: Multicall
           file: ./abis/Multicall.json
       eventHandlers:
@@ -83,7 +83,7 @@ templates:
         - DaySnapshot
       abis:
         - name: ExitQueue
-          file: ./abis/ExitQueue.json
+          file: ./abis/v3/ExitQueue.json
       eventHandlers:
         - event: CheckpointCreated(uint160,uint96)
           handler: handleCheckpointCreated
@@ -102,7 +102,7 @@ templates:
         - DaySnapshot
       abis:
         - name: MevEscrow
-          file: ./abis/MevEscrow.json
+          file: ./abis/v3/MevEscrow.json
       eventHandlers:
         - event: MevReceived(uint256)
           handler: handleMevReceived
@@ -121,7 +121,7 @@ templates:
         - DaySnapshot
       abis:
         - name: Keeper
-          file: ./abis/Keeper.json
+          file: ./abis/v3/Keeper.json
       eventHandlers:
         - event: RewardsRootUpdated(indexed address,indexed bytes32,uint64,uint96,string)
           handler: handleRewardsRootUpdated
