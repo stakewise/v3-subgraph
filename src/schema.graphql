@@ -125,7 +125,7 @@ type Vault @entity {
   "The vault rewards root"
   rewardsRoot: Bytes
 
-  rewardsRootTimestamp: String
+  rewardsRootTimestamp: BigInt
 
   proofReward: BigInt
 
