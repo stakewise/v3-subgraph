@@ -20,7 +20,7 @@ import { createOrLoadDaySnapshot, getRewardPerAsset } from '../entities/daySnaps
 
 const ADDRESS_ZERO = Address.zero()
 
-export async function handleBlock(block: ethereum.Block): void {
+export function handleBlock(block: ethereum.Block): void {
   const mevEscrowAddress = block.author.toHex()
   const mevEscrow = MevEscrow.load(mevEscrowAddress)
 
