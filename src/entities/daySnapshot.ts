@@ -26,29 +26,29 @@ function getLastSnapshot(vaultId: string): DaySnapshot | null {
 }
 
 const day = 24 * 60 * 60 * 1000
+const dayBigInt = BigInt.fromI32(day)
+
+export function getStartOfDay(timestamp: BigInt): string {
+  return timestamp.div(dayBigInt).times(dayBigInt).toString()
+}
 
 export function createOrLoadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot {
-  let daySnapshotId = `${vaultId}-${timestamp}`
+  const dayStart = getStartOfDay(timestamp)
 
-  const lastSnapshot = getLastSnapshot(vaultId)
+  const daySnapshotId = `${vaultId}-${dayStart}`
+  let daySnapshot = DaySnapshot.load(daySnapshotId)
 
-  if (lastSnapshot) {
-    const diff = timestamp.minus(lastSnapshot.date).toI32()
+  if (daySnapshot === null) {
+    daySnapshot = new DaySnapshot(daySnapshotId)
 
-    if (diff < day) {
-      return lastSnapshot
-    }
+    daySnapshot.date = timestamp.toI32()
+    daySnapshot.totalAssets = BigInt.fromI32(0)
+    daySnapshot.principalAssets = BigInt.fromI32(0)
+    daySnapshot.rewardPerAsset = BigInt.fromI32(0)
+    daySnapshot.vault = vaultId
+
+    daySnapshot.save()
   }
-
-  const daySnapshot = new DaySnapshot(daySnapshotId)
-
-  daySnapshot.date = timestamp.toI32()
-  daySnapshot.totalAssets = BigInt.fromI32(0)
-  daySnapshot.principalAssets = BigInt.fromI32(0)
-  daySnapshot.rewardPerAsset = BigInt.fromI32(0)
-  daySnapshot.vault = vaultId
-
-  daySnapshot.save()
 
   return daySnapshot
 }

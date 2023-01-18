@@ -2,6 +2,7 @@ import { BigInt, ipfs, json, JSONValue, JSONValueKind } from '@graphprotocol/gra
 
 import { Vault } from '../../generated/schema'
 import { RewardsRootUpdated } from '../../generated/templates/Keeper/Keeper'
+import { createOrLoadDaySnapshot, getRewardPerAsset } from '../entities/daySnapshot'
 
 
 export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
@@ -34,17 +35,31 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
               const vault = Vault.load(vaultId.toString())
 
               if (vault) {
-                const rewardNumber = BigInt.fromString(reward.toString())
-                // todo add split logic between last update and the current one
+                const rewardBigInt = BigInt.fromString(reward.toString())
                 const lastUpdateTimestamp = vault.rewardsRootTimestamp
+                const day = BigInt.fromI32(24 * 60 * 60 * 1000)
+                const daysBetween = lastUpdateTimestamp
+                  ? updateTimestamp.minus(lastUpdateTimestamp).div(day).toI32()
+                  : 1
+
+                for (let i = 0; i < daysBetween; i++) {
+                  const diff = day.times(BigInt.fromI32(i))
+                  const timestamp = updateTimestamp.plus(diff)
+                  const daySnapshot = createOrLoadDaySnapshot(timestamp, vaultId.toString())
+                  const rewardPerAsset = getRewardPerAsset(rewardBigInt, vault.feePercent, daySnapshot.principalAssets)
+
+                  daySnapshot.totalAssets = daySnapshot.totalAssets.plus(rewardBigInt)
+                  daySnapshot.rewardPerAsset = daySnapshot.rewardPerAsset.plus(rewardPerAsset)
+
+                  daySnapshot.save()
+                }
 
                 vault.rewardsRoot = rewardsRoot
-                vault.proofReward = rewardNumber
+                vault.proofReward = rewardBigInt
+                vault.consensusReward = rewardBigInt
                 vault.rewardsRootTimestamp = updateTimestamp
-                vault.consensusReward = vault.consensusReward.plus(rewardNumber).minus(vault.proofReward as BigInt)
                 vault.proof = proof.toArray().map<string>((proofValue: JSONValue) => proofValue.toString())
-                // vault.consensusReward = vault.consensusReward.plus(rewardNumber) todo do we need this?
-                vault.totalAssets = vault.totalAssets.plus(rewardNumber)
+                vault.totalAssets = vault.totalAssets.plus(rewardBigInt)
 
                 vault.save()
               }
@@ -52,7 +67,6 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
           }
         })
       }
-      // updateRewards(parsedJson.value)
     }
   }
 }
