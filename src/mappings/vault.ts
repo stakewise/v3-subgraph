@@ -25,6 +25,7 @@ export function handleBlock(block: ethereum.Block): void {
   const mevEscrow = MevEscrow.load(mevEscrowAddress)
 
   if (mevEscrow) {
+    // TODO get address from env or config
     const multicallContract = Multicall.bind(Address.fromString('0x77dCa2C955b15e9dE4dbBCf1246B4B85b651e50e'))
     const mevEscrowBalance = multicallContract.getEthBalance(block.author)
 
