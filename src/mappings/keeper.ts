@@ -21,7 +21,8 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
       if (isArray) {
         const json = parsedJson.value.toArray()
 
-        json.forEach((jsonValue: JSONValue) => {
+        for (let jsonIndex = 0; jsonIndex < json.length; jsonIndex++) {
+          const jsonValue = json[jsonIndex] as JSONValue
           const isObject = jsonValue.kind === JSONValueKind.OBJECT
 
           if (isObject) {
@@ -65,7 +66,7 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
               }
             }
           }
-        })
+        }
       }
     }
   }
