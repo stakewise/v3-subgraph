@@ -55,7 +55,9 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
                   daySnapshot.save()
                 }
 
-                const periodReward = vault.proofReward ? rewardBigInt.minus(vault.proofReward) : rewardBigInt
+                const periodReward = vault.proofReward
+                  ? rewardBigInt.minus(vault.proofReward as BigInt)
+                  : rewardBigInt
 
                 vault.periodReward = periodReward
                 vault.rewardsRoot = rewardsRoot
