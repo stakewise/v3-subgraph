@@ -55,12 +55,15 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
                   daySnapshot.save()
                 }
 
+                const periodReward = vault.proofReward ? rewardBigInt.minus(vault.proofReward) : rewardBigInt
+
+                vault.periodReward = periodReward
                 vault.rewardsRoot = rewardsRoot
                 vault.proofReward = rewardBigInt
-                vault.consensusReward = rewardBigInt
                 vault.rewardsRootTimestamp = updateTimestamp
                 vault.proof = proof.toArray().map<string>((proofValue: JSONValue) => proofValue.toString())
-                vault.totalAssets = vault.totalAssets.plus(rewardBigInt)
+                vault.totalAssets = vault.totalAssets.plus(periodReward)
+                vault.consensusReward = vault.consensusReward.plus(periodReward)
 
                 vault.save()
               }
