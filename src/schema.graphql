@@ -104,8 +104,8 @@ type Vault @entity {
   "The address of the vault's fee recipient"
   feeRecipient: Bytes!
 
-  "Reward on one asset"
-  rewardPerAsset: BigInt!
+  "Average reward on one asset"
+  avgRewardPerAsset: BigInt!
 
   "The vault consensus reward"
   consensusReward: BigInt!

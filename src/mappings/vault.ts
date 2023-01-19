@@ -15,10 +15,35 @@ import { Multicall } from '../../generated/templates/Vault/Multicall'
 
 import { updateMetadata } from '../entities/metadata'
 import { createOrLoadAllocator } from '../entities/allocator'
-import { createOrLoadDaySnapshot, getRewardPerAsset } from '../entities/daySnapshot'
+import { createOrLoadDaySnapshot, getRewardPerAsset, loadDaySnapshot } from '../entities/daySnapshot'
 
 
 const ADDRESS_ZERO = Address.zero()
+const day = 24 * 60 * 60 * 1000
+const dayBigInt = BigInt.fromI32(day)
+const snapshotsCount = 10
+
+function updateAvgRewardPerAsset(timestamp: BigInt, vault: Vault): void {
+  let avgRewardPerAsset = BigInt.fromI32(0)
+  let snapshotsCountBigInt = BigInt.fromI32(snapshotsCount)
+
+  for (let i = 0; i < snapshotsCount; i++) {
+    const diff = dayBigInt.times(BigInt.fromI32(i))
+    const daySnapshot = loadDaySnapshot(timestamp.minus(diff), vault.id)
+
+    if (daySnapshot) {
+      avgRewardPerAsset = avgRewardPerAsset.plus(daySnapshot.rewardPerAsset)
+    }
+    else {
+      snapshotsCountBigInt = snapshotsCountBigInt.minus(BigInt.fromI32(1))
+    }
+  }
+
+  avgRewardPerAsset = avgRewardPerAsset.div(snapshotsCountBigInt)
+
+  vault.avgRewardPerAsset = avgRewardPerAsset
+  vault.save()
+}
 
 export function handleBlock(block: ethereum.Block): void {
   const mevEscrowAddress = block.author.toHex()
@@ -33,17 +58,19 @@ export function handleBlock(block: ethereum.Block): void {
     const vault = Vault.load(vaultAddress) as Vault
     const reward = mevEscrowBalance.minus(vault.executionReward)
 
-    vault.executionReward = vault.executionReward.plus(reward)
-    vault.totalAssets = vault.totalAssets.plus(reward)
-
     const daySnapshot = createOrLoadDaySnapshot(block.timestamp, vaultAddress)
     const rewardPerAsset = getRewardPerAsset(reward, vault.feePercent, daySnapshot.principalAssets)
 
     daySnapshot.totalAssets = daySnapshot.totalAssets.plus(reward)
     daySnapshot.rewardPerAsset = daySnapshot.rewardPerAsset.plus(rewardPerAsset)
 
-    vault.save()
     daySnapshot.save()
+
+    vault.executionReward = vault.executionReward.plus(reward)
+    vault.totalAssets = vault.totalAssets.plus(reward)
+    updateAvgRewardPerAsset(block.timestamp, vault)
+
+    vault.save()
 
     log.info(
       '[Vault] Block timestamp={}',

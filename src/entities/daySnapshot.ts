@@ -14,6 +14,14 @@ export function getRewardPerAsset(reward: BigInt, feePercent: i32, principalAsse
 const day = 24 * 60 * 60 * 1000
 const dayBigInt = BigInt.fromI32(day)
 
+export function loadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot | null {
+  const dayStart = timestamp.div(dayBigInt).times(dayBigInt).toString()
+
+  const daySnapshotId = `${vaultId}-${dayStart}`
+
+  return DaySnapshot.load(daySnapshotId)
+}
+
 export function createOrLoadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot {
   const dayStart = timestamp.div(dayBigInt).times(dayBigInt).toString()
 
