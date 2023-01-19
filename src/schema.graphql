@@ -105,7 +105,7 @@ type Vault @entity {
   feeRecipient: Bytes!
 
   "Reward on one asset"
-  rewardAsset: BigInt!
+  rewardPerAsset: BigInt!
 
   "The vault consensus reward"
   consensusReward: BigInt!
