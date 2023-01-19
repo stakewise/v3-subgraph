@@ -125,10 +125,13 @@ type Vault @entity {
   "The vault rewards root"
   rewardsRoot: Bytes
 
+  "The last vault rewards root update timestamp"
   rewardsRootTimestamp: BigInt
 
+  "The vault rewards root reward"
   proofReward: BigInt
 
+  "The vault rewards root proof"
   proof: [String!]
 
   "The vault allocators"
