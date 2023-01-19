@@ -3,6 +3,7 @@ import { BigInt, ipfs, json, JSONValue, JSONValueKind } from '@graphprotocol/gra
 import { Vault } from '../../generated/schema'
 import { RewardsRootUpdated } from '../../generated/templates/Keeper/Keeper'
 import { createOrLoadDaySnapshot, getRewardPerAsset } from '../entities/daySnapshot'
+import { day } from '../helpers/constants'
 
 
 export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
@@ -38,11 +39,10 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
               if (vault) {
                 const rewardBigInt = BigInt.fromString(reward.toString())
                 const periodReward = vault.proofReward
-                  ? rewardBigInt.minus(vault.proofReward)
+                  ? rewardBigInt.minus(vault.proofReward as BigInt)
                   : rewardBigInt
 
                 const lastUpdateTimestamp = vault.rewardsRootTimestamp
-                const day = BigInt.fromI32(24 * 60 * 60 * 1000)
                 const daysBetween = lastUpdateTimestamp
                   ? updateTimestamp.minus(lastUpdateTimestamp).div(day).toI32()
                   : 1

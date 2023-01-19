@@ -1,6 +1,7 @@
 import { BigInt } from '@graphprotocol/graph-ts'
 
 import { DaySnapshot } from '../../generated/schema'
+import { day } from '../helpers/constants'
 
 
 export function getRewardPerAsset(reward: BigInt, feePercent: i32, principalAssets: BigInt): BigInt {
@@ -11,11 +12,8 @@ export function getRewardPerAsset(reward: BigInt, feePercent: i32, principalAsse
   return reward.times(percent).div(maxFeePercent).div(principalAssets)
 }
 
-const day = 24 * 60 * 60 * 1000
-const dayBigInt = BigInt.fromI32(day)
-
 export function loadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot | null {
-  const dayStart = timestamp.div(dayBigInt).times(dayBigInt).toString()
+  const dayStart = timestamp.div(day).times(day).toString()
 
   const daySnapshotId = `${vaultId}-${dayStart}`
 
@@ -23,7 +21,7 @@ export function loadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot
 }
 
 export function createOrLoadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot {
-  const dayStart = timestamp.div(dayBigInt).times(dayBigInt).toString()
+  const dayStart = timestamp.div(day).times(day).toString()
 
   const daySnapshotId = `${vaultId}-${dayStart}`
   let daySnapshot = DaySnapshot.load(daySnapshotId)
