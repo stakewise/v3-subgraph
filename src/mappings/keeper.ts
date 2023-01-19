@@ -59,7 +59,6 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
                   ? rewardBigInt.minus(vault.proofReward as BigInt)
                   : rewardBigInt
 
-                vault.periodReward = periodReward
                 vault.rewardsRoot = rewardsRoot
                 vault.proofReward = rewardBigInt
                 vault.rewardsRootTimestamp = updateTimestamp

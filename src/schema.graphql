@@ -129,8 +129,6 @@ type Vault @entity {
 
   proofReward: BigInt
 
-  periodReward: BigInt
-
   proof: [String!]
 
   "The vault allocators"
