@@ -37,6 +37,10 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
 
               if (vault) {
                 const rewardBigInt = BigInt.fromString(reward.toString())
+                const periodReward = vault.proofReward
+                  ? rewardBigInt.minus(vault.proofReward)
+                  : rewardBigInt
+
                 const lastUpdateTimestamp = vault.rewardsRootTimestamp
                 const day = BigInt.fromI32(24 * 60 * 60 * 1000)
                 const daysBetween = lastUpdateTimestamp
@@ -54,10 +58,6 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
 
                   daySnapshot.save()
                 }
-
-                const periodReward = vault.proofReward
-                  ? rewardBigInt.minus(vault.proofReward as BigInt)
-                  : rewardBigInt
 
                 vault.rewardsRoot = rewardsRoot
                 vault.proofReward = rewardBigInt
