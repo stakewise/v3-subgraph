@@ -107,7 +107,7 @@ type Vault @entity {
   "Average reward on one asset"
   avgRewardPerAsset: BigInt!
 
-  "The vault consensus reward"
+  "The vault unclaimed consensus reward"
   consensusReward: BigInt!
 
   "The vault unclaimed execution reward"
