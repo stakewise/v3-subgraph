@@ -3,7 +3,7 @@ import { BigInt, ipfs, JSONValue, JSONValueKind, Value } from '@graphprotocol/gr
 import { Vault } from '../../generated/schema'
 import { RewardsRootUpdated } from '../../generated/templates/Keeper/Keeper'
 import { createOrLoadDaySnapshot, getRewardPerAsset } from '../entities/daySnapshot'
-import { day } from '../helpers/constants'
+import { DAY } from '../helpers/constants'
 
 
 function updateRewardsRoot(rewardsRoot: JSONValue, callbackDataValue: Value): void {
@@ -28,7 +28,7 @@ function updateRewardsRoot(rewardsRoot: JSONValue, callbackDataValue: Value): vo
 
         const lastUpdateTimestamp = vault.rewardsRootTimestamp
         const daysBetween = lastUpdateTimestamp
-          ? updateTimestamp.minus(lastUpdateTimestamp).div(day).toI32()
+          ? updateTimestamp.minus(lastUpdateTimestamp).div(DAY).toI32()
           : 1
 
         let rewardLeft = rewardBigInt
@@ -38,7 +38,7 @@ function updateRewardsRoot(rewardsRoot: JSONValue, callbackDataValue: Value): vo
           const dayReward = isLastDay ? rewardLeft : rewardBigInt.div(daysBetween)
           rewardLeft = rewardLeft.minus(dayReward)
 
-          const diff = day.times(BigInt.fromI32(i))
+          const diff = DAY.times(BigInt.fromI32(i))
           const timestamp = updateTimestamp.plus(diff)
           const daySnapshot = createOrLoadDaySnapshot(timestamp, vaultId.toString())
           const rewardPerAsset = getRewardPerAsset(dayReward, vault.feePercent, daySnapshot.principalAssets)

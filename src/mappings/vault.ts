@@ -16,7 +16,7 @@ import { Multicall } from '../../generated/templates/Vault/Multicall'
 import { updateMetadata } from '../entities/metadata'
 import { createOrLoadAllocator } from '../entities/allocator'
 import { createOrLoadDaySnapshot, getRewardPerAsset, loadDaySnapshot } from '../entities/daySnapshot'
-import { day } from '../helpers/constants'
+import { DAY } from '../helpers/constants'
 
 
 const ADDRESS_ZERO = Address.zero()
@@ -27,7 +27,7 @@ function updateAvgRewardPerAsset(timestamp: BigInt, vault: Vault): void {
   let snapshotsCountBigInt = BigInt.fromI32(snapshotsCount)
 
   for (let i = 0; i < snapshotsCount; i++) {
-    const diff = day.times(BigInt.fromI32(i))
+    const diff = DAY.times(BigInt.fromI32(i))
     const daySnapshot = loadDaySnapshot(timestamp.minus(diff), vault.id)
 
     if (daySnapshot) {
