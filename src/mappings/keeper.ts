@@ -31,7 +31,7 @@ function updateRewardsRoot(rewardsRoot: JSONValue, callbackDataValue: Value): vo
           ? updateTimestamp.minus(lastUpdateTimestamp).div(DAY).toI32()
           : 1
 
-        let rewardLeft = rewardBigInt
+        let rewardLeft = periodReward
 
         for (let i = 0; i < daysBetween; i++) {
           const isLastDay = i + 1 === daysBetween
