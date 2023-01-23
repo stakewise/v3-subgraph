@@ -43,8 +43,8 @@ function updateRewardsRoot(rewardsRoot: JSONValue, callbackDataValue: Value): vo
             dayReward = rewardLeft
           }
           else if (isFirstDay) {
-            const endOfFirstDay = updateTimestamp.div(DAY).times(DAY).plus(DAY).minus(BigInt.fromI32(1))
-            const diff = endOfFirstDay.minus(updateTimestamp)
+            const startOfFirstDay = updateTimestamp.div(DAY).times(DAY)
+            const diff = updateTimestamp.minus(startOfFirstDay)
 
             dayReward = dayReward.times(diff).div(DAY)
           }
