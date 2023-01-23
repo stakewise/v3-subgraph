@@ -1,15 +1,14 @@
 import { BigInt } from '@graphprotocol/graph-ts'
 
 import { DaySnapshot } from '../../generated/schema'
-import { DAY } from '../helpers/constants'
+import { DAY, MAX_FEE_PERCENT } from '../helpers/constants'
 
 
 export function getRewardPerAsset(reward: BigInt, feePercent: i32, principalAssets: BigInt): BigInt {
-  const maxFeePercent = BigInt.fromI32(10000)
   const vaultFeePercent = BigInt.fromI32(feePercent)
-  const percent = maxFeePercent.minus(vaultFeePercent)
+  const percent = MAX_FEE_PERCENT.minus(vaultFeePercent)
 
-  return reward.times(percent).div(maxFeePercent).div(principalAssets)
+  return reward.times(percent).div(MAX_FEE_PERCENT).div(principalAssets)
 }
 
 export function loadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot | null {
