@@ -31,13 +31,19 @@ function updateRewardsRoot(rewardsRoot: JSONValue, callbackDataValue: Value): vo
           ? updateTimestamp.minus(lastUpdateTimestamp).div(day).toI32()
           : 1
 
+        let rewardLeft = rewardBigInt
+
         for (let i = 0; i < daysBetween; i++) {
+          const isLastDay = i + 1 === daysBetween
+          const dayReward = isLastDay ? rewardLeft : rewardBigInt.div(daysBetween)
+          rewardLeft = rewardLeft.minus(dayReward)
+
           const diff = day.times(BigInt.fromI32(i))
           const timestamp = updateTimestamp.plus(diff)
           const daySnapshot = createOrLoadDaySnapshot(timestamp, vaultId.toString())
-          const rewardPerAsset = getRewardPerAsset(rewardBigInt, vault.feePercent, daySnapshot.principalAssets)
+          const rewardPerAsset = getRewardPerAsset(dayReward, vault.feePercent, daySnapshot.principalAssets)
 
-          daySnapshot.totalAssets = daySnapshot.totalAssets.plus(rewardBigInt)
+          daySnapshot.totalAssets = daySnapshot.totalAssets.plus(dayReward)
           daySnapshot.rewardPerAsset = daySnapshot.rewardPerAsset.plus(rewardPerAsset)
 
           daySnapshot.save()
