@@ -38,7 +38,7 @@ type VaultCheckpoint @entity {
 """
 Vault exit request
 """
-type VaultExitRequest @entity {
+type ExitRequest @entity {
   "<Vault ID>-<Exit queue id>"
   id: ID!
 
@@ -96,13 +96,22 @@ type Vault @entity {
   capacity: BigInt!
 
   "The MEV and priority fees escrow address"
-  mevEscrow: Bytes!
+  mevEscrow: MevEscrow @derivedFrom(field: "vault")
 
   "The staking fee percent charged by the vault"
   feePercent: Int!
 
   "The address of the vault's fee recipient"
   feeRecipient: Bytes!
+
+  "Average reward on one asset"
+  avgRewardPerAsset: BigInt!
+
+  "The vault unclaimed consensus reward"
+  consensusReward: BigInt!
+
+  "The vault unclaimed execution reward"
+  executionReward: BigInt!
 
   "The vault validators merkle tree root"
   validatorsRoot: Bytes
@@ -112,6 +121,18 @@ type Vault @entity {
 
   "The vault metadata IPFS hash"
   metadataIpfsHash: String
+
+  "The vault rewards root"
+  rewardsRoot: Bytes
+
+  "The last vault rewards root update timestamp"
+  rewardsRootTimestamp: BigInt
+
+  "The vault rewards root reward"
+  proofReward: BigInt
+
+  "The vault rewards root proof"
+  proof: [String!]
 
   "The vault allocators"
   allocators: [Allocator!]! @derivedFrom(field: "vault")
@@ -123,13 +144,16 @@ type Vault @entity {
   checkpoints: [VaultCheckpoint!]! @derivedFrom(field: "vault")
 
   "The vault exit requests"
-  exitRequests: [VaultExitRequest!]! @derivedFrom(field: "vault")
+  exitRequests: [ExitRequest!]! @derivedFrom(field: "vault")
 
   "The vault day snapshots"
-  daySnapshots: [VaultDaySnapshot!]! @derivedFrom(field: "vault")
+  daySnapshots: [DaySnapshot!]! @derivedFrom(field: "vault")
 
   "The total number of shares"
   totalShares: BigInt!
+
+  "The vault score"
+  score: BigDecimal!
 
   "The total number of assets"
   totalAssets: BigInt!
@@ -177,7 +201,7 @@ type AllocatorAction @entity {
   createdAt: BigInt!
 }
 
-type VaultDaySnapshot @entity {
+type DaySnapshot @entity {
   "<Vault ID>-<date>"
   id: ID!
 
@@ -187,11 +211,9 @@ type VaultDaySnapshot @entity {
   "The total number of assets"
   totalAssets: BigInt!
 
-  "The vault consensus reward"
-  consensusReward: BigInt!
+  principalAssets: BigInt!
 
-  "The vault execution reward"
-  executionReward: BigInt!
+  rewardPerAsset: BigInt!
 
   "The snapshot's vault"
   vault: Vault!
@@ -203,4 +225,26 @@ StakeWise V3 transaction
 type Transaction @entity {
   "Transaction hash"
   id: ID!
+}
+
+"""
+Network data
+"""
+type Network @entity {
+  "Always 0"
+  id: ID!
+
+  "Total vaults"
+  vaultsTotal: Int!
+}
+
+"""
+Mev escrow
+"""
+type MevEscrow @entity {
+  "Mev escrow address"
+  id: ID!
+
+  "The vault of the mev escrow"
+  vault: Vault!
 }

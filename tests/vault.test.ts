@@ -1,20 +1,27 @@
 import { BigInt, Bytes, store } from '@graphprotocol/graph-ts'
 import { beforeAll, afterAll, clearStore, describe, test, assert, mockIpfsFile, afterEach } from 'matchstick-as'
 
+import { Vault } from '../generated/schema'
 import {
+  handleDeposit,
+  handleWithdraw,
   handleTransfer,
+  handleMetadataUpdated,
   handleExitQueueEntered,
   handleExitedAssetsClaimed,
-  handleValidatorsRootUpdated, handleDeposit, handleMetadataUpdated, handleWithdraw,
+  handleValidatorsRootUpdated,
 } from '../src/mappings/vault'
 import { handleCheckpointCreated } from '../src/mappings/exitQueue'
 
 import {
+  createDepositEvent,
+  createWithdrawEvent,
   createTransferEvent,
+  createMetadataUpdatedEvent,
   createExitQueueEnteredEvent,
   createCheckpointCreatedEvent,
   createExitedAssetsClaimedEvent,
-  createValidatorsRootUpdatedEvent, createDepositEvent, createMetadataUpdatedEvent, createWithdrawEvent
+  createValidatorsRootUpdatedEvent,
 } from './util/events'
 import { createVault } from './util/helpers'
 import { address, addressString } from './util/mock'
@@ -43,7 +50,7 @@ describe('vault', () => {
 
   describe('handleExitQueueEntered', () => {
 
-    test('creates VaultExitRequest and increases queuedShares', () => {
+    test('creates ExitRequest and increases queuedShares', () => {
       const amount = '10000'
       const exitQueueId = '0'
 
@@ -61,13 +68,13 @@ describe('vault', () => {
       const exitRequestId = `${vaultId}-${exitQueueId}`
 
       assert.fieldEquals('Vault', vaultId, 'queuedShares', '10000')
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'vault', vaultId)
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'owner', addressString.get('admin'))
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'receiver', addressString.get('admin'))
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'totalShares', amount)
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'exitQueueId', exitQueueId)
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'withdrawnShares', '0')
-      assert.fieldEquals('VaultExitRequest', exitRequestId, 'withdrawnAssets', '0')
+      assert.fieldEquals('ExitRequest', exitRequestId, 'vault', vaultId)
+      assert.fieldEquals('ExitRequest', exitRequestId, 'owner', addressString.get('admin'))
+      assert.fieldEquals('ExitRequest', exitRequestId, 'receiver', addressString.get('admin'))
+      assert.fieldEquals('ExitRequest', exitRequestId, 'totalShares', amount)
+      assert.fieldEquals('ExitRequest', exitRequestId, 'exitQueueId', exitQueueId)
+      assert.fieldEquals('ExitRequest', exitRequestId, 'withdrawnShares', '0')
+      assert.fieldEquals('ExitRequest', exitRequestId, 'withdrawnAssets', '0')
     })
   })
 
@@ -85,6 +92,23 @@ describe('vault', () => {
       handleDeposit(depositEvent)
 
       assert.fieldEquals('Vault', vaultId, 'totalAssets', amount)
+    })
+
+    // TODO add all actions tests
+    test('creates allocator action on deposit', () => {
+      const amount = '10000'
+      const vaultId = addressString.get('vault')
+
+      const depositEvent = createDepositEvent(
+        address.get('admin'),
+        BigInt.fromString(amount),
+      )
+
+      handleDeposit(depositEvent)
+
+      const vault = Vault.load(vaultId) as Vault
+
+      assert.assertTrue(vault.allocatorActions.length === 1)
     })
   })
 

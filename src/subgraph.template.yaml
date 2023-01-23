@@ -20,9 +20,10 @@ dataSources:
       file: ./mappings/vaultFactory.ts
       entities:
         - Vault
+        - Network
       abis:
         - name: VaultFactory
-          file: ./abis/VaultFactory.json
+          file: ./abis/v3/VaultFactory.json
       eventHandlers:
         - event: VaultCreated(indexed address,indexed address,indexed address,uint256,uint16,string,string)
           handler: handleVaultCreated
@@ -39,10 +40,15 @@ templates:
       file: ./mappings/vault.ts
       entities:
         - Vault
-        - VaultStaker
+        - Allocator
+        - ExitRequest
+        - DaySnapshot
+        - AllocatorAction
       abis:
         - name: Vault
-          file: ./abis/Vault.json
+          file: ./abis/v3/Vault.json
+        - name: Multicall
+          file: ./abis/Multicall.json
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
@@ -60,6 +66,8 @@ templates:
           handler: handleValidatorsRootUpdated
         - event: MetadataUpdated(string)
           handler: handleMetadataUpdated
+      blockHandlers:
+        - handler: handleBlock
   - kind: ethereum/contract
     name: ExitQueue
     network: {{ network }}
@@ -72,9 +80,48 @@ templates:
       file: ./mappings/exitQueue.ts
       entities:
         - VaultCheckpoint
+        - DaySnapshot
       abis:
         - name: ExitQueue
-          file: ./abis/ExitQueue.json
+          file: ./abis/v3/ExitQueue.json
       eventHandlers:
         - event: CheckpointCreated(uint160,uint96)
           handler: handleCheckpointCreated
+  - kind: ethereum/contract
+    name: MevEscrow
+    network: {{ network }}
+    source:
+      abi: MevEscrow
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      file: ./mappings/mevEscrow.ts
+      entities:
+        - Vault
+        - DaySnapshot
+      abis:
+        - name: MevEscrow
+          file: ./abis/v3/MevEscrow.json
+      eventHandlers:
+        - event: MevReceived(uint256)
+          handler: handleMevReceived
+  - kind: ethereum/contract
+    name: Keeper
+    network: {{ network }}
+    source:
+      abi: Keeper
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      file: ./mappings/keeper.ts
+      entities:
+        - Vault
+        - DaySnapshot
+      abis:
+        - name: Keeper
+          file: ./abis/v3/Keeper.json
+      eventHandlers:
+        - event: RewardsRootUpdated(indexed address,indexed bytes32,uint64,uint96,string)
+          handler: handleRewardsRootUpdated
