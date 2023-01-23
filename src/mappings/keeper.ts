@@ -35,7 +35,20 @@ function updateRewardsRoot(rewardsRoot: JSONValue, callbackDataValue: Value): vo
 
         for (let i = 0; i < daysBetween; i++) {
           const isLastDay = i + 1 === daysBetween
-          const dayReward = isLastDay ? rewardLeft : rewardBigInt.div(daysBetween)
+          const isFirstDay = i === 0
+
+          let dayReward = rewardBigInt.div(daysBetween)
+
+          if (isLastDay) {
+            dayReward = rewardLeft
+          }
+          else if (isFirstDay && lastUpdateTimestamp) {
+            const endOfFirstDay = lastUpdateTimestamp.plus(DAY).div(DAY).times(DAY).minus(BigInt.fromI32(1))
+            const diff = endOfFirstDay.minus(lastUpdateTimestamp)
+
+            dayReward = dayReward.div(DAY).times(diff)
+          }
+
           rewardLeft = rewardLeft.minus(dayReward)
 
           const diff = DAY.times(BigInt.fromI32(i))
