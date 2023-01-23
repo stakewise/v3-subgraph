@@ -46,7 +46,7 @@ function updateRewardsRoot(rewardsRoot: JSONValue, callbackDataValue: Value): vo
             const endOfFirstDay = lastUpdateTimestamp.plus(DAY).div(DAY).times(DAY).minus(BigInt.fromI32(1))
             const diff = endOfFirstDay.minus(lastUpdateTimestamp)
 
-            dayReward = dayReward.div(DAY).times(diff)
+            dayReward = dayReward.times(diff).div(DAY)
           }
 
           rewardLeft = rewardLeft.minus(dayReward)
