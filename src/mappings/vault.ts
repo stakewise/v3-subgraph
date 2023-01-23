@@ -26,7 +26,7 @@ function updateAvgRewardPerAsset(timestamp: BigInt, vault: Vault): void {
   let avgRewardPerAsset = BigInt.fromI32(0)
   let snapshotsCountBigInt = BigInt.fromI32(snapshotsCount)
 
-  for (let i = 0; i < snapshotsCount; i++) {
+  for (let i = 1; i <= snapshotsCount; i++) {
     const diff = DAY.times(BigInt.fromI32(i))
     const daySnapshot = loadDaySnapshot(timestamp.minus(diff), vault.id)
 
