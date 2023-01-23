@@ -152,6 +152,9 @@ type Vault @entity {
   "The total number of shares"
   totalShares: BigInt!
 
+  "The vault score"
+  score: BigDecimal!
+
   "The total number of assets"
   totalAssets: BigInt!
 

@@ -1,4 +1,4 @@
-import { BigInt, log } from '@graphprotocol/graph-ts'
+import { BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
 
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import { MevEscrow, Vault } from '../../generated/schema'
@@ -28,6 +28,7 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.validatorsRoot = null
   vault.metadataIpfsHash = null
   vault.validatorsIpfsHash = null
+  vault.score = BigDecimal.fromString('10')
   vault.totalShares = BigInt.fromI32(0)
   vault.totalAssets = BigInt.fromI32(0)
   vault.queuedShares = BigInt.fromI32(0)
