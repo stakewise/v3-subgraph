@@ -52,7 +52,7 @@ function updateRewardsRoot(rewardsRoot: JSONValue, callbackDataValue: Value): vo
           rewardLeft = rewardLeft.minus(dayReward)
 
           const diff = DAY.times(BigInt.fromI32(i))
-          const timestamp = updateTimestamp.plus(diff)
+          const timestamp = updateTimestamp.minus(diff)
           const daySnapshot = createOrLoadDaySnapshot(timestamp, vaultId.toString())
           const rewardPerAsset = getRewardPerAsset(dayReward, vault.feePercent, daySnapshot.principalAssets)
 
