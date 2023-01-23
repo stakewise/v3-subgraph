@@ -110,7 +110,7 @@ type Vault @entity {
   "The vault consensus reward"
   consensusReward: BigInt!
 
-  "The vault execution reward"
+  "The vault unclaimed execution reward"
   executionReward: BigInt!
 
   "The vault validators merkle tree root"
