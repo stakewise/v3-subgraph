@@ -10,6 +10,10 @@ const abis = [
     to: '../src/abis/v3/Vault.json',
   },
   {
+    from: '../v3-core/abi/IEthPrivateVault.json',
+    to: '../src/abis/v3/PrivateVault.json',
+  },
+  {
     from: '../v3-core/abi/IEthVaultFactory.json',
     to: '../src/abis/v3/VaultFactory.json',
   },

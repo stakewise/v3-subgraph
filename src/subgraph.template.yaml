@@ -25,7 +25,7 @@ dataSources:
         - name: VaultFactory
           file: ./abis/v3/VaultFactory.json
       eventHandlers:
-        - event: VaultCreated(indexed address,indexed address,indexed address,uint256,uint16,string,string)
+        - event: VaultCreated(indexed address,indexed address,indexed bool,address,uint256,uint16,string,string)
           handler: handleVaultCreated
 templates:
   - kind: ethereum/contract
@@ -62,12 +62,31 @@ templates:
           handler: handleExitQueueEntered
         - event: ExitedAssetsClaimed(indexed address,indexed address,indexed uint256,uint256,uint256)
           handler: handleExitedAssetsClaimed
-        - event: ValidatorsRootUpdated(indexed bytes32,string)
+        - event: ValidatorsRootUpdated(indexed address,indexed bytes32,string)
           handler: handleValidatorsRootUpdated
-        - event: MetadataUpdated(string)
+        - event: MetadataUpdated(indexed address,string)
           handler: handleMetadataUpdated
       blockHandlers:
         - handler: handleBlock
+  - kind: ethereum/contract
+    name: PrivateVault
+    network: {{ network }}
+    source:
+      abi: PrivateVault
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      file: ./mappings/privateVault.ts
+      entities:
+        - Vault
+        - PrivateVaultAccount
+      abis:
+        - name: PrivateVault
+          file: ./abis/v3/PrivateVault.json
+      eventHandlers:
+        - event: WhitelistUpdated(indexed address,indexed address,bool)
+          handler: handleWhitelistUpdated
   - kind: ethereum/contract
     name: ExitQueue
     network: {{ network }}

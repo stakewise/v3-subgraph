@@ -41,6 +41,7 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.admin = params.admin
   vault.capacity = params.capacity
   vault.tokenName = params.name
+  vault.isPrivate = params.isPrivate
   vault.feePercent = params.feePercent
   vault.tokenSymbol = params.symbol
   vault.feeRecipient = params.admin

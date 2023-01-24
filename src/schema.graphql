@@ -164,6 +164,12 @@ type Vault @entity {
   "The number of assets that are waiting to be claimed"
   unclaimedAssets: BigInt!
 
+  "Indicates whether the Vault is private"
+  isPrivate: Boolean!
+
+  "If the Vault is private, whitelister can add/remove allocators"
+  whitelister: Bytes
+
   "The timestamp the vault was created at"
   createdAt: BigInt!
 }
@@ -246,5 +252,19 @@ type MevEscrow @entity {
   id: ID!
 
   "The vault of the mev escrow"
+  vault: Vault!
+}
+
+"""
+Account that is whitelisted in the private Vault
+"""
+type PrivateVaultAccount @entity {
+  "<Vault ID>-<address>"
+  id: ID!
+
+  "The address of the account"
+  address: Bytes!
+
+  "The private Vault"
   vault: Vault!
 }
