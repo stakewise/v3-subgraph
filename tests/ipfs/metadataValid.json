@@ -1,5 +1,5 @@
 {
-  "displayName": "Display Name",
+  "display_name": "Display Name",
   "description": "Description",
-  "imageUrl": "https://static.stakewise.io/image.jpg"
+  "image_url": "https://static.stakewise.io/image.jpg"
 }
