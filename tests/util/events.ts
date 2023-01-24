@@ -3,6 +3,7 @@ import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import { CheckpointCreated } from '../../generated/templates/ExitQueue/ExitQueue'
+import { WhitelistUpdated } from '../../generated/templates/PrivateVault/PrivateVault'
 import {
   Deposit,
   Transfer,
@@ -43,6 +44,7 @@ const createVaultEvent = (
 
   const adminParam = new ethereum.EventParam('admin', ethereum.Value.fromAddress(admin))
   const vaultParam = new ethereum.EventParam('vault', ethereum.Value.fromAddress(vault))
+  const isPrivateParam = new ethereum.EventParam('isPrivate', ethereum.Value.fromBoolean(false))
   const mevEscrowParam = new ethereum.EventParam('mevEscrow', ethereum.Value.fromAddress(mevEscrow))
   const nameParam = new ethereum.EventParam('name', ethereum.Value.fromString(name))
   const symbolParam = new ethereum.EventParam('symbol', ethereum.Value.fromString(symbol))
@@ -51,6 +53,7 @@ const createVaultEvent = (
 
   mockVaultCreatedEvent.parameters.push(adminParam)
   mockVaultCreatedEvent.parameters.push(vaultParam)
+  mockVaultCreatedEvent.parameters.push(isPrivateParam)
   mockVaultCreatedEvent.parameters.push(mevEscrowParam)
   mockVaultCreatedEvent.parameters.push(capacityParam)
   mockVaultCreatedEvent.parameters.push(feePercentParam)
@@ -282,6 +285,36 @@ const createMetadataUpdatedEvent = (
   return mockMetadataUpdatedEvent
 }
 
+const createWhitelistUpdatedEvent = (
+  accountAddress: string,
+  approved: boolean
+): WhitelistUpdated => {
+  const mockEvent = newMockEvent()
+
+  const mockWhitelistUpdatedEvent = new WhitelistUpdated(
+    address.get('vault'),
+    mockEvent.logIndex,
+    mockEvent.transactionLogIndex,
+    mockEvent.logType,
+    mockEvent.block,
+    mockEvent.transaction,
+    mockEvent.parameters,
+    null
+  )
+
+  mockWhitelistUpdatedEvent.parameters = new Array()
+
+  const senderParam = new ethereum.EventParam('sender', ethereum.Value.fromAddress(address.get('admin')))
+  const accountParam = new ethereum.EventParam('account', ethereum.Value.fromAddress(Address.fromString(accountAddress)))
+  const approvedParam = new ethereum.EventParam('approved', ethereum.Value.fromBoolean(approved))
+
+  mockWhitelistUpdatedEvent.parameters.push(senderParam)
+  mockWhitelistUpdatedEvent.parameters.push(accountParam)
+  mockWhitelistUpdatedEvent.parameters.push(approvedParam)
+
+  return mockWhitelistUpdatedEvent
+}
+
 const createValidatorsRootUpdatedEvent = (
   validatorsRoot: Bytes,
   validatorsIpfsHash: string,
@@ -317,6 +350,7 @@ export {
   createWithdrawEvent,
   createTransferEvent,
   createMetadataUpdatedEvent,
+  createWhitelistUpdatedEvent,
   createExitQueueEnteredEvent,
   createCheckpointCreatedEvent,
   createExitedAssetsClaimedEvent,
