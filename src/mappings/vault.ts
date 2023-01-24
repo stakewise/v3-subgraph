@@ -91,7 +91,9 @@ export function handleDeposit(event: Deposit): void {
   vault.totalAssets = vault.totalAssets.plus(assets)
   vault.save()
 
-  const allocatorAction = new AllocatorAction(`${event.transaction.hash}-${event.transactionLogIndex}`)
+  const allocatorAction = new AllocatorAction(
+      `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`
+  )
 
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
@@ -127,7 +129,9 @@ export function handleWithdraw(event: Withdraw): void {
   vault.totalAssets = vault.totalAssets.minus(assets)
   vault.save()
 
-  const allocatorAction = new AllocatorAction(`${event.transaction.hash}-${event.transactionLogIndex}`)
+  const allocatorAction = new AllocatorAction(
+      `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`
+  )
 
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
@@ -295,7 +299,9 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   vault.queuedShares = vault.queuedShares.plus(shares)
   vault.save()
 
-  const allocatorAction = new AllocatorAction(`${event.transaction.hash}-${event.transactionLogIndex}`)
+  const allocatorAction = new AllocatorAction(
+      `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`
+  )
 
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
@@ -340,7 +346,9 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const vaultAddress = event.address.toHex()
 
   const vault = Vault.load(vaultAddress) as Vault
-  const allocatorAction = new AllocatorAction(`${event.transaction.hash}-${event.transactionLogIndex}`)
+  const allocatorAction = new AllocatorAction(
+      `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`
+  )
 
   vault.unclaimedAssets = vault.unclaimedAssets.minus(withdrawnAssets)
   vault.save()
