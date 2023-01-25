@@ -7,8 +7,8 @@ export function updateMetadata(metadata: JSONValue, vault: Vault): void {
   if (metadata.kind !== JSONValueKind.OBJECT) return
   const json = metadata.toObject()
 
-  const imageUrl = json.get('imageUrl')
-  const displayName = json.get('displayName')
+  const imageUrl = json.get('image_url')
+  const displayName = json.get('display_name')
   const description = json.get('description')
 
   if (description && description.kind === JSONValueKind.STRING) {
