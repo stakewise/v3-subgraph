@@ -27,7 +27,7 @@ export function updateMetadata(metadata: JSONValue, vault: Vault): void {
 
   if (imageUrl && imageUrl.kind === JSONValueKind.STRING) {
     const imageUrlString = imageUrl.toString()
-    const isImageUrlValid = imageUrlString.startsWith('https://static.stakewise.io/')
+    const isImageUrlValid = imageUrlString.startsWith('https://storage.stakewise.io/')
 
     vault.imageUrl = isImageUrlValid ? imageUrlString : ''
   }

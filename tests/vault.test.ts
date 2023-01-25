@@ -350,7 +350,7 @@ describe('vault', () => {
       assert.fieldEquals('Vault', vaultId, 'metadataIpfsHash', metadataIpfsHash)
       assert.fieldEquals('Vault', vaultId, 'displayName', 'Display Name')
       assert.fieldEquals('Vault', vaultId, 'description', 'Description')
-      assert.fieldEquals('Vault', vaultId, 'imageUrl', 'https://static.stakewise.io/image.jpg')
+      assert.fieldEquals('Vault', vaultId, 'imageUrl', 'https://storage.stakewise.io/image.jpg')
     })
 
     test('resets vault invalid metadata', () => {
