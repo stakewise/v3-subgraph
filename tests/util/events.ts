@@ -317,7 +317,6 @@ const createWhitelistUpdatedEvent = (
 
 const createValidatorsRootUpdatedEvent = (
   validatorsRoot: Bytes,
-  validatorsIpfsHash: string,
 ): ValidatorsRootUpdated => {
   const mockEvent = newMockEvent()
 
@@ -335,10 +334,8 @@ const createValidatorsRootUpdatedEvent = (
   mockValidatorsRootUpdatedEvent.parameters = new Array()
 
   const validatorsRootParam = new ethereum.EventParam('validatorsRoot', ethereum.Value.fromBytes(validatorsRoot))
-  const validatorsIpfsHashParam = new ethereum.EventParam('validatorsIpfsHash', ethereum.Value.fromString(validatorsIpfsHash))
 
   mockValidatorsRootUpdatedEvent.parameters.push(validatorsRootParam)
-  mockValidatorsRootUpdatedEvent.parameters.push(validatorsIpfsHashParam)
 
   return mockValidatorsRootUpdatedEvent
 }
