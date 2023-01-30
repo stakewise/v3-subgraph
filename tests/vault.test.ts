@@ -318,19 +318,14 @@ describe('vault', () => {
 
     test('updates validators root', () => {
       const validatorsRoot = Bytes.fromUTF8('root')
-      const validatorsIpfsHash = 'validatorsHash'
 
-      const validatorsRootUpdatedEvent = createValidatorsRootUpdatedEvent(
-        validatorsRoot,
-        validatorsIpfsHash,
-      )
+      const validatorsRootUpdatedEvent = createValidatorsRootUpdatedEvent(validatorsRoot)
 
       handleValidatorsRootUpdated(validatorsRootUpdatedEvent)
 
       const vaultId = addressString.get('vault')
 
       assert.fieldEquals('Vault', vaultId, 'validatorsRoot', validatorsRoot.toHex())
-      assert.fieldEquals('Vault', vaultId, 'validatorsIpfsHash', validatorsIpfsHash)
     })
   })
 

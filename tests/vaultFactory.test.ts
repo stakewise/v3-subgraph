@@ -54,7 +54,6 @@ describe('vaultFactory', () => {
       assert.fieldEquals('Vault', vaultAddress, 'description', 'null')
       assert.fieldEquals('Vault', vaultAddress, 'validatorsRoot', 'null')
       assert.fieldEquals('Vault', vaultAddress, 'metadataIpfsHash', 'null')
-      assert.fieldEquals('Vault', vaultAddress, 'validatorsIpfsHash', 'null')
 
       assert.fieldEquals('Vault', vaultAddress, 'allocators', '[]')
       assert.fieldEquals('Vault', vaultAddress, 'checkpoints', '[]')

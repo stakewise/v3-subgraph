@@ -116,9 +116,6 @@ type Vault @entity {
   "The vault validators merkle tree root"
   validatorsRoot: Bytes
 
-  "The vault IPFS hash with all the validators deposit data"
-  validatorsIpfsHash: String
-
   "The vault metadata IPFS hash"
   metadataIpfsHash: String
 

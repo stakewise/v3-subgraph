@@ -264,20 +264,17 @@ export function handleValidatorsRootUpdated(event: ValidatorsRootUpdated): void 
   const params = event.params
 
   const validatorsRoot = params.validatorsRoot
-  const validatorsIpfsHash = params.validatorsIpfsHash
 
   const vault = Vault.load(event.address.toHex()) as Vault
 
   vault.validatorsRoot = validatorsRoot
-  vault.validatorsIpfsHash = validatorsIpfsHash
 
   vault.save()
 
   log.info(
-    '[Vault] ValidatorsRootUpdated validatorsRoot={} validatorsIpfsHash={}',
+    '[Vault] ValidatorsRootUpdated validatorsRoot={}',
     [
       validatorsRoot.toHex(),
-      validatorsIpfsHash,
     ]
   )
 }

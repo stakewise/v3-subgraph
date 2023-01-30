@@ -27,7 +27,6 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.description = null
   vault.validatorsRoot = null
   vault.metadataIpfsHash = null
-  vault.validatorsIpfsHash = null
   vault.score = BigDecimal.fromString('10')
   vault.totalShares = BigInt.fromI32(0)
   vault.totalAssets = BigInt.fromI32(0)
