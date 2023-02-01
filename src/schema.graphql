@@ -65,6 +65,25 @@ type ExitRequest @entity {
 }
 
 """
+Vault search
+"""
+type _Schema_ @fulltext(
+  name: "vaultSearch"
+  language: en
+  algorithm: proximityRank
+  include: [{
+    entity: "Vault",
+    fields: [
+      { name: "addressString" },
+      { name: "displayName" },
+      { name: "description" },
+      { name: "tokenName" },
+      { name: "tokenSymbol" }
+    ]
+  }]
+)
+
+"""
 Vault
 """
 type Vault @entity {
