@@ -11,14 +11,15 @@ export function handleVaultCreated(event: VaultCreated): void {
   const block = event.block
   const params = event.params
   const vaultAddress = params.vault
+  const vaultAddressHex = vaultAddress.toHex()
 
   const network = createOrLoadNetwork()
   network.vaultsTotal = network.vaultsTotal + 1
 
   const mevEscrow = new MevEscrow(params.mevEscrow.toHex())
-  mevEscrow.vault = vaultAddress.toHex()
+  mevEscrow.vault = vaultAddressHex
 
-  const vault = new Vault(vaultAddress.toHex())
+  const vault = new Vault(vaultAddressHex)
 
   // These properties are empty on vault creating
   // they will be updated on future vault events
@@ -46,6 +47,7 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.feeRecipient = params.admin
   vault.factory = event.address
   vault.createdAt = block.timestamp
+  vault.addressString = vaultAddressHex
 
   vault.save()
   network.save()

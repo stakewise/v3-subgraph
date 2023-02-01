@@ -167,6 +167,9 @@ type Vault @entity {
   "If the Vault is private, whitelister can add/remove allocators"
   whitelister: Bytes
 
+  "Vault address string for search"
+  addressString: String!
+
   "The timestamp the vault was created at"
   createdAt: BigInt!
 }
