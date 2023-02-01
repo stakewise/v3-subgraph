@@ -68,7 +68,7 @@ type ExitRequest @entity {
 Vault search
 """
 type _Schema_ @fulltext(
-  name: "vaultSearch"
+  name: "vaultsSearch"
   language: en
   algorithm: proximityRank
   include: [{
