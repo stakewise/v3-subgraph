@@ -4,7 +4,6 @@ repository: https://github.com/stakewise/v3-subgraph
 schema:
   file: ./schema.graphql
 features:
-  - fullTextSearch
   - ipfsOnEthereumContracts
 dataSources:
   - kind: ethereum/contract
