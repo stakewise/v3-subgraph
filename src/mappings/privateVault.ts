@@ -1,7 +1,7 @@
 import { log, store } from '@graphprotocol/graph-ts'
 
-import { WhitelistUpdated } from '../../generated/templates/PrivateVault/PrivateVault'
-import { PrivateVaultAccount } from '../../generated/schema'
+import { WhitelistUpdated, WhitelisterUpdated } from '../../generated/templates/PrivateVault/PrivateVault'
+import { PrivateVaultAccount, Vault } from '../../generated/schema'
 
 
 export function handleWhitelistUpdated(event: WhitelistUpdated): void {
@@ -29,6 +29,24 @@ export function handleWhitelistUpdated(event: WhitelistUpdated): void {
     [
       vaultAddress,
       approved ? 'true' : 'false',
+    ]
+  )
+}
+
+export function handleWhitelisterUpdated(event: WhitelisterUpdated): void {
+  const params = event.params
+  const whitelister = params.whitelister
+
+  const vaultAddress = event.address.toHex()
+  const vault = Vault.load(vaultAddress) as Vault
+  vault.whitelister = whitelister
+  vault.save()
+
+  log.info(
+    '[PrivateVault] WhitelisterUpdated vault={} whitelister={}',
+    [
+      vaultAddress,
+      whitelister
     ]
   )
 }

@@ -87,6 +87,8 @@ templates:
       eventHandlers:
         - event: WhitelistUpdated(indexed address,indexed address,bool)
           handler: handleWhitelistUpdated
+        - event: WhitelisterUpdated(indexed address,indexed address)
+          handler: handleWhitelisterUpdated
   - kind: ethereum/contract
     name: ExitQueue
     network: {{ network }}
