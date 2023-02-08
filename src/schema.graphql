@@ -229,14 +229,6 @@ type DaySnapshot @entity {
 }
 
 """
-StakeWise V3 transaction
-"""
-type Transaction @entity {
-  "Transaction hash"
-  id: ID!
-}
-
-"""
 Network data
 """
 type Network @entity {
