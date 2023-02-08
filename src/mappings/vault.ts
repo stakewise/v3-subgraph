@@ -92,11 +92,13 @@ export function handleDeposit(event: Deposit): void {
   vault.totalAssets = vault.totalAssets.plus(assets)
   vault.save()
 
+  const txHash = event.transaction.hash.toHex()
+
   const allocatorAction = new AllocatorAction(
-      `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`
+    `${txHash}-${event.transactionLogIndex.toString()}`
   )
 
-  allocatorAction.hash = event.transaction.hash
+  allocatorAction.txHash = txHash
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
   allocatorAction.actionType = 'Deposit'
@@ -131,11 +133,13 @@ export function handleWithdraw(event: Withdraw): void {
   vault.totalAssets = vault.totalAssets.minus(assets)
   vault.save()
 
+  const txHash = event.transaction.hash.toHex()
+
   const allocatorAction = new AllocatorAction(
-      `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`
+    `${txHash}-${event.transactionLogIndex.toString()}`
   )
 
-  allocatorAction.hash = event.transaction.hash
+  allocatorAction.txHash = txHash
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
   allocatorAction.actionType = 'Withdraw'
@@ -325,11 +329,13 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   vault.queuedShares = vault.queuedShares.plus(shares)
   vault.save()
 
+  const txHash = event.transaction.hash.toHex()
+
   const allocatorAction = new AllocatorAction(
-      `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`
+    `${txHash}-${event.transactionLogIndex.toString()}`
   )
 
-  allocatorAction.hash = event.transaction.hash
+  allocatorAction.txHash = txHash
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
   allocatorAction.actionType = 'ExitQueueEntered'
@@ -371,16 +377,18 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const newExitQueueId = params.newExitQueueId
   const withdrawnAssets = params.withdrawnAssets
   const vaultAddress = event.address.toHex()
-
   const vault = Vault.load(vaultAddress) as Vault
-  const allocatorAction = new AllocatorAction(
-      `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`
-  )
 
   vault.unclaimedAssets = vault.unclaimedAssets.minus(withdrawnAssets)
   vault.save()
 
-  allocatorAction.hash = event.transaction.hash
+  const txHash = event.transaction.hash.toHex()
+
+  const allocatorAction = new AllocatorAction(
+    `${txHash}-${event.transactionLogIndex.toString()}`
+  )
+
+  allocatorAction.txHash = txHash
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
   allocatorAction.actionType = 'ExitedAssetsClaimed'

@@ -189,7 +189,7 @@ type AllocatorAction @entity {
   id: ID!
 
   "Transaction hash"
-  hash: Bytes!
+  txHash: String!
 
   "The allocator's vault"
   vault: Vault!
