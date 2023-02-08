@@ -39,6 +39,7 @@ export function handleWhitelisterUpdated(event: WhitelisterUpdated): void {
 
   const vaultAddress = event.address.toHex()
   const vault = Vault.load(vaultAddress) as Vault
+
   vault.whitelister = whitelister
   vault.save()
 
@@ -46,7 +47,7 @@ export function handleWhitelisterUpdated(event: WhitelisterUpdated): void {
     '[PrivateVault] WhitelisterUpdated vault={} whitelister={}',
     [
       vaultAddress,
-      whitelister
+      whitelister.toHex(),
     ]
   )
 }
