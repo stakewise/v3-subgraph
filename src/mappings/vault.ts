@@ -10,6 +10,7 @@ import {
   ExitQueueEntered,
   ExitedAssetsClaimed,
   ValidatorsRootUpdated,
+  FeeRecipientUpdated
 } from '../../generated/templates/Vault/Vault'
 import { Multicall } from '../../generated/templates/Vault/Multicall'
 
@@ -267,16 +268,42 @@ export function handleValidatorsRootUpdated(event: ValidatorsRootUpdated): void 
 
   const validatorsRoot = params.validatorsRoot
 
-  const vault = Vault.load(event.address.toHex()) as Vault
+  const vaultAddress = event.address.toHex()
+
+  const vault = Vault.load(vaultAddress) as Vault
 
   vault.validatorsRoot = validatorsRoot
 
   vault.save()
 
   log.info(
-    '[Vault] ValidatorsRootUpdated validatorsRoot={}',
+    '[Vault] ValidatorsRootUpdated vault={} validatorsRoot={}',
     [
+      vaultAddress,
       validatorsRoot.toHex(),
+    ]
+  )
+}
+
+// Event emitted on fee recipient update
+export function handleFeeRecipientUpdated(event: FeeRecipientUpdated): void {
+  const params = event.params
+
+  const feeRecipient = params.feeRecipient
+
+  const vaultAddress = event.address.toHex()
+
+  const vault = Vault.load(vaultAddress) as Vault
+
+  vault.feeRecipient = feeRecipient
+
+  vault.save()
+
+  log.info(
+    '[Vault] FeeRecipientUpdated vault={} feeRecipient={}',
+    [
+      vaultAddress,
+      feeRecipient.toHex(),
     ]
   )
 }
