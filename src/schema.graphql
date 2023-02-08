@@ -270,4 +270,7 @@ type PrivateVaultAccount @entity {
 
   "The private Vault"
   vault: Vault!
+
+ "The timestamp when the account was added"
+  createdAt: BigInt!
 }

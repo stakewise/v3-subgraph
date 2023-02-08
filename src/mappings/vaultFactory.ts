@@ -2,7 +2,7 @@ import { BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
 
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import { MevEscrow, Vault } from '../../generated/schema'
-import { Vault as VaultTemplate } from '../../generated/templates'
+import { Vault as VaultTemplate, PrivateVault as PrivateVaultTemplate } from '../../generated/templates'
 import { createOrLoadNetwork } from '../entities/network'
 
 
@@ -48,6 +48,11 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.factory = event.address
   vault.createdAt = block.timestamp
   vault.addressString = vaultAddressHex
+
+  if (vault.isPrivate) {
+    PrivateVaultTemplate.create(vaultAddress)
+    vault.whitelister = params.admin
+  }
 
   vault.save()
   network.save()

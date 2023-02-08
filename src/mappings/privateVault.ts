@@ -17,6 +17,7 @@ export function handleWhitelistUpdated(event: WhitelistUpdated): void {
 
     privateVaultAccount.vault = vaultAddress
     privateVaultAccount.address = address
+    privateVaultAccount.createdAt = event.block.timestamp
 
     privateVaultAccount.save()
   }
