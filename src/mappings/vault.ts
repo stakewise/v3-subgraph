@@ -108,10 +108,7 @@ export function handleDeposit(event: Deposit): void {
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
 
-  const transaction = createTransaction(txHash)
-
-  transaction.logIndex = event.transactionLogIndex
-  transaction.save()
+  createTransaction(txHash, event.transactionLogIndex)
 
   const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault.id)
 
@@ -154,10 +151,7 @@ export function handleWithdraw(event: Withdraw): void {
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
 
-  const transaction = createTransaction(txHash)
-
-  transaction.logIndex = event.transactionLogIndex
-  transaction.save()
+  createTransaction(txHash, event.transactionLogIndex)
 
   const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault.id)
 
@@ -269,10 +263,7 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
 
   vault.save()
 
-  const transaction = createTransaction(event.transaction.hash.toHex())
-
-  transaction.logIndex = event.transactionLogIndex
-  transaction.save()
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   log.info(
     '[Vault] MetadataUpdated metadataIpfsHash={}',
@@ -296,10 +287,7 @@ export function handleValidatorsRootUpdated(event: ValidatorsRootUpdated): void 
 
   vault.save()
 
-  const transaction = createTransaction(event.transaction.hash.toHex())
-
-  transaction.logIndex = event.transactionLogIndex
-  transaction.save()
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   log.info(
     '[Vault] ValidatorsRootUpdated vault={} validatorsRoot={}',
@@ -324,10 +312,7 @@ export function handleFeeRecipientUpdated(event: FeeRecipientUpdated): void {
 
   vault.save()
 
-  const transaction = createTransaction(event.transaction.hash.toHex())
-
-  transaction.logIndex = event.transactionLogIndex
-  transaction.save()
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   log.info(
     '[Vault] FeeRecipientUpdated vault={} feeRecipient={}',
@@ -370,10 +355,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
 
-  const transaction = createTransaction(txHash)
-
-  transaction.logIndex = event.transactionLogIndex
-  transaction.save()
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   // Create exit request
   const exitRequestId = `${vaultAddress}-${exitQueueId}`
@@ -428,10 +410,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
 
-  const transaction = createTransaction(txHash)
-
-  transaction.logIndex = event.transactionLogIndex
-  transaction.save()
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   const prevExitRequestId = `${vaultAddress}-${prevExitQueueId}`
   const prevExitRequest = ExitRequest.load(prevExitRequestId) as ExitRequest

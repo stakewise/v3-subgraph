@@ -59,10 +59,7 @@ export function handleVaultCreated(event: VaultCreated): void {
   network.save()
   mevEscrow.save()
 
-  const transaction = createTransaction(event.transaction.hash.toHex())
-
-  transaction.logIndex = event.transactionLogIndex
-  transaction.save()
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   VaultTemplate.create(vaultAddress)
 
