@@ -188,9 +188,6 @@ type AllocatorAction @entity {
   "Set to `transaction hash-log index`"
   id: ID!
 
-  "Transaction hash"
-  txHash: String!
-
   "The allocator's vault"
   vault: Vault!
 
@@ -265,4 +262,18 @@ type PrivateVaultAccount @entity {
 
  "The timestamp when the account was added"
   createdAt: BigInt!
+}
+
+"""
+StakeWise V3 transaction
+"""
+type Transaction @entity {
+  "Transaction hash - log index"
+  id: ID!
+
+  "Transaction hash"
+  hash: String!
+
+  "Transaction log index"
+  logIndex: BigInt!
 }

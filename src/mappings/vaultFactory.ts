@@ -3,6 +3,7 @@ import { BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import { MevEscrow, Vault } from '../../generated/schema'
 import { Vault as VaultTemplate, PrivateVault as PrivateVaultTemplate } from '../../generated/templates'
+import { createTransaction } from '../entities/transaction'
 import { createOrLoadNetwork } from '../entities/network'
 
 
@@ -57,6 +58,8 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.save()
   network.save()
   mevEscrow.save()
+
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   VaultTemplate.create(vaultAddress)
 

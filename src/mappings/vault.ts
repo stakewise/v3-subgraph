@@ -15,6 +15,7 @@ import {
 import { Multicall } from '../../generated/templates/Vault/Multicall'
 
 import { updateMetadata } from '../entities/metadata'
+import { createTransaction } from '../entities/transaction'
 import { createOrLoadAllocator } from '../entities/allocator'
 import { createOrLoadDaySnapshot, getRewardPerAsset, loadDaySnapshot } from '../entities/daySnapshot'
 import { DAY } from '../helpers/constants'
@@ -98,7 +99,6 @@ export function handleDeposit(event: Deposit): void {
     `${txHash}-${event.transactionLogIndex.toString()}`
   )
 
-  allocatorAction.txHash = txHash
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
   allocatorAction.actionType = 'Deposit'
@@ -106,6 +106,8 @@ export function handleDeposit(event: Deposit): void {
   allocatorAction.shares = params.shares
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
+
+  createTransaction(txHash, event.transactionLogIndex)
 
   const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault.id)
 
@@ -139,7 +141,6 @@ export function handleWithdraw(event: Withdraw): void {
     `${txHash}-${event.transactionLogIndex.toString()}`
   )
 
-  allocatorAction.txHash = txHash
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
   allocatorAction.actionType = 'Withdraw'
@@ -147,6 +148,8 @@ export function handleWithdraw(event: Withdraw): void {
   allocatorAction.shares = params.shares
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
+
+  createTransaction(txHash, event.transactionLogIndex)
 
   const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault.id)
 
@@ -258,6 +261,8 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
 
   vault.save()
 
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
+
   log.info(
     '[Vault] MetadataUpdated metadataIpfsHash={}',
     [
@@ -279,6 +284,8 @@ export function handleValidatorsRootUpdated(event: ValidatorsRootUpdated): void 
   vault.validatorsRoot = validatorsRoot
 
   vault.save()
+
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   log.info(
     '[Vault] ValidatorsRootUpdated vault={} validatorsRoot={}',
@@ -302,6 +309,8 @@ export function handleFeeRecipientUpdated(event: FeeRecipientUpdated): void {
   vault.feeRecipient = feeRecipient
 
   vault.save()
+
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   log.info(
     '[Vault] FeeRecipientUpdated vault={} feeRecipient={}',
@@ -335,7 +344,6 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
     `${txHash}-${event.transactionLogIndex.toString()}`
   )
 
-  allocatorAction.txHash = txHash
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
   allocatorAction.actionType = 'ExitQueueEntered'
@@ -343,6 +351,8 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   allocatorAction.shares = params.shares
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
+
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   // Create exit request
   const exitRequestId = `${vaultAddress}-${exitQueueId}`
@@ -388,7 +398,6 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     `${txHash}-${event.transactionLogIndex.toString()}`
   )
 
-  allocatorAction.txHash = txHash
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
   allocatorAction.actionType = 'ExitedAssetsClaimed'
@@ -396,6 +405,8 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   allocatorAction.shares = null
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
+
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   const prevExitRequestId = `${vaultAddress}-${prevExitQueueId}`
   const prevExitRequest = ExitRequest.load(prevExitRequestId) as ExitRequest
