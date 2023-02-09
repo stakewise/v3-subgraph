@@ -99,7 +99,6 @@ export function handleDeposit(event: Deposit): void {
     `${txHash}-${event.transactionLogIndex.toString()}`
   )
 
-  allocatorAction.txHash = txHash
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
   allocatorAction.actionType = 'Deposit'
@@ -142,7 +141,6 @@ export function handleWithdraw(event: Withdraw): void {
     `${txHash}-${event.transactionLogIndex.toString()}`
   )
 
-  allocatorAction.txHash = txHash
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
   allocatorAction.actionType = 'Withdraw'
@@ -346,7 +344,6 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
     `${txHash}-${event.transactionLogIndex.toString()}`
   )
 
-  allocatorAction.txHash = txHash
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
   allocatorAction.actionType = 'ExitQueueEntered'
@@ -401,7 +398,6 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     `${txHash}-${event.transactionLogIndex.toString()}`
   )
 
-  allocatorAction.txHash = txHash
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
   allocatorAction.actionType = 'ExitedAssetsClaimed'

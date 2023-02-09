@@ -188,9 +188,6 @@ type AllocatorAction @entity {
   "Set to `transaction hash-log index`"
   id: ID!
 
-  "Transaction hash"
-  txHash: String!
-
   "The allocator's vault"
   vault: Vault!
 
