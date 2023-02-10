@@ -2,6 +2,7 @@ import { log, store } from '@graphprotocol/graph-ts'
 
 import { WhitelistUpdated, WhitelisterUpdated } from '../../generated/templates/PrivateVault/PrivateVault'
 import { PrivateVaultAccount, Vault } from '../../generated/schema'
+import { createTransaction } from '../entities/transaction'
 
 
 export function handleWhitelistUpdated(event: WhitelistUpdated): void {
@@ -25,6 +26,8 @@ export function handleWhitelistUpdated(event: WhitelistUpdated): void {
     store.remove('PrivateVaultAccount', id)
   }
 
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
+
   log.info(
     '[PrivateVault] WhitelistUpdated vault={} approved={}',
     [
@@ -43,6 +46,8 @@ export function handleWhitelisterUpdated(event: WhitelisterUpdated): void {
 
   vault.whitelister = whitelister
   vault.save()
+
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   log.info(
     '[PrivateVault] WhitelisterUpdated vault={} whitelister={}',
