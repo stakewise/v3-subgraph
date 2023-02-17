@@ -66,6 +66,8 @@ templates:
           handler: handleValidatorsRootUpdated
         - event: MetadataUpdated(indexed address,string)
           handler: handleMetadataUpdated
+        - event: FeeRecipientUpdated(indexed address,indexed address)
+          handler: handleFeeRecipientUpdated
       blockHandlers:
         - handler: handleBlock
   - kind: ethereum/contract
