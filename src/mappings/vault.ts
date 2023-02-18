@@ -6,6 +6,7 @@ import {
   Withdraw,
   Transfer,
   StateUpdated,
+  OperatorUpdated,
   MetadataUpdated,
   ExitQueueEntered,
   ExitedAssetsClaimed,
@@ -317,6 +318,31 @@ export function handleFeeRecipientUpdated(event: FeeRecipientUpdated): void {
     [
       vaultAddress,
       feeRecipient.toHex(),
+    ]
+  )
+}
+
+// Event emitted on operator update
+export function handleOperatorUpdated(event: OperatorUpdated): void {
+  const params = event.params
+
+  const operator = params.operator
+
+  const vaultAddress = event.address.toHex()
+
+  const vault = Vault.load(vaultAddress) as Vault
+
+  vault.operator = operator
+
+  vault.save()
+
+  createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
+
+  log.info(
+    '[Vault] OperatorUpdated vault={} operator={}',
+    [
+      vaultAddress,
+      operator.toHex(),
     ]
   )
 }
