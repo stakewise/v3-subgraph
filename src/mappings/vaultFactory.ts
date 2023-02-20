@@ -22,7 +22,7 @@ export function handleVaultCreated(event: VaultCreated): void {
 
   const vault = new Vault(vaultAddressHex)
 
-  // These properties are empty on vault creating
+  // These properties are empty on vault creation
   // they will be updated on future vault events
   vault.imageUrl = null
   vault.displayName = null
@@ -46,6 +46,7 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.feePercent = params.feePercent
   vault.tokenSymbol = params.symbol
   vault.feeRecipient = params.admin
+  vault.operator = params.admin
   vault.factory = event.address
   vault.createdAt = block.timestamp
   vault.addressString = vaultAddressHex
