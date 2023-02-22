@@ -1,6 +1,6 @@
 import { Address, BigInt, ipfs, log, store, json, ethereum } from '@graphprotocol/graph-ts'
 
-import { AllocatorAction, Vault, ExitRequest, MevEscrow } from '../../generated/schema'
+import { AllocatorAction, Vault, ExitRequest, MevEscrow, Debug } from '../../generated/schema'
 import {
   Deposit,
   Withdraw,
@@ -252,15 +252,24 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
 
   const data = ipfs.cat(params.metadataIpfsHash)
 
+  const debug = new Debug(params.metadataIpfsHash)
+
   if (data) {
     const parsedJson = json.try_fromBytes(data)
 
     if (parsedJson.isOk && !parsedJson.isError) {
-      updateMetadata(parsedJson.value, vault)
+      updateMetadata(parsedJson.value, vault, debug)
     }
+    else {
+      debug.displayName = 'parsedJson is not ok'
+    }
+  }
+  else {
+    debug.displayName = 'no data'
   }
 
   vault.save()
+  debug.save()
 
   createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
