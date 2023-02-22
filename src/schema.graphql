@@ -280,11 +280,3 @@ type Transaction @entity {
   "Transaction log index"
   logIndex: BigInt!
 }
-
-
-type Debug @entity {
-  id: ID!
-  imageUrl: String
-  displayName: String
-  description: String
-}

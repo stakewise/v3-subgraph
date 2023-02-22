@@ -252,24 +252,15 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
 
   const data = ipfs.cat(params.metadataIpfsHash)
 
-  const debug = new Debug(params.metadataIpfsHash)
-
   if (data) {
     const parsedJson = json.try_fromBytes(data)
 
     if (parsedJson.isOk && !parsedJson.isError) {
-      updateMetadata(parsedJson.value, vault, debug)
+      updateMetadata(parsedJson.value, vault)
     }
-    else {
-      debug.displayName = 'parsedJson is not ok'
-    }
-  }
-  else {
-    debug.displayName = 'no data'
   }
 
   vault.save()
-  debug.save()
 
   createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
