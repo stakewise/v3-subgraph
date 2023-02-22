@@ -1,6 +1,6 @@
 import { Address, BigInt, ipfs, log, store, json, ethereum } from '@graphprotocol/graph-ts'
 
-import { AllocatorAction, Vault, ExitRequest, MevEscrow, Debug } from '../../generated/schema'
+import { AllocatorAction, Vault, ExitRequest, MevEscrow } from '../../generated/schema'
 import {
   Deposit,
   Withdraw,
