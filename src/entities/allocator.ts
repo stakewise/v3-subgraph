@@ -10,7 +10,7 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
 
   if (vaultAllocator === null) {
     vaultAllocator = new Allocator(vaultAllocatorAddress)
-    vaultAllocator.shares = BigInt.fromI32(0)
+    vaultAllocator.shares = BigInt.zero()
     vaultAllocator.address = allocatorAddress
     vaultAllocator.vault = vaultAddress.toHex()
     vaultAllocator.save()

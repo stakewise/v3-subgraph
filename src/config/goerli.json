@@ -3,5 +3,9 @@
   "vaultFactory": {
     "address": "0xFfd31AdCe24fBF18d5BBfe679e2E3e9A321C137F",
     "startBlock": "8514411"
+  },
+  "keeper": {
+    "address": "0x1833E7Ba555A6abc99B8299e662AfEec88167805",
+    "startBlock": "8514408"
   }
 }

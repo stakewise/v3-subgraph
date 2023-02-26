@@ -18,7 +18,7 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
 
   const lastCheckpointId = hasCheckpoints ? vault.checkpoints[0] : null
 
-  let index = BigInt.fromI32(0)
+  let index = BigInt.zero()
 
   if (lastCheckpointId) {
     const lastCheckpoint = VaultCheckpoint.load(lastCheckpointId)
@@ -29,6 +29,13 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
   }
 
   const vaultCheckpointId = `${vaultAddress}-${index.toString()}`
+
+  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
+
+  daySnapshot.totalAssets = daySnapshot.totalAssets.minus(exitedAssets)
+  daySnapshot.principalAssets = daySnapshot.principalAssets.minus(exitedAssets)
+  daySnapshot.save()
+
 
   vault.totalAssets = vault.totalAssets.minus(exitedAssets)
   vault.unclaimedAssets = vault.unclaimedAssets.plus(exitedAssets)
@@ -42,12 +49,6 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
   vaultCheckpoint.vault = vaultAddress
 
   vaultCheckpoint.save()
-
-  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault.id)
-
-  daySnapshot.totalAssets = daySnapshot.totalAssets.minus(exitedAssets)
-  daySnapshot.principalAssets = daySnapshot.principalAssets.minus(exitedAssets)
-  daySnapshot.save()
 
   log.info(
     '[ExitQueue] CheckpointCreated index={} sharesCounter={} exitedAssets={}',
