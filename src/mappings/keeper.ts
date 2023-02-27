@@ -1,7 +1,7 @@
 import {BigInt, ipfs, JSONValue, log, Value} from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
-import { RewardsRootUpdated } from '../../generated/templates/Keeper/Keeper'
+import { RewardsRootUpdated } from '../../generated/Keeper/Keeper'
 import {createOrLoadDaySnapshot, getRewardPerAsset, updateAvgRewardPerAsset} from '../entities/daySnapshot'
 import { DAY } from '../helpers/constants'
 
