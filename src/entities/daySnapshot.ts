@@ -1,14 +1,15 @@
-import { BigInt } from '@graphprotocol/graph-ts'
+import { BigInt, BigDecimal } from '@graphprotocol/graph-ts'
 
-import { DaySnapshot } from '../../generated/schema'
-import { DAY, MAX_FEE_PERCENT } from '../helpers/constants'
+import { DaySnapshot, Vault } from '../../generated/schema'
+import { DAY } from '../helpers/constants'
 
 
-export function getRewardPerAsset(reward: BigInt, feePercent: i32, principalAssets: BigInt): BigInt {
-  const vaultFeePercent = BigInt.fromI32(feePercent)
-  const percent = MAX_FEE_PERCENT.minus(vaultFeePercent)
+const snapshotsCount = 7
 
-  return reward.times(percent).div(MAX_FEE_PERCENT).div(principalAssets)
+export function getRewardPerAsset(reward: BigInt, principalAssets: BigInt): BigDecimal {
+  const rewardDecimal = BigDecimal.fromString(reward.toString())
+  const principalAssetsDecimal = BigDecimal.fromString(principalAssets.toString())
+  return rewardDecimal.div(principalAssetsDecimal)
 }
 
 export function loadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot | null {
@@ -19,23 +20,44 @@ export function loadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot
   return DaySnapshot.load(daySnapshotId)
 }
 
-export function createOrLoadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot {
+export function createOrLoadDaySnapshot(timestamp: BigInt, vault: Vault): DaySnapshot {
   const dayStart = timestamp.div(DAY).times(DAY).toI32()
 
-  const daySnapshotId = `${vaultId}-${dayStart}`
+  const daySnapshotId = `${vault.id}-${dayStart}`
   let daySnapshot = DaySnapshot.load(daySnapshotId)
 
   if (daySnapshot === null) {
     daySnapshot = new DaySnapshot(daySnapshotId)
 
     daySnapshot.date = dayStart
-    daySnapshot.totalAssets = BigInt.fromI32(0)
-    daySnapshot.principalAssets = BigInt.fromI32(0)
-    daySnapshot.rewardPerAsset = BigInt.fromI32(0)
-    daySnapshot.vault = vaultId
+    daySnapshot.totalAssets = vault.totalAssets
+    daySnapshot.principalAssets = vault.totalAssets.minus(vault.consensusReward).minus(vault.executionReward)
+    daySnapshot.rewardPerAsset = BigDecimal.zero()
+    daySnapshot.vault = vault.id
 
     daySnapshot.save()
   }
 
   return daySnapshot
+}
+
+export function updateAvgRewardPerAsset(timestamp: BigInt, vault: Vault): void {
+  let avgRewardPerAsset = BigDecimal.zero()
+  let snapshotsCountDecimal = BigDecimal.fromString(snapshotsCount.toString())
+
+  for (let i = 1; i <= snapshotsCount; i++) {
+    const diff = DAY.times(BigInt.fromI32(i))
+    const daySnapshot = loadDaySnapshot(timestamp.minus(diff), vault.id)
+
+    if (daySnapshot) {
+      avgRewardPerAsset = avgRewardPerAsset.plus(daySnapshot.rewardPerAsset)
+    }
+    else {
+      snapshotsCountDecimal = snapshotsCountDecimal.minus(BigDecimal.fromString('1'))
+    }
+  }
+
+  avgRewardPerAsset = avgRewardPerAsset.div(snapshotsCountDecimal)
+
+  vault.avgRewardPerAsset = avgRewardPerAsset
 }

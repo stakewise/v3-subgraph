@@ -13,75 +13,14 @@ import {
   ValidatorsRootUpdated,
   FeeRecipientUpdated
 } from '../../generated/templates/Vault/Vault'
-import { Multicall } from '../../generated/templates/Vault/Multicall'
 
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
 import { createOrLoadAllocator } from '../entities/allocator'
-import { createOrLoadDaySnapshot, getRewardPerAsset, loadDaySnapshot } from '../entities/daySnapshot'
-import { DAY } from '../helpers/constants'
+import { createOrLoadDaySnapshot} from '../entities/daySnapshot'
 
 
 const ADDRESS_ZERO = Address.zero()
-const snapshotsCount = 10
-
-function updateAvgRewardPerAsset(timestamp: BigInt, vault: Vault): void {
-  let avgRewardPerAsset = BigInt.fromI32(0)
-  let snapshotsCountBigInt = BigInt.fromI32(snapshotsCount)
-
-  for (let i = 1; i <= snapshotsCount; i++) {
-    const diff = DAY.times(BigInt.fromI32(i))
-    const daySnapshot = loadDaySnapshot(timestamp.minus(diff), vault.id)
-
-    if (daySnapshot) {
-      avgRewardPerAsset = avgRewardPerAsset.plus(daySnapshot.rewardPerAsset)
-    }
-    else {
-      snapshotsCountBigInt = snapshotsCountBigInt.minus(BigInt.fromI32(1))
-    }
-  }
-
-  avgRewardPerAsset = avgRewardPerAsset.div(snapshotsCountBigInt)
-
-  vault.avgRewardPerAsset = avgRewardPerAsset
-  vault.save()
-}
-
-export function handleBlock(block: ethereum.Block): void {
-  const mevEscrowAddress = block.author.toHex()
-  const mevEscrow = MevEscrow.load(mevEscrowAddress)
-
-  if (mevEscrow) {
-    // TODO get address from env or config
-    const multicallContract = Multicall.bind(Address.fromString('0x77dCa2C955b15e9dE4dbBCf1246B4B85b651e50e'))
-    const mevEscrowBalance = multicallContract.getEthBalance(block.author)
-
-    const vaultAddress = mevEscrow.vault
-    const vault = Vault.load(vaultAddress) as Vault
-    const reward = mevEscrowBalance.minus(vault.executionReward)
-
-    const daySnapshot = createOrLoadDaySnapshot(block.timestamp, vaultAddress)
-    const rewardPerAsset = getRewardPerAsset(reward, vault.feePercent, daySnapshot.principalAssets)
-
-    daySnapshot.totalAssets = daySnapshot.totalAssets.plus(reward)
-    daySnapshot.rewardPerAsset = daySnapshot.rewardPerAsset.plus(rewardPerAsset)
-
-    daySnapshot.save()
-
-    vault.executionReward = vault.executionReward.plus(reward)
-    vault.totalAssets = vault.totalAssets.plus(reward)
-    updateAvgRewardPerAsset(block.timestamp, vault)
-
-    vault.save()
-
-    log.info(
-      '[Vault] Block timestamp={}',
-      [
-        block.timestamp.toString(),
-      ]
-    )
-  }
-}
 
 // Event emitted on assets transfer from allocator to vault
 export function handleDeposit(event: Deposit): void {
@@ -90,6 +29,11 @@ export function handleDeposit(event: Deposit): void {
   const vaultAddress = event.address
 
   const vault = Vault.load(vaultAddress.toHex()) as Vault
+
+  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
+  daySnapshot.totalAssets = daySnapshot.totalAssets.plus(assets)
+  daySnapshot.principalAssets = daySnapshot.principalAssets.plus(assets)
+  daySnapshot.save()
 
   vault.totalAssets = vault.totalAssets.plus(assets)
   vault.save()
@@ -110,12 +54,6 @@ export function handleDeposit(event: Deposit): void {
 
   createTransaction(txHash, event.transactionLogIndex)
 
-  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault.id)
-
-  daySnapshot.totalAssets = daySnapshot.totalAssets.plus(assets)
-  daySnapshot.principalAssets = daySnapshot.principalAssets.plus(assets)
-  daySnapshot.save()
-
   log.info(
     '[Vault] Deposit vault={} assets={}',
     [
@@ -132,6 +70,12 @@ export function handleWithdraw(event: Withdraw): void {
   const vaultAddress = event.address
 
   const vault = Vault.load(vaultAddress.toHex()) as Vault
+
+  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
+
+  daySnapshot.totalAssets = daySnapshot.totalAssets.minus(assets)
+  daySnapshot.principalAssets = daySnapshot.principalAssets.minus(assets)
+  daySnapshot.save()
 
   vault.totalAssets = vault.totalAssets.minus(assets)
   vault.save()
@@ -152,12 +96,6 @@ export function handleWithdraw(event: Withdraw): void {
 
   createTransaction(txHash, event.transactionLogIndex)
 
-  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault.id)
-
-  daySnapshot.totalAssets = daySnapshot.totalAssets.minus(assets)
-  daySnapshot.principalAssets = daySnapshot.principalAssets.minus(assets)
-  daySnapshot.save()
-
   log.info(
     '[Vault] Withdraw vault={} assets={}',
     [
@@ -175,16 +113,14 @@ export function handleStateUpdated(event: StateUpdated): void {
 
   const vault = Vault.load(vaultAddress.toHex()) as Vault
 
-  // assetsDelta can be a negative number
-  vault.totalAssets = vault.totalAssets.plus(assetsDelta)
-  vault.executionReward = BigInt.fromI32(0)
-  vault.consensusReward = BigInt.fromI32(0)
-  vault.save()
-
-  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault.id)
+  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
 
   daySnapshot.principalAssets = vault.totalAssets
   daySnapshot.save()
+
+  vault.executionReward = BigInt.zero()
+  vault.consensusReward = BigInt.zero()
+  vault.save()
 
   log.info(
     '[Vault] StateUpdated vault={} assetsDelta={}',
@@ -389,8 +325,8 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   exitRequest.receiver = receiver
   exitRequest.totalShares = shares
   exitRequest.exitQueueId = exitQueueId
-  exitRequest.withdrawnShares = BigInt.fromI32(0)
-  exitRequest.withdrawnAssets = BigInt.fromI32(0)
+  exitRequest.withdrawnShares = BigInt.zero()
+  exitRequest.withdrawnAssets = BigInt.zero()
   exitRequest.save()
 
   log.info(
@@ -437,7 +373,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const prevExitRequestId = `${vaultAddress}-${prevExitQueueId}`
   const prevExitRequest = ExitRequest.load(prevExitRequestId) as ExitRequest
 
-  const isExitQueueRequestResolved = newExitQueueId.equals(BigInt.fromI32(0))
+  const isExitQueueRequestResolved = newExitQueueId.equals(BigInt.zero())
 
   if (!isExitQueueRequestResolved) {
     const nextExitQueueRequestId = `${vaultAddress}-${newExitQueueId}`

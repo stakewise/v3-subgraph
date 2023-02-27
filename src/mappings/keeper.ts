@@ -1,77 +1,67 @@
-import { BigInt, ipfs, JSONValue, JSONValueKind, Value } from '@graphprotocol/graph-ts'
+import {BigInt, ipfs, JSONValue, log, Value} from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
 import { RewardsRootUpdated } from '../../generated/templates/Keeper/Keeper'
-import { createOrLoadDaySnapshot, getRewardPerAsset } from '../entities/daySnapshot'
+import {createOrLoadDaySnapshot, getRewardPerAsset, updateAvgRewardPerAsset} from '../entities/daySnapshot'
 import { DAY } from '../helpers/constants'
 
 
-function updateRewardsRoot(rewardsRoot: JSONValue, callbackDataValue: Value): void {
-  if (rewardsRoot.kind === JSONValueKind.OBJECT) {
-    const json = rewardsRoot.toObject()
+function updateDaySnapshots(vault: Vault, fromTimestamp: BigInt, toTimestamp: BigInt, totalReward: BigInt): void {
+  const totalDuration = toTimestamp.minus(fromTimestamp)
+  let rewardLeft = totalReward
+  let snapshotStart = fromTimestamp
+  let snapshotEnd = snapshotStart.plus(DAY).div(DAY).times(DAY)
 
-    const vaultId = json.get('vault')
-    const reward = json.get('reward')
-    const proof = json.get('proof')
+  while (snapshotEnd < toTimestamp) {
+    const reward = totalReward.times(snapshotEnd.minus(snapshotStart)).div(totalDuration)
+    const snapshot = createOrLoadDaySnapshot(snapshotStart, vault)
+    const rewardPerAsset = getRewardPerAsset(reward, snapshot.principalAssets)
+    snapshot.totalAssets = snapshot.totalAssets.plus(reward)
+    snapshot.rewardPerAsset = snapshot.rewardPerAsset.plus(rewardPerAsset)
+    snapshot.save()
 
-    if (vaultId && reward && proof) {
-      const vault = Vault.load(vaultId.toString())
-      const callbackData = callbackDataValue.toArray()
-      const rewardsRoot = callbackData[0].toBytes()
-      const updateTimestamp = callbackData[1].toBigInt()
+    rewardLeft = rewardLeft.minus(reward)
+    snapshotStart = snapshotEnd
+    snapshotEnd = snapshotStart.plus(DAY).div(DAY).times(DAY)
+  }
 
-      if (vault) {
-        const rewardBigInt = BigInt.fromString(reward.toString())
-        const periodReward = vault.proofReward
-          ? rewardBigInt.minus(vault.proofReward as BigInt)
-          : rewardBigInt
+  if (rewardLeft.notEqual(BigInt.zero())) {
+    const snapshot = createOrLoadDaySnapshot(toTimestamp, vault)
+    const rewardPerAsset = getRewardPerAsset(rewardLeft, snapshot.principalAssets)
+    snapshot.totalAssets = snapshot.totalAssets.plus(rewardLeft)
+    snapshot.rewardPerAsset = snapshot.rewardPerAsset.plus(rewardPerAsset)
+    snapshot.save()
+  }
+}
 
-        const lastUpdateTimestamp = vault.rewardsRootTimestamp
-        const daysBetween = lastUpdateTimestamp
-          ? updateTimestamp.minus(lastUpdateTimestamp).div(DAY).toI32()
-          : 1
-
-        let rewardLeft = periodReward
-
-        for (let i = 0; i < daysBetween; i++) {
-          const isLastDay = i + 1 === daysBetween
-          const isFirstDay = i === 0
-
-          let dayReward = rewardBigInt.div(daysBetween)
-
-          if (isLastDay) {
-            dayReward = rewardLeft
-          }
-          else if (isFirstDay) {
-            const startOfFirstDay = updateTimestamp.div(DAY).times(DAY)
-            const diff = updateTimestamp.minus(startOfFirstDay)
-
-            dayReward = dayReward.times(diff).div(DAY)
-          }
-
-          rewardLeft = rewardLeft.minus(dayReward)
-
-          const diff = DAY.times(BigInt.fromI32(i))
-          const timestamp = updateTimestamp.minus(diff)
-          const daySnapshot = createOrLoadDaySnapshot(timestamp, vaultId.toString())
-          const rewardPerAsset = getRewardPerAsset(dayReward, vault.feePercent, daySnapshot.principalAssets)
-
-          daySnapshot.totalAssets = daySnapshot.totalAssets.plus(dayReward)
-          daySnapshot.rewardPerAsset = daySnapshot.rewardPerAsset.plus(rewardPerAsset)
-
-          daySnapshot.save()
-        }
-
-        vault.rewardsRoot = rewardsRoot
-        vault.proofReward = rewardBigInt
-        vault.rewardsRootTimestamp = updateTimestamp
-        vault.proof = proof.toArray().map<string>((proofValue: JSONValue) => proofValue.toString())
-        vault.totalAssets = vault.totalAssets.plus(periodReward)
-        vault.consensusReward = vault.consensusReward.plus(periodReward)
-
-        vault.save()
-      }
+export function updateRewardsRoot(value: JSONValue, callbackDataValue: Value): void {
+  const callbackData = callbackDataValue.toArray()
+  const rewardsRoot = callbackData[0].toBytes()
+  const updateTimestamp = callbackData[1].toBigInt()
+  const vaultRewards = value.toArray()
+  for (let i = 0; i < vaultRewards.length; i++) {
+    const vaultReward = vaultRewards[i].toObject();
+    const vaultId = vaultReward.mustGet('vault').toString().toLowerCase()
+    const vault = Vault.load(vaultId)
+    if (!vault) {
+      continue
     }
+
+    const reward = vaultReward.mustGet('reward').toBigInt()
+    const proof = vaultReward.mustGet('proof').toArray()
+    const periodReward = vault.proofReward ? reward.minus(vault.proofReward as BigInt) : reward
+    const lastUpdateTimestamp = vault.rewardsRootTimestamp ? (vault.rewardsRootTimestamp as BigInt) : updateTimestamp
+    updateDaySnapshots(vault, lastUpdateTimestamp, updateTimestamp, periodReward)
+
+    vault.rewardsRoot = rewardsRoot
+    vault.proofReward = reward
+    vault.rewardsRootTimestamp = updateTimestamp
+    vault.proof = proof.map<string>((proofValue: JSONValue) => proofValue.toString())
+    vault.totalAssets = vault.totalAssets.plus(periodReward)
+    vault.consensusReward = vault.consensusReward.plus(periodReward)
+    updateAvgRewardPerAsset(updateTimestamp, vault)
+
+    vault.save()
   }
 }
 
@@ -86,4 +76,12 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
   ])
 
   ipfs.mapJSON(rewardsIpfsHash, 'updateRewardsRoot', callbackData)
+  log.info(
+    '[Keeper] RewardsRootUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={}',
+    [
+        rewardsRoot.toHex(),
+        rewardsIpfsHash,
+        updateTimestamp.toString()
+    ]
+  )
 }

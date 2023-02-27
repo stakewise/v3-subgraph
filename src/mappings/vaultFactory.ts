@@ -30,13 +30,13 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.validatorsRoot = null
   vault.metadataIpfsHash = null
   vault.score = BigDecimal.fromString('10')
-  vault.totalShares = BigInt.fromI32(0)
-  vault.totalAssets = BigInt.fromI32(0)
-  vault.queuedShares = BigInt.fromI32(0)
-  vault.unclaimedAssets = BigInt.fromI32(0)
-  vault.executionReward = BigInt.fromI32(0)
-  vault.consensusReward = BigInt.fromI32(0)
-  vault.avgRewardPerAsset = BigInt.fromI32(0)
+  vault.totalShares = BigInt.zero()
+  vault.totalAssets = BigInt.zero()
+  vault.queuedShares = BigInt.zero()
+  vault.unclaimedAssets = BigInt.zero()
+  vault.executionReward = BigInt.zero()
+  vault.consensusReward = BigInt.zero()
+  vault.avgRewardPerAsset = BigDecimal.zero()
 
   // Properties from event params
   vault.admin = params.admin

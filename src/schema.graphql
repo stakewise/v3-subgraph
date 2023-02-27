@@ -108,7 +108,7 @@ type Vault @entity {
   operator: Bytes!
 
   "Average reward on one asset"
-  avgRewardPerAsset: BigInt!
+  avgRewardPerAsset: BigDecimal!
 
   "The vault unclaimed consensus reward"
   consensusReward: BigInt!
@@ -222,7 +222,7 @@ type DaySnapshot @entity {
 
   principalAssets: BigInt!
 
-  rewardPerAsset: BigInt!
+  rewardPerAsset: BigDecimal!
 
   "The snapshot's vault"
   vault: Vault!
