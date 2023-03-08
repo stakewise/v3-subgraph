@@ -1,6 +1,6 @@
-import { Address, BigInt, ipfs, log, store, json, ethereum } from '@graphprotocol/graph-ts'
+import { Address, BigInt, ipfs, log, store, json } from '@graphprotocol/graph-ts'
 
-import { AllocatorAction, Vault, ExitRequest, MevEscrow } from '../../generated/schema'
+import { AllocatorAction, Vault, ExitRequest } from '../../generated/schema'
 import {
   Deposit,
   Withdraw,
@@ -40,17 +40,19 @@ export function handleDeposit(event: Deposit): void {
 
   const txHash = event.transaction.hash.toHex()
 
-  const allocatorAction = new AllocatorAction(
-    `${txHash}-${event.transactionLogIndex.toString()}`
-  )
+  if (params.caller != Address.fromBytes(vault.factory)) {
+    const allocatorAction = new AllocatorAction(
+        `${txHash}-${event.transactionLogIndex.toString()}`
+    )
 
-  allocatorAction.vault = vault.id
-  allocatorAction.address = event.transaction.from
-  allocatorAction.actionType = 'Deposit'
-  allocatorAction.assets = assets
-  allocatorAction.shares = params.shares
-  allocatorAction.createdAt = event.block.timestamp
-  allocatorAction.save()
+    allocatorAction.vault = vault.id
+    allocatorAction.address = event.transaction.from
+    allocatorAction.actionType = 'Deposit'
+    allocatorAction.assets = assets
+    allocatorAction.shares = params.shares
+    allocatorAction.createdAt = event.block.timestamp
+    allocatorAction.save()
+  }
 
   createTransaction(txHash, event.transactionLogIndex)
 

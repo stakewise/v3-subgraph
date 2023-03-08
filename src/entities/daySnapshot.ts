@@ -57,7 +57,7 @@ export function updateAvgRewardPerAsset(timestamp: BigInt, vault: Vault): void {
     }
   }
 
-  avgRewardPerAsset = avgRewardPerAsset.div(snapshotsCountDecimal)
-
-  vault.avgRewardPerAsset = avgRewardPerAsset
+  if (snapshotsCountDecimal.gt(BigDecimal.zero())) {
+    vault.avgRewardPerAsset = avgRewardPerAsset.div(snapshotsCountDecimal)
+  }
 }
