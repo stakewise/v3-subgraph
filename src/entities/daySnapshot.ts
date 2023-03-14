@@ -42,7 +42,7 @@ function getPreviousSnapshot(date: i32, vault: Vault): DaySnapshot | null {
 export function saveDaySnapshot(daySnapshot: DaySnapshot): void {
   const vault = Vault.load(daySnapshot.vault) as Vault
 
-  if (vault) {
+  if (vault && !daySnapshot.prevSnapshot) {
     const prevSnapshot = getPreviousSnapshot(daySnapshot.date, vault)
 
     if (prevSnapshot) {
