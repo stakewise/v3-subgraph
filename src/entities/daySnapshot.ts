@@ -42,17 +42,11 @@ function getPreviousSnapshot(date: i32, vault: Vault): DaySnapshot | null {
 export function saveDaySnapshot(daySnapshot: DaySnapshot): void {
   const vault = Vault.load(daySnapshot.vault) as Vault
 
-  daySnapshot.prevTotalAssets = BigInt.zero()
-  daySnapshot.prevPrincipalAssets = BigInt.zero()
-  daySnapshot.prevRewardPerAsset = BigDecimal.zero()
-
   if (vault) {
     const prevSnapshot = getPreviousSnapshot(daySnapshot.date, vault)
 
     if (prevSnapshot) {
-      daySnapshot.prevTotalAssets = prevSnapshot.totalAssets
-      daySnapshot.prevPrincipalAssets = prevSnapshot.principalAssets
-      daySnapshot.prevRewardPerAsset = prevSnapshot.prevRewardPerAsset
+      daySnapshot.prevSnapshot = prevSnapshot.id
     }
   }
 
