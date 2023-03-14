@@ -17,7 +17,7 @@ import {
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
 import { createOrLoadAllocator } from '../entities/allocator'
-import { createOrLoadDaySnapshot} from '../entities/daySnapshot'
+import { createOrLoadDaySnapshot, saveDaySnapshot } from '../entities/daySnapshot'
 
 
 const ADDRESS_ZERO = Address.zero()
@@ -33,7 +33,7 @@ export function handleDeposit(event: Deposit): void {
   const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
   daySnapshot.totalAssets = daySnapshot.totalAssets.plus(assets)
   daySnapshot.principalAssets = daySnapshot.principalAssets.plus(assets)
-  daySnapshot.save()
+  saveDaySnapshot(daySnapshot)
 
   vault.totalAssets = vault.totalAssets.plus(assets)
   vault.save()
@@ -77,7 +77,7 @@ export function handleWithdraw(event: Withdraw): void {
 
   daySnapshot.totalAssets = daySnapshot.totalAssets.minus(assets)
   daySnapshot.principalAssets = daySnapshot.principalAssets.minus(assets)
-  daySnapshot.save()
+  saveDaySnapshot(daySnapshot)
 
   vault.totalAssets = vault.totalAssets.minus(assets)
   vault.save()
@@ -118,7 +118,7 @@ export function handleStateUpdated(event: StateUpdated): void {
   const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
 
   daySnapshot.principalAssets = vault.totalAssets
-  daySnapshot.save()
+  saveDaySnapshot(daySnapshot)
 
   vault.executionReward = BigInt.zero()
   vault.consensusReward = BigInt.zero()

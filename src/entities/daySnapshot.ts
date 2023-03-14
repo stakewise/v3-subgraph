@@ -20,6 +20,45 @@ export function loadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot
   return DaySnapshot.load(daySnapshotId)
 }
 
+function getPreviousSnapshot(date: i32, vault: Vault): DaySnapshot | null {
+  const prevDate = BigInt.fromI32(date).minus(DAY)
+  const dayCreated = vault.createdAt.div(DAY).times(DAY)
+  const isValidDate = prevDate.minus(dayCreated).ge(BigInt.zero())
+
+  if (isValidDate) {
+    const prevSnapshotId = `${vault.id}-${prevDate}`
+    const prevSnapshot = DaySnapshot.load(prevSnapshotId)
+
+    if (prevSnapshot) {
+      return prevSnapshot
+    }
+
+    return getPreviousSnapshot(prevDate.toI32(), vault)
+  }
+
+  return null
+}
+
+export function saveDaySnapshot(daySnapshot: DaySnapshot): void {
+  const vault = Vault.load(daySnapshot.vault) as Vault
+
+  daySnapshot.prevTotalAssets = BigInt.zero()
+  daySnapshot.prevPrincipalAssets = BigInt.zero()
+  daySnapshot.prevRewardPerAsset = BigDecimal.zero()
+
+  if (vault) {
+    const prevSnapshot = getPreviousSnapshot(daySnapshot.date, vault)
+
+    if (prevSnapshot) {
+      daySnapshot.prevTotalAssets = prevSnapshot.totalAssets
+      daySnapshot.prevPrincipalAssets = prevSnapshot.principalAssets
+      daySnapshot.prevRewardPerAsset = prevSnapshot.prevRewardPerAsset
+    }
+  }
+
+  daySnapshot.save()
+}
+
 export function createOrLoadDaySnapshot(timestamp: BigInt, vault: Vault): DaySnapshot {
   const dayStart = timestamp.div(DAY).times(DAY).toI32()
 
@@ -35,7 +74,7 @@ export function createOrLoadDaySnapshot(timestamp: BigInt, vault: Vault): DaySna
     daySnapshot.rewardPerAsset = BigDecimal.zero()
     daySnapshot.vault = vault.id
 
-    daySnapshot.save()
+    saveDaySnapshot(daySnapshot)
   }
 
   return daySnapshot

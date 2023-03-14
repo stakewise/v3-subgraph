@@ -2,7 +2,7 @@ import { BigInt, log } from '@graphprotocol/graph-ts'
 
 import { CheckpointCreated } from '../../generated/templates/ExitQueue/ExitQueue'
 import { Vault, VaultCheckpoint } from '../../generated/schema'
-import { createOrLoadDaySnapshot } from '../entities/daySnapshot'
+import { createOrLoadDaySnapshot, saveDaySnapshot } from '../entities/daySnapshot'
 
 
 // Event emitted when shares burned. After that assets become available for claim
@@ -34,8 +34,7 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
 
   daySnapshot.totalAssets = daySnapshot.totalAssets.minus(exitedAssets)
   daySnapshot.principalAssets = daySnapshot.principalAssets.minus(exitedAssets)
-  daySnapshot.save()
-
+  saveDaySnapshot(daySnapshot)
 
   vault.totalAssets = vault.totalAssets.minus(exitedAssets)
   vault.unclaimedAssets = vault.unclaimedAssets.plus(exitedAssets)

@@ -1,8 +1,13 @@
-import {BigInt, ipfs, JSONValue, log, Value} from '@graphprotocol/graph-ts'
+import { BigInt, ipfs, JSONValue, log, Value } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
 import { RewardsRootUpdated } from '../../generated/Keeper/Keeper'
-import {createOrLoadDaySnapshot, getRewardPerAsset, updateAvgRewardPerAsset} from '../entities/daySnapshot'
+import {
+  saveDaySnapshot,
+  getRewardPerAsset,
+  createOrLoadDaySnapshot,
+  updateAvgRewardPerAsset,
+} from '../entities/daySnapshot'
 import { DAY } from '../helpers/constants'
 
 
@@ -18,7 +23,7 @@ function updateDaySnapshots(vault: Vault, fromTimestamp: BigInt, toTimestamp: Bi
     const rewardPerAsset = getRewardPerAsset(reward, snapshot.principalAssets)
     snapshot.totalAssets = snapshot.totalAssets.plus(reward)
     snapshot.rewardPerAsset = snapshot.rewardPerAsset.plus(rewardPerAsset)
-    snapshot.save()
+    saveDaySnapshot(snapshot)
 
     rewardLeft = rewardLeft.minus(reward)
     snapshotStart = snapshotEnd
@@ -30,7 +35,7 @@ function updateDaySnapshots(vault: Vault, fromTimestamp: BigInt, toTimestamp: Bi
     const rewardPerAsset = getRewardPerAsset(rewardLeft, snapshot.principalAssets)
     snapshot.totalAssets = snapshot.totalAssets.plus(rewardLeft)
     snapshot.rewardPerAsset = snapshot.rewardPerAsset.plus(rewardPerAsset)
-    snapshot.save()
+    saveDaySnapshot(snapshot)
   }
 }
 
@@ -39,10 +44,12 @@ export function updateRewardsRoot(value: JSONValue, callbackDataValue: Value): v
   const rewardsRoot = callbackData[0].toBytes()
   const updateTimestamp = callbackData[1].toBigInt()
   const vaultRewards = value.toArray()
+
   for (let i = 0; i < vaultRewards.length; i++) {
     const vaultReward = vaultRewards[i].toObject();
     const vaultId = vaultReward.mustGet('vault').toString().toLowerCase()
     const vault = Vault.load(vaultId)
+
     if (!vault) {
       continue
     }

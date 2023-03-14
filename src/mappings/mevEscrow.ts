@@ -1,7 +1,12 @@
 import { MevEscrow, Vault } from '../../generated/schema'
 import { MevReceived } from '../../generated/templates/MevEscrow/MevEscrow'
 import { Multicall } from '../../generated/templates/Vault/Multicall'
-import {createOrLoadDaySnapshot, getRewardPerAsset, updateAvgRewardPerAsset } from '../entities/daySnapshot'
+import {
+  saveDaySnapshot,
+  getRewardPerAsset,
+  createOrLoadDaySnapshot,
+  updateAvgRewardPerAsset,
+} from '../entities/daySnapshot'
 import {Address, ethereum, log} from "@graphprotocol/graph-ts";
 
 
@@ -21,7 +26,7 @@ export function handleMevReceived(event: MevReceived): void {
     const rewardPerAsset = getRewardPerAsset(reward, daySnapshot.principalAssets)
     daySnapshot.rewardPerAsset = daySnapshot.rewardPerAsset.plus(rewardPerAsset)
     daySnapshot.totalAssets = daySnapshot.totalAssets.plus(reward)
-    daySnapshot.save()
+    saveDaySnapshot(daySnapshot)
 
     vault.executionReward = vault.executionReward.plus(reward)
     vault.totalAssets = vault.totalAssets.plus(reward)
@@ -48,8 +53,7 @@ export function handleBlock(block: ethereum.Block): void {
 
     daySnapshot.totalAssets = daySnapshot.totalAssets.plus(reward)
     daySnapshot.rewardPerAsset = daySnapshot.rewardPerAsset.plus(rewardPerAsset)
-
-    daySnapshot.save()
+    saveDaySnapshot(daySnapshot)
 
     vault.executionReward = vault.executionReward.plus(reward)
     vault.totalAssets = vault.totalAssets.plus(reward)

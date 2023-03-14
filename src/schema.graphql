@@ -220,9 +220,20 @@ type DaySnapshot @entity {
   "The total number of assets"
   totalAssets: BigInt!
 
+  "The total number of principal assets"
   principalAssets: BigInt!
 
+  "The total number of reward per asset"
   rewardPerAsset: BigDecimal!
+
+  "The total number of assets in the previous snapshot"
+  prevTotalAssets: BigInt
+
+  "The total number of principal assets in the previous snapshot"
+  prevPrincipalAssets: BigInt
+
+  "The total number of reward per asset in the previous snapshot"
+  prevRewardPerAsset: BigDecimal
 
   "The snapshot's vault"
   vault: Vault!
