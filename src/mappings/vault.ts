@@ -378,7 +378,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     const withdrawnShares = newExitQueueId.minus(prevExitQueueId)
     const totalShares = prevExitRequest.totalShares.minus(withdrawnShares)
 
-    // Remove exit queue request if 1 wei is left
+    // Create exit queue request if more than 1 wei is left
     if (totalShares.gt(BigInt.fromI32(1))) {
       const nextExitRequest = new ExitRequest(nextExitQueueRequestId)
 
