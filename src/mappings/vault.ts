@@ -40,19 +40,17 @@ export function handleDeposit(event: Deposit): void {
 
   const txHash = event.transaction.hash.toHex()
 
-  if (params.caller != Address.fromBytes(vault.factory)) {
-    const allocatorAction = new AllocatorAction(
-        `${txHash}-${event.transactionLogIndex.toString()}`
-    )
+  const allocatorAction = new AllocatorAction(
+    `${txHash}-${event.transactionLogIndex.toString()}`
+  )
 
-    allocatorAction.vault = vault.id
-    allocatorAction.address = event.transaction.from
-    allocatorAction.actionType = 'Deposit'
-    allocatorAction.assets = assets
-    allocatorAction.shares = params.shares
-    allocatorAction.createdAt = event.block.timestamp
-    allocatorAction.save()
-  }
+  allocatorAction.vault = vault.id
+  allocatorAction.address = event.transaction.from
+  allocatorAction.actionType = params.caller == Address.fromBytes(vault.factory) ? 'SecurityDeposit' : 'Deposit'
+  allocatorAction.assets = assets
+  allocatorAction.shares = params.shares
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
 
   createTransaction(txHash, event.transactionLogIndex)
 
