@@ -54,12 +54,6 @@ type ExitRequest @entity {
   "The number of shares queued for exit"
   totalShares: BigInt!
 
-  "The number of shares withdrawn"
-  withdrawnShares: BigInt!
-
-  "The number of assets withdrawn"
-  withdrawnAssets: BigInt!
-
   "The exit request vault"
   vault: Vault!
 }

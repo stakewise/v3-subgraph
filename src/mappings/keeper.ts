@@ -15,7 +15,7 @@ function updateDaySnapshots(vault: Vault, fromTimestamp: BigInt, toTimestamp: Bi
   while (snapshotEnd < toTimestamp) {
     const reward = totalReward.times(snapshotEnd.minus(snapshotStart)).div(totalDuration)
     const snapshot = createOrLoadDaySnapshot(snapshotStart, vault)
-    const rewardPerAsset = getRewardPerAsset(reward, snapshot.principalAssets)
+    const rewardPerAsset = getRewardPerAsset(reward, snapshot.principalAssets, vault.feePercent)
     snapshot.totalAssets = snapshot.totalAssets.plus(reward)
     snapshot.rewardPerAsset = snapshot.rewardPerAsset.plus(rewardPerAsset)
     snapshot.save()
@@ -27,7 +27,7 @@ function updateDaySnapshots(vault: Vault, fromTimestamp: BigInt, toTimestamp: Bi
 
   if (rewardLeft.notEqual(BigInt.zero())) {
     const snapshot = createOrLoadDaySnapshot(toTimestamp, vault)
-    const rewardPerAsset = getRewardPerAsset(rewardLeft, snapshot.principalAssets)
+    const rewardPerAsset = getRewardPerAsset(rewardLeft, snapshot.principalAssets, vault.feePercent)
     snapshot.totalAssets = snapshot.totalAssets.plus(rewardLeft)
     snapshot.rewardPerAsset = snapshot.rewardPerAsset.plus(rewardPerAsset)
     snapshot.save()

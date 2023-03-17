@@ -18,7 +18,7 @@ export function handleMevReceived(event: MevReceived): void {
     const reward = event.params.amount
 
     const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
-    const rewardPerAsset = getRewardPerAsset(reward, daySnapshot.principalAssets)
+    const rewardPerAsset = getRewardPerAsset(reward, daySnapshot.principalAssets, vault.feePercent)
     daySnapshot.rewardPerAsset = daySnapshot.rewardPerAsset.plus(rewardPerAsset)
     daySnapshot.totalAssets = daySnapshot.totalAssets.plus(reward)
     daySnapshot.save()
@@ -44,7 +44,7 @@ export function handleBlock(block: ethereum.Block): void {
     const reward = mevEscrowBalance.minus(vault.executionReward)
 
     const daySnapshot = createOrLoadDaySnapshot(block.timestamp, vault)
-    const rewardPerAsset = getRewardPerAsset(reward, daySnapshot.principalAssets)
+    const rewardPerAsset = getRewardPerAsset(reward, daySnapshot.principalAssets, vault.feePercent)
 
     daySnapshot.totalAssets = daySnapshot.totalAssets.plus(reward)
     daySnapshot.rewardPerAsset = daySnapshot.rewardPerAsset.plus(rewardPerAsset)
