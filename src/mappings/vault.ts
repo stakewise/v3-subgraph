@@ -40,19 +40,17 @@ export function handleDeposit(event: Deposit): void {
 
   const txHash = event.transaction.hash.toHex()
 
-  if (params.caller != Address.fromBytes(vault.factory)) {
-    const allocatorAction = new AllocatorAction(
-        `${txHash}-${event.transactionLogIndex.toString()}`
-    )
+  const allocatorAction = new AllocatorAction(
+    `${txHash}-${event.transactionLogIndex.toString()}`
+  )
 
-    allocatorAction.vault = vault.id
-    allocatorAction.address = event.transaction.from
-    allocatorAction.actionType = 'Deposit'
-    allocatorAction.assets = assets
-    allocatorAction.shares = params.shares
-    allocatorAction.createdAt = event.block.timestamp
-    allocatorAction.save()
-  }
+  allocatorAction.vault = vault.id
+  allocatorAction.address = event.transaction.from
+  allocatorAction.actionType = params.caller == Address.fromBytes(vault.factory) ? 'SecurityDeposit' : 'Deposit'
+  allocatorAction.assets = assets
+  allocatorAction.shares = params.shares
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
 
   createTransaction(txHash, event.transactionLogIndex)
 
@@ -327,8 +325,6 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   exitRequest.receiver = receiver
   exitRequest.totalShares = shares
   exitRequest.exitQueueId = exitQueueId
-  exitRequest.withdrawnShares = BigInt.zero()
-  exitRequest.withdrawnAssets = BigInt.zero()
   exitRequest.save()
 
   log.info(
@@ -380,17 +376,20 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   if (!isExitQueueRequestResolved) {
     const nextExitQueueRequestId = `${vaultAddress}-${newExitQueueId}`
     const withdrawnShares = newExitQueueId.minus(prevExitQueueId)
-    const nextExitRequest = new ExitRequest(nextExitQueueRequestId)
+    const totalShares = prevExitRequest.totalShares.minus(withdrawnShares)
 
-    nextExitRequest.vault = vaultAddress
-    nextExitRequest.owner = prevExitRequest.owner
-    nextExitRequest.receiver = receiver
-    nextExitRequest.exitQueueId = newExitQueueId
-    nextExitRequest.totalShares = prevExitRequest.totalShares
-    nextExitRequest.withdrawnShares = prevExitRequest.withdrawnShares.plus(withdrawnShares)
-    nextExitRequest.withdrawnAssets = prevExitRequest.withdrawnAssets.plus(withdrawnAssets)
+    // Create exit queue request if more than 1 wei is left
+    if (totalShares.gt(BigInt.fromI32(1))) {
+      const nextExitRequest = new ExitRequest(nextExitQueueRequestId)
 
-    nextExitRequest.save()
+      nextExitRequest.vault = vaultAddress
+      nextExitRequest.owner = prevExitRequest.owner
+      nextExitRequest.receiver = receiver
+      nextExitRequest.exitQueueId = newExitQueueId
+      nextExitRequest.totalShares = totalShares
+
+      nextExitRequest.save()
+    }
   }
 
   store.remove('ExitRequest', prevExitRequestId)

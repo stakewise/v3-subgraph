@@ -6,10 +6,16 @@ import { DAY } from '../helpers/constants'
 
 const snapshotsCount = 7
 
-export function getRewardPerAsset(reward: BigInt, principalAssets: BigInt): BigDecimal {
+export function getRewardPerAsset(reward: BigInt, principalAssets: BigInt, feePercent: i32): BigDecimal {
   const rewardDecimal = BigDecimal.fromString(reward.toString())
   const principalAssetsDecimal = BigDecimal.fromString(principalAssets.toString())
-  return rewardDecimal.div(principalAssetsDecimal)
+  const rewardPerAsset = rewardDecimal.div(principalAssetsDecimal)
+
+  const hundredDecimal = BigDecimal.fromString('10000')
+  const feePercentDecimal = BigDecimal.fromString(feePercent.toString())
+  const feePerAsset = rewardPerAsset.div(hundredDecimal).times(feePercentDecimal)
+
+  return rewardPerAsset.minus(feePerAsset)
 }
 
 export function loadDaySnapshot(timestamp: BigInt, vaultId: string): DaySnapshot | null {
