@@ -1,11 +1,11 @@
 {
   "network": "goerli",
   "vaultFactory": {
-    "address": "0xFfd31AdCe24fBF18d5BBfe679e2E3e9A321C137F",
-    "startBlock": "8514411"
+    "address": "0x2C7909E1130ceF3C410fe19325e9b8809bA8aeE3",
+    "startBlock": "8751129"
   },
   "keeper": {
-    "address": "0x1833E7Ba555A6abc99B8299e662AfEec88167805",
-    "startBlock": "8514408"
+    "address": "0x8c60267FEC19B8eb30326038E24bD5860B9a58f7",
+    "startBlock": "8751126"
   }
 }

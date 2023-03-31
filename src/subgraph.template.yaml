@@ -1,4 +1,4 @@
-specVersion: 0.0.5
+specVersion: 0.0.7
 description: The liquid staking protocol
 repository: https://github.com/stakewise/v3-subgraph
 schema:
@@ -20,7 +20,9 @@ dataSources:
       file: ./mappings/vaultFactory.ts
       entities:
         - Vault
+        - OwnMevEscrow
         - Network
+        - Transaction
       abis:
         - name: VaultFactory
           file: ./abis/v3/VaultFactory.json
@@ -46,8 +48,10 @@ dataSources:
         - name: Keeper
           file: ./abis/v3/Keeper.json
       eventHandlers:
-        - event: RewardsRootUpdated(indexed address,indexed bytes32,uint64,uint96,string)
+        - event: RewardsRootUpdated(indexed address,indexed bytes32,uint64,uint64,string)
           handler: handleRewardsRootUpdated
+        - event: Harvested(indexed address,indexed bytes32,int256,uint256)
+          handler: handleHarvested
 templates:
   - kind: ethereum/contract
     name: Vault
@@ -71,17 +75,13 @@ templates:
         - name: Multicall
           file: ./abis/Multicall.json
       eventHandlers:
-        - event: Transfer(indexed address,indexed address,uint256)
-          handler: handleTransfer
         - event: Deposit(indexed address,indexed address,uint256,uint256,address)
           handler: handleDeposit
         - event: Withdraw(indexed address,indexed address,indexed address,uint256,uint256)
           handler: handleWithdraw
-        - event: StateUpdated(int256)
-          handler: handleStateUpdated
         - event: ExitQueueEntered(indexed address,indexed address,indexed address,uint256,uint256)
           handler: handleExitQueueEntered
-        - event: ExitedAssetsClaimed(indexed address,indexed address,indexed uint256,uint256,uint256)
+        - event: ExitedAssetsClaimed(indexed address,indexed address,uint256,uint256,uint256)
           handler: handleExitedAssetsClaimed
         - event: ValidatorsRootUpdated(indexed address,indexed bytes32)
           handler: handleValidatorsRootUpdated
@@ -91,6 +91,8 @@ templates:
           handler: handleFeeRecipientUpdated
         - event: OperatorUpdated(indexed address,indexed address)
           handler: handleOperatorUpdated
+        - event: CheckpointCreated(uint256,uint256)
+          handler: handleCheckpointCreated
   - kind: ethereum/contract
     name: PrivateVault
     network: {{ network }}
@@ -113,42 +115,26 @@ templates:
         - event: WhitelisterUpdated(indexed address,indexed address)
           handler: handleWhitelisterUpdated
   - kind: ethereum/contract
-    name: ExitQueue
+    name: OwnMevEscrow
     network: {{ network }}
     source:
-      abi: ExitQueue
+      abi: OwnMevEscrow
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
       language: wasm/assemblyscript
-      file: ./mappings/exitQueue.ts
-      entities:
-        - VaultCheckpoint
-        - DaySnapshot
-      abis:
-        - name: ExitQueue
-          file: ./abis/v3/ExitQueue.json
-      eventHandlers:
-        - event: CheckpointCreated(uint160,uint96)
-          handler: handleCheckpointCreated
-  - kind: ethereum/contract
-    name: MevEscrow
-    network: {{ network }}
-    source:
-      abi: MevEscrow
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./mappings/mevEscrow.ts
+      file: ./mappings/ownMevEscrow.ts
       entities:
         - Vault
         - DaySnapshot
+        - OwnMevEscrow
       abis:
-        - name: MevEscrow
-          file: ./abis/v3/MevEscrow.json
+        - name: OwnMevEscrow
+          file: ./abis/v3/OwnMevEscrow.json
       eventHandlers:
         - event: MevReceived(uint256)
           handler: handleMevReceived
+        - event: Harvested(uint256)
+          handler: handleHarvested
       blockHandlers:
         - handler: handleBlock

@@ -18,16 +18,12 @@ const abis = [
     to: '../src/abis/v3/VaultFactory.json',
   },
   {
-    from: '../v3-core/abi/ExitQueue.json',
-    to: '../src/abis/v3/ExitQueue.json',
-  },
-  {
     from: '../v3-core/abi/IKeeper.json',
     to: '../src/abis/v3/Keeper.json',
   },
   {
-    from: '../v3-core/abi/IMevEscrow.json',
-    to: '../src/abis/v3/MevEscrow.json',
+    from: '../v3-core/abi/IOwnMevEscrow.json',
+    to: '../src/abis/v3/OwnMevEscrow.json',
   },
 ]
 

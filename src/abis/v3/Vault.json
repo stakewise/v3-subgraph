@@ -108,6 +108,25 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "assets",
+        "type": "uint256"
+      }
+    ],
+    "name": "CheckpointCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": true,
         "internalType": "address",
         "name": "caller",
@@ -165,7 +184,7 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "exitQueueId",
+        "name": "positionCounter",
         "type": "uint256"
       },
       {
@@ -194,15 +213,15 @@
         "type": "address"
       },
       {
-        "indexed": true,
+        "indexed": false,
         "internalType": "uint256",
-        "name": "prevExitQueueId",
+        "name": "prevPositionCounter",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "newExitQueueId",
+        "name": "newPositionCounter",
         "type": "uint256"
       },
       {
@@ -270,19 +289,6 @@
       }
     ],
     "name": "OperatorUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "int256",
-        "name": "assetsDelta",
-        "type": "int256"
-      }
-    ],
-    "name": "StateUpdated",
     "type": "event"
   },
   {
@@ -474,6 +480,19 @@
   },
   {
     "inputs": [],
+    "name": "canUpdateExitQueue",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "capacity",
     "outputs": [
       {
@@ -494,7 +513,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "exitQueueId",
+        "name": "positionCounter",
         "type": "uint256"
       },
       {
@@ -507,7 +526,12 @@
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "newExitQueueId",
+        "name": "newPositionCounter",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "claimedShares",
         "type": "uint256"
       },
       {
@@ -616,7 +640,7 @@
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "exitQueueId",
+        "name": "positionCounter",
         "type": "uint256"
       }
     ],
@@ -653,7 +677,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "exitQueueId",
+        "name": "positionCounter",
         "type": "uint256"
       }
     ],
@@ -712,7 +736,7 @@
     "name": "mevEscrow",
     "outputs": [
       {
-        "internalType": "contract IMevEscrow",
+        "internalType": "address",
         "name": "",
         "type": "address"
       }
@@ -854,6 +878,13 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "receiveFromMevEscrow",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -880,19 +911,6 @@
       }
     ],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "redeemableShares",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1170,6 +1188,11 @@
             "type": "int160"
           },
           {
+            "internalType": "uint160",
+            "name": "unlockedMevReward",
+            "type": "uint160"
+          },
+          {
             "internalType": "bytes32[]",
             "name": "proof",
             "type": "bytes32[]"
@@ -1208,6 +1231,11 @@
             "internalType": "int160",
             "name": "reward",
             "type": "int160"
+          },
+          {
+            "internalType": "uint160",
+            "name": "unlockedMevReward",
+            "type": "uint160"
           },
           {
             "internalType": "bytes32[]",

@@ -1,20 +1,20 @@
-import { Address, BigInt } from '@graphprotocol/graph-ts'
+import {Address, BigInt} from '@graphprotocol/graph-ts'
 
-import { Allocator } from '../../generated/schema'
+import {Allocator} from '../../generated/schema'
 
 
 export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: Address): Allocator {
-  const vaultAllocatorAddress = `${vaultAddress.toHex()}-${allocatorAddress.toHex()}`
+    const vaultAllocatorAddress = `${vaultAddress.toHex()}-${allocatorAddress.toHex()}`
 
-  let vaultAllocator = Allocator.load(vaultAllocatorAddress)
+    let vaultAllocator = Allocator.load(vaultAllocatorAddress)
 
-  if (vaultAllocator === null) {
-    vaultAllocator = new Allocator(vaultAllocatorAddress)
-    vaultAllocator.shares = BigInt.zero()
-    vaultAllocator.address = allocatorAddress
-    vaultAllocator.vault = vaultAddress.toHex()
-    vaultAllocator.save()
-  }
+    if (vaultAllocator === null) {
+        vaultAllocator = new Allocator(vaultAllocatorAddress)
+        vaultAllocator.shares = BigInt.zero()
+        vaultAllocator.address = allocatorAddress
+        vaultAllocator.vault = vaultAddress.toHex()
+        vaultAllocator.save()
+    }
 
-  return vaultAllocator
+    return vaultAllocator
 }

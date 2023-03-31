@@ -16,34 +16,14 @@ type Allocator @entity {
 }
 
 """
-Vault Checkpoint
-"""
-type VaultCheckpoint @entity {
-  "<Vault ID>-<Checkpoint index>"
-  id: ID!
-
-  "The checkpoint index"
-  index: BigInt!
-
-  "The cumulative number of burned shares"
-  sharesCounter: BigInt!
-
-  "The amount of exited assets"
-  exitedAssets: BigInt!
-
-  "The checkpoint vault"
-  vault: Vault!
-}
-
-"""
 Vault exit request
 """
 type ExitRequest @entity {
   "<Vault ID>-<Exit queue id>"
   id: ID!
 
-  "The exit queue id"
-  exitQueueId: BigInt!
+  "The exit queue position counter"
+  positionCounter: BigInt!
 
   "The exiting shares owner"
   owner: Bytes!
@@ -71,7 +51,7 @@ type Vault @entity {
   "The vault token symbol"
   tokenSymbol: String!
 
-  "The optional vault name"
+  "The optional vault name extracted from metadata IPFS file"
   displayName: String
 
   "The optional description extracted from metadata IPFS file"
@@ -89,8 +69,8 @@ type Vault @entity {
   "The max total assets that can be allocated into the vault"
   capacity: BigInt!
 
-  "The MEV and priority fees escrow address"
-  mevEscrow: MevEscrow @derivedFrom(field: "vault")
+  "The MEV and priority fees escrow address. Empty for vaults that share MEV & priority fees"
+  ownMevEscrow: OwnMevEscrow @derivedFrom(field: "vault")
 
   "The staking fee percent charged by the vault"
   feePercent: Int!
@@ -104,12 +84,6 @@ type Vault @entity {
   "Average reward on one asset"
   avgRewardPerAsset: BigDecimal!
 
-  "The vault unclaimed consensus reward"
-  consensusReward: BigInt!
-
-  "The vault unclaimed execution reward"
-  executionReward: BigInt!
-
   "The vault validators merkle tree root"
   validatorsRoot: Bytes
 
@@ -122,20 +96,23 @@ type Vault @entity {
   "The last vault rewards root update timestamp"
   rewardsRootTimestamp: BigInt
 
-  "The vault rewards root reward"
+  "The vault rewards IPFS hash"
+  rewardsIpfsHash: String
+
+  "The vault reward used to submit state update proof"
   proofReward: BigInt
 
-  "The vault rewards root proof"
-  proof: [String!]
+  "The vault unlocked MEV reward used to submit state update proof"
+  proofUnlockedMevReward: BigInt
 
-  "The vault allocators"
-  allocators: [Allocator!]! @derivedFrom(field: "vault")
+  "The vault locked MEV reward"
+  lockedMevReward: BigInt
+
+  "The vault rewards root proof used to submit state update proof"
+  proof: [String!]
 
   "The vault allocators' actions"
   allocatorActions: [AllocatorAction!]! @derivedFrom(field: "vault")
-
-  "The vault checkpoints"
-  checkpoints: [VaultCheckpoint!]! @derivedFrom(field: "vault")
 
   "The vault exit requests"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "vault")
@@ -155,8 +132,11 @@ type Vault @entity {
   "The number of shares queued for the exit"
   queuedShares: BigInt!
 
-  "The number of assets that are waiting to be claimed"
+  "The number of assets that are waiting to be claimed after exit"
   unclaimedAssets: BigInt!
+
+  "The number of assets used for rewardPerAsset calculation"
+  principalAssets: BigInt!
 
   "Indicates whether the Vault is private"
   isPrivate: Boolean!
@@ -174,7 +154,7 @@ type Vault @entity {
 enum AllocatorActionType {
   Deposit
   Withdraw
-  SecurityDeposit
+  VaultCreation
   ExitQueueEntered
   ExitedAssetsClaimed
 }
@@ -215,8 +195,7 @@ type DaySnapshot @entity {
   "The total number of assets"
   totalAssets: BigInt!
 
-  principalAssets: BigInt!
-
+  "The reward on one asset"
   rewardPerAsset: BigDecimal!
 
   "The snapshot's vault"
@@ -235,13 +214,16 @@ type Network @entity {
 }
 
 """
-Mev escrow
+Own Vault MEV escrow
 """
-type MevEscrow @entity {
-  "Mev escrow address"
+type OwnMevEscrow @entity {
+  "MEV escrow address"
   id: ID!
 
-  "The vault of the mev escrow"
+  "The MEV escrow balance"
+  balance: BigInt!
+
+  "The vault of the MEV escrow"
   vault: Vault!
 }
 
@@ -271,7 +253,4 @@ type Transaction @entity {
 
   "Transaction hash"
   hash: String!
-
-  "Transaction log index"
-  logIndex: BigInt!
 }

@@ -7,13 +7,16 @@ import { DAY } from '../helpers/constants'
 const snapshotsCount = 7
 
 export function getRewardPerAsset(reward: BigInt, principalAssets: BigInt, feePercent: i32): BigDecimal {
+  if (principalAssets.le(BigInt.zero())) {
+    return BigDecimal.zero()
+  }
   const rewardDecimal = BigDecimal.fromString(reward.toString())
   const principalAssetsDecimal = BigDecimal.fromString(principalAssets.toString())
   const rewardPerAsset = rewardDecimal.div(principalAssetsDecimal)
 
-  const hundredDecimal = BigDecimal.fromString('10000')
+  const maxPercentDecimal = BigDecimal.fromString('10000')
   const feePercentDecimal = BigDecimal.fromString(feePercent.toString())
-  const feePerAsset = rewardPerAsset.div(hundredDecimal).times(feePercentDecimal)
+  const feePerAsset = rewardPerAsset.times(feePercentDecimal).div(maxPercentDecimal)
 
   return rewardPerAsset.minus(feePerAsset)
 }
@@ -37,7 +40,6 @@ export function createOrLoadDaySnapshot(timestamp: BigInt, vault: Vault): DaySna
 
     daySnapshot.date = dayStart
     daySnapshot.totalAssets = vault.totalAssets
-    daySnapshot.principalAssets = vault.totalAssets.minus(vault.consensusReward).minus(vault.executionReward)
     daySnapshot.rewardPerAsset = BigDecimal.zero()
     daySnapshot.vault = vault.id
 
