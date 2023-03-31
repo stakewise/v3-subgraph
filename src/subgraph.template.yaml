@@ -69,6 +69,7 @@ templates:
         - ExitRequest
         - DaySnapshot
         - AllocatorAction
+        - Transaction
       abis:
         - name: Vault
           file: ./abis/v3/Vault.json
@@ -106,6 +107,7 @@ templates:
       entities:
         - Vault
         - PrivateVaultAccount
+        - Transaction
       abis:
         - name: PrivateVault
           file: ./abis/v3/PrivateVault.json
