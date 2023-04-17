@@ -197,6 +197,7 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
 
     if (parsedJson.isOk && !parsedJson.isError) {
       updateMetadata(parsedJson.value, vault)
+      vault.metadataUpdatedAt = event.block.timestamp
     }
   }
 
