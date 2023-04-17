@@ -167,6 +167,9 @@ type Vault @entity {
   "Vault address string for search"
   addressString: String!
 
+  "The timestamp the metadata was updated at"
+  metadataUpdatedAt: BigInt
+
   "The timestamp the vault was created at"
   createdAt: BigInt!
 }

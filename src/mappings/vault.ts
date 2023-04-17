@@ -157,6 +157,10 @@ export function handleTransfer(event: Transfer): void {
 
     allocatorFrom.shares = allocatorFrom.shares.minus(value)
     allocatorFrom.save()
+
+    if (isBurn && allocatorFrom.shares.isZero()) {
+      store.remove('Allocator', allocatorFrom.id)
+    }
   }
 
   if (!isBurn) {
@@ -193,6 +197,7 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
 
     if (parsedJson.isOk && !parsedJson.isError) {
       updateMetadata(parsedJson.value, vault)
+      vault.metadataUpdatedAt = event.block.timestamp
     }
   }
 
