@@ -21,7 +21,7 @@
     "deploy-local:goerli": "npm run prepare:goerli && npm run deploy network:goerli node:local"
   },
   "devDependencies": {
-    "@graphprotocol/graph-cli": "0.40.0",
+    "@graphprotocol/graph-cli": "0.48.0",
     "@graphprotocol/graph-ts": "0.29.3",
     "@types/node": "18.14.0",
     "@typescript-eslint/eslint-plugin": "5.52.0",
