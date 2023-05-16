@@ -1,7 +1,7 @@
 import {BigInt, ipfs, JSONValue, log, Value} from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
-import { RewardsRootUpdated } from '../../generated/Keeper/Keeper'
+import { RewardsUpdated } from '../../generated/Keeper/Keeper'
 import {createOrLoadDaySnapshot, getRewardPerAsset, updateAvgRewardPerAsset} from '../entities/daySnapshot'
 import { DAY } from '../helpers/constants'
 
@@ -65,7 +65,7 @@ export function updateRewardsRoot(value: JSONValue, callbackDataValue: Value): v
   }
 }
 
-export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
+export function handleRewardsUpdated(event: RewardsUpdated): void {
   const rewardsRoot = event.params.rewardsRoot
   const rewardsIpfsHash = event.params.rewardsIpfsHash
   const updateTimestamp = event.params.updateTimestamp
@@ -77,7 +77,7 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
 
   ipfs.mapJSON(rewardsIpfsHash, 'updateRewardsRoot', callbackData)
   log.info(
-    '[Keeper] RewardsRootUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={}',
+    '[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={}',
     [
         rewardsRoot.toHex(),
         rewardsIpfsHash,

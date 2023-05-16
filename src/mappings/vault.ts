@@ -2,10 +2,9 @@ import { Address, BigInt, ipfs, log, store, json } from '@graphprotocol/graph-ts
 
 import { AllocatorAction, Vault, ExitRequest } from '../../generated/schema'
 import {
+  Redeem,
   Deposit,
-  Withdraw,
   Transfer,
-  StateUpdated,
   OperatorUpdated,
   MetadataUpdated,
   ExitQueueEntered,
@@ -64,7 +63,7 @@ export function handleDeposit(event: Deposit): void {
 }
 
 // Event emitted on assets withdraw from vault to allocator
-export function handleWithdraw(event: Withdraw): void {
+export function handleRedeem(event: Redeem): void {
   const params = event.params
   const assets = params.assets
   const vaultAddress = event.address
@@ -88,7 +87,7 @@ export function handleWithdraw(event: Withdraw): void {
 
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
-  allocatorAction.actionType = 'Withdraw'
+  allocatorAction.actionType = 'Redeem'
   allocatorAction.assets = assets
   allocatorAction.shares = params.shares
   allocatorAction.createdAt = event.block.timestamp
@@ -97,7 +96,7 @@ export function handleWithdraw(event: Withdraw): void {
   createTransaction(txHash, event.transactionLogIndex)
 
   log.info(
-    '[Vault] Withdraw vault={} assets={}',
+    '[Vault] Redeem vault={} assets={}',
     [
       vaultAddress.toHex(),
       assets.toString(),
@@ -106,30 +105,30 @@ export function handleWithdraw(event: Withdraw): void {
 }
 
 // Event emitted on vault state update
-export function handleStateUpdated(event: StateUpdated): void {
-  const params = event.params
-  const assetsDelta = params.assetsDelta
-  const vaultAddress = event.address
-
-  const vault = Vault.load(vaultAddress.toHex()) as Vault
-
-  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
-
-  daySnapshot.principalAssets = vault.totalAssets
-  daySnapshot.save()
-
-  vault.executionReward = BigInt.zero()
-  vault.consensusReward = BigInt.zero()
-  vault.save()
-
-  log.info(
-    '[Vault] StateUpdated vault={} assetsDelta={}',
-    [
-      vaultAddress.toHex(),
-      assetsDelta.toString(),
-    ]
-  )
-}
+// export function handleStateUpdated(event: StateUpdated): void {
+//   const params = event.params
+//   const assetsDelta = params.assetsDelta
+//   const vaultAddress = event.address
+//
+//   const vault = Vault.load(vaultAddress.toHex()) as Vault
+//
+//   const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
+//
+//   daySnapshot.principalAssets = vault.totalAssets
+//   daySnapshot.save()
+//
+//   vault.executionReward = BigInt.zero()
+//   vault.consensusReward = BigInt.zero()
+//   vault.save()
+//
+//   log.info(
+//     '[Vault] StateUpdated vault={} assetsDelta={}',
+//     [
+//       vaultAddress.toHex(),
+//       assetsDelta.toString(),
+//     ]
+//   )
+// }
 
 // Event emitted on mint, burn or transfer shares between allocators
 export function handleTransfer(event: Transfer): void {
@@ -296,7 +295,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const owner = params.owner
   const shares = params.shares
   const receiver = params.receiver
-  const exitQueueId = params.exitQueueId
+  const positionCounter = params.positionCounter
   const vaultAddress = event.address.toHex()
 
   // Update vault queued shares
@@ -322,22 +321,23 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   createTransaction(event.transaction.hash.toHex(), event.transactionLogIndex)
 
   // Create exit request
-  const exitRequestId = `${vaultAddress}-${exitQueueId}`
+  const exitRequestId = `${vaultAddress}-${positionCounter}`
   const exitRequest = new ExitRequest(exitRequestId)
 
   exitRequest.vault = vaultAddress
   exitRequest.owner = owner
   exitRequest.receiver = receiver
   exitRequest.totalShares = shares
-  exitRequest.exitQueueId = exitQueueId
+  // TODO rename to positionCounter
+  exitRequest.exitQueueId = positionCounter
   exitRequest.save()
 
   log.info(
-    '[Vault] ExitQueueEntered vault={} shares={} exitQueueId={}',
+    '[Vault] ExitQueueEntered vault={} shares={} positionCounter={}',
     [
       vaultAddress,
       shares.toString(),
-      exitQueueId.toString(),
+      positionCounter.toString(),
     ]
   )
 }
@@ -348,8 +348,9 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const params = event.params
 
   const receiver = params.receiver
-  const prevExitQueueId = params.prevExitQueueId
-  const newExitQueueId = params.newExitQueueId
+  // TODO rename to prevPositionCounter and newPositionCounter
+  const prevExitQueueId = params.prevPositionCounter
+  const newExitQueueId = params.newPositionCounter
   const withdrawnAssets = params.withdrawnAssets
   const vaultAddress = event.address.toHex()
   const vault = Vault.load(vaultAddress) as Vault
