@@ -1,8 +1,9 @@
-import { MevEscrow, Vault } from '../../generated/schema'
-import { MevReceived } from '../../generated/templates/MevEscrow/MevEscrow'
+import { Address, ethereum, log } from '@graphprotocol/graph-ts'
 import { Multicall } from '../../generated/templates/Vault/Multicall'
-import {createOrLoadDaySnapshot, getRewardPerAsset, updateAvgRewardPerAsset } from '../entities/daySnapshot'
-import {Address, ethereum, log} from "@graphprotocol/graph-ts";
+import { MevReceived } from '../../generated/templates/MevEscrow/MevEscrow'
+import { MevEscrow, Vault } from '../../generated/schema'
+import { createOrLoadDaySnapshot, getRewardPerAsset, updateAvgRewardPerAsset } from '../entities/daySnapshot'
+import { multicallAddress } from '../helpers/constants'
 
 
 export function handleMevReceived(event: MevReceived): void {
@@ -36,7 +37,7 @@ export function handleBlock(block: ethereum.Block): void {
 
   if (mevEscrow) {
     // TODO get address from env or config
-    const multicallContract = Multicall.bind(Address.fromString('0x77dCa2C955b15e9dE4dbBCf1246B4B85b651e50e'))
+    const multicallContract = Multicall.bind(Address.fromString(multicallAddress))
     const mevEscrowBalance = multicallContract.getEthBalance(block.author)
 
     const vaultAddress = mevEscrow.vault

@@ -1,5 +1,8 @@
 {
   "network": "goerli",
+  "multicall": {
+    "address": "0x77dCa2C955b15e9dE4dbBCf1246B4B85b651e50e"
+  },
   "vaultFactory": {
     "address": "0x1dfe1D33BAbd11D94661811400A85843B80A2126",
     "startBlock": "8514411"
