@@ -176,7 +176,7 @@ type Vault @entity {
 
 enum AllocatorActionType {
   Deposit
-  Withdraw
+  Redeem
   SecurityDeposit
   ExitQueueEntered
   ExitedAssetsClaimed
