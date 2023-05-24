@@ -1,4 +1,4 @@
-import { BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
+import { BigDecimal, BigInt, Address, log } from '@graphprotocol/graph-ts'
 
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import { Vault } from '../../generated/schema'
@@ -35,6 +35,10 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
 
+  if (params.mevEscrow != Address.zero()) {
+    vault.mevEscrow = params.mevEscrow
+  }
+
   if (vault.isPrivate) {
     PrivateVaultTemplate.create(vaultAddress)
     vault.whitelister = params.admin
@@ -50,10 +54,11 @@ export function handleVaultCreated(event: VaultCreated): void {
   createTransaction(event.transaction.hash.toHex())
 
   log.info(
-    '[VaultFactory] VaultCreated address={} admin={} feePercent={} capacity={}',
+    '[VaultFactory] VaultCreated address={} admin={} mevEscrow={} feePercent={} capacity={}',
     [
       vaultAddressHex,
       params.admin.toHex(),
+      params.mevEscrow.toHex(),
       params.feePercent.toString(),
       params.capacity.toString(),
     ]
