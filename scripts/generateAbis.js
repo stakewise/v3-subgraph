@@ -7,27 +7,19 @@ const { execAsync } = require('./util')
 const abis = [
   {
     from: '../v3-core/abi/IEthVault.json',
-    to: '../src/abis/v3/Vault.json',
+    to: '../src/abis/Vault.json',
   },
   {
     from: '../v3-core/abi/IEthPrivateVault.json',
-    to: '../src/abis/v3/PrivateVault.json',
+    to: '../src/abis/PrivateVault.json',
   },
   {
     from: '../v3-core/abi/IEthVaultFactory.json',
-    to: '../src/abis/v3/VaultFactory.json',
-  },
-  {
-    from: '../v3-core/abi/ExitQueue.json',
-    to: '../src/abis/v3/ExitQueue.json',
+    to: '../src/abis/VaultFactory.json',
   },
   {
     from: '../v3-core/abi/IKeeper.json',
-    to: '../src/abis/v3/Keeper.json',
-  },
-  {
-    from: '../v3-core/abi/IMevEscrow.json',
-    to: '../src/abis/v3/MevEscrow.json',
+    to: '../src/abis/Keeper.json',
   },
 ]
 
