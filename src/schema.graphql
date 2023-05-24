@@ -69,9 +69,6 @@ type Vault @entity {
   "The max total assets that can be allocated into the vault"
   capacity: BigInt!
 
-  "The MEV and priority fees escrow address. Empty for vaults that share MEV & priority fees"
-  ownMevEscrow: OwnMevEscrow @derivedFrom(field: "vault")
-
   "The staking fee percent charged by the vault"
   feePercent: Int!
 
@@ -93,8 +90,8 @@ type Vault @entity {
   "The vault rewards root"
   rewardsRoot: Bytes
 
-  "The last vault rewards root update timestamp"
-  rewardsRootTimestamp: BigInt
+  "The last vault rewards update timestamp"
+  rewardsTimestamp: BigInt
 
   "The vault rewards IPFS hash"
   rewardsIpfsHash: String
@@ -211,20 +208,6 @@ type Network @entity {
 
   "Total vaults"
   vaultsTotal: Int!
-}
-
-"""
-Own Vault MEV escrow
-"""
-type OwnMevEscrow @entity {
-  "MEV escrow address"
-  id: ID!
-
-  "The MEV escrow balance"
-  balance: BigInt!
-
-  "The vault of the MEV escrow"
-  vault: Vault!
 }
 
 """

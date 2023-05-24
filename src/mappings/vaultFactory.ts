@@ -1,8 +1,8 @@
-import {Address, BigDecimal, BigInt, log} from '@graphprotocol/graph-ts'
+import { BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
 
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
-import { OwnMevEscrow, Vault } from '../../generated/schema'
-import { Vault as VaultTemplate, PrivateVault as PrivateVaultTemplate, OwnMevEscrow as OwnMevEscrowTemplate } from '../../generated/templates'
+import { Vault } from '../../generated/schema'
+import { Vault as VaultTemplate, PrivateVault as PrivateVaultTemplate } from '../../generated/templates'
 import { createTransaction } from '../entities/transaction'
 import { createOrLoadNetwork } from '../entities/network'
 
@@ -40,14 +40,6 @@ export function handleVaultCreated(event: VaultCreated): void {
     vault.whitelister = params.admin
   }
 
-  if(params.mevEscrow != Address.zero()) {
-    const ownMevEscrow = new OwnMevEscrow(params.mevEscrow.toHex())
-    ownMevEscrow.balance = BigInt.zero()
-    ownMevEscrow.vault = vaultAddressHex
-    ownMevEscrow.save()
-    OwnMevEscrowTemplate.create(params.mevEscrow)
-  }
-
   vault.save()
   VaultTemplate.create(vaultAddress)
 
@@ -58,11 +50,10 @@ export function handleVaultCreated(event: VaultCreated): void {
   createTransaction(event.transaction.hash.toHex())
 
   log.info(
-    '[VaultFactory] VaultCreated address={} admin={} mevEscrow={} feePercent={} capacity={}',
+    '[VaultFactory] VaultCreated address={} admin={} feePercent={} capacity={}',
     [
       vaultAddressHex,
       params.admin.toHex(),
-      params.mevEscrow.toHex(),
       params.feePercent.toString(),
       params.capacity.toString(),
     ]

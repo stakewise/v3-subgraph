@@ -3,7 +3,7 @@ import { Address, BigInt, ipfs, log, store, json } from '@graphprotocol/graph-ts
 import { AllocatorAction, Vault, ExitRequest } from '../../generated/schema'
 import {
   Deposit,
-  Withdraw,
+  Redeem,
   CheckpointCreated,
   OperatorUpdated,
   MetadataUpdated,
@@ -64,7 +64,7 @@ export function handleDeposit(event: Deposit): void {
 }
 
 // Event emitted on assets withdraw from vault to allocator
-export function handleWithdraw(event: Withdraw): void {
+export function handleRedeem(event: Redeem): void {
   const params = event.params
   const assets = params.assets
   const shares = params.shares
@@ -90,7 +90,7 @@ export function handleWithdraw(event: Withdraw): void {
 
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
-  allocatorAction.actionType = 'Withdraw'
+  allocatorAction.actionType = 'Redeem'
   allocatorAction.assets = assets
   allocatorAction.shares = shares
   allocatorAction.createdAt = event.block.timestamp
@@ -99,7 +99,7 @@ export function handleWithdraw(event: Withdraw): void {
   createTransaction(txHash)
 
   log.info(
-    '[Vault] Withdraw vault={} assets={}',
+    '[Vault] Redeem vault={} assets={}',
     [
       vaultAddress.toHex(),
       assets.toString(),

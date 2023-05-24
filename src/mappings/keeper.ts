@@ -1,7 +1,7 @@
 import {BigInt, ipfs, JSONValue, log, Value} from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
-import { RewardsRootUpdated, Harvested } from '../../generated/Keeper/Keeper'
+import { RewardsUpdated, Harvested } from '../../generated/Keeper/Keeper'
 import {createOrLoadDaySnapshot, getRewardPerAsset, updateAvgRewardPerAsset} from '../entities/daySnapshot'
 import { DAY } from '../helpers/constants'
 
@@ -39,37 +39,39 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
   const rewardsRoot = callbackData[0].toBytes()
   const updateTimestamp = callbackData[1].toBigInt()
   const rewardsIpfsHash = callbackData[2].toString()
-  const vaultRewards = value.toArray()
+  const vaultRewards = value.toObject().mustGet('vaults').toArray()
   for (let i = 0; i < vaultRewards.length; i++) {
-    const vaultReward = vaultRewards[i].toObject();
+    const vaultReward = vaultRewards[i].toObject()
     const vaultId = vaultReward.mustGet('vault').toString().toLowerCase()
     const vault = Vault.load(vaultId)
     if (!vault) {
+      log.warning('[Keeper] RewardsUpdated vault={} not found', [vaultId])
       continue
     }
 
-    const consensusReward = vaultReward.mustGet('consensusReward').toBigInt()
-    const lockedMevReward = vaultReward.isSet('lockedMevReward') ? vaultReward.mustGet('lockedMevReward').toBigInt() : BigInt.zero()
-    const unlockedMevReward = vaultReward.isSet('unlockedMevReward') ? vaultReward.mustGet('unlockedMevReward').toBigInt() : BigInt.zero()
+    const consensusReward = vaultReward.mustGet('consensus_reward').toBigInt()
+    const lockedMevReward = vaultReward.isSet('locked_mev_reward') ? vaultReward.mustGet('lockedMevReward').toBigInt() : BigInt.zero()
+    const unlockedMevReward = vaultReward.mustGet('unlocked_mev_reward').toBigInt()
     const proof = vaultReward.mustGet('proof').toArray()
     const proofReward = consensusReward.plus(lockedMevReward).plus(unlockedMevReward)
     const periodReward = vault.proofReward ? proofReward.minus(vault.proofReward as BigInt) : proofReward
-    const lastUpdateTimestamp = vault.rewardsRootTimestamp ? (vault.rewardsRootTimestamp as BigInt) : updateTimestamp
+    const lastUpdateTimestamp = vault.rewardsTimestamp ? (vault.rewardsTimestamp as BigInt) : updateTimestamp
     updateDaySnapshots(vault, lastUpdateTimestamp, updateTimestamp, periodReward)
 
     vault.totalAssets = vault.totalAssets.plus(periodReward)
     vault.rewardsRoot = rewardsRoot
     vault.proofReward = proofReward
     vault.proofUnlockedMevReward = unlockedMevReward
+    vault.lockedMevReward = lockedMevReward
     vault.proof = proof.map<string>((proofValue: JSONValue) => proofValue.toString())
-    vault.rewardsRootTimestamp = updateTimestamp
+    vault.rewardsTimestamp = updateTimestamp
     vault.rewardsIpfsHash = rewardsIpfsHash
     updateAvgRewardPerAsset(updateTimestamp, vault)
     vault.save()
   }
 }
 
-export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
+export function handleRewardsUpdated(event: RewardsUpdated): void {
   const rewardsRoot = event.params.rewardsRoot
   const rewardsIpfsHash = event.params.rewardsIpfsHash
   const updateTimestamp = event.params.updateTimestamp
@@ -82,7 +84,7 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
 
   ipfs.mapJSON(rewardsIpfsHash, 'updateRewards', callbackData)
   log.info(
-    '[Keeper] RewardsRootUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={}',
+    '[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={}',
     [
         rewardsRoot.toHex(),
         rewardsIpfsHash,
@@ -101,7 +103,7 @@ export function handleHarvested(event: Harvested): void {
   vault.save()
 
   log.info(
-    '[Keeper] Harvested vault={} assetsDelta={}',
+    '[Keeper] Harvested vault={} totalAssetsDelta={}',
     [
       vaultAddress,
       totalAssetsDelta.toString(),

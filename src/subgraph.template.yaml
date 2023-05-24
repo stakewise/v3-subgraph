@@ -20,12 +20,11 @@ dataSources:
       file: ./mappings/vaultFactory.ts
       entities:
         - Vault
-        - OwnMevEscrow
         - Network
         - Transaction
       abis:
         - name: VaultFactory
-          file: ./abis/v3/VaultFactory.json
+          file: ./abis/VaultFactory.json
       eventHandlers:
         - event: VaultCreated(indexed address,indexed address,indexed bool,address,uint256,uint16,string,string)
           handler: handleVaultCreated
@@ -46,10 +45,10 @@ dataSources:
         - DaySnapshot
       abis:
         - name: Keeper
-          file: ./abis/v3/Keeper.json
+          file: ./abis/Keeper.json
       eventHandlers:
-        - event: RewardsRootUpdated(indexed address,indexed bytes32,uint64,uint64,string)
-          handler: handleRewardsRootUpdated
+        - event: RewardsUpdated(indexed address,indexed bytes32,uint128,uint64,uint64,string)
+          handler: handleRewardsUpdated
         - event: Harvested(indexed address,indexed bytes32,int256,uint256)
           handler: handleHarvested
 templates:
@@ -72,14 +71,12 @@ templates:
         - Transaction
       abis:
         - name: Vault
-          file: ./abis/v3/Vault.json
-        - name: Multicall
-          file: ./abis/Multicall.json
+          file: ./abis/Vault.json
       eventHandlers:
         - event: Deposit(indexed address,indexed address,uint256,uint256,address)
           handler: handleDeposit
-        - event: Withdraw(indexed address,indexed address,indexed address,uint256,uint256)
-          handler: handleWithdraw
+        - event: Redeem(indexed address,indexed address,indexed address,uint256,uint256)
+          handler: handleRedeem
         - event: ExitQueueEntered(indexed address,indexed address,indexed address,uint256,uint256)
           handler: handleExitQueueEntered
         - event: ExitedAssetsClaimed(indexed address,indexed address,uint256,uint256,uint256)
@@ -110,33 +107,9 @@ templates:
         - Transaction
       abis:
         - name: PrivateVault
-          file: ./abis/v3/PrivateVault.json
+          file: ./abis/PrivateVault.json
       eventHandlers:
         - event: WhitelistUpdated(indexed address,indexed address,bool)
           handler: handleWhitelistUpdated
         - event: WhitelisterUpdated(indexed address,indexed address)
           handler: handleWhitelisterUpdated
-  - kind: ethereum/contract
-    name: OwnMevEscrow
-    network: {{ network }}
-    source:
-      abi: OwnMevEscrow
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./mappings/ownMevEscrow.ts
-      entities:
-        - Vault
-        - DaySnapshot
-        - OwnMevEscrow
-      abis:
-        - name: OwnMevEscrow
-          file: ./abis/v3/OwnMevEscrow.json
-      eventHandlers:
-        - event: MevReceived(uint256)
-          handler: handleMevReceived
-        - event: Harvested(uint256)
-          handler: handleHarvested
-      blockHandlers:
-        - handler: handleBlock

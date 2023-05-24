@@ -21,15 +21,15 @@
     "deploy-local:goerli": "npm run prepare:goerli && npm run deploy network:goerli node:local"
   },
   "devDependencies": {
-    "@graphprotocol/graph-cli": "0.44.0",
-    "@graphprotocol/graph-ts": "0.29.3",
-    "@types/node": "18.15.10",
-    "@typescript-eslint/eslint-plugin": "5.57.0",
-    "@typescript-eslint/parser": "5.57.0",
+    "@graphprotocol/graph-cli": "0.50.0",
+    "@graphprotocol/graph-ts": "0.30.0",
+    "@types/node": "20.2.3",
+    "@typescript-eslint/eslint-plugin": "5.59.7",
+    "@typescript-eslint/parser": "5.59.7",
     "dotenv": "16.0.3",
-    "eslint": "8.36.0",
+    "eslint": "8.41.0",
     "matchstick-as": "0.5.2",
     "mustache": "4.2.0",
-    "typescript": "5.0.2"
+    "typescript": "5.0.4"
   }
 }
