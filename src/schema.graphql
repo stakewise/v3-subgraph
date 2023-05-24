@@ -81,6 +81,9 @@ type Vault @entity {
   "Average reward on one asset"
   avgRewardPerAsset: BigDecimal!
 
+  "The MEV and priority fees escrow address. If it's null, then the vault uses shared MEV escrow."
+  mevEscrow: Bytes
+
   "The vault validators merkle tree root"
   validatorsRoot: Bytes
 
@@ -153,7 +156,7 @@ type Vault @entity {
 
 enum AllocatorActionType {
   Deposit
-  Withdraw
+  Redeem
   VaultCreation
   ExitQueueEntered
   ExitedAssetsClaimed
@@ -226,7 +229,7 @@ type PrivateVaultAccount @entity {
   "The private Vault"
   vault: Vault!
 
- "The timestamp when the account was added"
+  "The timestamp when the account was added"
   createdAt: BigInt!
 }
 
@@ -234,9 +237,6 @@ type PrivateVaultAccount @entity {
 StakeWise V3 transaction
 """
 type Transaction @entity {
-  "Transaction hash - log index"
-  id: ID!
-
   "Transaction hash"
-  hash: String!
+  id: ID!
 }
