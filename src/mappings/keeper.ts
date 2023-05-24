@@ -50,7 +50,7 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
     }
 
     const consensusReward = vaultReward.mustGet('consensus_reward').toBigInt()
-    const lockedMevReward = vaultReward.isSet('locked_mev_reward') ? vaultReward.mustGet('lockedMevReward').toBigInt() : BigInt.zero()
+    const lockedMevReward = vaultReward.isSet('locked_mev_reward') ? vaultReward.mustGet('locked_mev_reward').toBigInt() : BigInt.zero()
     const unlockedMevReward = vaultReward.mustGet('unlocked_mev_reward').toBigInt()
     const proof = vaultReward.mustGet('proof').toArray()
     const proofReward = consensusReward.plus(lockedMevReward).plus(unlockedMevReward)
