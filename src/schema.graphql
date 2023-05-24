@@ -105,6 +105,9 @@ type Vault @entity {
   "The vault unlocked MEV reward used to submit state update proof"
   proofUnlockedMevReward: BigInt
 
+  "The vault allocators"
+  allocators: [Allocator!]! @derivedFrom(field: "vault")
+
   "The vault locked MEV reward"
   lockedMevReward: BigInt
 
