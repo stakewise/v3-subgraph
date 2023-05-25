@@ -26,7 +26,7 @@ export function handleWhitelistUpdated(event: WhitelistUpdated): void {
     store.remove('PrivateVaultAccount', id)
   }
 
-  createTransaction(event.transaction.hash.toHex())
+  createTransaction(event)
 
   log.info(
     '[PrivateVault] WhitelistUpdated vault={} approved={}',
@@ -47,7 +47,7 @@ export function handleWhitelisterUpdated(event: WhitelisterUpdated): void {
   vault.whitelister = whitelister
   vault.save()
 
-  createTransaction(event.transaction.hash.toHex())
+  createTransaction(event)
 
   log.info(
     '[PrivateVault] WhitelisterUpdated vault={} whitelister={}',

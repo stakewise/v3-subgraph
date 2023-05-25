@@ -52,7 +52,7 @@ export function handleDeposit(event: Deposit): void {
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
 
-  createTransaction(txHash)
+  createTransaction(event)
 
   log.info(
     '[Vault] Deposit vault={} assets={}',
@@ -96,7 +96,7 @@ export function handleRedeem(event: Redeem): void {
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
 
-  createTransaction(txHash)
+  createTransaction(event)
 
   log.info(
     '[Vault] Redeem vault={} assets={}',
@@ -171,7 +171,7 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
 
   vault.save()
 
-  createTransaction(event.transaction.hash.toHex())
+  createTransaction(event)
 
   log.info(
     '[Vault] MetadataUpdated metadataIpfsHash={}',
@@ -195,7 +195,7 @@ export function handleValidatorsRootUpdated(event: ValidatorsRootUpdated): void 
 
   vault.save()
 
-  createTransaction(event.transaction.hash.toHex())
+  createTransaction(event)
 
   log.info(
     '[Vault] ValidatorsRootUpdated vault={} validatorsRoot={}',
@@ -220,7 +220,7 @@ export function handleFeeRecipientUpdated(event: FeeRecipientUpdated): void {
 
   vault.save()
 
-  createTransaction(event.transaction.hash.toHex())
+  createTransaction(event)
 
   log.info(
     '[Vault] FeeRecipientUpdated vault={} feeRecipient={}',
@@ -245,7 +245,7 @@ export function handleOperatorUpdated(event: OperatorUpdated): void {
 
   vault.save()
 
-  createTransaction(event.transaction.hash.toHex())
+  createTransaction(event)
 
   log.info(
     '[Vault] OperatorUpdated vault={} operator={}',
@@ -287,7 +287,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
 
-  createTransaction(event.transaction.hash.toHex())
+  createTransaction(event)
 
   // Create exit request
   const exitRequestId = `${vaultAddress}-${positionCounter}`
@@ -339,7 +339,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
 
-  createTransaction(event.transaction.hash.toHex())
+  createTransaction(event)
 
   const prevExitRequestId = `${vaultAddress}-${prevPositionCounter}`
   const prevExitRequest = ExitRequest.load(prevExitRequestId) as ExitRequest

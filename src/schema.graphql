@@ -240,6 +240,9 @@ type PrivateVaultAccount @entity {
 StakeWise V3 transaction
 """
 type Transaction @entity {
-  "Transaction hash"
+  "Transaction hash - log index"
   id: ID!
+
+  "Transaction hash"
+  hash: String!
 }

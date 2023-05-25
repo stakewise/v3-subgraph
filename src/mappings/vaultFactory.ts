@@ -51,7 +51,7 @@ export function handleVaultCreated(event: VaultCreated): void {
   network.vaultsTotal = network.vaultsTotal + 1
   network.save()
 
-  createTransaction(event.transaction.hash.toHex())
+  createTransaction(event)
 
   log.info(
     '[VaultFactory] VaultCreated address={} admin={} mevEscrow={} feePercent={} capacity={}',
