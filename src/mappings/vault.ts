@@ -5,7 +5,7 @@ import {
   Deposit,
   Redeem,
   CheckpointCreated,
-  OperatorUpdated,
+  KeysManagerUpdated,
   MetadataUpdated,
   ExitQueueEntered,
   ExitedAssetsClaimed,
@@ -231,27 +231,27 @@ export function handleFeeRecipientUpdated(event: FeeRecipientUpdated): void {
   )
 }
 
-// Event emitted on operator update
-export function handleOperatorUpdated(event: OperatorUpdated): void {
+// Event emitted on keys manager update
+export function handleKeysManagerUpdated(event: KeysManagerUpdated): void {
   const params = event.params
 
-  const operator = params.operator
+  const keysManager = params.keysManager
 
   const vaultAddress = event.address.toHex()
 
   const vault = Vault.load(vaultAddress) as Vault
 
-  vault.operator = operator
+  vault.keysManager = keysManager
 
   vault.save()
 
   createTransaction(event.transaction.hash.toHex())
 
   log.info(
-    '[Vault] OperatorUpdated vault={} operator={}',
+    '[Vault] KeysManagerUpdated vault={} keysManager={}',
     [
       vaultAddress,
-      operator.toHex(),
+      keysManager.toHex(),
     ]
   )
 }
@@ -264,7 +264,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const owner = params.owner
   const shares = params.shares
   const receiver = params.receiver
-  const positionCounter = params.positionCounter
+  const positionTicket = params.positionTicket
   const vaultAddress = event.address.toHex()
 
   // Update vault queued shares
@@ -290,14 +290,14 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   createTransaction(event.transaction.hash.toHex())
 
   // Create exit request
-  const exitRequestId = `${vaultAddress}-${positionCounter}`
+  const exitRequestId = `${vaultAddress}-${positionTicket}`
   const exitRequest = new ExitRequest(exitRequestId)
 
   exitRequest.vault = vaultAddress
   exitRequest.owner = owner
   exitRequest.receiver = receiver
   exitRequest.totalShares = shares
-  exitRequest.positionCounter = positionCounter
+  exitRequest.positionTicket = positionTicket
   exitRequest.save()
 
   log.info(
@@ -316,8 +316,8 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const params = event.params
 
   const receiver = params.receiver
-  const prevPositionCounter = params.prevPositionCounter
-  const newPositionCounter = params.newPositionCounter
+  const prevPositionTicket = params.prevPositionTicket
+  const newPositionTicket = params.newPositionTicket
   const withdrawnAssets = params.withdrawnAssets
   const vaultAddress = event.address.toHex()
   const vault = Vault.load(vaultAddress) as Vault
@@ -341,14 +341,14 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
   createTransaction(event.transaction.hash.toHex())
 
-  const prevExitRequestId = `${vaultAddress}-${prevPositionCounter}`
+  const prevExitRequestId = `${vaultAddress}-${prevPositionTicket}`
   const prevExitRequest = ExitRequest.load(prevExitRequestId) as ExitRequest
 
-  const isExitQueueRequestResolved = newPositionCounter.equals(BigInt.zero())
+  const isExitQueueRequestResolved = newPositionTicket.equals(BigInt.zero())
 
   if (!isExitQueueRequestResolved) {
-    const nextExitQueueRequestId = `${vaultAddress}-${newPositionCounter}`
-    const withdrawnShares = newPositionCounter.minus(prevPositionCounter)
+    const nextExitQueueRequestId = `${vaultAddress}-${newPositionTicket}`
+    const withdrawnShares = newPositionTicket.minus(prevPositionTicket)
     const totalShares = prevExitRequest.totalShares.minus(withdrawnShares)
 
     const nextExitRequest = new ExitRequest(nextExitQueueRequestId)
@@ -356,7 +356,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     nextExitRequest.vault = vaultAddress
     nextExitRequest.owner = prevExitRequest.owner
     nextExitRequest.receiver = receiver
-    nextExitRequest.positionCounter = newPositionCounter
+    nextExitRequest.positionTicket = newPositionTicket
     nextExitRequest.totalShares = totalShares
     nextExitRequest.save()
   }

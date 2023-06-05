@@ -47,7 +47,7 @@ dataSources:
         - name: Keeper
           file: ./abis/Keeper.json
       eventHandlers:
-        - event: RewardsUpdated(indexed address,indexed bytes32,uint128,uint64,uint64,string)
+        - event: RewardsUpdated(indexed address,indexed bytes32,uint256,uint64,uint64,string)
           handler: handleRewardsUpdated
         - event: Harvested(indexed address,indexed bytes32,int256,uint256)
           handler: handleHarvested
@@ -87,8 +87,8 @@ templates:
           handler: handleMetadataUpdated
         - event: FeeRecipientUpdated(indexed address,indexed address)
           handler: handleFeeRecipientUpdated
-        - event: OperatorUpdated(indexed address,indexed address)
-          handler: handleOperatorUpdated
+        - event: KeysManagerUpdated(indexed address,indexed address)
+          handler: handleKeysManagerUpdated
         - event: CheckpointCreated(uint256,uint256)
           handler: handleCheckpointCreated
   - kind: ethereum/contract

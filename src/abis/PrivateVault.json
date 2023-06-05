@@ -41,22 +41,27 @@
   },
   {
     "inputs": [],
+    "name": "InvalidHealthFactor",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidLtv",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidPosition",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InvalidProof",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "InvalidRecipient",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidRedeemMaxHealthFactor",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidRedeemStartHealthFactor",
+    "name": "InvalidReceivedAssets",
     "type": "error"
   },
   {
@@ -106,12 +111,7 @@
   },
   {
     "inputs": [],
-    "name": "ReceivedAssetsExceedDeposit",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "RedeemHookFailed",
+    "name": "RedemptionExceeded",
     "type": "error"
   },
   {
@@ -234,7 +234,7 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "positionCounter",
+        "name": "positionTicket",
         "type": "uint256"
       },
       {
@@ -265,13 +265,13 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "prevPositionCounter",
+        "name": "prevPositionTicket",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "newPositionCounter",
+        "name": "newPositionTicket",
         "type": "uint256"
       },
       {
@@ -313,13 +313,13 @@
         "type": "address"
       },
       {
-        "indexed": false,
-        "internalType": "string",
-        "name": "metadataIpfsHash",
-        "type": "string"
+        "indexed": true,
+        "internalType": "address",
+        "name": "keysManager",
+        "type": "address"
       }
     ],
-    "name": "MetadataUpdated",
+    "name": "KeysManagerUpdated",
     "type": "event"
   },
   {
@@ -332,13 +332,13 @@
         "type": "address"
       },
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "operator",
-        "type": "address"
+        "indexed": false,
+        "internalType": "string",
+        "name": "metadataIpfsHash",
+        "type": "string"
       }
     ],
-    "name": "OperatorUpdated",
+    "name": "MetadataUpdated",
     "type": "event"
   },
   {
@@ -379,6 +379,12 @@
         "indexed": true,
         "internalType": "address",
         "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "receiver",
         "type": "address"
       },
       {
@@ -447,6 +453,12 @@
         "indexed": true,
         "internalType": "address",
         "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "receiver",
         "type": "address"
       },
       {
@@ -750,12 +762,12 @@
       },
       {
         "internalType": "uint256",
-        "name": "positionCounter",
+        "name": "positionTicket",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "checkpointIndex",
+        "name": "exitQueueIndex",
         "type": "uint256"
       }
     ],
@@ -763,7 +775,7 @@
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "newPositionCounter",
+        "name": "newPositionTicket",
         "type": "uint256"
       },
       {
@@ -901,7 +913,7 @@
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "positionCounter",
+        "name": "positionTicket",
         "type": "uint256"
       }
     ],
@@ -938,11 +950,11 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "positionCounter",
+        "name": "positionTicket",
         "type": "uint256"
       }
     ],
-    "name": "getCheckpointIndex",
+    "name": "getExitQueueIndex",
     "outputs": [
       {
         "internalType": "int256",
@@ -1004,16 +1016,34 @@
     "type": "function"
   },
   {
-    "inputs": [
+    "inputs": [],
+    "name": "keysManager",
+    "outputs": [
       {
         "internalType": "address",
-        "name": "user",
+        "name": "",
         "type": "address"
-      },
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {
         "internalType": "uint256",
         "name": "osTokenShares",
         "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
       }
     ],
     "name": "liquidateOsToken",
@@ -1025,25 +1055,6 @@
       }
     ],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "lockedAssets",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "assets",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1134,19 +1145,6 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "operator",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -1279,50 +1277,26 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
         "internalType": "uint256",
         "name": "osTokenShares",
         "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
       }
     ],
     "name": "redeemOsToken",
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "assets",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "shares",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "hook",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes",
-        "name": "params",
-        "type": "bytes"
-      }
-    ],
-    "name": "redeemWithHook",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "assets",
+        "name": "receivedAssets",
         "type": "uint256"
       }
     ],
@@ -1435,6 +1409,19 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "_keysManager",
+        "type": "address"
+      }
+    ],
+    "name": "setKeysManager",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "string",
         "name": "metadataIpfsHash",
         "type": "string"
@@ -1448,21 +1435,8 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_operator",
-        "type": "address"
-      }
-    ],
-    "name": "setOperator",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "bytes32",
-        "name": "validatorsRoot",
+        "name": "_validatorsRoot",
         "type": "bytes32"
       }
     ],
@@ -1682,6 +1656,32 @@
   },
   {
     "inputs": [],
+    "name": "validatorIndex",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "validatorsRoot",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "vaultId",
     "outputs": [
       {
@@ -1703,7 +1703,7 @@
         "type": "uint8"
       }
     ],
-    "stateMutability": "view",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
