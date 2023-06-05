@@ -22,8 +22,8 @@ type ExitRequest @entity {
   "<Vault ID>-<Exit queue id>"
   id: ID!
 
-  "The exit queue position counter"
-  positionCounter: BigInt!
+  "The exit queue position ticket"
+  positionTicket: BigInt!
 
   "The exiting shares owner"
   owner: Bytes!
@@ -75,8 +75,8 @@ type Vault @entity {
   "The address of the vault's fee recipient"
   feeRecipient: Bytes!
 
-  "The address of the vault's operator"
-  operator: Bytes!
+  "The address of the vault's keys manager"
+  keysManager: Bytes!
 
   "Average reward on one asset"
   avgRewardPerAsset: BigDecimal!

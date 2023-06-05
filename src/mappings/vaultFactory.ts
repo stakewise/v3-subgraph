@@ -23,7 +23,7 @@ export function handleVaultCreated(event: VaultCreated): void {
   vault.capacity = params.capacity
   vault.feePercent = params.feePercent
   vault.feeRecipient = params.admin
-  vault.operator = params.admin
+  vault.keysManager = params.admin
   vault.avgRewardPerAsset = BigDecimal.zero()
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.fromString('10')
