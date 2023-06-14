@@ -77,6 +77,8 @@ templates:
           handler: handleDeposit
         - event: Redeem(indexed address,indexed address,indexed address,uint256,uint256)
           handler: handleRedeem
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
         - event: ExitQueueEntered(indexed address,indexed address,indexed address,uint256,uint256)
           handler: handleExitQueueEntered
         - event: ExitedAssetsClaimed(indexed address,indexed address,uint256,uint256,uint256)
