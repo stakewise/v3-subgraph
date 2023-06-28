@@ -6,6 +6,7 @@
   "license": "AGPL-3.0-only",
   "private": true,
   "scripts": {
+    "prepare": "husky install",
     "---SCRIPTS---": "",
     "generate-abis": "node ./scripts/generateAbis.js",
     "deploy": "node ./scripts/deploy.js",
@@ -21,15 +22,26 @@
     "deploy-local:goerli": "npm run prepare:goerli && npm run deploy network:goerli node:local"
   },
   "devDependencies": {
-    "@graphprotocol/graph-cli": "0.50.0",
-    "@graphprotocol/graph-ts": "0.30.0",
-    "@types/node": "20.2.3",
-    "@typescript-eslint/eslint-plugin": "5.59.7",
-    "@typescript-eslint/parser": "5.59.7",
-    "dotenv": "16.0.3",
-    "eslint": "8.41.0",
+    "@graphprotocol/graph-cli": "0.51.2",
+    "@graphprotocol/graph-ts": "0.31.0",
+    "@types/node": "20.3.2",
+    "@typescript-eslint/eslint-plugin": "5.60.1",
+    "@typescript-eslint/parser": "5.60.1",
+    "dotenv": "16.3.1",
+    "eslint": "8.43.0",
+    "eslint-config-prettier": "8.8.0",
+    "husky": "8.0.3",
+    "lint-staged": "13.2.3",
     "matchstick-as": "0.5.2",
     "mustache": "4.2.0",
+    "prettier": "2.8.8",
     "typescript": "5.0.4"
+  },
+  "engines": {
+    "node": "18"
+  },
+  "lint-staged": {
+    "*.ts": "eslint --cache --fix",
+    "*.{ts,yaml,md,json}": "prettier --write"
   }
 }

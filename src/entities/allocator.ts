@@ -2,7 +2,6 @@ import { Address, BigInt } from '@graphprotocol/graph-ts'
 
 import { Allocator } from '../../generated/schema'
 
-
 export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: Address): Allocator {
   const vaultAllocatorAddress = `${vaultAddress.toHex()}-${allocatorAddress.toHex()}`
 

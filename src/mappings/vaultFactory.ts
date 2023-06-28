@@ -6,7 +6,6 @@ import { Vault as VaultTemplate, PrivateVault as PrivateVaultTemplate } from '..
 import { createTransaction } from '../entities/transaction'
 import { createOrLoadNetwork } from '../entities/network'
 
-
 // Event emitted on vault create
 export function handleVaultCreated(event: VaultCreated): void {
   const block = event.block
@@ -53,14 +52,11 @@ export function handleVaultCreated(event: VaultCreated): void {
 
   createTransaction(event.transaction.hash.toHex())
 
-  log.info(
-    '[VaultFactory] VaultCreated address={} admin={} mevEscrow={} feePercent={} capacity={}',
-    [
-      vaultAddressHex,
-      params.admin.toHex(),
-      params.mevEscrow.toHex(),
-      params.feePercent.toString(),
-      params.capacity.toString(),
-    ]
-  )
+  log.info('[VaultFactory] VaultCreated address={} admin={} mevEscrow={} feePercent={} capacity={}', [
+    vaultAddressHex,
+    params.admin.toHex(),
+    params.mevEscrow.toHex(),
+    params.feePercent.toString(),
+    params.capacity.toString(),
+  ])
 }

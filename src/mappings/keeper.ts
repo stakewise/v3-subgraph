@@ -1,10 +1,9 @@
-import {BigInt, ipfs, JSONValue, log, Value} from '@graphprotocol/graph-ts'
+import { BigInt, ipfs, JSONValue, log, Value } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
 import { RewardsUpdated, Harvested } from '../../generated/Keeper/Keeper'
-import {createOrLoadDaySnapshot, getRewardPerAsset, updateAvgRewardPerAsset} from '../entities/daySnapshot'
+import { createOrLoadDaySnapshot, getRewardPerAsset, updateAvgRewardPerAsset } from '../entities/daySnapshot'
 import { DAY } from '../helpers/constants'
-
 
 function updateDaySnapshots(vault: Vault, fromTimestamp: BigInt, toTimestamp: BigInt, totalReward: BigInt): void {
   const totalDuration = toTimestamp.minus(fromTimestamp)
@@ -50,7 +49,9 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
     }
 
     const consensusReward = vaultReward.mustGet('consensus_reward').toBigInt()
-    const lockedMevReward = vaultReward.isSet('locked_mev_reward') ? vaultReward.mustGet('locked_mev_reward').toBigInt() : BigInt.zero()
+    const lockedMevReward = vaultReward.isSet('locked_mev_reward')
+      ? vaultReward.mustGet('locked_mev_reward').toBigInt()
+      : BigInt.zero()
     const unlockedMevReward = vaultReward.mustGet('unlocked_mev_reward').toBigInt()
     const proof = vaultReward.mustGet('proof').toArray()
     const proofReward = consensusReward.plus(lockedMevReward).plus(unlockedMevReward)
@@ -79,18 +80,15 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const callbackData = Value.fromArray([
     Value.fromBytes(rewardsRoot),
     Value.fromBigInt(updateTimestamp),
-    Value.fromString(rewardsIpfsHash)
+    Value.fromString(rewardsIpfsHash),
   ])
 
   ipfs.mapJSON(rewardsIpfsHash, 'updateRewards', callbackData)
-  log.info(
-    '[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={}',
-    [
-        rewardsRoot.toHex(),
-        rewardsIpfsHash,
-        updateTimestamp.toString()
-    ]
-  )
+  log.info('[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={}', [
+    rewardsRoot.toHex(),
+    rewardsIpfsHash,
+    updateTimestamp.toString(),
+  ])
 }
 
 // Event emitted on Keeper assets harvest
@@ -102,11 +100,5 @@ export function handleHarvested(event: Harvested): void {
   vault.principalAssets = vault.principalAssets.plus(totalAssetsDelta)
   vault.save()
 
-  log.info(
-    '[Keeper] Harvested vault={} totalAssetsDelta={}',
-    [
-      vaultAddress,
-      totalAssetsDelta.toString(),
-    ]
-  )
+  log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
 }

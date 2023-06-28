@@ -1,6 +1,5 @@
 import { Network } from '../../generated/schema'
 
-
 export function createOrLoadNetwork(): Network {
   const id = '0'
 
