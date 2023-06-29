@@ -3,7 +3,6 @@ const path = require('path')
 
 const { execAsync } = require('./util')
 
-
 const abis = [
   {
     from: '../v3-core/abi/IEthVault.json',
@@ -30,14 +29,12 @@ const generateAbis = async () => {
 
   try {
     await execAsync('git clone git@github.com:stakewise/v3-core.git ./v3-core')
-  }
-  catch (error) {
+  } catch (error) {
     const isDirectoryExist = error?.code === 128
 
     if (isDirectoryExist) {
       await execAsync('cd ./v3-core && git pull && cd ../')
-    }
-    else {
+    } else {
       throw new Error(error)
     }
   }
@@ -59,6 +56,5 @@ const generateAbis = async () => {
 
   console.log('Abis successfully generated')
 }
-
 
 generateAbis()

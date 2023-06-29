@@ -1,7 +1,6 @@
-import {JSONValue, JSONValueKind} from '@graphprotocol/graph-ts'
+import { JSONValue, JSONValueKind } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
-
 
 export function updateMetadata(metadata: JSONValue, vault: Vault): void {
   if (metadata.kind !== JSONValueKind.OBJECT) return

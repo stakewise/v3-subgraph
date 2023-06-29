@@ -11,14 +11,13 @@ import {
   ExitedAssetsClaimed,
   ValidatorsRootUpdated,
   FeeRecipientUpdated,
-  Transfer
+  Transfer,
 } from '../../generated/templates/Vault/Vault'
 
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
 import { createOrLoadAllocator } from '../entities/allocator'
-import { createOrLoadDaySnapshot} from '../entities/daySnapshot'
-
+import { createOrLoadDaySnapshot } from '../entities/daySnapshot'
 
 // Event emitted on assets transfer from allocator to vault
 export function handleDeposit(event: Deposit): void {
@@ -40,9 +39,7 @@ export function handleDeposit(event: Deposit): void {
 
   const txHash = event.transaction.hash.toHex()
 
-  const allocatorAction = new AllocatorAction(
-    `${txHash}-${event.transactionLogIndex.toString()}`
-  )
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
 
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
@@ -54,13 +51,7 @@ export function handleDeposit(event: Deposit): void {
 
   createTransaction(txHash)
 
-  log.info(
-    '[Vault] Deposit vault={} assets={}',
-    [
-      vaultAddress.toHex(),
-      assets.toString(),
-    ]
-  )
+  log.info('[Vault] Deposit vault={} assets={}', [vaultAddress.toHex(), assets.toString()])
 }
 
 // Event emitted on assets withdraw from vault to allocator
@@ -84,9 +75,7 @@ export function handleRedeem(event: Redeem): void {
 
   const txHash = event.transaction.hash.toHex()
 
-  const allocatorAction = new AllocatorAction(
-    `${txHash}-${event.transactionLogIndex.toString()}`
-  )
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
 
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
@@ -98,13 +87,7 @@ export function handleRedeem(event: Redeem): void {
 
   createTransaction(txHash)
 
-  log.info(
-    '[Vault] Redeem vault={} assets={}',
-    [
-      vaultAddress.toHex(),
-      assets.toString(),
-    ]
-  )
+  log.info('[Vault] Redeem vault={} assets={}', [vaultAddress.toHex(), assets.toString()])
 }
 
 // Event emitted on mint, burn or transfer shares between allocators
@@ -138,15 +121,12 @@ export function handleTransfer(event: Transfer): void {
     allocatorTo.save()
   }
 
-  log.info(
-    '[Vault] Transfer vault={} from={} to={} value={}',
-    [
-      vaultAddress.toHex(),
-      params.from.toHex(),
-      params.to.toHex(),
-      params.value.toString(),
-    ]
-  )
+  log.info('[Vault] Transfer vault={} from={} to={} value={}', [
+    vaultAddress.toHex(),
+    params.from.toHex(),
+    params.to.toHex(),
+    params.value.toString(),
+  ])
 }
 
 // Event emitted on metadata IPFS hash update
@@ -173,12 +153,7 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
 
   createTransaction(event.transaction.hash.toHex())
 
-  log.info(
-    '[Vault] MetadataUpdated metadataIpfsHash={}',
-    [
-      params.metadataIpfsHash,
-    ]
-  )
+  log.info('[Vault] MetadataUpdated metadataIpfsHash={}', [params.metadataIpfsHash])
 }
 
 // Event emitted on validators root and IPFS hash update
@@ -197,13 +172,7 @@ export function handleValidatorsRootUpdated(event: ValidatorsRootUpdated): void 
 
   createTransaction(event.transaction.hash.toHex())
 
-  log.info(
-    '[Vault] ValidatorsRootUpdated vault={} validatorsRoot={}',
-    [
-      vaultAddress,
-      validatorsRoot.toHex(),
-    ]
-  )
+  log.info('[Vault] ValidatorsRootUpdated vault={} validatorsRoot={}', [vaultAddress, validatorsRoot.toHex()])
 }
 
 // Event emitted on fee recipient update
@@ -222,13 +191,7 @@ export function handleFeeRecipientUpdated(event: FeeRecipientUpdated): void {
 
   createTransaction(event.transaction.hash.toHex())
 
-  log.info(
-    '[Vault] FeeRecipientUpdated vault={} feeRecipient={}',
-    [
-      vaultAddress,
-      feeRecipient.toHex(),
-    ]
-  )
+  log.info('[Vault] FeeRecipientUpdated vault={} feeRecipient={}', [vaultAddress, feeRecipient.toHex()])
 }
 
 // Event emitted on keys manager update
@@ -247,13 +210,7 @@ export function handleKeysManagerUpdated(event: KeysManagerUpdated): void {
 
   createTransaction(event.transaction.hash.toHex())
 
-  log.info(
-    '[Vault] KeysManagerUpdated vault={} keysManager={}',
-    [
-      vaultAddress,
-      keysManager.toHex(),
-    ]
-  )
+  log.info('[Vault] KeysManagerUpdated vault={} keysManager={}', [vaultAddress, keysManager.toHex()])
 }
 
 // Event emitted when an allocator enters the exit queue.
@@ -275,9 +232,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
 
   const txHash = event.transaction.hash.toHex()
 
-  const allocatorAction = new AllocatorAction(
-    `${txHash}-${event.transactionLogIndex.toString()}`
-  )
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
 
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
@@ -300,14 +255,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   exitRequest.positionTicket = positionTicket
   exitRequest.save()
 
-  log.info(
-    '[Vault] ExitQueueEntered vault={} owner={} shares={}',
-    [
-      vaultAddress,
-      owner.toHex(),
-      shares.toString(),
-    ]
-  )
+  log.info('[Vault] ExitQueueEntered vault={} owner={} shares={}', [vaultAddress, owner.toHex(), shares.toString()])
 }
 
 // Event emitted when an allocator claim assets partially or completely.
@@ -327,9 +275,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
   const txHash = event.transaction.hash.toHex()
 
-  const allocatorAction = new AllocatorAction(
-    `${txHash}-${event.transactionLogIndex.toString()}`
-  )
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
 
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
@@ -363,13 +309,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
   store.remove('ExitRequest', prevExitRequestId)
 
-  log.info(
-    '[Vault] ExitedAssetsClaimed vault={} withdrawnAssets={}',
-    [
-      vaultAddress,
-      withdrawnAssets.toString()
-    ]
-  )
+  log.info('[Vault] ExitedAssetsClaimed vault={} withdrawnAssets={}', [vaultAddress, withdrawnAssets.toString()])
 }
 
 // Event emitted when shares burned. After that assets become available for claim
@@ -393,11 +333,8 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
   vault.unclaimedAssets = vault.unclaimedAssets.plus(exitedAssets)
   vault.save()
 
-  log.info(
-    '[Vault] CheckpointCreated burnedShares={} exitedAssets={}',
-    [
-      burnedShares.toString(),
-      exitedAssets.toString(),
-    ]
-  )
+  log.info('[Vault] CheckpointCreated burnedShares={} exitedAssets={}', [
+    burnedShares.toString(),
+    exitedAssets.toString(),
+  ])
 }

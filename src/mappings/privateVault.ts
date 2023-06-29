@@ -4,7 +4,6 @@ import { WhitelistUpdated, WhitelisterUpdated } from '../../generated/templates/
 import { PrivateVaultAccount, Vault } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
 
-
 export function handleWhitelistUpdated(event: WhitelistUpdated): void {
   const params = event.params
   const address = params.account
@@ -21,20 +20,13 @@ export function handleWhitelistUpdated(event: WhitelistUpdated): void {
     privateVaultAccount.createdAt = event.block.timestamp
 
     privateVaultAccount.save()
-  }
-  else {
+  } else {
     store.remove('PrivateVaultAccount', id)
   }
 
   createTransaction(event.transaction.hash.toHex())
 
-  log.info(
-    '[PrivateVault] WhitelistUpdated vault={} approved={}',
-    [
-      vaultAddress,
-      approved ? 'true' : 'false',
-    ]
-  )
+  log.info('[PrivateVault] WhitelistUpdated vault={} approved={}', [vaultAddress, approved ? 'true' : 'false'])
 }
 
 export function handleWhitelisterUpdated(event: WhitelisterUpdated): void {
@@ -49,11 +41,5 @@ export function handleWhitelisterUpdated(event: WhitelisterUpdated): void {
 
   createTransaction(event.transaction.hash.toHex())
 
-  log.info(
-    '[PrivateVault] WhitelisterUpdated vault={} whitelister={}',
-    [
-      vaultAddress,
-      whitelister.toHex(),
-    ]
-  )
+  log.info('[PrivateVault] WhitelisterUpdated vault={} whitelister={}', [vaultAddress, whitelister.toHex()])
 }

@@ -3,7 +3,6 @@ const { execAsync } = require('./util')
 
 require('dotenv').config()
 
-
 // LOCAL
 const IPFS_URL = process.env.IPFS_URL
 const LOCAL_GRAPH_URL = process.env.LOCAL_GRAPH_URL
@@ -14,7 +13,7 @@ const HOSTED_SUBGRAPH_URL_GOERLI = process.env.HOSTED_SUBGRAPH_URL_GOERLI
 
 const args = process.argv.reduce((acc, arg) => {
   if (/:/.test(arg)) {
-    const [ key, value ] = arg.split(':')
+    const [key, value] = arg.split(':')
 
     acc[key] = value
   }
@@ -44,8 +43,8 @@ const validateEnv = () => {
 const validateArgs = () => {
   const { network, node } = args
 
-  const allowedNetworks = [ 'goerli' ]
-  const allowedNodes = [ 'hosted', 'local' ]
+  const allowedNetworks = ['goerli']
+  const allowedNodes = ['hosted', 'local']
 
   if (!network) {
     throw new Error('Argument "network" is required')
@@ -87,8 +86,7 @@ const deploy = async () => {
     `cp subgraph-${network}.yaml subgraph.yaml`,
     deployCommand,
     'rm subgraph.yaml',
-  ]
-    .join(' && ')
+  ].join(' && ')
 
   await execAsync(command)
 }
