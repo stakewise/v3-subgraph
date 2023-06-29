@@ -2,8 +2,8 @@ import { Address, BigInt, ipfs, log, store, json } from '@graphprotocol/graph-ts
 
 import { AllocatorAction, Vault, ExitRequest } from '../../generated/schema'
 import {
-  Deposit,
-  Redeem,
+  Deposited,
+  Redeemed,
   CheckpointCreated,
   KeysManagerUpdated,
   MetadataUpdated,
@@ -11,7 +11,6 @@ import {
   ExitedAssetsClaimed,
   ValidatorsRootUpdated,
   FeeRecipientUpdated,
-  Transfer,
 } from '../../generated/templates/Vault/Vault'
 
 import { updateMetadata } from '../entities/metadata'
@@ -20,10 +19,11 @@ import { createOrLoadAllocator } from '../entities/allocator'
 import { createOrLoadDaySnapshot } from '../entities/daySnapshot'
 
 // Event emitted on assets transfer from allocator to vault
-export function handleDeposit(event: Deposit): void {
+export function handleDeposited(event: Deposited): void {
   const params = event.params
   const assets = params.assets
   const shares = params.shares
+  const receiver = params.receiver
   const vaultAddress = event.address
 
   const vault = Vault.load(vaultAddress.toHex()) as Vault
@@ -37,13 +37,17 @@ export function handleDeposit(event: Deposit): void {
   vault.totalShares = vault.totalShares.plus(shares)
   vault.save()
 
+  const allocator = createOrLoadAllocator(receiver, vaultAddress)
+  allocator.shares = allocator.shares.plus(shares)
+  allocator.save()
+
   const txHash = event.transaction.hash.toHex()
 
   const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
 
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
-  allocatorAction.actionType = params.caller == Address.fromBytes(vault.factory) ? 'VaultCreation' : 'Deposit'
+  allocatorAction.actionType = params.caller == Address.fromBytes(vault.factory) ? 'VaultCreated' : 'Deposited'
   allocatorAction.assets = assets
   allocatorAction.shares = shares
   allocatorAction.createdAt = event.block.timestamp
@@ -51,14 +55,20 @@ export function handleDeposit(event: Deposit): void {
 
   createTransaction(txHash)
 
-  log.info('[Vault] Deposit vault={} assets={}', [vaultAddress.toHex(), assets.toString()])
+  log.info('[Vault] Deposited vault={} receiver={} assets={} shares={}', [
+    vaultAddress.toHex(),
+    receiver.toHex(),
+    assets.toString(),
+    shares.toString(),
+  ])
 }
 
 // Event emitted on assets withdraw from vault to allocator
-export function handleRedeem(event: Redeem): void {
+export function handleRedeemed(event: Redeemed): void {
   const params = event.params
   const assets = params.assets
   const shares = params.shares
+  const owner = params.owner
   const vaultAddress = event.address
 
   const vault = Vault.load(vaultAddress.toHex()) as Vault
@@ -73,13 +83,17 @@ export function handleRedeem(event: Redeem): void {
   vault.totalShares = vault.totalShares.minus(shares)
   vault.save()
 
+  const allocator = createOrLoadAllocator(owner, vaultAddress)
+  allocator.shares = allocator.shares.minus(shares)
+  allocator.save()
+
   const txHash = event.transaction.hash.toHex()
 
   const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
 
   allocatorAction.vault = vault.id
   allocatorAction.address = event.transaction.from
-  allocatorAction.actionType = 'Redeem'
+  allocatorAction.actionType = 'Redeemed'
   allocatorAction.assets = assets
   allocatorAction.shares = shares
   allocatorAction.createdAt = event.block.timestamp
@@ -87,45 +101,11 @@ export function handleRedeem(event: Redeem): void {
 
   createTransaction(txHash)
 
-  log.info('[Vault] Redeem vault={} assets={}', [vaultAddress.toHex(), assets.toString()])
-}
-
-// Event emitted on mint, burn or transfer shares between allocators
-export function handleTransfer(event: Transfer): void {
-  const params = event.params
-
-  const from = params.from
-  const to = params.to
-  const value = params.value
-  const vaultAddress = event.address
-
-  const zeroAddress = Address.zero()
-  const isMint = from.equals(zeroAddress)
-  const isBurn = to.equals(zeroAddress)
-
-  if (!isMint) {
-    const allocatorFrom = createOrLoadAllocator(from, vaultAddress)
-
-    allocatorFrom.shares = allocatorFrom.shares.minus(value)
-    allocatorFrom.save()
-
-    if (isBurn && allocatorFrom.shares.isZero()) {
-      store.remove('Allocator', allocatorFrom.id)
-    }
-  }
-
-  if (!isBurn) {
-    const allocatorTo = createOrLoadAllocator(to, vaultAddress)
-
-    allocatorTo.shares = allocatorTo.shares.plus(value)
-    allocatorTo.save()
-  }
-
-  log.info('[Vault] Transfer vault={} from={} to={} value={}', [
+  log.info('[Vault] Redeemed vault={} owner={} assets={} shares={}', [
     vaultAddress.toHex(),
-    params.from.toHex(),
-    params.to.toHex(),
-    params.value.toString(),
+    owner.toHex(),
+    assets.toString(),
+    shares.toString(),
   ])
 }
 
@@ -230,6 +210,13 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   vault.queuedShares = vault.queuedShares.plus(shares)
   vault.save()
 
+  if (!vault.isErc20) {
+    // if it's ERC-20 vault shares are updated in Transfer event handler
+    const allocator = createOrLoadAllocator(owner, event.address)
+    allocator.shares = allocator.shares.minus(shares)
+    allocator.save()
+  }
+
   const txHash = event.transaction.hash.toHex()
 
   const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
@@ -332,6 +319,11 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
   vault.principalAssets = vault.principalAssets.minus(exitedAssets)
   vault.unclaimedAssets = vault.unclaimedAssets.plus(exitedAssets)
   vault.save()
+
+  // queued shares are burned
+  const allocator = createOrLoadAllocator(event.address, event.address)
+  allocator.shares = allocator.shares.minus(burnedShares)
+  allocator.save()
 
   log.info('[Vault] CheckpointCreated burnedShares={} exitedAssets={}', [
     burnedShares.toString(),

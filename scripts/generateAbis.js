@@ -9,8 +9,12 @@ const abis = [
     to: '../src/abis/Vault.json',
   },
   {
-    from: '../v3-core/abi/IEthPrivateVault.json',
+    from: '../v3-core/abi/IEthPrivVault.json',
     to: '../src/abis/PrivateVault.json',
+  },
+  {
+    from: '../v3-core/abi/IEthErc20Vault.json',
+    to: '../src/abis/Erc20Vault.json',
   },
   {
     from: '../v3-core/abi/IEthVaultFactory.json',
@@ -19,6 +23,10 @@ const abis = [
   {
     from: '../v3-core/abi/IKeeper.json',
     to: '../src/abis/Keeper.json',
+  },
+  {
+    from: '../v3-core/abi/IOsToken.json',
+    to: '../src/abis/OsToken.json',
   },
 ]
 

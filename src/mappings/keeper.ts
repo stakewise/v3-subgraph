@@ -1,37 +1,8 @@
 import { BigInt, ipfs, JSONValue, log, Value } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
-import { RewardsUpdated, Harvested } from '../../generated/Keeper/Keeper'
-import { createOrLoadDaySnapshot, getRewardPerAsset, updateAvgRewardPerAsset } from '../entities/daySnapshot'
-import { DAY } from '../helpers/constants'
-
-function updateDaySnapshots(vault: Vault, fromTimestamp: BigInt, toTimestamp: BigInt, totalReward: BigInt): void {
-  const totalDuration = toTimestamp.minus(fromTimestamp)
-  let rewardLeft = totalReward
-  let snapshotStart = fromTimestamp
-  let snapshotEnd = snapshotStart.plus(DAY).div(DAY).times(DAY)
-
-  while (snapshotEnd < toTimestamp) {
-    const reward = totalReward.times(snapshotEnd.minus(snapshotStart)).div(totalDuration)
-    const snapshot = createOrLoadDaySnapshot(snapshotStart, vault)
-    const rewardPerAsset = getRewardPerAsset(reward, vault.principalAssets, vault.feePercent)
-    snapshot.totalAssets = snapshot.totalAssets.plus(reward)
-    snapshot.rewardPerAsset = snapshot.rewardPerAsset.plus(rewardPerAsset)
-    snapshot.save()
-
-    rewardLeft = rewardLeft.minus(reward)
-    snapshotStart = snapshotEnd
-    snapshotEnd = snapshotStart.plus(DAY).div(DAY).times(DAY)
-  }
-
-  if (rewardLeft.notEqual(BigInt.zero())) {
-    const snapshot = createOrLoadDaySnapshot(toTimestamp, vault)
-    const rewardPerAsset = getRewardPerAsset(rewardLeft, vault.principalAssets, vault.feePercent)
-    snapshot.totalAssets = snapshot.totalAssets.plus(rewardLeft)
-    snapshot.rewardPerAsset = snapshot.rewardPerAsset.plus(rewardPerAsset)
-    snapshot.save()
-  }
-}
+import { Harvested, RewardsUpdated } from '../../generated/Keeper/Keeper'
+import { updateAvgRewardPerAsset, updateDaySnapshots } from '../entities/daySnapshot'
 
 export function updateRewards(value: JSONValue, callbackDataValue: Value): void {
   const callbackData = callbackDataValue.toArray()

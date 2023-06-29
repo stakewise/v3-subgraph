@@ -45,11 +45,11 @@ type Vault @entity {
   "Vault address"
   id: ID!
 
-  "The vault token name"
-  tokenName: String!
+  "The vault token name. Can be null if vault does not have a token."
+  tokenName: String
 
-  "The vault token symbol"
-  tokenSymbol: String!
+  "The vault token symbol Can be null if vault does not have a token."
+  tokenSymbol: String
 
   "The optional vault name extracted from metadata IPFS file"
   displayName: String
@@ -144,6 +144,9 @@ type Vault @entity {
   "Indicates whether the Vault is private"
   isPrivate: Boolean!
 
+  "Indicates whether the Vault has ERC-20 token"
+  isErc20: Boolean!
+
   "If the Vault is private, whitelister can add/remove allocators"
   whitelister: Bytes
 
@@ -158,9 +161,9 @@ type Vault @entity {
 }
 
 enum AllocatorActionType {
-  Deposit
-  Redeem
-  VaultCreation
+  VaultCreated
+  Deposited
+  Redeemed
   ExitQueueEntered
   ExitedAssetsClaimed
 }
@@ -206,6 +209,20 @@ type DaySnapshot @entity {
 
   "The snapshot's vault"
   vault: Vault!
+}
+
+"""
+Snapshot of OsToken average reward per second
+"""
+type OsTokenSnapshot @entity {
+  "Set to `transaction hash-log index`"
+  id: ID!
+
+  "The OsToken average reward per second"
+  avgRewardPerSecond: BigInt!
+
+  "The timestamp the snapshot was created at"
+  createdAt: BigInt!
 }
 
 """
