@@ -48,6 +48,39 @@ export function createOrLoadDaySnapshot(timestamp: BigInt, vault: Vault): DaySna
   return daySnapshot
 }
 
+export function updateDaySnapshots(
+  vault: Vault,
+  fromTimestamp: BigInt,
+  toTimestamp: BigInt,
+  totalReward: BigInt
+): void {
+  const totalDuration = toTimestamp.minus(fromTimestamp)
+  let rewardLeft = totalReward
+  let snapshotStart = fromTimestamp
+  let snapshotEnd = snapshotStart.plus(DAY).div(DAY).times(DAY)
+
+  while (snapshotEnd < toTimestamp) {
+    const reward = totalReward.times(snapshotEnd.minus(snapshotStart)).div(totalDuration)
+    const snapshot = createOrLoadDaySnapshot(snapshotStart, vault)
+    const rewardPerAsset = getRewardPerAsset(reward, vault.principalAssets, vault.feePercent)
+    snapshot.totalAssets = snapshot.totalAssets.plus(reward)
+    snapshot.rewardPerAsset = snapshot.rewardPerAsset.plus(rewardPerAsset)
+    snapshot.save()
+
+    rewardLeft = rewardLeft.minus(reward)
+    snapshotStart = snapshotEnd
+    snapshotEnd = snapshotStart.plus(DAY).div(DAY).times(DAY)
+  }
+
+  if (rewardLeft.notEqual(BigInt.zero())) {
+    const snapshot = createOrLoadDaySnapshot(toTimestamp, vault)
+    const rewardPerAsset = getRewardPerAsset(rewardLeft, vault.principalAssets, vault.feePercent)
+    snapshot.totalAssets = snapshot.totalAssets.plus(rewardLeft)
+    snapshot.rewardPerAsset = snapshot.rewardPerAsset.plus(rewardPerAsset)
+    snapshot.save()
+  }
+}
+
 export function updateAvgRewardPerAsset(timestamp: BigInt, vault: Vault): void {
   let avgRewardPerAsset = BigDecimal.zero()
   let snapshotsCountDecimal = BigDecimal.fromString(snapshotsCount.toString())

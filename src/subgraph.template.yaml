@@ -10,9 +10,9 @@ dataSources:
     name: VaultFactory
     network: {{ network }}
     source:
-      address: '{{ vaultFactory.address }}'
+      address: '{{ ethVaultFactory.address }}'
       abi: VaultFactory
-      startBlock: {{ vaultFactory.startBlock }}
+      startBlock: {{ ethVaultFactory.startBlock }}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -26,8 +26,74 @@ dataSources:
         - name: VaultFactory
           file: ./abis/VaultFactory.json
       eventHandlers:
-        - event: VaultCreated(indexed address,indexed address,indexed bool,address,uint256,uint16,string,string)
+        - event: VaultCreated(indexed address,indexed address,address,bytes)
           handler: handleVaultCreated
+  - kind: ethereum/contract
+    name: PrivVaultFactory
+    network: {{ network }}
+    source:
+      address: '{{ ethPrivVaultFactory.address }}'
+      abi: VaultFactory
+      startBlock: {{ ethPrivVaultFactory.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/vaultFactory.ts
+      entities:
+        - Vault
+        - Network
+        - Transaction
+      abis:
+        - name: VaultFactory
+          file: ./abis/VaultFactory.json
+      eventHandlers:
+        - event: VaultCreated(indexed address,indexed address,address,bytes)
+          handler: handlePrivVaultCreated
+  - kind: ethereum/contract
+    name: Erc20VaultFactory
+    network: {{ network }}
+    source:
+      address: '{{ ethErc20VaultFactory.address }}'
+      abi: VaultFactory
+      startBlock: {{ ethErc20VaultFactory.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/vaultFactory.ts
+      entities:
+        - Vault
+        - Network
+        - Transaction
+      abis:
+        - name: VaultFactory
+          file: ./abis/VaultFactory.json
+      eventHandlers:
+        - event: VaultCreated(indexed address,indexed address,address,bytes)
+          handler: handleErc20VaultCreated
+  - kind: ethereum/contract
+    name: PrivErc20VaultFactory
+    network: {{ network }}
+    source:
+      address: '{{ ethPrivErc20VaultFactory.address }}'
+      abi: VaultFactory
+      startBlock: {{ ethPrivErc20VaultFactory.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/vaultFactory.ts
+      entities:
+        - Vault
+        - Network
+        - Transaction
+      abis:
+        - name: VaultFactory
+          file: ./abis/VaultFactory.json
+      eventHandlers:
+        - event: VaultCreated(indexed address,indexed address,address,bytes)
+          handler: handlePrivErc20VaultCreated
   - kind: ethereum/contract
     name: Keeper
     network: {{ network }}
@@ -51,6 +117,26 @@ dataSources:
           handler: handleRewardsUpdated
         - event: Harvested(indexed address,indexed bytes32,int256,uint256)
           handler: handleHarvested
+  - kind: ethereum/contract
+    name: OsToken
+    network: {{ network }}
+    source:
+      address: '{{ osToken.address }}'
+      abi: OsToken
+      startBlock: {{ osToken.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/osToken.ts
+      entities:
+        - OsToken
+      abis:
+        - name: OsToken
+          file: ./abis/OsToken.json
+      eventHandlers:
+        - event: AvgRewardPerSecondUpdated(uint256)
+          handler: handleAvgRewardPerSecondUpdated
 templates:
   - kind: ethereum/contract
     name: Vault
@@ -73,13 +159,11 @@ templates:
         - name: Vault
           file: ./abis/Vault.json
       eventHandlers:
-        - event: Deposit(indexed address,indexed address,uint256,uint256,address)
-          handler: handleDeposit
-        - event: Redeem(indexed address,indexed address,indexed address,uint256,uint256)
-          handler: handleRedeem
-        - event: Transfer(indexed address,indexed address,uint256)
-          handler: handleTransfer
-        - event: ExitQueueEntered(indexed address,indexed address,indexed address,uint256,uint256)
+        - event: Deposited(indexed address,indexed address,uint256,uint256,address)
+          handler: handleDeposited
+        - event: Redeemed(indexed address,indexed address,uint256,uint256)
+          handler: handleRedeemed
+        - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256)
           handler: handleExitQueueEntered
         - event: ExitedAssetsClaimed(indexed address,indexed address,uint256,uint256,uint256)
           handler: handleExitedAssetsClaimed
@@ -115,3 +199,22 @@ templates:
           handler: handleWhitelistUpdated
         - event: WhitelisterUpdated(indexed address,indexed address)
           handler: handleWhitelisterUpdated
+  - kind: ethereum/contract
+    name: Erc20Vault
+    network: {{ network }}
+    source:
+      abi: Erc20Vault
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/erc20Vault.ts
+      entities:
+        - Allocator
+        - Transaction
+      abis:
+        - name: Erc20Vault
+          file: ./abis/Erc20Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
