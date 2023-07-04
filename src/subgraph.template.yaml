@@ -165,7 +165,7 @@ templates:
           handler: handleRedeemed
         - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256)
           handler: handleExitQueueEntered
-        - event: ExitedAssetsClaimed(indexed address,indexed address,uint256,uint256,uint256)
+        - event: ExitedAssetsClaimed(indexed address,uint256,uint256,uint256)
           handler: handleExitedAssetsClaimed
         - event: ValidatorsRootUpdated(indexed address,indexed bytes32)
           handler: handleValidatorsRootUpdated

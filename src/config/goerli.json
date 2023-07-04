@@ -1,31 +1,27 @@
 {
   "network": "goerli",
   "ethVaultFactory": {
-    "address": "0x13DF5A03b3AE35b95Ac0107ad8729716d35Fc839",
-    "startBlock": "9234821"
+    "address": "0x4Ca8a9909039a8e8094977EC92C0DDE3d19Bbafe",
+    "startBlock": "9290267"
   },
   "ethPrivVaultFactory": {
-    "address": "0x4d24EefA58d6bbD6ef11633708Bc031de7c236F6",
-    "startBlock": "9234826"
+    "address": "0x9bb9C4E5d331EfA68d5CC3F8ca2FC3Dce49b8519",
+    "startBlock": "9290278"
   },
   "ethErc20VaultFactory": {
-    "address": "0x698D666584d44A70560FeDDd0a07C045b3f03771",
-    "startBlock": "9234830"
+    "address": "0xa7a99b4A41B1531B80F9b050F607CB408320f9Ea",
+    "startBlock": "9290284"
   },
   "ethPrivErc20VaultFactory": {
-    "address": "0xb639982Dd0bb363f78abAD995c2a80092b7B240C",
-    "startBlock": "9234834"
-  },
-  "genesisEthVault": {
-    "address": "0x8De14460cf477d901139fe925384187534702E30",
-    "startBlock": "9234839"
+    "address": "0x9068782A0F0B224da44467828b2A2b9Aa8F2169F",
+    "startBlock": "9290293"
   },
   "keeper": {
-    "address": "0xDbb29280c1561F44C02a9cB91AC3B8B5B3b45752",
-    "startBlock": "9234813"
+    "address": "0xb39CEBd50642389ceE6C058C2134e53417ce053a",
+    "startBlock": "9290253"
   },
   "osToken": {
-    "address": "0xEf2f1d4DA91320C4AD3c54Ff3E3F28ED5A4906A0",
-    "startBlock": "9234810"
+    "address": "0xF56155901922696F07CdE107ad9D14fee42e5B46",
+    "startBlock": "9290249"
   }
 }
