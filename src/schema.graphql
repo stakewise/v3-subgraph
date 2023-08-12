@@ -16,6 +16,23 @@ type Allocator @entity {
 }
 
 """
+Vault OsToken position
+"""
+type OsTokenPosition @entity {
+  "<Vault ID>-<Holder address>"
+  id: ID!
+
+  "The holder's address"
+  address: Bytes!
+
+  "The holder's shares amount"
+  shares: BigInt!
+
+  "The vault of the holder"
+  vault: Vault!
+}
+
+"""
 Vault exit request
 """
 type ExitRequest @entity {
@@ -108,6 +125,9 @@ type Vault @entity {
   "The vault allocators"
   allocators: [Allocator!]! @derivedFrom(field: "vault")
 
+  "The vault total reward"
+  totalReward: BigInt
+
   "The vault locked MEV reward"
   lockedMevReward: BigInt
 
@@ -163,6 +183,7 @@ type Vault @entity {
 enum AllocatorActionType {
   VaultCreated
   Deposited
+  Migrated
   Redeemed
   ExitQueueEntered
   ExitedAssetsClaimed
@@ -251,6 +272,43 @@ type PrivateVaultAccount @entity {
 
   "The timestamp when the account was added"
   createdAt: BigInt!
+}
+
+"""
+Reward splitter used to distribute fee accumulated in the vault
+"""
+type RewardSplitter @entity {
+  "Reward splitter address"
+  id: ID!
+
+  "The address of the account that can modify the reward splitter share holders"
+  owner: Bytes!
+
+  "The total number of shares"
+  totalShares: BigInt!
+
+  "The Vault that reward splitter belongs to"
+  vault: Vault!
+
+  "Shareholders of the reward splitter"
+  shareHolders: [RewardSplitterShareHolder!]! @derivedFrom(field: "rewardSplitter")
+}
+
+"""
+Reward splitter shareholder
+"""
+type RewardSplitterShareHolder @entity {
+  "<RewardSplitter ID>-<holder address>"
+  id: ID!
+
+  "The reward splitter"
+  rewardSplitter: RewardSplitter!
+
+  "The address of shareholder"
+  address: Bytes!
+
+  "The amount of shares"
+  shares: BigInt!
 }
 
 """

@@ -23,5 +23,13 @@
   "osToken": {
     "address": "0xF56155901922696F07CdE107ad9D14fee42e5B46",
     "startBlock": "9290249"
+  },
+  "genesisVault": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "startBlock": "9290249"
+  },
+  "rewardSplitterFactory": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "startBlock": "9290249"
   }
 }
