@@ -35,9 +35,14 @@ export function handleSharesIncreased(event: SharesIncreased): void {
   const params = event.params
   const account = params.account
   const shares = params.amount
-  const rewardSplitter = event.address
+  const rewardSplitterAddress = event.address
+  const rewardSplitterAddressHex = rewardSplitterAddress.toHex()
 
-  const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitter)
+  const rewardSplitter = RewardSplitter.load(rewardSplitterAddressHex) as RewardSplitter
+  rewardSplitter.totalShares = rewardSplitter.totalShares.plus(shares)
+  rewardSplitter.save()
+
+  const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitterAddress)
   shareHolder.shares = shareHolder.shares.plus(shares)
   shareHolder.save()
 
@@ -45,7 +50,7 @@ export function handleSharesIncreased(event: SharesIncreased): void {
   createTransaction(txHash)
 
   log.info('[RewardSplitter] SharesIncreased rewardSplitter={} account={} shares={}', [
-    rewardSplitter.toHex(),
+    rewardSplitterAddressHex,
     account.toHex(),
     shares.toString(),
   ])
@@ -56,9 +61,14 @@ export function handleSharesDecreased(event: SharesDecreased): void {
   const params = event.params
   const account = params.account
   const shares = params.amount
-  const rewardSplitter = event.address
+  const rewardSplitterAddress = event.address
+  const rewardSplitterAddressHex = rewardSplitterAddress.toHex()
 
-  const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitter)
+  const rewardSplitter = RewardSplitter.load(rewardSplitterAddressHex) as RewardSplitter
+  rewardSplitter.totalShares = rewardSplitter.totalShares.minus(shares)
+  rewardSplitter.save()
+
+  const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitterAddress)
   shareHolder.shares = shareHolder.shares.minus(shares)
   shareHolder.save()
 
@@ -66,7 +76,7 @@ export function handleSharesDecreased(event: SharesDecreased): void {
   createTransaction(txHash)
 
   log.info('[RewardSplitter] SharesDecreased rewardSplitter={} account={} shares={}', [
-    rewardSplitter.toHex(),
+    rewardSplitterAddressHex,
     account.toHex(),
     shares.toString(),
   ])
