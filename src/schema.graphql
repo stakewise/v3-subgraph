@@ -146,8 +146,11 @@ type Vault @entity {
   "The total number of shares"
   totalShares: BigInt!
 
-  "The vault score"
+  "The vault score. Managed by the backend service."
   score: BigDecimal!
+
+  "Defines whether vault is verified or not. Managed by the backend service."
+  verified: Boolean!
 
   "The total number of assets"
   totalAssets: BigInt!

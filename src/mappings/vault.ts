@@ -124,6 +124,7 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
   const vault = Vault.load(vaultAddress) as Vault
 
   vault.metadataIpfsHash = params.metadataIpfsHash
+  vault.verified = false
 
   const data = ipfs.cat(params.metadataIpfsHash)
 
@@ -403,6 +404,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.avgRewardPerAsset = BigDecimal.zero()
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
+  vault.verified = false
   vault.totalAssets = BigInt.zero()
   vault.queuedShares = BigInt.zero()
   vault.unclaimedAssets = BigInt.zero()
