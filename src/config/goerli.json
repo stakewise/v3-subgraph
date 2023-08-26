@@ -1,35 +1,35 @@
 {
   "network": "goerli",
   "ethVaultFactory": {
-    "address": "0x4Ca8a9909039a8e8094977EC92C0DDE3d19Bbafe",
-    "startBlock": "9290267"
+    "address": "0x872870F43AD54e69CaC28456a9f397FCDcd4345C",
+    "startBlock": "9583373"
   },
   "ethPrivVaultFactory": {
-    "address": "0x9bb9C4E5d331EfA68d5CC3F8ca2FC3Dce49b8519",
-    "startBlock": "9290278"
+    "address": "0xB3BE6f7544393f6FbAd8b92B2D7328891a8d8C4b",
+    "startBlock": "9583386"
   },
   "ethErc20VaultFactory": {
-    "address": "0xa7a99b4A41B1531B80F9b050F607CB408320f9Ea",
-    "startBlock": "9290284"
+    "address": "0xD19dC15d0275c79984B69B961E77DA5D91E7125B",
+    "startBlock": "9583395"
   },
   "ethPrivErc20VaultFactory": {
-    "address": "0x9068782A0F0B224da44467828b2A2b9Aa8F2169F",
-    "startBlock": "9290293"
+    "address": "0x21C199766Bb6cD4217f02A496f01D1AD41F799a9",
+    "startBlock": "9583406"
   },
   "keeper": {
-    "address": "0xb39CEBd50642389ceE6C058C2134e53417ce053a",
-    "startBlock": "9290253"
+    "address": "0x893ceb1cF23475defE3747670EbE4b40e629c6fD",
+    "startBlock": "9583358"
   },
   "osToken": {
-    "address": "0xF56155901922696F07CdE107ad9D14fee42e5B46",
-    "startBlock": "9290249"
+    "address": "0xBcF097a3d3D846934694C47058A3cc9D5A6f7457",
+    "startBlock": "9583355"
   },
   "genesisVault": {
-    "address": "0x0000000000000000000000000000000000000000",
-    "startBlock": "9290249"
+    "address": "0x8B5c0d4c067Cf480766140B251B464de7F03B515",
+    "startBlock": "9583441"
   },
   "rewardSplitterFactory": {
-    "address": "0x0000000000000000000000000000000000000000",
-    "startBlock": "9290249"
+    "address": "0x6A0A71220Bd8864Deee6d8ABc0113B5589ECf2f8",
+    "startBlock": "9583462"
   }
 }
