@@ -5,7 +5,7 @@ import {
   PrivateVault as PrivateVaultTemplate,
   Erc20Vault as Erc20VaultTemplate,
 } from '../../generated/templates'
-import { Vault } from '../../generated/schema'
+import { Vault, OsTokenPosition } from '../../generated/schema'
 import { createOrLoadNetwork } from './network'
 import { createTransaction } from './transaction'
 
@@ -40,6 +40,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.avgRewardPerAsset = BigDecimal.zero()
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
+  vault.verified = false
   vault.totalAssets = BigInt.zero()
   vault.queuedShares = BigInt.zero()
   vault.unclaimedAssets = BigInt.zero()
@@ -77,6 +78,21 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
       capacity.toString(),
       isPrivate.toString(),
       isErc20.toString(),
-    ]
+    ],
   )
+}
+
+export function createOrLoadOsTokenPosition(holder: Address, vaultAddress: Address): OsTokenPosition {
+  const osTokenPositionId = `${vaultAddress.toHex()}-${holder.toHex()}`
+
+  let osTokenPosition = OsTokenPosition.load(osTokenPositionId)
+  if (osTokenPosition === null) {
+    osTokenPosition = new OsTokenPosition(osTokenPositionId)
+    osTokenPosition.shares = BigInt.zero()
+    osTokenPosition.address = holder
+    osTokenPosition.vault = vaultAddress.toHex()
+    osTokenPosition.save()
+  }
+
+  return osTokenPosition
 }

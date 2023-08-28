@@ -28,6 +28,18 @@ const abis = [
     from: '../v3-core/abi/IOsToken.json',
     to: '../src/abis/OsToken.json',
   },
+  {
+    from: '../v3-core/abi/IEthGenesisVault.json',
+    to: '../src/abis/GenesisVault.json',
+  },
+  {
+    from: '../v3-core/abi/IRewardSplitter.json',
+    to: '../src/abis/RewardSplitter.json',
+  },
+  {
+    from: '../v3-core/abi/IRewardSplitterFactory.json',
+    to: '../src/abis/RewardSplitterFactory.json',
+  },
 ]
 
 const generateAbis = async () => {

@@ -137,6 +137,74 @@ dataSources:
       eventHandlers:
         - event: AvgRewardPerSecondUpdated(uint256)
           handler: handleAvgRewardPerSecondUpdated
+  - kind: ethereum/contract
+    name: GenesisVault
+    network: {{ network }}
+    source:
+      address: '{{ genesisVault.address }}'
+      abi: GenesisVault
+      startBlock: {{ genesisVault.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/vault.ts
+      entities:
+        - Vault
+        - Allocator
+        - ExitRequest
+        - DaySnapshot
+        - AllocatorAction
+        - Transaction
+      abis:
+        - name: GenesisVault
+          file: ./abis/GenesisVault.json
+      eventHandlers:
+        - event: Deposited(indexed address,indexed address,uint256,uint256,address)
+          handler: handleDeposited
+        - event: Redeemed(indexed address,indexed address,uint256,uint256)
+          handler: handleRedeemed
+        - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256)
+          handler: handleExitQueueEntered
+        - event: ExitedAssetsClaimed(indexed address,uint256,uint256,uint256)
+          handler: handleExitedAssetsClaimed
+        - event: ValidatorsRootUpdated(indexed address,indexed bytes32)
+          handler: handleValidatorsRootUpdated
+        - event: MetadataUpdated(indexed address,string)
+          handler: handleMetadataUpdated
+        - event: FeeRecipientUpdated(indexed address,indexed address)
+          handler: handleFeeRecipientUpdated
+        - event: KeysManagerUpdated(indexed address,indexed address)
+          handler: handleKeysManagerUpdated
+        - event: CheckpointCreated(uint256,uint256)
+          handler: handleCheckpointCreated
+        - event: FeeSharesMinted(address,uint256,uint256)
+          handler: handleFeeSharesMinted
+        - event: Migrated(address,uint256,uint256)
+          handler: handleMigrated
+        - event: GenesisVaultCreated(address,uint256,uint16,string)
+          handler: handleGenesisVaultCreated
+  - kind: ethereum/contract
+    name: RewardSplitterFactory
+    network: {{ network }}
+    source:
+      address: '{{ rewardSplitterFactory.address }}'
+      abi: RewardSplitterFactory
+      startBlock: {{ rewardSplitterFactory.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/rewardSplitter.ts
+      entities:
+        - RewardSplitter
+        - Transaction
+      abis:
+        - name: RewardSplitterFactory
+          file: ./abis/RewardSplitterFactory.json
+      eventHandlers:
+        - event: RewardSplitterCreated(address,address,address)
+          handler: handleRewardSplitterCreated
 templates:
   - kind: ethereum/contract
     name: Vault
@@ -177,6 +245,8 @@ templates:
           handler: handleKeysManagerUpdated
         - event: CheckpointCreated(uint256,uint256)
           handler: handleCheckpointCreated
+        - event: FeeSharesMinted(address,uint256,uint256)
+          handler: handleFeeSharesMinted
   - kind: ethereum/contract
     name: PrivateVault
     network: {{ network }}
@@ -218,3 +288,25 @@ templates:
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
+  - kind: ethereum/contract
+    name: RewardSplitter
+    network: {{ network }}
+    source:
+      abi: RewardSplitter
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/rewardSplitter.ts
+      entities:
+        - RewardSplitter
+        - RewardSplitterShareHolder
+        - Transaction
+      abis:
+        - name: RewardSplitter
+          file: ./abis/RewardSplitter.json
+      eventHandlers:
+        - event: SharesIncreased(indexed address,uint256)
+          handler: handleSharesIncreased
+        - event: SharesDecreased(indexed address,uint256)
+          handler: handleSharesDecreased

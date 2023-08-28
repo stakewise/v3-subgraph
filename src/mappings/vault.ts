@@ -1,6 +1,7 @@
-import { Address, BigInt, ipfs, log, store, json } from '@graphprotocol/graph-ts'
+import { Address, BigInt, ipfs, log, store, json, BigDecimal } from '@graphprotocol/graph-ts'
 
 import { AllocatorAction, Vault, ExitRequest } from '../../generated/schema'
+import { Vault as VaultTemplate } from '../../generated/templates'
 import {
   Deposited,
   Redeemed,
@@ -11,12 +12,18 @@ import {
   ExitedAssetsClaimed,
   ValidatorsRootUpdated,
   FeeRecipientUpdated,
+  FeeSharesMinted,
+  OsTokenMinted,
+  OsTokenBurned,
 } from '../../generated/templates/Vault/Vault'
+import { Migrated, GenesisVaultCreated } from '../../generated/GenesisVault/GenesisVault'
 
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
 import { createOrLoadAllocator } from '../entities/allocator'
 import { createOrLoadDaySnapshot } from '../entities/daySnapshot'
+import { createOrLoadNetwork } from '../entities/network'
+import { createOrLoadOsTokenPosition } from '../entities/vaults'
 
 // Event emitted on assets transfer from allocator to vault
 export function handleDeposited(event: Deposited): void {
@@ -117,6 +124,7 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
   const vault = Vault.load(vaultAddress) as Vault
 
   vault.metadataIpfsHash = params.metadataIpfsHash
+  vault.verified = false
 
   const data = ipfs.cat(params.metadataIpfsHash)
 
@@ -328,5 +336,143 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
   log.info('[Vault] CheckpointCreated burnedShares={} exitedAssets={}', [
     burnedShares.toString(),
     exitedAssets.toString(),
+  ])
+}
+
+// Event emitted when fee recipient gets shares minted as a fee
+export function handleFeeSharesMinted(event: FeeSharesMinted): void {
+  const params = event.params
+  const vaultAddress = event.address
+  const receiver = params.receiver
+  const assets = params.assets
+  const shares = params.shares
+
+  const vault = Vault.load(vaultAddress.toHex()) as Vault
+  vault.totalShares = vault.totalShares.plus(shares)
+  vault.save()
+
+  const allocator = createOrLoadAllocator(receiver, vaultAddress)
+  allocator.shares = allocator.shares.plus(shares)
+  allocator.save()
+
+  log.info('[Vault] FeeSharesMinted vault={} receiver={} assets={} shares={}', [
+    vaultAddress.toHex(),
+    receiver.toHex(),
+    assets.toString(),
+    shares.toString(),
+  ])
+}
+
+export function handleOsTokenMinted(event: OsTokenMinted): void {
+  const holder = event.params.caller
+  const shares = event.params.shares
+
+  const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
+  osTokenPosition.shares = osTokenPosition.shares.plus(shares)
+  osTokenPosition.save()
+
+  log.info('[Vault] OsTokenMinted holder={} shares={}', [holder.toHex(), shares.toString()])
+}
+
+export function handleOsTokenBurned(event: OsTokenBurned): void {
+  const holder = event.params.caller
+  const shares = event.params.shares
+
+  const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
+  osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
+  osTokenPosition.save()
+
+  log.info('[Vault] OsTokenBurned holder={} shares={}', [holder.toHex(), shares.toString()])
+}
+
+// Event emitted when GenesisVault is initialized
+export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
+  const vaultAddress = event.address
+  const vaultAddressHex = vaultAddress.toHex()
+  const params = event.params
+  const capacity = params.capacity
+  const feePercent = params.feePercent
+  const admin = params.admin
+
+  const vault = new Vault(vaultAddressHex)
+  vault.admin = admin
+  vault.factory = Address.zero()
+  vault.capacity = capacity
+  vault.feePercent = feePercent
+  vault.feeRecipient = admin
+  vault.keysManager = admin
+  vault.avgRewardPerAsset = BigDecimal.zero()
+  vault.totalShares = BigInt.zero()
+  vault.score = BigDecimal.zero()
+  vault.verified = false
+  vault.totalAssets = BigInt.zero()
+  vault.queuedShares = BigInt.zero()
+  vault.unclaimedAssets = BigInt.zero()
+  vault.principalAssets = BigInt.zero()
+  vault.isPrivate = false
+  vault.isErc20 = false
+  vault.addressString = vaultAddressHex
+  vault.createdAt = event.block.timestamp
+  vault.save()
+  VaultTemplate.create(vaultAddress)
+
+  const network = createOrLoadNetwork()
+  network.vaultsTotal = network.vaultsTotal + 1
+  network.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[GenesisVault] GenesisVaultCreated address={} admin={} feePercent={} capacity={}', [
+    vaultAddressHex,
+    admin.toHex(),
+    feePercent.toString(),
+    capacity.toString(),
+  ])
+}
+
+// Event emitted when migrating from StakeWise v3 to GenesisVault
+export function handleMigrated(event: Migrated): void {
+  const params = event.params
+  const vaultAddress = event.address
+  const receiver = params.receiver
+  const assets = params.assets
+  const shares = params.shares
+
+  const vault = Vault.load(vaultAddress.toHex()) as Vault
+  vault.totalShares = vault.totalShares.plus(shares)
+  vault.save()
+
+  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
+  daySnapshot.totalAssets = daySnapshot.totalAssets.plus(assets)
+  daySnapshot.save()
+
+  vault.totalAssets = vault.totalAssets.plus(assets)
+  vault.principalAssets = vault.principalAssets.plus(assets)
+  vault.totalShares = vault.totalShares.plus(shares)
+  vault.save()
+
+  const allocator = createOrLoadAllocator(receiver, vaultAddress)
+  allocator.shares = allocator.shares.plus(shares)
+  allocator.save()
+
+  const txHash = event.transaction.hash.toHex()
+
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
+
+  allocatorAction.vault = vault.id
+  allocatorAction.address = event.transaction.from
+  allocatorAction.actionType = 'Migrated'
+  allocatorAction.assets = assets
+  allocatorAction.shares = shares
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
+
+  createTransaction(txHash)
+
+  log.info('[GenesisVault] Migrated vault={} receiver={} assets={} shares={}', [
+    vaultAddress.toHex(),
+    receiver.toHex(),
+    assets.toString(),
+    shares.toString(),
   ])
 }
