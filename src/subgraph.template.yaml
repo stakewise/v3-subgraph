@@ -152,7 +152,6 @@ dataSources:
       entities:
         - Vault
         - Allocator
-        - ExitRequest
         - DaySnapshot
         - AllocatorAction
         - Transaction
@@ -160,30 +159,10 @@ dataSources:
         - name: GenesisVault
           file: ./abis/GenesisVault.json
       eventHandlers:
-        - event: Deposited(indexed address,indexed address,uint256,uint256,address)
-          handler: handleDeposited
-        - event: Redeemed(indexed address,indexed address,uint256,uint256)
-          handler: handleRedeemed
-        - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256)
-          handler: handleExitQueueEntered
-        - event: ExitedAssetsClaimed(indexed address,uint256,uint256,uint256)
-          handler: handleExitedAssetsClaimed
-        - event: ValidatorsRootUpdated(indexed address,indexed bytes32)
-          handler: handleValidatorsRootUpdated
-        - event: MetadataUpdated(indexed address,string)
-          handler: handleMetadataUpdated
-        - event: FeeRecipientUpdated(indexed address,indexed address)
-          handler: handleFeeRecipientUpdated
-        - event: KeysManagerUpdated(indexed address,indexed address)
-          handler: handleKeysManagerUpdated
-        - event: CheckpointCreated(uint256,uint256)
-          handler: handleCheckpointCreated
-        - event: FeeSharesMinted(address,uint256,uint256)
-          handler: handleFeeSharesMinted
-        - event: Migrated(address,uint256,uint256)
-          handler: handleMigrated
         - event: GenesisVaultCreated(address,uint256,uint16,string)
           handler: handleGenesisVaultCreated
+        - event: Migrated(address,uint256,uint256)
+          handler: handleMigrated
   - kind: ethereum/contract
     name: RewardSplitterFactory
     network: {{ network }}
