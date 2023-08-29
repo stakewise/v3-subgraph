@@ -121,7 +121,6 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
   const params = event.params
 
   const vaultAddress = event.address.toHex()
-  log.warning('vaultAddress={}', [vaultAddress])
   const vault = Vault.load(vaultAddress) as Vault
 
   vault.metadataIpfsHash = params.metadataIpfsHash
@@ -171,7 +170,6 @@ export function handleFeeRecipientUpdated(event: FeeRecipientUpdated): void {
   const feeRecipient = params.feeRecipient
 
   const vaultAddress = event.address.toHex()
-  log.warning('vaultAddress={}', [vaultAddress])
 
   const vault = Vault.load(vaultAddress) as Vault
 
