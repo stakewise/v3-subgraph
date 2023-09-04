@@ -1,4 +1,4 @@
-import { log } from '@graphprotocol/graph-ts'
+import { log, BigInt } from '@graphprotocol/graph-ts'
 import { RewardSplitterCreated } from '../../generated/RewardSplitterFactory/RewardSplitterFactory'
 import { RewardSplitter as RewardSplitterTemplate } from '../../generated/templates'
 import { SharesIncreased, SharesDecreased } from '../../generated/templates/RewardSplitter/RewardSplitter'
@@ -15,6 +15,7 @@ export function handleRewardSplitterCreated(event: RewardSplitterCreated): void 
   const rewardSplitterAddress = params.rewardSplitter.toHex()
 
   const rewardSplitter = new RewardSplitter(rewardSplitterAddress)
+  rewardSplitter.totalShares = BigInt.zero()
   rewardSplitter.owner = owner
   rewardSplitter.vault = vault
   rewardSplitter.save()
