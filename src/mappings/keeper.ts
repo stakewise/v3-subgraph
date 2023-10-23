@@ -60,6 +60,10 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
     Value.fromBigInt(updateTimestamp),
     Value.fromString(rewardsIpfsHash),
   ])
+  if (rewardsIpfsHash == 'bafkreigsvnhlb5mkuvosuzg4bkmtbhh4cxdlhqs54xvrn35zxnb2uvvpei') {
+    log.warning('[Keeper] RewardsUpdated rewardsIpfsHash={} is invalid', [rewardsIpfsHash])
+    return
+  }
 
   ipfs.mapJSON(rewardsIpfsHash, 'updateRewards', callbackData)
   log.info('[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={}', [
