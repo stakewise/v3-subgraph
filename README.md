@@ -8,49 +8,51 @@ and entities within the StakeWise ecosystem.
 
 ## Deployment
 
-1. Install dependencies:
-
-   ```shell script
-   npm install
-   ```
-
-   Optionally, to run tests postgresql should be installed:
-   ```shell script
-   brew install postgresql
-   ```
-
-   Optionally, generate contract abis:
-   ```shell script
-   npm run generate-abis
-   ```
-
-2. Prepare subgraph for the network you want to deploy on
-(currently supports only goerli):
-
-   ```shell script
-   npm run prepare:goerli
-   ```
-
-3. Optionally, build the subgraph to check compile errors
-before deploying:
+1.  Install dependencies:
 
     ```shell script
-    npm run build:goerli
+    npm install
     ```
 
-4. Optionally, test the subgraph:
+    Optionally, to run tests postgresql should be installed:
 
-   ```shell script
-   npm run test:goerli
-   ```
+    ```shell script
+    brew install postgresql
+    ```
 
-5. To deploy the subgraph to the hosted service 
-you need to add `HOSTED_GRAPH_TOKEN` and `HOSTED_SUBGRAPH_URL_GOERLI`
-to the .env file. And run the script:
+    Optionally, generate contract abis:
 
-   ```shell script
-   npm run deploy-hosted:goerli
-   ```
+    ```shell script
+    npm run generate-abis
+    ```
+
+2.  Prepare subgraph for the network you want to deploy on
+    (currently supports only holesky):
+
+    ```shell script
+    npm run prepare:holesky
+    ```
+
+3.  Optionally, build the subgraph to check compile errors
+    before deploying:
+
+        ```shell script
+        npm run build:holesky
+        ```
+
+4.  Optionally, test the subgraph:
+
+    ```shell script
+    npm run test:holesky
+    ```
+
+5.  To deploy the subgraph to the hosted service
+    you need to add `HOSTED_GRAPH_TOKEN` and `HOSTED_SUBGRAPH_URL`
+    to the .env file. And run the script:
+
+    ```shell script
+    npm run deploy-hosted:holesky
+    ```
 
 ## Documentation
 

@@ -118,12 +118,12 @@ dataSources:
         - event: Harvested(indexed address,indexed bytes32,int256,uint256)
           handler: handleHarvested
   - kind: ethereum/contract
-    name: OsToken
+    name: OsTokenVaultController
     network: {{ network }}
     source:
-      address: '{{ osToken.address }}'
-      abi: OsToken
-      startBlock: {{ osToken.startBlock }}
+      address: '{{ osTokenVaultController.address }}'
+      abi: OsTokenVaultController
+      startBlock: {{ osTokenVaultController.startBlock }}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -132,8 +132,8 @@ dataSources:
       entities:
         - OsToken
       abis:
-        - name: OsToken
-          file: ./abis/OsToken.json
+        - name: OsTokenVaultController
+          file: ./abis/OsTokenVaultController.json
       eventHandlers:
         - event: AvgRewardPerSecondUpdated(uint256)
           handler: handleAvgRewardPerSecondUpdated
@@ -226,6 +226,14 @@ templates:
           handler: handleCheckpointCreated
         - event: FeeSharesMinted(address,uint256,uint256)
           handler: handleFeeSharesMinted
+        - event: OsTokenMinted(indexed address,address,uint256,uint256,address)
+          handler: handleOsTokenMinted
+        - event: OsTokenBurned(indexed address,uint256,uint256)
+          handler: handleOsTokenBurned
+        - event: OsTokenLiquidated(indexed address,indexed address,address,uint256,uint256,uint256)
+          handler: handleOsTokenLiquidated
+        - event: OsTokenRedeemed(indexed address,indexed address,address,uint256,uint256,uint256)
+          handler: handleOsTokenRedeemed
   - kind: ethereum/contract
     name: PrivateVault
     network: {{ network }}

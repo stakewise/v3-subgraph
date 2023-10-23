@@ -128,8 +128,11 @@ type Vault @entity {
   "The vault total reward"
   totalReward: BigInt
 
-  "The vault locked MEV reward"
+  "The vault locked shared MEV reward"
   lockedMevReward: BigInt
+
+  "The vault slashed shared MEV reward"
+  slashedMevReward: BigInt
 
   "The vault rewards root proof used to submit state update proof"
   proof: [String!]

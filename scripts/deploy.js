@@ -9,7 +9,7 @@ const LOCAL_GRAPH_URL = process.env.LOCAL_GRAPH_URL
 
 // HOSTED
 const HOSTED_GRAPH_TOKEN = process.env.HOSTED_GRAPH_TOKEN
-const HOSTED_SUBGRAPH_URL_GOERLI = process.env.HOSTED_SUBGRAPH_URL_GOERLI
+const HOSTED_SUBGRAPH_URL = process.env.HOSTED_SUBGRAPH_URL
 
 const args = process.argv.reduce((acc, arg) => {
   if (/:/.test(arg)) {
@@ -26,8 +26,8 @@ const validateEnv = () => {
     if (!HOSTED_GRAPH_TOKEN) {
       throw new Error('HOSTED_GRAPH_TOKEN is required env variable for "node:hosted" deployment')
     }
-    if (!HOSTED_SUBGRAPH_URL_GOERLI) {
-      throw new Error('HOSTED_SUBGRAPH_URL_GOERLI is required env variable for "node:hosted" deployment')
+    if (!HOSTED_SUBGRAPH_URL) {
+      throw new Error('HOSTED_SUBGRAPH_URL is required env variable for "node:hosted" deployment')
     }
   }
   if (args.node === 'local') {
@@ -43,7 +43,7 @@ const validateEnv = () => {
 const validateArgs = () => {
   const { network, node } = args
 
-  const allowedNetworks = ['goerli']
+  const allowedNetworks = ['holesky']
   const allowedNodes = ['hosted', 'local']
 
   if (!network) {
@@ -71,7 +71,7 @@ const deploy = async () => {
 
   if (node === 'hosted') {
     authCommand = `graph auth --product hosted-service ${HOSTED_GRAPH_TOKEN}`
-    deployCommand = `graph deploy --product hosted-service ${HOSTED_SUBGRAPH_URL_GOERLI} --output-dir ${buildDirectory} --access-token ${HOSTED_GRAPH_TOKEN}`
+    deployCommand = `graph deploy --product hosted-service ${HOSTED_SUBGRAPH_URL} --output-dir ${buildDirectory} --access-token ${HOSTED_GRAPH_TOKEN}`
   }
   if (node === 'local') {
     const { version } = require('../package.json')

@@ -15,6 +15,8 @@ import {
   FeeSharesMinted,
   OsTokenMinted,
   OsTokenBurned,
+  OsTokenLiquidated,
+  OsTokenRedeemed,
 } from '../../generated/templates/Vault/Vault'
 import { Migrated, GenesisVaultCreated } from '../../generated/GenesisVault/GenesisVault'
 
@@ -366,6 +368,7 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
 export function handleOsTokenMinted(event: OsTokenMinted): void {
   const holder = event.params.caller
   const shares = event.params.shares
+  createTransaction(event.transaction.hash.toHex())
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.plus(shares)
@@ -377,12 +380,35 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
 export function handleOsTokenBurned(event: OsTokenBurned): void {
   const holder = event.params.caller
   const shares = event.params.shares
+  createTransaction(event.transaction.hash.toHex())
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
   osTokenPosition.save()
 
   log.info('[Vault] OsTokenBurned holder={} shares={}', [holder.toHex(), shares.toString()])
+}
+
+export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
+  const holder = event.params.user
+  const shares = event.params.osTokenShares
+
+  const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
+  osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
+  osTokenPosition.save()
+
+  log.info('[Vault] OsTokenLiquidated holder={} shares={}', [holder.toHex(), shares.toString()])
+}
+
+export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
+  const holder = event.params.user
+  const shares = event.params.osTokenShares
+
+  const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
+  osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
+  osTokenPosition.save()
+
+  log.info('[Vault] OsTokenRedeemed holder={} shares={}', [holder.toHex(), shares.toString()])
 }
 
 // Event emitted when GenesisVault is initialized
