@@ -366,6 +366,7 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
 export function handleOsTokenMinted(event: OsTokenMinted): void {
   const holder = event.params.caller
   const shares = event.params.shares
+  createTransaction(event.transaction.hash.toHex())
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.plus(shares)
@@ -377,6 +378,7 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
 export function handleOsTokenBurned(event: OsTokenBurned): void {
   const holder = event.params.caller
   const shares = event.params.shares
+  createTransaction(event.transaction.hash.toHex())
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)

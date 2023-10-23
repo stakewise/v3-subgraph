@@ -3,7 +3,7 @@ import { BigInt, BigDecimal } from '@graphprotocol/graph-ts'
 import { DaySnapshot, Vault } from '../../generated/schema'
 import { DAY } from '../helpers/constants'
 
-const snapshotsCount = 7
+const snapshotsCount = 10
 
 export function getRewardPerAsset(reward: BigInt, principalAssets: BigInt, feePercent: i32): BigDecimal {
   if (principalAssets.le(BigInt.zero())) {
@@ -52,7 +52,7 @@ export function updateDaySnapshots(
   vault: Vault,
   fromTimestamp: BigInt,
   toTimestamp: BigInt,
-  totalReward: BigInt
+  totalReward: BigInt,
 ): void {
   const totalDuration = toTimestamp.minus(fromTimestamp)
   let rewardLeft = totalReward

@@ -230,11 +230,6 @@ templates:
           handler: handleOsTokenMinted
         - event: OsTokenBurned(indexed address,uint256,uint256)
           handler: handleOsTokenBurned
-# TODO: enable after event fixes
-#        - event: OsTokenLiquidated(indexed address,uint256,uint256)
-#          handler: handleOsTokenLiquidated
-#        - event: OsTokenRedeemed(indexed address,uint256,uint256)
-#          handler: handleOsTokenRedeemed
   - kind: ethereum/contract
     name: PrivateVault
     network: {{ network }}

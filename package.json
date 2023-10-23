@@ -1,6 +1,6 @@
 {
   "name": "v3-subgraph",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Subgraph for the StakeWise Protocol",
   "repository": "https://github.com/stakewise/v3-subgraph",
   "license": "AGPL-3.0-only",
@@ -22,19 +22,19 @@
     "deploy-local:goerli": "npm run prepare:goerli && npm run deploy network:goerli node:local"
   },
   "devDependencies": {
-    "@graphprotocol/graph-cli": "0.56.0",
+    "@graphprotocol/graph-cli": "0.60.0",
     "@graphprotocol/graph-ts": "0.31.0",
-    "@types/node": "20.5.6",
-    "@typescript-eslint/eslint-plugin": "6.4.1",
-    "@typescript-eslint/parser": "6.4.1",
+    "@types/node": "20.8.7",
+    "@typescript-eslint/eslint-plugin": "6.8.0",
+    "@typescript-eslint/parser": "6.8.0",
     "dotenv": "16.3.1",
-    "eslint": "8.48.0",
+    "eslint": "8.52.0",
     "eslint-config-prettier": "9.0.0",
     "husky": "8.0.3",
-    "lint-staged": "14.0.1",
-    "matchstick-as": "0.5.2",
+    "lint-staged": "15.0.2",
+    "matchstick-as": "0.6.0",
     "mustache": "4.2.0",
-    "prettier": "3.0.2",
+    "prettier": "3.0.3",
     "typescript": "5.2.2"
   },
   "engines": {
