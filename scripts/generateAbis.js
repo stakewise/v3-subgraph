@@ -25,8 +25,8 @@ const abis = [
     to: '../src/abis/Keeper.json',
   },
   {
-    from: '../v3-core/abi/IOsToken.json',
-    to: '../src/abis/OsToken.json',
+    from: '../v3-core/abi/IOsTokenVaultController.json',
+    to: '../src/abis/OsTokenVaultController.json',
   },
   {
     from: '../v3-core/abi/IEthGenesisVault.json',

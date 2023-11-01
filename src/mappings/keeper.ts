@@ -4,6 +4,28 @@ import { Vault } from '../../generated/schema'
 import { Harvested, RewardsUpdated } from '../../generated/Keeper/Keeper'
 import { updateAvgRewardPerAsset, updateDaySnapshots } from '../entities/daySnapshot'
 
+function calculateSlashedMevReward(
+  prevSlashedMevReward: BigInt | null,
+  newLockedMevReward: BigInt,
+  newUnlockedMevReward: BigInt,
+  prevLockedMevReward: BigInt | null,
+  prevUnlockedMevReward: BigInt | null,
+): BigInt {
+  let totalPrevMevReward: BigInt
+  if (prevUnlockedMevReward === null) {
+    totalPrevMevReward = BigInt.zero()
+  } else {
+    totalPrevMevReward = (prevLockedMevReward as BigInt).plus(prevUnlockedMevReward as BigInt)
+  }
+  const totalDelta = newLockedMevReward.plus(newUnlockedMevReward).minus(totalPrevMevReward).abs()
+
+  if (prevSlashedMevReward === null) {
+    return totalDelta
+  } else {
+    return (prevSlashedMevReward as BigInt).plus(totalDelta)
+  }
+}
+
 export function updateRewards(value: JSONValue, callbackDataValue: Value): void {
   const callbackData = callbackDataValue.toArray()
   const rewardsRoot = callbackData[0].toBytes()
@@ -11,6 +33,7 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
   const rewardsIpfsHash = callbackData[2].toString()
   const vaultRewards = value.toObject().mustGet('vaults').toArray()
   for (let i = 0; i < vaultRewards.length; i++) {
+    // load vault object
     const vaultReward = vaultRewards[i].toObject()
     const vaultId = vaultReward.mustGet('vault').toString().toLowerCase()
     const vault = Vault.load(vaultId)
@@ -19,29 +42,55 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
       continue
     }
 
+    // extract vault reward data
     const consensusReward = vaultReward.mustGet('consensus_reward').toBigInt()
-    let lockedMevReward = vaultReward.isSet('locked_mev_reward')
+    const lockedMevReward = vaultReward.isSet('locked_mev_reward')
       ? vaultReward.mustGet('locked_mev_reward').toBigInt()
       : BigInt.zero()
-    let unlockedMevReward = vaultReward.mustGet('unlocked_mev_reward').toBigInt()
+    const unlockedMevReward = vaultReward.mustGet('unlocked_mev_reward').toBigInt()
     const proof = vaultReward.mustGet('proof').toArray()
 
+    // calculate new vault rewards
     const newTotalReward = consensusReward.plus(unlockedMevReward).plus(lockedMevReward)
-    const periodReward = vault.totalReward ? newTotalReward.minus(vault.totalReward as BigInt) : newTotalReward
-    const lastUpdateTimestamp = vault.rewardsTimestamp ? (vault.rewardsTimestamp as BigInt) : updateTimestamp
-
-    if (vault.mevEscrow !== null) {
-      unlockedMevReward = BigInt.zero()
-      lockedMevReward = BigInt.zero()
+    let periodReward: BigInt
+    if (vault.rewardsTimestamp !== null) {
+      periodReward = newTotalReward.minus(vault.totalReward as BigInt)
+      // it's the second or later update, start creating snapshots
+      updateDaySnapshots(vault, vault.rewardsTimestamp as BigInt, updateTimestamp, periodReward)
+    } else {
+      periodReward = newTotalReward
     }
-    updateDaySnapshots(vault, lastUpdateTimestamp, updateTimestamp, periodReward)
 
+    let proofReward: BigInt
+    let proofUnlockedMevReward: BigInt
+    let slashedMevReward: BigInt
+    if (vault.mevEscrow !== null) {
+      // vault has own mev escrow, proof reward is consensus reward, nothing can be slashed
+      proofReward = consensusReward
+      slashedMevReward = BigInt.zero()
+      proofUnlockedMevReward = BigInt.zero()
+    } else {
+      // vault uses shared mev escrow, proof reward is consensus reward + total mev reward
+      proofReward = consensusReward.plus(lockedMevReward).plus(unlockedMevReward)
+      // calculate slashed mev reward
+      slashedMevReward = calculateSlashedMevReward(
+        vault.slashedMevReward,
+        lockedMevReward,
+        unlockedMevReward,
+        vault.lockedMevReward,
+        vault.proofUnlockedMevReward,
+      )
+      proofUnlockedMevReward = unlockedMevReward
+    }
+
+    // update vault state
     vault.totalReward = newTotalReward
     vault.totalAssets = vault.totalAssets.plus(periodReward)
     vault.rewardsRoot = rewardsRoot
-    vault.proofReward = consensusReward.plus(lockedMevReward).plus(unlockedMevReward)
-    vault.proofUnlockedMevReward = unlockedMevReward
+    vault.proofReward = proofReward
+    vault.proofUnlockedMevReward = proofUnlockedMevReward
     vault.lockedMevReward = lockedMevReward
+    vault.slashedMevReward = slashedMevReward
     vault.proof = proof.map<string>((proofValue: JSONValue) => proofValue.toString())
     vault.rewardsTimestamp = updateTimestamp
     vault.rewardsIpfsHash = rewardsIpfsHash

@@ -1,0 +1,35 @@
+{
+  "network": "mainnet",
+  "ethVaultFactory": {
+    "address": "0x1428BB71261f01BbC03ce4eC7cEEA674f94b5F18",
+    "startBlock": "215406"
+  },
+  "ethPrivVaultFactory": {
+    "address": "0x9741f8e49fFa322714511b5D17bD052698eAFA43",
+    "startBlock": "215415"
+  },
+  "ethErc20VaultFactory": {
+    "address": "0x4C1140F4A5E3DD459De642A46bd1df6FBe287e1B",
+    "startBlock": "215427"
+  },
+  "ethPrivErc20VaultFactory": {
+    "address": "0x930A2D0ADEbF4E69Bb929F6456C3D4bcabf52796",
+    "startBlock": "215437"
+  },
+  "keeper": {
+    "address": "0xB580799Bf7d62721D1a523f0FDF2f5Ed7BA4e259",
+    "startBlock": "215379"
+  },
+  "osTokenVaultController": {
+    "address": "0x7BbC1733ee018f103A9a9052a18fA9273255Cf36",
+    "startBlock": "215371"
+  },
+  "genesisVault": {
+    "address": "0xf42cEAFa21Beb670573f32C31485E84233AFDB6b",
+    "startBlock": "215444"
+  },
+  "rewardSplitterFactory": {
+    "address": "0x6c56AC64457B8AeA1Bb8d1f5eA2d1E397C9c7a13",
+    "startBlock": "215461"
+  }
+}

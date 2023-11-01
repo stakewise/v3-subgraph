@@ -1,5 +1,5 @@
 import { log } from '@graphprotocol/graph-ts'
-import { AvgRewardPerSecondUpdated } from '../../generated/OsToken/OsToken'
+import { AvgRewardPerSecondUpdated } from '../../generated/OsTokenVaultController/OsTokenVaultController'
 import { OsTokenSnapshot } from '../../generated/schema'
 
 export function handleAvgRewardPerSecondUpdated(event: AvgRewardPerSecondUpdated): void {

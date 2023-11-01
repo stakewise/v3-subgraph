@@ -15,6 +15,8 @@ import {
   FeeSharesMinted,
   OsTokenMinted,
   OsTokenBurned,
+  OsTokenLiquidated,
+  OsTokenRedeemed,
 } from '../../generated/templates/Vault/Vault'
 import { Migrated, GenesisVaultCreated } from '../../generated/GenesisVault/GenesisVault'
 
@@ -226,6 +228,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   }
 
   const txHash = event.transaction.hash.toHex()
+  const timestamp = event.block.timestamp
 
   const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
 
@@ -234,7 +237,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   allocatorAction.actionType = 'ExitQueueEntered'
   allocatorAction.assets = null
   allocatorAction.shares = params.shares
-  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.createdAt = timestamp
   allocatorAction.save()
 
   createTransaction(event.transaction.hash.toHex())
@@ -248,6 +251,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   exitRequest.receiver = receiver
   exitRequest.totalShares = shares
   exitRequest.positionTicket = positionTicket
+  exitRequest.timestamp = timestamp
   exitRequest.save()
 
   log.info('[Vault] ExitQueueEntered vault={} owner={} shares={}', [vaultAddress, owner.toHex(), shares.toString()])
@@ -296,6 +300,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
     nextExitRequest.vault = vaultAddress
     nextExitRequest.owner = prevExitRequest.owner
+    nextExitRequest.timestamp = prevExitRequest.timestamp
     nextExitRequest.receiver = receiver
     nextExitRequest.positionTicket = newPositionTicket
     nextExitRequest.totalShares = totalShares
@@ -366,6 +371,7 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
 export function handleOsTokenMinted(event: OsTokenMinted): void {
   const holder = event.params.caller
   const shares = event.params.shares
+  createTransaction(event.transaction.hash.toHex())
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.plus(shares)
@@ -377,12 +383,35 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
 export function handleOsTokenBurned(event: OsTokenBurned): void {
   const holder = event.params.caller
   const shares = event.params.shares
+  createTransaction(event.transaction.hash.toHex())
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
   osTokenPosition.save()
 
   log.info('[Vault] OsTokenBurned holder={} shares={}', [holder.toHex(), shares.toString()])
+}
+
+export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
+  const holder = event.params.user
+  const shares = event.params.osTokenShares
+
+  const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
+  osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
+  osTokenPosition.save()
+
+  log.info('[Vault] OsTokenLiquidated holder={} shares={}', [holder.toHex(), shares.toString()])
+}
+
+export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
+  const holder = event.params.user
+  const shares = event.params.osTokenShares
+
+  const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
+  osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
+  osTokenPosition.save()
+
+  log.info('[Vault] OsTokenRedeemed holder={} shares={}', [holder.toHex(), shares.toString()])
 }
 
 // Event emitted when GenesisVault is initialized
