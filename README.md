@@ -27,23 +27,23 @@ and entities within the StakeWise ecosystem.
     ```
 
 2.  Prepare subgraph for the network you want to deploy on
-    (currently supports only holesky):
+    (currently supports mainnet and holesky):
 
     ```shell script
-    npm run prepare:holesky
+    npm run prepare:mainnet
     ```
 
 3.  Optionally, build the subgraph to check compile errors
     before deploying:
 
         ```shell script
-        npm run build:holesky
+        npm run build:mainnet
         ```
 
 4.  Optionally, test the subgraph:
 
     ```shell script
-    npm run test:holesky
+    npm run test:mainnet
     ```
 
 5.  To deploy the subgraph to the hosted service
@@ -51,7 +51,7 @@ and entities within the StakeWise ecosystem.
     to the .env file. And run the script:
 
     ```shell script
-    npm run deploy-hosted:holesky
+    npm run deploy-hosted:mainnet
     ```
 
 ## Documentation
