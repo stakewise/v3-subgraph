@@ -49,6 +49,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.isErc20 = isErc20
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
+  vault.isGenesis = false
 
   if (ownMevEscrow != Address.zero()) {
     vault.mevEscrow = event.params.ownMevEscrow

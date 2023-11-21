@@ -442,6 +442,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.isErc20 = false
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
+  vault.isGenesis = true
   vault.save()
   VaultTemplate.create(vaultAddress)
 
