@@ -31,5 +31,13 @@
   "rewardSplitterFactory": {
     "address": "0x90a9428b8c58cA80B28aAF46B936D42e87797449",
     "startBlock": "18470158"
+  },
+  "v2RewardEthToken": {
+    "address": "0x20BC832ca081b91433ff6c17f85701B6e92486c5",
+    "startBlock": "11726340"
+  },
+  "v2StakedEthToken": {
+    "address": "0xFe2e637202056d30016725477c5da089Ab0A043A",
+    "startBlock": "11726303"
   }
 }
