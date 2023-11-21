@@ -244,6 +244,8 @@ dataSources:
       eventHandlers:
         - event: RewardsUpdated(uint256,uint256,uint256,uint256,uint256)
           handler: handleRewardsUpdatedV2
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleRewardEthTokenTransfer
   - kind: ethereum/contract
     name: V2StakedEthToken
     network: {{ network }}
@@ -263,7 +265,7 @@ dataSources:
           file: ./abis/V2StakedEthToken.json
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
-          handler: handleTransfer
+          handler: handleStakedEthTokenTransfer
 templates:
   - kind: ethereum/contract
     name: Vault
