@@ -370,9 +370,21 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
 
 export function handleOsTokenMinted(event: OsTokenMinted): void {
   const holder = event.params.caller
-  const shares = event.params.shares
-  createTransaction(event.transaction.hash.toHex())
+  const assets = event.params.assets
+  const vaultAddress = event.address.toHex()
 
+  const txHash = event.transaction.hash.toHex()
+  createTransaction(txHash)
+
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
+  allocatorAction.vault = vaultAddress
+  allocatorAction.address = holder
+  allocatorAction.actionType = 'OsTokenMinted'
+  allocatorAction.assets = assets
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
+
+  const shares = event.params.shares
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.plus(shares)
   osTokenPosition.save()
@@ -382,9 +394,21 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
 
 export function handleOsTokenBurned(event: OsTokenBurned): void {
   const holder = event.params.caller
-  const shares = event.params.shares
-  createTransaction(event.transaction.hash.toHex())
+  const assets = event.params.assets
+  const vaultAddress = event.address.toHex()
 
+  const txHash = event.transaction.hash.toHex()
+  createTransaction(txHash)
+
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
+  allocatorAction.vault = vaultAddress
+  allocatorAction.address = holder
+  allocatorAction.actionType = 'OsTokenBurned'
+  allocatorAction.assets = assets
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
+
+  const shares = event.params.shares
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
   osTokenPosition.save()
@@ -394,8 +418,22 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
 
 export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   const holder = event.params.user
-  const shares = event.params.osTokenShares
+  const assets = event.params.receivedAssets
+  const vaultAddress = event.address.toHex()
 
+  const txHash = event.transaction.hash.toHex()
+  createTransaction(txHash)
+
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
+
+  allocatorAction.vault = vaultAddress
+  allocatorAction.address = holder
+  allocatorAction.actionType = 'OsTokenLiquidated'
+  allocatorAction.assets = assets
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
+
+  const shares = event.params.shares
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
   osTokenPosition.save()
@@ -405,8 +443,22 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
 
 export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   const holder = event.params.user
-  const shares = event.params.osTokenShares
+  const assets = event.params.assets
+  const vaultAddress = event.address.toHex()
 
+  const txHash = event.transaction.hash.toHex()
+  createTransaction(txHash)
+
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
+
+  allocatorAction.vault = vaultAddress
+  allocatorAction.address = holder
+  allocatorAction.actionType = 'OsTokenRedeemed'
+  allocatorAction.assets = assets
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
+
+  const shares = event.params.osTokenShares
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
   osTokenPosition.save()

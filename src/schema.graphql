@@ -199,6 +199,10 @@ enum AllocatorActionType {
   Redeemed
   ExitQueueEntered
   ExitedAssetsClaimed
+  OsTokenMinted
+  OsTokenBurned
+  OsTokenLiquidated
+  OsTokenRedeemed
 }
 
 """
@@ -338,11 +342,20 @@ type V2Pool @entity {
   "1"
   id: ID!
 
+  "V2 Pool total assets"
+  totalAssets: BigInt!
+
   "Total rewards accumulated"
   totalRewards: BigInt!
 
   "Total assets staked"
-  totalStaked: BigInt!
+  principalAssets: BigInt!
+
+  "The staking fee percent charged by the pool"
+  feePercent: Int!
+
+  "Average reward on one asset"
+  avgRewardPerAsset: BigDecimal!
 
   "Last rewards update timestamp"
   rewardsTimestamp: BigInt

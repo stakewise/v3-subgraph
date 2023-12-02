@@ -11,6 +11,7 @@ import { createOrLoadV2Pool } from '../entities/v2pool'
 export function handleRewardsUpdatedV0(event: RewardsUpdatedV0): void {
   let pool = createOrLoadV2Pool()
   pool.totalRewards = event.params.totalRewards
+  pool.totalAssets = pool.principalAssets.plus(pool.totalRewards)
   pool.save()
 
   log.info('[V2 Pool] RewardsUpdated V0 totalRewards={}', [pool.totalRewards.toString()])
@@ -19,6 +20,7 @@ export function handleRewardsUpdatedV0(event: RewardsUpdatedV0): void {
 export function handleRewardsUpdatedV1(event: RewardsUpdatedV1): void {
   let pool = createOrLoadV2Pool()
   pool.totalRewards = event.params.totalRewards
+  pool.totalAssets = pool.principalAssets.plus(pool.totalRewards)
   pool.save()
 
   log.info('[V2 Pool] RewardsUpdated V1 totalRewards={}', [pool.totalRewards.toString()])
@@ -27,6 +29,7 @@ export function handleRewardsUpdatedV1(event: RewardsUpdatedV1): void {
 export function handleRewardsUpdatedV2(event: RewardsUpdatedV2): void {
   let pool = createOrLoadV2Pool()
   pool.totalRewards = event.params.totalRewards
+  pool.totalAssets = pool.principalAssets.plus(pool.totalRewards)
   pool.save()
 
   log.info('[V2 Pool] RewardsUpdated V2 totalRewards={}', [pool.totalRewards.toString()])
@@ -42,6 +45,7 @@ export function handleRewardEthTokenTransfer(event: RewardEthTokenTransfer): voi
   let pool = createOrLoadV2Pool()
   let value = event.params.value
   pool.totalRewards = pool.totalRewards.minus(value)
+  pool.totalAssets = pool.principalAssets.plus(pool.totalRewards)
   pool.save()
 
   log.info('[V2 Pool] StakedEthToken burn amount={}', [value.toString()])
@@ -58,13 +62,14 @@ export function handleStakedEthTokenTransfer(event: StakedEthTokenTransfer): voi
   let pool = createOrLoadV2Pool()
   let value = event.params.value
   if (isMint) {
-    pool.totalStaked = pool.totalStaked.plus(value)
+    pool.principalAssets = pool.principalAssets.plus(value)
     log.info('[V2 Pool] StakedEthToken mint amount={}', [value.toString()])
   }
 
   if (isBurn) {
-    pool.totalStaked = pool.totalStaked.minus(value)
+    pool.principalAssets = pool.principalAssets.minus(value)
     log.info('[V2 Pool] StakedEthToken burn amount={}', [value.toString()])
   }
+  pool.totalAssets = pool.principalAssets.plus(pool.totalRewards)
   pool.save()
 }
