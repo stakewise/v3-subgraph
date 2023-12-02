@@ -50,10 +50,14 @@ export function createOrLoadDaySnapshot(timestamp: BigInt, vault: Vault): DaySna
 
 export function updateDaySnapshots(
   vault: Vault,
-  fromTimestamp: BigInt,
+  fromTimestamp: BigInt | null,
   toTimestamp: BigInt,
-  totalReward: BigInt
+  totalReward: BigInt,
 ): void {
+  if (fromTimestamp === null) {
+    // it's the first update, skip
+    return
+  }
   const totalDuration = toTimestamp.minus(fromTimestamp)
   let rewardLeft = totalReward
   let snapshotStart = fromTimestamp

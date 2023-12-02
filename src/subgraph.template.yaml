@@ -109,6 +109,7 @@ dataSources:
       entities:
         - Vault
         - DaySnapshot
+        - V2Pool
       abis:
         - name: Keeper
           file: ./abis/Keeper.json

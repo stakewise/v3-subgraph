@@ -343,4 +343,7 @@ type V2Pool @entity {
 
   "Total assets staked"
   totalStaked: BigInt!
+
+  "Last rewards update timestamp"
+  rewardsTimestamp: BigInt
 }
