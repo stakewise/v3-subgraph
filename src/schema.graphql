@@ -249,10 +249,27 @@ type DaySnapshot @entity {
 }
 
 """
+OsToken data
+"""
+type OsToken @entity {
+  "Set to 1"
+  id: ID!
+
+  "The OsToken APY"
+  apy: BigDecimal!
+
+  "The OsToken total supply"
+  totalSupply: BigInt!
+
+  "The total number of OsToken snapshots"
+  snapshotsCount: BigInt!
+}
+
+"""
 Snapshot of OsToken average reward per second
 """
 type OsTokenSnapshot @entity {
-  "Set to `transaction hash-log index`"
+  "The counter of the snapshot"
   id: ID!
 
   "The OsToken average reward per second"

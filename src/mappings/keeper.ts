@@ -172,6 +172,7 @@ export function handleHarvested(event: Harvested): void {
   vault.principalAssets = vault.principalAssets.plus(genesisVaultPeriodReward)
   updateAvgRewardPerAsset(vault.rewardsTimestamp as BigInt, vault)
   updateV2PoolAvgRewardPerAsset(vault.rewardsTimestamp as BigInt, v2Pool)
+  vault.save()
   v2Pool.save()
 
   log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])

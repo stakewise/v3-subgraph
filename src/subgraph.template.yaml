@@ -132,12 +132,15 @@ dataSources:
       file: ./mappings/osToken.ts
       entities:
         - OsToken
+        - OsTokenSnapshot
       abis:
         - name: OsTokenVaultController
           file: ./abis/OsTokenVaultController.json
       eventHandlers:
         - event: AvgRewardPerSecondUpdated(uint256)
           handler: handleAvgRewardPerSecondUpdated
+        - event: StateUpdated(uint256,uint256,uint256)
+          handler: handleStateUpdated
   - kind: ethereum/contract
     name: GenesisVault
     network: {{ network }}
@@ -283,6 +286,7 @@ templates:
         - Allocator
         - ExitRequest
         - DaySnapshot
+        - OsToken
         - AllocatorAction
         - Transaction
       abis:
