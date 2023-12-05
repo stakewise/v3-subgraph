@@ -187,6 +187,9 @@ type Vault @entity {
 
   "The timestamp the vault was created at"
   createdAt: BigInt!
+
+  "Whether the vault is a genesis vault (v2 pool migration)"
+  isGenesis: Boolean!
 }
 
 enum AllocatorActionType {
@@ -196,6 +199,10 @@ enum AllocatorActionType {
   Redeemed
   ExitQueueEntered
   ExitedAssetsClaimed
+  OsTokenMinted
+  OsTokenBurned
+  OsTokenLiquidated
+  OsTokenRedeemed
 }
 
 """
@@ -242,10 +249,27 @@ type DaySnapshot @entity {
 }
 
 """
+OsToken data
+"""
+type OsToken @entity {
+  "Set to 1"
+  id: ID!
+
+  "The OsToken APY"
+  apy: BigDecimal!
+
+  "The OsToken total supply"
+  totalSupply: BigInt!
+
+  "The total number of OsToken snapshots"
+  snapshotsCount: BigInt!
+}
+
+"""
 Snapshot of OsToken average reward per second
 """
 type OsTokenSnapshot @entity {
-  "Set to `transaction hash-log index`"
+  "The counter of the snapshot"
   id: ID!
 
   "The OsToken average reward per second"
@@ -326,4 +350,30 @@ StakeWise V3 transaction
 type Transaction @entity {
   "Transaction hash"
   id: ID!
+}
+
+"""
+StakeWise V2 pool data
+"""
+type V2Pool @entity {
+  "1"
+  id: ID!
+
+  "V2 Pool total assets"
+  totalAssets: BigInt!
+
+  "Total rewards accumulated"
+  totalRewards: BigInt!
+
+  "Total assets staked"
+  principalAssets: BigInt!
+
+  "The staking fee percent charged by the pool"
+  feePercent: Int!
+
+  "Average reward on one asset"
+  avgRewardPerAsset: BigDecimal!
+
+  "Last rewards update timestamp"
+  rewardsTimestamp: BigInt
 }

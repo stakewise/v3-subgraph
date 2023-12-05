@@ -109,6 +109,7 @@ dataSources:
       entities:
         - Vault
         - DaySnapshot
+        - V2Pool
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
@@ -131,12 +132,15 @@ dataSources:
       file: ./mappings/osToken.ts
       entities:
         - OsToken
+        - OsTokenSnapshot
       abis:
         - name: OsTokenVaultController
           file: ./abis/OsTokenVaultController.json
       eventHandlers:
         - event: AvgRewardPerSecondUpdated(uint256)
           handler: handleAvgRewardPerSecondUpdated
+        - event: StateUpdated(uint256,uint256,uint256)
+          handler: handleStateUpdated
   - kind: ethereum/contract
     name: GenesisVault
     network: {{ network }}
@@ -184,6 +188,88 @@ dataSources:
       eventHandlers:
         - event: RewardSplitterCreated(address,address,address)
           handler: handleRewardSplitterCreated
+  - kind: ethereum/contract
+    name: V2RewardEthTokenV0
+    network: {{ network }}
+    source:
+      address: '{{ v2RewardEthToken.address }}'
+      abi: V2RewardEthTokenV0
+      startBlock: {{ v2RewardEthToken.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/v2pool.ts
+      entities:
+        - V2Pool
+      abis:
+        - name: V2RewardEthTokenV0
+          file: ./abis/V2RewardEthTokenV0.json
+      eventHandlers:
+        - event: RewardsUpdated(uint256,uint256,uint256,uint256)
+          handler: handleRewardsUpdatedV0
+  - kind: ethereum/contract
+    name: V2RewardEthTokenV1
+    network: {{ network }}
+    source:
+      address: '{{ v2RewardEthToken.address }}'
+      abi: V2RewardEthTokenV1
+      startBlock: {{ v2RewardEthToken.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/v2pool.ts
+      entities:
+        - V2Pool
+      abis:
+        - name: V2RewardEthTokenV1
+          file: ./abis/V2RewardEthTokenV1.json
+      eventHandlers:
+        - event: RewardsUpdated(uint256,uint256,uint256)
+          handler: handleRewardsUpdatedV1
+  - kind: ethereum/contract
+    name: V2RewardEthTokenV2
+    network: {{ network }}
+    source:
+      address: '{{ v2RewardEthToken.address }}'
+      abi: V2RewardEthTokenV2
+      startBlock: {{ v2RewardEthToken.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/v2pool.ts
+      entities:
+        - V2Pool
+      abis:
+        - name: V2RewardEthTokenV2
+          file: ./abis/V2RewardEthTokenV2.json
+      eventHandlers:
+        - event: RewardsUpdated(uint256,uint256,uint256,uint256,uint256)
+          handler: handleRewardsUpdatedV2
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleRewardEthTokenTransfer
+  - kind: ethereum/contract
+    name: V2StakedEthToken
+    network: {{ network }}
+    source:
+      address: '{{ v2StakedEthToken.address }}'
+      abi: V2StakedEthToken
+      startBlock: {{ v2StakedEthToken.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/v2pool.ts
+      entities:
+        - V2Pool
+      abis:
+        - name: V2StakedEthToken
+          file: ./abis/V2StakedEthToken.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleStakedEthTokenTransfer
 templates:
   - kind: ethereum/contract
     name: Vault
@@ -200,6 +286,7 @@ templates:
         - Allocator
         - ExitRequest
         - DaySnapshot
+        - OsToken
         - AllocatorAction
         - Transaction
       abis:

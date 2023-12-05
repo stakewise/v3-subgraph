@@ -26,6 +26,7 @@ import { createOrLoadAllocator } from '../entities/allocator'
 import { createOrLoadDaySnapshot } from '../entities/daySnapshot'
 import { createOrLoadNetwork } from '../entities/network'
 import { createOrLoadOsTokenPosition } from '../entities/vaults'
+import { createOrLoadOsToken } from '../entities/osToken'
 
 // Event emitted on assets transfer from allocator to vault
 export function handleDeposited(event: Deposited): void {
@@ -371,45 +372,117 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
 export function handleOsTokenMinted(event: OsTokenMinted): void {
   const holder = event.params.caller
   const shares = event.params.shares
-  createTransaction(event.transaction.hash.toHex())
+  const assets = event.params.assets
+  const vaultAddress = event.address.toHex()
+
+  const txHash = event.transaction.hash.toHex()
+  createTransaction(txHash)
+
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
+  allocatorAction.vault = vaultAddress
+  allocatorAction.address = holder
+  allocatorAction.actionType = 'OsTokenMinted'
+  allocatorAction.assets = assets
+  allocatorAction.shares = shares
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.plus(shares)
   osTokenPosition.save()
+
+  const osToken = createOrLoadOsToken()
+  osToken.totalSupply = osToken.totalSupply.plus(shares)
+  osToken.save()
 
   log.info('[Vault] OsTokenMinted holder={} shares={}', [holder.toHex(), shares.toString()])
 }
 
 export function handleOsTokenBurned(event: OsTokenBurned): void {
   const holder = event.params.caller
+  const assets = event.params.assets
   const shares = event.params.shares
-  createTransaction(event.transaction.hash.toHex())
+  const vaultAddress = event.address.toHex()
+
+  const txHash = event.transaction.hash.toHex()
+  createTransaction(txHash)
+
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
+  allocatorAction.vault = vaultAddress
+  allocatorAction.address = holder
+  allocatorAction.actionType = 'OsTokenBurned'
+  allocatorAction.assets = assets
+  allocatorAction.shares = shares
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
   osTokenPosition.save()
+
+  const osToken = createOrLoadOsToken()
+  osToken.totalSupply = osToken.totalSupply.minus(shares)
+  osToken.save()
 
   log.info('[Vault] OsTokenBurned holder={} shares={}', [holder.toHex(), shares.toString()])
 }
 
 export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   const holder = event.params.user
-  const shares = event.params.osTokenShares
+  const assets = event.params.receivedAssets
+  const shares = event.params.shares
+  const vaultAddress = event.address.toHex()
+
+  const txHash = event.transaction.hash.toHex()
+  createTransaction(txHash)
+
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
+
+  allocatorAction.vault = vaultAddress
+  allocatorAction.address = holder
+  allocatorAction.actionType = 'OsTokenLiquidated'
+  allocatorAction.assets = assets
+  allocatorAction.shares = shares
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
   osTokenPosition.save()
+
+  const osToken = createOrLoadOsToken()
+  osToken.totalSupply = osToken.totalSupply.minus(shares)
+  osToken.save()
 
   log.info('[Vault] OsTokenLiquidated holder={} shares={}', [holder.toHex(), shares.toString()])
 }
 
 export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   const holder = event.params.user
+  const assets = event.params.assets
   const shares = event.params.osTokenShares
+  const vaultAddress = event.address.toHex()
+
+  const txHash = event.transaction.hash.toHex()
+  createTransaction(txHash)
+
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
+
+  allocatorAction.vault = vaultAddress
+  allocatorAction.address = holder
+  allocatorAction.actionType = 'OsTokenRedeemed'
+  allocatorAction.shares = shares
+  allocatorAction.assets = assets
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
   osTokenPosition.save()
+
+  const osToken = createOrLoadOsToken()
+  osToken.totalSupply = osToken.totalSupply.minus(shares)
+  osToken.save()
 
   log.info('[Vault] OsTokenRedeemed holder={} shares={}', [holder.toHex(), shares.toString()])
 }
@@ -442,6 +515,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.isErc20 = false
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
+  vault.isGenesis = true
   vault.save()
   VaultTemplate.create(vaultAddress)
 
