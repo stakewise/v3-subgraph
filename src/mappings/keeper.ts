@@ -12,19 +12,19 @@ function calculateSlashedMevReward(
   prevLockedMevReward: BigInt | null,
   prevUnlockedMevReward: BigInt | null,
 ): BigInt {
-  let totalPrevMevReward: BigInt
-  if (prevUnlockedMevReward === null) {
-    totalPrevMevReward = BigInt.zero()
-  } else {
-    totalPrevMevReward = (prevLockedMevReward as BigInt).plus(prevUnlockedMevReward as BigInt)
-  }
-  const totalDelta = newLockedMevReward.plus(newUnlockedMevReward).minus(totalPrevMevReward).abs()
+  const totalNewMevReward = newLockedMevReward.plus(newUnlockedMevReward)
+  const totalPrevMevReward =
+    prevUnlockedMevReward !== null
+      ? (prevLockedMevReward as BigInt).plus(prevUnlockedMevReward as BigInt)
+      : BigInt.zero()
 
-  if (prevSlashedMevReward === null) {
-    return totalDelta
-  } else {
-    return (prevSlashedMevReward as BigInt).plus(totalDelta)
+  let newSlashedMevReward = prevSlashedMevReward !== null ? prevSlashedMevReward : BigInt.zero()
+
+  const totalDelta = totalNewMevReward.minus(totalPrevMevReward)
+  if (totalDelta.lt(BigInt.zero())) {
+    newSlashedMevReward = newSlashedMevReward.plus(totalDelta.abs())
   }
+  return newSlashedMevReward
 }
 
 export function updateRewards(value: JSONValue, callbackDataValue: Value): void {
