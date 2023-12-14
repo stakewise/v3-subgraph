@@ -169,9 +169,6 @@ type Vault @entity {
   "The vault score. Managed by the backend service."
   score: BigDecimal!
 
-  "Defines whether vault is verified or not. Managed by the backend service."
-  verified: Boolean!
-
   "The total number of assets"
   totalAssets: BigInt!
 
@@ -390,4 +387,18 @@ type V2Pool @entity {
 
   "Last rewards update timestamp"
   rewardsTimestamp: BigInt
+}
+
+"""
+Vaults statistics
+"""
+type VaultStats @entity {
+  "1"
+  id: ID!
+
+  "The total assets locked in vaults"
+  totalAssets: BigInt!
+
+  "The total number of vaults"
+  vaultsCount: BigInt!
 }

@@ -1,31 +1,31 @@
-import { Address, BigInt, ipfs, log, store, json, BigDecimal } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, ipfs, json, log, store } from '@graphprotocol/graph-ts'
 
-import { AllocatorAction, Vault, ExitRequest } from '../../generated/schema'
+import { AllocatorAction, ExitRequest, Vault } from '../../generated/schema'
 import { Vault as VaultTemplate } from '../../generated/templates'
 import {
-  Deposited,
-  Redeemed,
   CheckpointCreated,
-  KeysManagerUpdated,
-  MetadataUpdated,
-  ExitQueueEntered,
+  Deposited,
   ExitedAssetsClaimed,
-  ValidatorsRootUpdated,
+  ExitQueueEntered,
   FeeRecipientUpdated,
   FeeSharesMinted,
-  OsTokenMinted,
+  KeysManagerUpdated,
+  MetadataUpdated,
   OsTokenBurned,
   OsTokenLiquidated,
+  OsTokenMinted,
   OsTokenRedeemed,
+  Redeemed,
+  ValidatorsRootUpdated,
 } from '../../generated/templates/Vault/Vault'
-import { Migrated, GenesisVaultCreated } from '../../generated/GenesisVault/GenesisVault'
+import { GenesisVaultCreated, Migrated } from '../../generated/GenesisVault/GenesisVault'
 
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
 import { createOrLoadAllocator } from '../entities/allocator'
 import { createOrLoadDaySnapshot } from '../entities/daySnapshot'
 import { createOrLoadNetwork } from '../entities/network'
-import { createOrLoadOsTokenPosition } from '../entities/vaults'
+import { createOrLoadOsTokenPosition, createOrLoadVaultStats } from '../entities/vaults'
 import { createOrLoadOsToken } from '../entities/osToken'
 
 // Event emitted on assets transfer from allocator to vault
@@ -46,6 +46,10 @@ export function handleDeposited(event: Deposited): void {
   vault.principalAssets = vault.principalAssets.plus(assets)
   vault.totalShares = vault.totalShares.plus(shares)
   vault.save()
+
+  const vaultStats = createOrLoadVaultStats()
+  vaultStats.totalAssets = vaultStats.totalAssets.plus(assets)
+  vaultStats.save()
 
   const allocator = createOrLoadAllocator(receiver, vaultAddress)
   allocator.shares = allocator.shares.plus(shares)
@@ -84,7 +88,6 @@ export function handleRedeemed(event: Redeemed): void {
   const vault = Vault.load(vaultAddress.toHex()) as Vault
 
   const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
-
   daySnapshot.totalAssets = daySnapshot.totalAssets.minus(assets)
   daySnapshot.save()
 
@@ -92,6 +95,10 @@ export function handleRedeemed(event: Redeemed): void {
   vault.principalAssets = vault.principalAssets.minus(assets)
   vault.totalShares = vault.totalShares.minus(shares)
   vault.save()
+
+  const vaultStats = createOrLoadVaultStats()
+  vaultStats.totalAssets = vaultStats.totalAssets.minus(assets)
+  vaultStats.save()
 
   const allocator = createOrLoadAllocator(owner, vaultAddress)
   allocator.shares = allocator.shares.minus(shares)
@@ -127,8 +134,6 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
   const vault = Vault.load(vaultAddress) as Vault
 
   vault.metadataIpfsHash = params.metadataIpfsHash
-  vault.verified = false
-
   const data = ipfs.cat(params.metadataIpfsHash)
 
   if (data) {
@@ -322,8 +327,8 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
   const vaultAddress = event.address.toHex()
 
   const vault = Vault.load(vaultAddress) as Vault
-  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
 
+  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
   daySnapshot.totalAssets = daySnapshot.totalAssets.minus(exitedAssets)
   daySnapshot.save()
 
@@ -333,6 +338,10 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
   vault.principalAssets = vault.principalAssets.minus(exitedAssets)
   vault.unclaimedAssets = vault.unclaimedAssets.plus(exitedAssets)
   vault.save()
+
+  const vaultStats = createOrLoadVaultStats()
+  vaultStats.totalAssets = vaultStats.totalAssets.minus(exitedAssets)
+  vaultStats.save()
 
   // queued shares are burned
   const allocator = createOrLoadAllocator(event.address, event.address)
@@ -429,9 +438,25 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
 
 export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   const holder = event.params.user
-  const assets = event.params.receivedAssets
-  const shares = event.params.shares
+  const shares = event.params.osTokenShares
+  const withdrawnShares = event.params.shares
+  const withdrawnAssets = event.params.receivedAssets
   const vaultAddress = event.address.toHex()
+
+  const vault = Vault.load(vaultAddress) as Vault
+
+  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
+  daySnapshot.totalAssets = daySnapshot.totalAssets.minus(withdrawnAssets)
+  daySnapshot.save()
+
+  vault.totalShares = vault.totalShares.minus(withdrawnShares)
+  vault.totalAssets = vault.totalAssets.minus(withdrawnAssets)
+  vault.principalAssets = vault.principalAssets.minus(withdrawnAssets)
+  vault.save()
+
+  const vaultStats = createOrLoadVaultStats()
+  vaultStats.totalAssets = vaultStats.totalAssets.minus(withdrawnAssets)
+  vaultStats.save()
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
@@ -441,7 +466,6 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   allocatorAction.vault = vaultAddress
   allocatorAction.address = holder
   allocatorAction.actionType = 'OsTokenLiquidated'
-  allocatorAction.assets = assets
   allocatorAction.shares = shares
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
@@ -459,9 +483,25 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
 
 export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   const holder = event.params.user
-  const assets = event.params.assets
   const shares = event.params.osTokenShares
+  const withdrawnShares = event.params.shares
+  const withdrawnAssets = event.params.assets
   const vaultAddress = event.address.toHex()
+
+  const vault = Vault.load(vaultAddress) as Vault
+
+  const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
+  daySnapshot.totalAssets = daySnapshot.totalAssets.minus(withdrawnAssets)
+  daySnapshot.save()
+
+  vault.totalShares = vault.totalShares.minus(withdrawnShares)
+  vault.totalAssets = vault.totalAssets.minus(withdrawnAssets)
+  vault.principalAssets = vault.principalAssets.minus(withdrawnAssets)
+  vault.save()
+
+  const vaultStats = createOrLoadVaultStats()
+  vaultStats.totalAssets = vaultStats.totalAssets.minus(withdrawnAssets)
+  vaultStats.save()
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
@@ -472,7 +512,6 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   allocatorAction.address = holder
   allocatorAction.actionType = 'OsTokenRedeemed'
   allocatorAction.shares = shares
-  allocatorAction.assets = assets
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
 
@@ -506,7 +545,6 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.avgRewardPerAsset = BigDecimal.zero()
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
-  vault.verified = false
   vault.totalAssets = BigInt.zero()
   vault.queuedShares = BigInt.zero()
   vault.unclaimedAssets = BigInt.zero()
@@ -522,6 +560,10 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   const network = createOrLoadNetwork()
   network.vaultsTotal = network.vaultsTotal + 1
   network.save()
+
+  const vaultStats = createOrLoadVaultStats()
+  vaultStats.vaultsCount = vaultStats.vaultsCount.plus(BigInt.fromI32(1))
+  vaultStats.save()
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -542,9 +584,6 @@ export function handleMigrated(event: Migrated): void {
   const shares = params.shares
 
   const vault = Vault.load(vaultAddress.toHex()) as Vault
-  vault.totalShares = vault.totalShares.plus(shares)
-  vault.save()
-
   const daySnapshot = createOrLoadDaySnapshot(event.block.timestamp, vault)
   daySnapshot.totalAssets = daySnapshot.totalAssets.plus(assets)
   daySnapshot.save()
@@ -557,6 +596,10 @@ export function handleMigrated(event: Migrated): void {
   const allocator = createOrLoadAllocator(receiver, vaultAddress)
   allocator.shares = allocator.shares.plus(shares)
   allocator.save()
+
+  const vaultStats = createOrLoadVaultStats()
+  vaultStats.totalAssets = vaultStats.totalAssets.plus(assets)
+  vaultStats.save()
 
   const txHash = event.transaction.hash.toHex()
 

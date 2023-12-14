@@ -1,13 +1,15 @@
 import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import {
-  Vault as VaultTemplate,
-  PrivateVault as PrivateVaultTemplate,
   Erc20Vault as Erc20VaultTemplate,
+  PrivateVault as PrivateVaultTemplate,
+  Vault as VaultTemplate,
 } from '../../generated/templates'
-import { Vault, OsTokenPosition } from '../../generated/schema'
+import { OsTokenPosition, Vault, VaultStats } from '../../generated/schema'
 import { createOrLoadNetwork } from './network'
 import { createTransaction } from './transaction'
+
+const vaultStatsId = '1'
 
 export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: boolean): void {
   const block = event.block
@@ -40,7 +42,6 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.avgRewardPerAsset = BigDecimal.zero()
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
-  vault.verified = false
   vault.totalAssets = BigInt.zero()
   vault.queuedShares = BigInt.zero()
   vault.unclaimedAssets = BigInt.zero()
@@ -66,6 +67,10 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   const network = createOrLoadNetwork()
   network.vaultsTotal = network.vaultsTotal + 1
   network.save()
+
+  const vaultStats = createOrLoadVaultStats()
+  vaultStats.vaultsCount = vaultStats.vaultsCount.plus(BigInt.fromI32(1))
+  vaultStats.save()
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -96,4 +101,16 @@ export function createOrLoadOsTokenPosition(holder: Address, vaultAddress: Addre
   }
 
   return osTokenPosition
+}
+
+export function createOrLoadVaultStats(): VaultStats {
+  let vaultStats = VaultStats.load(vaultStatsId)
+  if (vaultStats === null) {
+    vaultStats = new VaultStats(vaultStatsId)
+    vaultStats.totalAssets = BigInt.zero()
+    vaultStats.vaultsCount = BigInt.zero()
+    vaultStats.save()
+  }
+
+  return vaultStats
 }
