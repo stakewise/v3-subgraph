@@ -2,8 +2,8 @@ import { BigInt, ipfs, JSONValue, log, Value } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
 import { Harvested, RewardsUpdated } from '../../generated/Keeper/Keeper'
-import { updateAvgRewardPerAsset, updateDaySnapshots } from '../entities/daySnapshot'
-import { createOrLoadV2Pool, updateV2PoolAvgRewardPerAsset, updateV2PoolDaySnapshots } from '../entities/v2pool'
+import { updateVaultApy } from '../entities/apySnapshots'
+import { createOrLoadV2Pool } from '../entities/v2pool'
 
 function calculateSlashedMevReward(
   prevSlashedMevReward: BigInt | null,
@@ -39,7 +39,7 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
     const vaultId = vaultReward.mustGet('vault').toString().toLowerCase()
     const vault = Vault.load(vaultId)
     if (!vault) {
-      log.warning('[Keeper] RewardsUpdated vault={} not found', [vaultId])
+      log.error('[Keeper] RewardsUpdated vault={} not found', [vaultId])
       continue
     }
 
@@ -66,8 +66,8 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
     }
 
     if (!vault.isGenesis) {
-      // genesis vault snapshots are created during harvest
-      updateDaySnapshots(vault, vault.rewardsTimestamp, updateTimestamp, periodReward)
+      // genesis vault apy is updated during harvest
+      updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, periodReward)
     }
 
     let proofReward: BigInt
@@ -103,11 +103,6 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
     vault.proof = proof.map<string>((proofValue: JSONValue) => proofValue.toString())
     vault.rewardsTimestamp = updateTimestamp
     vault.rewardsIpfsHash = rewardsIpfsHash
-
-    if (!vault.isGenesis) {
-      // for genesis vault avg reward per second is calculated during harvest
-      updateAvgRewardPerAsset(updateTimestamp, vault)
-    }
     vault.save()
   }
 }
@@ -137,43 +132,13 @@ export function handleHarvested(event: Harvested): void {
   const vaultAddress = event.params.vault.toHex()
 
   const vault = Vault.load(vaultAddress) as Vault
-  if (!vault.isGenesis) {
+  if (vault.isGenesis) {
+    const v2Pool = createOrLoadV2Pool()
+    v2Pool.totalPeriodReward = totalAssetsDelta
+    v2Pool.save()
+  } else {
     vault.principalAssets = vault.principalAssets.plus(totalAssetsDelta)
     vault.save()
-    log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
-    return
   }
-
-  let v2Pool = createOrLoadV2Pool()
-  if (v2Pool.rewardsTimestamp === null) {
-    // deduct all the rewards accumulated in v2
-    totalAssetsDelta = totalAssetsDelta.minus(v2Pool.totalRewards)
-  }
-  // calculate principals
-  const v2PoolPrincipal = v2Pool.totalRewards.plus(v2Pool.principalAssets)
-  const genesisVaultPrincipal = vault.principalAssets
-  const totalPrincipal = genesisVaultPrincipal.plus(v2PoolPrincipal)
-
-  // calculate period rewards
-  const v2PoolPeriodReward = totalAssetsDelta.times(v2PoolPrincipal).div(totalPrincipal)
-  const genesisVaultPeriodReward = totalAssetsDelta.times(genesisVaultPrincipal).div(totalPrincipal)
-
-  // update genesis vault snapshots
-  updateDaySnapshots(vault, v2Pool.rewardsTimestamp, vault.rewardsTimestamp as BigInt, genesisVaultPeriodReward)
-
-  // update v2 pool snapshots
-  updateV2PoolDaySnapshots(v2Pool, v2Pool.rewardsTimestamp, vault.rewardsTimestamp as BigInt, v2PoolPeriodReward)
-
-  // save new rewards timestamp
-  v2Pool.rewardsTimestamp = vault.rewardsTimestamp
-
-  // update vault total and principal assets
-  vault.totalAssets = vault.totalAssets.plus(genesisVaultPeriodReward)
-  vault.principalAssets = vault.principalAssets.plus(genesisVaultPeriodReward)
-  updateAvgRewardPerAsset(vault.rewardsTimestamp as BigInt, vault)
-  updateV2PoolAvgRewardPerAsset(vault.rewardsTimestamp as BigInt, v2Pool)
-  vault.save()
-  v2Pool.save()
-
   log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
 }

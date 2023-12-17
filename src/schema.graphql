@@ -160,9 +160,6 @@ type Vault @entity {
   "The vault exit requests"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "vault")
 
-  "The vault day snapshots"
-  daySnapshots: [DaySnapshot!]! @derivedFrom(field: "vault")
-
   "The total number of shares"
   totalShares: BigInt!
 
@@ -201,6 +198,15 @@ type Vault @entity {
 
   "Whether the vault is a genesis vault (v2 pool migration)"
   isGenesis: Boolean!
+
+  "The total number of APY snapshots"
+  apySnapshotsCount: BigInt!
+
+  "The current pool APY"
+  currentApy: BigDecimal
+
+  "The weekly pool APY"
+  weeklyApy: BigDecimal
 }
 
 enum AllocatorActionType {
@@ -242,21 +248,24 @@ type AllocatorAction @entity {
   createdAt: BigInt!
 }
 
-type DaySnapshot @entity {
+type VaultApySnapshot @entity {
   "<Vault ID>-<date>"
   id: ID!
 
-  "The timestamp rounded to current day by dividing by 86400"
-  date: Int!
+  "The vault APY for the period"
+  apy: BigDecimal!
 
-  "The total number of assets"
-  totalAssets: BigInt!
+  "The period total reward"
+  periodReward: BigInt!
 
-  "The reward on one asset"
-  rewardPerAsset: BigDecimal!
+  "The total assets in the vault that share the period reward"
+  principalAssets: BigInt!
 
-  "The snapshot's vault"
-  vault: Vault!
+  "The period start timestamp"
+  fromTimestamp: BigInt!
+
+  "The period end timestamp"
+  toTimestamp: BigInt!
 }
 
 """
@@ -374,7 +383,7 @@ type V2Pool @entity {
   totalAssets: BigInt!
 
   "Total rewards accumulated"
-  totalRewards: BigInt!
+  rewardAssets: BigInt!
 
   "Total assets staked"
   principalAssets: BigInt!
@@ -382,8 +391,17 @@ type V2Pool @entity {
   "The staking fee percent charged by the pool"
   feePercent: Int!
 
-  "Average reward on one asset"
-  avgRewardPerAsset: BigDecimal!
+  "The total number of APY snapshots"
+  apySnapshotsCount: BigInt!
+
+  "Period reward since the last harvest"
+  totalPeriodReward: BigInt
+
+  "The current pool APY"
+  currentApy: BigDecimal
+
+  "The weekly pool APY"
+  weeklyApy: BigDecimal
 
   "Last rewards update timestamp"
   rewardsTimestamp: BigInt
