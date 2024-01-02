@@ -76,8 +76,8 @@ const deploy = async () => {
   if (node === 'local') {
     const { version } = require('../package.json')
 
-    authCommand = `graph create --node ${LOCAL_GRAPH_URL} stakewise/stakewise1`
-    deployCommand = `graph deploy --version-label ${version} --node ${LOCAL_GRAPH_URL} --ipfs ${IPFS_URL} stakewise/stakewise1`
+    authCommand = `graph create --node ${LOCAL_GRAPH_URL} stakewise/stakewise`
+    deployCommand = `graph deploy --version-label ${version} --node ${LOCAL_GRAPH_URL} --ipfs ${IPFS_URL} stakewise/stakewise`
   }
 
   const command = [

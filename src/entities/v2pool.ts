@@ -1,4 +1,4 @@
-import { BigInt } from '@graphprotocol/graph-ts'
+import { BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 
 import { V2Pool } from '../../generated/schema'
 
@@ -13,7 +13,10 @@ export function createOrLoadV2Pool(): V2Pool {
     pool.rewardAssets = BigInt.zero()
     pool.principalAssets = BigInt.zero()
     pool.feePercent = 1000
+    pool.migrated = false
     pool.apySnapshotsCount = BigInt.zero()
+    pool.currentApy = BigDecimal.zero()
+    pool.weeklyApy = BigDecimal.zero()
     pool.save()
   }
 

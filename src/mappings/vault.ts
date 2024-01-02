@@ -24,7 +24,7 @@ import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
 import { createOrLoadAllocator } from '../entities/allocator'
 import { createOrLoadNetwork } from '../entities/network'
-import { createOrLoadOsTokenPosition, createOrLoadVaultStats } from '../entities/vaults'
+import { createOrLoadOsTokenPosition, createOrLoadVaultsStat } from '../entities/vaults'
 import { createOrLoadOsToken } from '../entities/osToken'
 
 // Event emitted on assets transfer from allocator to vault
@@ -41,9 +41,9 @@ export function handleDeposited(event: Deposited): void {
   vault.totalShares = vault.totalShares.plus(shares)
   vault.save()
 
-  const vaultStats = createOrLoadVaultStats()
-  vaultStats.totalAssets = vaultStats.totalAssets.plus(assets)
-  vaultStats.save()
+  const vaultsStat = createOrLoadVaultsStat()
+  vaultsStat.totalAssets = vaultsStat.totalAssets.plus(assets)
+  vaultsStat.save()
 
   const allocator = createOrLoadAllocator(receiver, vaultAddress)
   allocator.shares = allocator.shares.plus(shares)
@@ -54,7 +54,7 @@ export function handleDeposited(event: Deposited): void {
   const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
 
   allocatorAction.vault = vault.id
-  allocatorAction.address = event.transaction.from
+  allocatorAction.address = receiver
   allocatorAction.actionType = params.caller == Address.fromBytes(vault.factory) ? 'VaultCreated' : 'Deposited'
   allocatorAction.assets = assets
   allocatorAction.shares = shares
@@ -85,9 +85,9 @@ export function handleRedeemed(event: Redeemed): void {
   vault.totalShares = vault.totalShares.minus(shares)
   vault.save()
 
-  const vaultStats = createOrLoadVaultStats()
-  vaultStats.totalAssets = vaultStats.totalAssets.minus(assets)
-  vaultStats.save()
+  const vaultsStat = createOrLoadVaultsStat()
+  vaultsStat.totalAssets = vaultsStat.totalAssets.minus(assets)
+  vaultsStat.save()
 
   const allocator = createOrLoadAllocator(owner, vaultAddress)
   allocator.shares = allocator.shares.minus(shares)
@@ -98,7 +98,7 @@ export function handleRedeemed(event: Redeemed): void {
   const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
 
   allocatorAction.vault = vault.id
-  allocatorAction.address = event.transaction.from
+  allocatorAction.address = owner
   allocatorAction.actionType = 'Redeemed'
   allocatorAction.assets = assets
   allocatorAction.shares = shares
@@ -228,7 +228,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
 
   allocatorAction.vault = vault.id
-  allocatorAction.address = event.transaction.from
+  allocatorAction.address = owner
   allocatorAction.actionType = 'ExitQueueEntered'
   allocatorAction.assets = null
   allocatorAction.shares = params.shares
@@ -272,7 +272,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
 
   allocatorAction.vault = vault.id
-  allocatorAction.address = event.transaction.from
+  allocatorAction.address = receiver
   allocatorAction.actionType = 'ExitedAssetsClaimed'
   allocatorAction.assets = withdrawnAssets
   allocatorAction.shares = null
@@ -323,9 +323,9 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
   vault.unclaimedAssets = vault.unclaimedAssets.plus(exitedAssets)
   vault.save()
 
-  const vaultStats = createOrLoadVaultStats()
-  vaultStats.totalAssets = vaultStats.totalAssets.minus(exitedAssets)
-  vaultStats.save()
+  const vaultsStat = createOrLoadVaultsStat()
+  vaultsStat.totalAssets = vaultsStat.totalAssets.minus(exitedAssets)
+  vaultsStat.save()
 
   // queued shares are burned
   const allocator = createOrLoadAllocator(event.address, event.address)
@@ -433,9 +433,9 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   vault.principalAssets = vault.principalAssets.minus(withdrawnAssets)
   vault.save()
 
-  const vaultStats = createOrLoadVaultStats()
-  vaultStats.totalAssets = vaultStats.totalAssets.minus(withdrawnAssets)
-  vaultStats.save()
+  const vaultsStat = createOrLoadVaultsStat()
+  vaultsStat.totalAssets = vaultsStat.totalAssets.minus(withdrawnAssets)
+  vaultsStat.save()
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
@@ -473,9 +473,9 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   vault.principalAssets = vault.principalAssets.minus(withdrawnAssets)
   vault.save()
 
-  const vaultStats = createOrLoadVaultStats()
-  vaultStats.totalAssets = vaultStats.totalAssets.minus(withdrawnAssets)
-  vaultStats.save()
+  const vaultsStat = createOrLoadVaultsStat()
+  vaultsStat.totalAssets = vaultsStat.totalAssets.minus(withdrawnAssets)
+  vaultsStat.save()
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
@@ -516,7 +516,10 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.feePercent = feePercent
   vault.feeRecipient = admin
   vault.keysManager = admin
-  vault.avgRewardPerAsset = BigDecimal.zero()
+  vault.consensusReward = BigInt.zero()
+  vault.lockedExecutionReward = BigInt.zero()
+  vault.unlockedExecutionReward = BigInt.zero()
+  vault.slashedMevReward = BigInt.zero()
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
   vault.totalAssets = BigInt.zero()
@@ -527,6 +530,9 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.isErc20 = false
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
+  vault.apySnapshotsCount = BigInt.zero()
+  vault.currentApy = BigDecimal.zero()
+  vault.weeklyApy = BigDecimal.zero()
   vault.isGenesis = true
   vault.save()
   VaultTemplate.create(vaultAddress)
@@ -535,9 +541,9 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   network.vaultsTotal = network.vaultsTotal + 1
   network.save()
 
-  const vaultStats = createOrLoadVaultStats()
-  vaultStats.vaultsCount = vaultStats.vaultsCount.plus(BigInt.fromI32(1))
-  vaultStats.save()
+  const vaultsStat = createOrLoadVaultsStat()
+  vaultsStat.vaultsCount = vaultsStat.vaultsCount.plus(BigInt.fromI32(1))
+  vaultsStat.save()
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -567,16 +573,16 @@ export function handleMigrated(event: Migrated): void {
   allocator.shares = allocator.shares.plus(shares)
   allocator.save()
 
-  const vaultStats = createOrLoadVaultStats()
-  vaultStats.totalAssets = vaultStats.totalAssets.plus(assets)
-  vaultStats.save()
+  const vaultsStat = createOrLoadVaultsStat()
+  vaultsStat.totalAssets = vaultsStat.totalAssets.plus(assets)
+  vaultsStat.save()
 
   const txHash = event.transaction.hash.toHex()
 
   const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
 
   allocatorAction.vault = vault.id
-  allocatorAction.address = event.transaction.from
+  allocatorAction.address = params.receiver
   allocatorAction.actionType = 'Migrated'
   allocatorAction.assets = assets
   allocatorAction.shares = shares

@@ -5,11 +5,11 @@ import {
   PrivateVault as PrivateVaultTemplate,
   Vault as VaultTemplate,
 } from '../../generated/templates'
-import { OsTokenPosition, Vault, VaultStats } from '../../generated/schema'
+import { OsTokenPosition, Vault, VaultsStat } from '../../generated/schema'
 import { createOrLoadNetwork } from './network'
 import { createTransaction } from './transaction'
 
-const vaultStatsId = '1'
+const vaultsStatId = '1'
 
 export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: boolean): void {
   const block = event.block
@@ -39,7 +39,10 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.feePercent = feePercent
   vault.feeRecipient = admin
   vault.keysManager = admin
-  vault.avgRewardPerAsset = BigDecimal.zero()
+  vault.consensusReward = BigInt.zero()
+  vault.lockedExecutionReward = BigInt.zero()
+  vault.unlockedExecutionReward = BigInt.zero()
+  vault.slashedMevReward = BigInt.zero()
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
   vault.totalAssets = BigInt.zero()
@@ -50,6 +53,9 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.isErc20 = isErc20
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
+  vault.apySnapshotsCount = BigInt.zero()
+  vault.currentApy = BigDecimal.zero()
+  vault.weeklyApy = BigDecimal.zero()
   vault.isGenesis = false
 
   if (ownMevEscrow != Address.zero()) {
@@ -68,9 +74,9 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   network.vaultsTotal = network.vaultsTotal + 1
   network.save()
 
-  const vaultStats = createOrLoadVaultStats()
-  vaultStats.vaultsCount = vaultStats.vaultsCount.plus(BigInt.fromI32(1))
-  vaultStats.save()
+  const vaultsStat = createOrLoadVaultsStat()
+  vaultsStat.vaultsCount = vaultsStat.vaultsCount.plus(BigInt.fromI32(1))
+  vaultsStat.save()
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -103,14 +109,14 @@ export function createOrLoadOsTokenPosition(holder: Address, vaultAddress: Addre
   return osTokenPosition
 }
 
-export function createOrLoadVaultStats(): VaultStats {
-  let vaultStats = VaultStats.load(vaultStatsId)
-  if (vaultStats === null) {
-    vaultStats = new VaultStats(vaultStatsId)
-    vaultStats.totalAssets = BigInt.zero()
-    vaultStats.vaultsCount = BigInt.zero()
-    vaultStats.save()
+export function createOrLoadVaultsStat(): VaultsStat {
+  let vaultsStat = VaultsStat.load(vaultsStatId)
+  if (vaultsStat === null) {
+    vaultsStat = new VaultsStat(vaultsStatId)
+    vaultsStat.totalAssets = BigInt.zero()
+    vaultsStat.vaultsCount = BigInt.zero()
+    vaultsStat.save()
   }
 
-  return vaultStats
+  return vaultsStat
 }

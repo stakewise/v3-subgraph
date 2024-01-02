@@ -112,9 +112,6 @@ type Vault @entity {
   "The address of the vault's keys manager"
   keysManager: Bytes!
 
-  "Average reward on one asset"
-  avgRewardPerAsset: BigDecimal!
-
   "The MEV and priority fees escrow address. If it's null, then the vault uses shared MEV escrow."
   mevEscrow: Bytes
 
@@ -139,26 +136,32 @@ type Vault @entity {
   "The vault unlocked MEV reward used to submit state update proof"
   proofUnlockedMevReward: BigInt
 
+  "The vault rewards root proof used to submit state update proof"
+  proof: [String!]
+
   "The vault allocators"
   allocators: [Allocator!]! @derivedFrom(field: "vault")
 
-  "The vault total reward"
-  totalReward: BigInt
+  "The vault consensus reward"
+  consensusReward: BigInt!
 
-  "The vault locked shared MEV reward"
-  lockedMevReward: BigInt
+  "The vault execution reward that is locked in the smoothing pool"
+  lockedExecutionReward: BigInt!
 
-  "The vault slashed shared MEV reward"
-  slashedMevReward: BigInt
+  "The vault execution reward"
+  unlockedExecutionReward: BigInt!
 
-  "The vault rewards root proof used to submit state update proof"
-  proof: [String!]
+  "The vault slashed MEV reward in the smoothing pool"
+  slashedMevReward: BigInt!
 
   "The vault allocators' actions"
   allocatorActions: [AllocatorAction!]! @derivedFrom(field: "vault")
 
   "The vault exit requests"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "vault")
+
+  "The vault apy snapshots"
+  apySnapshots: [VaultApySnapshot!]! @derivedFrom(field: "vault")
 
   "The total number of shares"
   totalShares: BigInt!
@@ -203,10 +206,10 @@ type Vault @entity {
   apySnapshotsCount: BigInt!
 
   "The current pool APY"
-  currentApy: BigDecimal
+  currentApy: BigDecimal!
 
   "The weekly pool APY"
-  weeklyApy: BigDecimal
+  weeklyApy: BigDecimal!
 }
 
 enum AllocatorActionType {
@@ -214,6 +217,7 @@ enum AllocatorActionType {
   Deposited
   Migrated
   Redeemed
+  Transferred
   ExitQueueEntered
   ExitedAssetsClaimed
   OsTokenMinted
@@ -255,17 +259,23 @@ type VaultApySnapshot @entity {
   "The vault APY for the period"
   apy: BigDecimal!
 
-  "The period total reward"
-  periodReward: BigInt!
+  "The period consensus reward"
+  periodConsensusReward: BigInt!
+
+  "The period execution reward"
+  periodExecutionReward: BigInt!
 
   "The total assets in the vault that share the period reward"
   principalAssets: BigInt!
 
-  "The period start timestamp"
-  fromTimestamp: BigInt!
+  "The period start epoch timestamp"
+  fromEpochTimestamp: BigInt!
 
-  "The period end timestamp"
-  toTimestamp: BigInt!
+  "The period end epoch timestamp"
+  toEpochTimestamp: BigInt!
+
+  "The snapshot's vault"
+  vault: Vault
 }
 
 """
@@ -391,17 +401,20 @@ type V2Pool @entity {
   "The staking fee percent charged by the pool"
   feePercent: Int!
 
+  "The consensus and execution rewards of the pool"
+  totalReward: BigInt
+
+  "Whether V2 Pool has migrated to V3"
+  migrated: Boolean!
+
   "The total number of APY snapshots"
   apySnapshotsCount: BigInt!
 
-  "Period reward since the last harvest"
-  totalPeriodReward: BigInt
-
   "The current pool APY"
-  currentApy: BigDecimal
+  currentApy: BigDecimal!
 
   "The weekly pool APY"
-  weeklyApy: BigDecimal
+  weeklyApy: BigDecimal!
 
   "Last rewards update timestamp"
   rewardsTimestamp: BigInt
@@ -410,7 +423,7 @@ type V2Pool @entity {
 """
 Vaults statistics
 """
-type VaultStats @entity {
+type VaultsStat @entity {
   "1"
   id: ID!
 

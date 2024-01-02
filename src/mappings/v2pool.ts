@@ -8,7 +8,7 @@ import {
 import { Transfer as StakedEthTokenTransfer } from '../../generated/V2StakedEthToken/V2StakedEthToken'
 import { Vault } from '../../generated/schema'
 import { createOrLoadV2Pool } from '../entities/v2pool'
-import { updateVaultApy, updatePoolApy } from '../entities/apySnapshots'
+import { updatePoolApy, updateVaultApy } from '../entities/apySnapshots'
 
 export function handleRewardsUpdatedV0(event: RewardsUpdatedV0): void {
   let pool = createOrLoadV2Pool()
@@ -30,10 +30,7 @@ export function handleRewardsUpdatedV1(event: RewardsUpdatedV1): void {
 
 export function handleRewardsUpdatedV2(event: RewardsUpdatedV2): void {
   let pool = createOrLoadV2Pool()
-  const vault = Vault.load('0xac0f906e433d58fa868f936e8a43230473652885')
-
-  let totalPeriodReward = pool.totalPeriodReward
-  if (vault === null || totalPeriodReward === null) {
+  if (!pool.migrated) {
     pool.rewardAssets = event.params.totalRewards
     pool.totalAssets = pool.principalAssets.plus(pool.rewardAssets)
     pool.save()
@@ -41,12 +38,21 @@ export function handleRewardsUpdatedV2(event: RewardsUpdatedV2): void {
     return
   }
 
+  // TODO: move to constants generated for the network
+  const vault = Vault.load('0xac0f906e433d58fa868f936e8a43230473652885') as Vault
+  const newTotalReward: BigInt = vault.consensusReward
+    .plus(vault.unlockedExecutionReward)
+    .plus(vault.lockedExecutionReward)
+  let prevTotalReward: BigInt
   if (pool.rewardsTimestamp === null) {
     // deduct all the rewards accumulated in v2
-    totalPeriodReward = totalPeriodReward.minus(pool.rewardAssets)
+    prevTotalReward = pool.rewardAssets
+  } else {
+    prevTotalReward = pool.totalReward as BigInt
   }
+  const totalPeriodReward = newTotalReward.minus(prevTotalReward)
 
-  // calculate period rewards
+  // calculate period reward
   let poolPeriodReward: BigInt
   if (totalPeriodReward.lt(BigInt.zero())) {
     // calculate penalties
@@ -60,16 +66,18 @@ export function handleRewardsUpdatedV2(event: RewardsUpdatedV2): void {
   const vaultPeriodReward = totalPeriodReward.minus(poolPeriodReward)
 
   // update genesis vault
-  updateVaultApy(vault, pool.rewardsTimestamp, vault.rewardsTimestamp as BigInt, vaultPeriodReward)
+  // TODO: fix execution reward calculation
+  updateVaultApy(vault, pool.rewardsTimestamp, vault.rewardsTimestamp as BigInt, vaultPeriodReward, BigInt.fromI32(0))
   vault.totalAssets = vault.totalAssets.plus(vaultPeriodReward)
   vault.principalAssets = vault.principalAssets.plus(vaultPeriodReward)
   vault.save()
 
   // update pool
-  updatePoolApy(pool, pool.rewardsTimestamp, vault.rewardsTimestamp as BigInt, poolPeriodReward)
+  updatePoolApy(pool, pool.rewardsTimestamp, vault.rewardsTimestamp as BigInt, poolPeriodReward, BigInt.fromI32(0))
   pool.rewardsTimestamp = vault.rewardsTimestamp
   pool.rewardAssets = event.params.totalRewards
   pool.totalAssets = pool.principalAssets.plus(pool.rewardAssets)
+  pool.totalReward = newTotalReward
   pool.save()
   log.info('[V2 Pool] RewardsUpdated V2 totalRewards={}', [pool.rewardAssets.toString()])
 }
