@@ -1,7 +1,8 @@
 import { BigInt, log } from '@graphprotocol/graph-ts'
 import { AvgRewardPerSecondUpdated, StateUpdated } from '../../generated/OsTokenVaultController/OsTokenVaultController'
 import { OsTokenSnapshot } from '../../generated/schema'
-import { createOrLoadOsToken, updateOsTokenApy } from '../entities/osToken'
+import { createOrLoadOsToken, updateOsTokenApy, createOrLoadOsTokenHolder, isSupportedOsTokenHolder } from '../entities/osToken'
+import { Transfer } from '../../generated/templates/Erc20Token/Erc20Token'
 
 export function handleAvgRewardPerSecondUpdated(event: AvgRewardPerSecondUpdated): void {
   const newAvgRewardPerSecond = event.params.avgRewardPerSecond
@@ -31,4 +32,32 @@ export function handleStateUpdated(event: StateUpdated): void {
   osToken.save()
 
   log.info('[OsTokenController] StateUpdated treasuryShares={}', [shares.toString()])
+}
+
+export function handleTransfer(event: Transfer): void {
+  if (isSupportedOsTokenHolder(event.params.from)) {
+    let fromHolder = createOrLoadOsTokenHolder(
+      event.params.from,
+    );
+
+    fromHolder.shares = fromHolder.shares.minus(event.params.value);
+    fromHolder.timestamp = event.block.timestamp;
+    fromHolder.save();
+  }
+
+  if (isSupportedOsTokenHolder(event.params.to)) {
+    let toHolder = createOrLoadOsTokenHolder(
+      event.params.to,
+    );
+
+    toHolder.shares = toHolder.shares.plus(event.params.value);
+    toHolder.timestamp = event.block.timestamp;
+    toHolder.save();
+  }
+
+  log.info("[OsToken] Transfer from={} to={} amount={}", [
+    event.params.from.toHexString(),
+    event.params.to.toHexString(),
+    event.params.value.toString(),
+  ]);
 }
