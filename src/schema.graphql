@@ -39,7 +39,7 @@ type OsTokenHolder @entity {
   "The address of the OsToken holder"
   id: ID!
 
-  "The amount of action's shares"
+  "The total holder shares"
   shares: BigInt!
 
   "The timestamp when the holder was updated"
