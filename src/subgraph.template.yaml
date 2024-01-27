@@ -7,6 +7,24 @@ features:
   - ipfsOnEthereumContracts
 dataSources:
   - kind: ethereum/contract
+    name: Erc20Token
+    network: {{ network }}
+    source:
+      abi: Erc20Token
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/osToken.ts
+      entities:
+        - OsTokenHolder
+      abis:
+        - name: Erc20Token
+          file: ./abis/Erc20Token.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
+  - kind: ethereum/contract
     name: VaultFactory
     network: {{ network }}
     source:
@@ -271,6 +289,24 @@ dataSources:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleStakedEthTokenTransfer
 templates:
+  - kind: ethereum/contract
+    name: Erc20Token
+    network: {{ network }}
+    source:
+      abi: Erc20Token
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/osToken.ts
+      entities:
+        - OsTokenHolder
+      abis:
+        - name: Erc20Token
+          file: ./abis/Erc20Token.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
   - kind: ethereum/contract
     name: Vault
     network: {{ network }}

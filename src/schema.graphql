@@ -33,6 +33,20 @@ type OsTokenPosition @entity {
 }
 
 """
+OsToken holder
+"""
+type OsTokenHolder @entity {
+  "The address of the OsToken holder"
+  id: ID!
+
+  "The total holder shares"
+  shares: BigInt!
+
+  "The timestamp when the holder was updated"
+  timestamp: BigInt!
+}
+
+"""
 Vault exit request
 """
 type ExitRequest @entity {

@@ -1,5 +1,5 @@
-import { BigDecimal, BigInt } from '@graphprotocol/graph-ts'
-import { OsToken, OsTokenSnapshot } from '../../generated/schema'
+import {Address, BigDecimal, BigInt} from '@graphprotocol/graph-ts'
+import { OsToken, OsTokenSnapshot, OsTokenHolder } from '../../generated/schema'
 
 const osTokenId = '1'
 const snapshotsCount = 12
@@ -42,4 +42,25 @@ export function updateOsTokenApy(osToken: OsToken): void {
       .div(BigDecimal.fromString(snapshotsCounter.toString()))
       .div(BigDecimal.fromString(wad))
   }
+}
+
+
+export function createOrLoadOsTokenHolder(
+  holderAddress: Address,
+): OsTokenHolder {
+  let holderId = holderAddress.toHexString();
+  let holder = OsTokenHolder.load(holderId);
+  if (holder == null) {
+    holder = new OsTokenHolder(holderId);
+    holder.shares = BigInt.zero();
+    holder.timestamp = BigInt.zero();
+    holder.save();
+  }
+  return holder as OsTokenHolder;
+}
+
+export function isSupportedOsTokenHolder(holderAddress: Address): boolean {
+  return (
+    holderAddress != Address.zero()
+  );
 }
