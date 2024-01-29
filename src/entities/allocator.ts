@@ -1,4 +1,4 @@
-import { Address, BigInt, ethereum } from '@graphprotocol/graph-ts'
+import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 
 import { Allocator, AllocatorAction } from '../../generated/schema'
 
@@ -23,9 +23,13 @@ export function createAllocatorAction(
   vaultAddress: Address,
   actionType: string,
   owner: Address,
-  assets: BigInt,
-  shares: BigInt,
+  assets: BigInt | null,
+  shares: BigInt | null,
 ): void {
+  if (assets === null && shares === null) {
+    log.error('[AllocatorAction] Both assets and shares cannot be null for action={}', [actionType])
+    return
+  }
   const txHash = event.transaction.hash.toHex()
   const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
   allocatorAction.vault = vaultAddress.toHex()

@@ -1,6 +1,6 @@
 import { Address, BigDecimal, BigInt, ipfs, json, log, store } from '@graphprotocol/graph-ts'
 
-import { AllocatorAction, ExitRequest, Vault } from '../../generated/schema'
+import { ExitRequest, Vault } from '../../generated/schema'
 import { Vault as VaultTemplate, BlocklistVault as BlocklistVaultTemplate } from '../../generated/templates'
 import {
   CheckpointCreated,
@@ -23,7 +23,7 @@ import { EthFoxVaultCreated } from '../../generated/FoxVault/FoxVault'
 
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
-import { createOrLoadAllocator } from '../entities/allocator'
+import { createAllocatorAction, createOrLoadAllocator } from '../entities/allocator'
 import { createOrLoadNetwork } from '../entities/network'
 import { createOrLoadOsTokenPosition, createOrLoadVaultsStat } from '../entities/vaults'
 import { createOrLoadOsToken } from '../entities/osToken'
@@ -52,15 +52,7 @@ export function handleDeposited(event: Deposited): void {
 
   const txHash = event.transaction.hash.toHex()
 
-  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
-
-  allocatorAction.vault = vault.id
-  allocatorAction.address = receiver
-  allocatorAction.actionType = params.caller == Address.fromBytes(vault.factory) ? 'VaultCreated' : 'Deposited'
-  allocatorAction.assets = assets
-  allocatorAction.shares = shares
-  allocatorAction.createdAt = event.block.timestamp
-  allocatorAction.save()
+  createAllocatorAction(event, vaultAddress, 'Deposited', receiver, assets, shares)
 
   createTransaction(txHash)
 
@@ -96,15 +88,7 @@ export function handleRedeemed(event: Redeemed): void {
 
   const txHash = event.transaction.hash.toHex()
 
-  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
-
-  allocatorAction.vault = vault.id
-  allocatorAction.address = owner
-  allocatorAction.actionType = 'Redeemed'
-  allocatorAction.assets = assets
-  allocatorAction.shares = shares
-  allocatorAction.createdAt = event.block.timestamp
-  allocatorAction.save()
+  createAllocatorAction(event, vaultAddress, 'Redeemed', owner, assets, shares)
 
   createTransaction(txHash)
 
@@ -223,18 +207,9 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
     allocator.save()
   }
 
-  const txHash = event.transaction.hash.toHex()
   const timestamp = event.block.timestamp
 
-  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
-
-  allocatorAction.vault = vault.id
-  allocatorAction.address = owner
-  allocatorAction.actionType = 'ExitQueueEntered'
-  allocatorAction.assets = null
-  allocatorAction.shares = params.shares
-  allocatorAction.createdAt = timestamp
-  allocatorAction.save()
+  createAllocatorAction(event, event.address, 'ExitQueueEntered', owner, null, shares)
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -268,17 +243,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   vault.unclaimedAssets = vault.unclaimedAssets.minus(withdrawnAssets)
   vault.save()
 
-  const txHash = event.transaction.hash.toHex()
-
-  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
-
-  allocatorAction.vault = vault.id
-  allocatorAction.address = receiver
-  allocatorAction.actionType = 'ExitedAssetsClaimed'
-  allocatorAction.assets = withdrawnAssets
-  allocatorAction.shares = null
-  allocatorAction.createdAt = event.block.timestamp
-  allocatorAction.save()
+  createAllocatorAction(event, event.address, 'ExitedAssetsClaimed', receiver, withdrawnAssets, null)
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -367,19 +332,11 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   const holder = event.params.caller
   const shares = event.params.shares
   const assets = event.params.assets
-  const vaultAddress = event.address.toHex()
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
-  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
-  allocatorAction.vault = vaultAddress
-  allocatorAction.address = holder
-  allocatorAction.actionType = 'OsTokenMinted'
-  allocatorAction.assets = assets
-  allocatorAction.shares = shares
-  allocatorAction.createdAt = event.block.timestamp
-  allocatorAction.save()
+  createAllocatorAction(event, event.address, 'OsTokenMinted', holder, assets, shares)
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.plus(shares)
@@ -396,19 +353,11 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
   const holder = event.params.caller
   const assets = event.params.assets
   const shares = event.params.shares
-  const vaultAddress = event.address.toHex()
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
-  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
-  allocatorAction.vault = vaultAddress
-  allocatorAction.address = holder
-  allocatorAction.actionType = 'OsTokenBurned'
-  allocatorAction.assets = assets
-  allocatorAction.shares = shares
-  allocatorAction.createdAt = event.block.timestamp
-  allocatorAction.save()
+  createAllocatorAction(event, event.address, 'OsTokenBurned', holder, assets, shares)
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
@@ -441,14 +390,7 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
-  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
-
-  allocatorAction.vault = vaultAddress
-  allocatorAction.address = holder
-  allocatorAction.actionType = 'OsTokenLiquidated'
-  allocatorAction.shares = shares
-  allocatorAction.createdAt = event.block.timestamp
-  allocatorAction.save()
+  createAllocatorAction(event, event.address, 'OsTokenLiquidated', holder, null, shares)
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
@@ -481,14 +423,7 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
-  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
-
-  allocatorAction.vault = vaultAddress
-  allocatorAction.address = holder
-  allocatorAction.actionType = 'OsTokenRedeemed'
-  allocatorAction.shares = shares
-  allocatorAction.createdAt = event.block.timestamp
-  allocatorAction.save()
+  createAllocatorAction(event, event.address, 'OsTokenRedeemed', holder, null, shares)
 
   const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
   osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
@@ -642,15 +577,7 @@ export function handleMigrated(event: Migrated): void {
 
   const txHash = event.transaction.hash.toHex()
 
-  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
-
-  allocatorAction.vault = vault.id
-  allocatorAction.address = params.receiver
-  allocatorAction.actionType = 'Migrated'
-  allocatorAction.assets = assets
-  allocatorAction.shares = shares
-  allocatorAction.createdAt = event.block.timestamp
-  allocatorAction.save()
+  createAllocatorAction(event, vaultAddress, 'Migrated', receiver, assets, shares)
 
   createTransaction(txHash)
 
