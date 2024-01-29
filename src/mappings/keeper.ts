@@ -68,7 +68,16 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
 
     if (!vault.isGenesis) {
       // genesis vault apy is updated during harvest
-      updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, periodConsensusReward, periodExecutionReward)
+      if (
+        rewardsIpfsHash == 'bafkreiao5xwideky4lult6jq4mo5rajl7yueebe2piuq6te6uocwfry6wq' &&
+        vault.mevEscrow !== null
+      ) {
+        // skip for vaults with own mev escrow for the first rewards update
+        log.warning('[Keeper] RewardsUpdated Skipping execution rewards update for vault={}', [vaultId])
+        updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, periodConsensusReward, BigInt.fromI32(0))
+      } else {
+        updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, periodConsensusReward, periodExecutionReward)
+      }
     }
 
     // update vault state
@@ -113,7 +122,7 @@ export function handleHarvested(event: Harvested): void {
 
   const vault = Vault.load(vaultAddress) as Vault
   if (!vault.isGenesis) {
-    vault.principalAssets = vault.principalAssets.plus(totalAssetsDelta)
+    vault.principalAssets = vault.totalAssets
     vault.save()
     log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
   } else {

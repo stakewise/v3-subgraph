@@ -50,6 +50,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.unclaimedAssets = BigInt.zero()
   vault.principalAssets = BigInt.zero()
   vault.isPrivate = isPrivate
+  vault.isBlocklist = false
   vault.isErc20 = isErc20
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp

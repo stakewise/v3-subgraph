@@ -1,5 +1,6 @@
 import { log } from '@graphprotocol/graph-ts'
 import { AvgRewardPerSecondUpdated, StateUpdated } from '../../generated/OsTokenVaultController/OsTokenVaultController'
+import { Transfer } from '../../generated/Erc20Token/Erc20Token'
 import { createOrLoadOsToken, isSupportedOsTokenHolder, createOrLoadOsTokenHolder } from '../entities/osToken'
 import { updateOsTokenApy } from '../entities/apySnapshots'
 

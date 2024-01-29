@@ -10,7 +10,9 @@ dataSources:
     name: Erc20Token
     network: {{ network }}
     source:
+      address: '{{ osToken.address }}'
       abi: Erc20Token
+      startBlock: {{ osToken.startBlock }}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -106,6 +108,7 @@ dataSources:
         - Vault
         - Network
         - Transaction
+        - VaultsStat
       abis:
         - name: VaultFactory
           file: ./abis/VaultFactory.json
@@ -177,6 +180,8 @@ dataSources:
         - DaySnapshot
         - AllocatorAction
         - Transaction
+        - Network
+        - VaultsStat
       abis:
         - name: GenesisVault
           file: ./abis/GenesisVault.json
@@ -185,6 +190,29 @@ dataSources:
           handler: handleGenesisVaultCreated
         - event: Migrated(address,uint256,uint256)
           handler: handleMigrated
+  - kind: ethereum/contract
+    name: FoxVault
+    network: {{ network }}
+    source:
+      address: '{{ foxVault.address }}'
+      abi: FoxVault
+      startBlock: {{ foxVault.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/vault.ts
+      entities:
+        - Vault
+        - Network
+        - VaultsStat
+        - Transaction
+      abis:
+        - name: FoxVault
+          file: ./abis/FoxVault.json
+      eventHandlers:
+        - event: EthFoxVaultCreated(address,address,uint256,uint16,string)
+          handler: handleFoxVaultCreated
   - kind: ethereum/contract
     name: RewardSplitterFactory
     network: {{ network }}
@@ -379,6 +407,28 @@ templates:
           handler: handleWhitelistUpdated
         - event: WhitelisterUpdated(indexed address,indexed address)
           handler: handleWhitelisterUpdated
+  - kind: ethereum/contract
+    name: BlocklistVault
+    network: {{ network }}
+    source:
+      abi: BlocklistVault
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/blocklistVault.ts
+      entities:
+        - Vault
+        - VaultBlockedAccount
+        - Transaction
+      abis:
+        - name: BlocklistVault
+          file: ./abis/BlocklistVault.json
+      eventHandlers:
+        - event: BlocklistUpdated(indexed address,indexed address,bool)
+          handler: handleBlocklistUpdated
+        - event: BlocklistManagerUpdated(indexed address,indexed address)
+          handler: handleBlocklistManagerUpdated
   - kind: ethereum/contract
     name: Erc20Vault
     network: {{ network }}

@@ -1,7 +1,7 @@
 import { Address, BigDecimal, BigInt, ipfs, json, log, store } from '@graphprotocol/graph-ts'
 
 import { AllocatorAction, ExitRequest, Vault } from '../../generated/schema'
-import { Vault as VaultTemplate } from '../../generated/templates'
+import { Vault as VaultTemplate, BlocklistVault as BlocklistVaultTemplate } from '../../generated/templates'
 import {
   CheckpointCreated,
   Deposited,
@@ -19,6 +19,7 @@ import {
   ValidatorsRootUpdated,
 } from '../../generated/templates/Vault/Vault'
 import { GenesisVaultCreated, Migrated } from '../../generated/GenesisVault/GenesisVault'
+import { EthFoxVaultCreated } from '../../generated/FoxVault/FoxVault'
 
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
@@ -527,6 +528,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.unclaimedAssets = BigInt.zero()
   vault.principalAssets = BigInt.zero()
   vault.isPrivate = false
+  vault.isBlocklist = false
   vault.isErc20 = false
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
@@ -552,6 +554,67 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
     admin.toHex(),
     feePercent.toString(),
     capacity.toString(),
+  ])
+}
+
+// Event emitted when FoxVault is initialized
+export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
+  const vaultAddress = event.address
+  const vaultAddressHex = vaultAddress.toHex()
+  const params = event.params
+  const capacity = params.capacity
+  const feePercent = params.feePercent
+  const admin = params.admin
+  const ownMevEscrow = params.ownMevEscrow
+
+  const vault = new Vault(vaultAddressHex)
+  vault.admin = admin
+  vault.factory = Address.zero()
+  vault.capacity = capacity
+  vault.feePercent = feePercent
+  vault.feeRecipient = admin
+  vault.keysManager = admin
+  vault.consensusReward = BigInt.zero()
+  vault.lockedExecutionReward = BigInt.zero()
+  vault.unlockedExecutionReward = BigInt.zero()
+  vault.slashedMevReward = BigInt.zero()
+  vault.totalShares = BigInt.zero()
+  vault.score = BigDecimal.zero()
+  vault.totalAssets = BigInt.zero()
+  vault.queuedShares = BigInt.zero()
+  vault.unclaimedAssets = BigInt.zero()
+  vault.principalAssets = BigInt.zero()
+  vault.isPrivate = false
+  vault.isBlocklist = true
+  vault.isErc20 = false
+  vault.mevEscrow = ownMevEscrow
+  vault.addressString = vaultAddressHex
+  vault.createdAt = event.block.timestamp
+  vault.apySnapshotsCount = BigInt.zero()
+  vault.currentApy = BigDecimal.zero()
+  vault.weeklyApy = BigDecimal.zero()
+  vault.isGenesis = false
+  vault.blocklistManager = admin
+  vault.save()
+  VaultTemplate.create(vaultAddress)
+  BlocklistVaultTemplate.create(vaultAddress)
+
+  const network = createOrLoadNetwork()
+  network.vaultsTotal = network.vaultsTotal + 1
+  network.save()
+
+  const vaultsStat = createOrLoadVaultsStat()
+  vaultsStat.vaultsCount = vaultsStat.vaultsCount.plus(BigInt.fromI32(1))
+  vaultsStat.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[FoxVault] EthFoxVaultCreated address={} admin={} feePercent={} capacity={} ownMevEscrow={}', [
+    vaultAddressHex,
+    admin.toHex(),
+    feePercent.toString(),
+    capacity.toString(),
+    ownMevEscrow.toHex(),
   ])
 }
 

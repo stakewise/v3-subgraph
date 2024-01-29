@@ -184,11 +184,17 @@ type Vault @entity {
   "Indicates whether the Vault is private"
   isPrivate: Boolean!
 
+  "Indicates whether the Vault is with blocklist"
+  isBlocklist: Boolean!
+
   "Indicates whether the Vault has ERC-20 token"
   isErc20: Boolean!
 
   "If the Vault is private, whitelister can add/remove allocators"
   whitelister: Bytes
+
+  "If the Vault is with blocklist, blocklist manager can block allocators from depositing"
+  blocklistManager: Bytes
 
   "Vault address string for search"
   addressString: String!
@@ -217,7 +223,8 @@ enum AllocatorActionType {
   Deposited
   Migrated
   Redeemed
-  Transferred
+  TransferIn
+  TransferOut
   ExitQueueEntered
   ExitedAssetsClaimed
   OsTokenMinted
@@ -331,6 +338,23 @@ type PrivateVaultAccount @entity {
   address: Bytes!
 
   "The private Vault"
+  vault: Vault!
+
+  "The timestamp when the account was added"
+  createdAt: BigInt!
+}
+
+"""
+Account that is blocked in the Vault
+"""
+type VaultBlockedAccount @entity {
+  "<Vault ID>-<address>"
+  id: ID!
+
+  "The address of the account"
+  address: Bytes!
+
+  "The blocklist Vault"
   vault: Vault!
 
   "The timestamp when the account was added"

@@ -1,6 +1,6 @@
-import { Address, BigInt } from '@graphprotocol/graph-ts'
+import { Address, BigInt, ethereum } from '@graphprotocol/graph-ts'
 
-import { Allocator } from '../../generated/schema'
+import { Allocator, AllocatorAction } from '../../generated/schema'
 
 export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: Address): Allocator {
   const vaultAllocatorAddress = `${vaultAddress.toHex()}-${allocatorAddress.toHex()}`
@@ -16,4 +16,23 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
   }
 
   return vaultAllocator
+}
+
+export function createAllocatorAction(
+  event: ethereum.Event,
+  vaultAddress: Address,
+  actionType: string,
+  owner: Address,
+  assets: BigInt,
+  shares: BigInt,
+): void {
+  const txHash = event.transaction.hash.toHex()
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
+  allocatorAction.vault = vaultAddress.toHex()
+  allocatorAction.address = owner
+  allocatorAction.actionType = actionType
+  allocatorAction.assets = assets
+  allocatorAction.shares = shares
+  allocatorAction.createdAt = event.block.timestamp
+  allocatorAction.save()
 }
