@@ -13,45 +13,17 @@ and entities within the StakeWise ecosystem.
     ```shell script
     npm install
     ```
-
-    Optionally, to run tests postgresql should be installed:
-
-    ```shell script
-    brew install postgresql
-    ```
-
-    Optionally, generate contract abis:
-
-    ```shell script
-    npm run generate-abis
-    ```
-
-2.  Prepare subgraph for the network you want to deploy on
-    (currently supports mainnet and holesky):
-
-    ```shell script
-    npm run prepare:mainnet
-    ```
-
-3.  Optionally, build the subgraph to check compile errors
+2.  Build the subgraph to check compile errors
     before deploying:
 
-        ```shell script
-        npm run build:mainnet
-        ```
-
-4.  Optionally, test the subgraph:
-
     ```shell script
-    npm run test:mainnet
+    npm run build:mainnet
     ```
 
-5.  To deploy the subgraph to the hosted service
-    you need to add `HOSTED_GRAPH_TOKEN` and `HOSTED_SUBGRAPH_URL`
-    to the .env file. And run the script:
+3.  Deploy subgraph to your graph node
 
     ```shell script
-    npm run deploy-hosted:mainnet
+    IPFS_URL=<your IPFS node> LOCAL_GRAPH_URL=<your graph node> npm run deploy-local:mainnet
     ```
 
 ## Documentation
