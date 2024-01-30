@@ -2,30 +2,8 @@ import { BigInt, ipfs, JSONValue, log, Value } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
 import { Harvested, RewardsUpdated } from '../../generated/Keeper/Keeper'
-import { updateAvgRewardPerAsset, updateDaySnapshots } from '../entities/daySnapshot'
-import { createOrLoadV2Pool, updateV2PoolAvgRewardPerAsset, updateV2PoolDaySnapshots } from '../entities/v2pool'
-
-function calculateSlashedMevReward(
-  prevSlashedMevReward: BigInt | null,
-  newLockedMevReward: BigInt,
-  newUnlockedMevReward: BigInt,
-  prevLockedMevReward: BigInt | null,
-  prevUnlockedMevReward: BigInt | null,
-): BigInt {
-  let totalPrevMevReward: BigInt
-  if (prevUnlockedMevReward === null) {
-    totalPrevMevReward = BigInt.zero()
-  } else {
-    totalPrevMevReward = (prevLockedMevReward as BigInt).plus(prevUnlockedMevReward as BigInt)
-  }
-  const totalDelta = newLockedMevReward.plus(newUnlockedMevReward).minus(totalPrevMevReward).abs()
-
-  if (prevSlashedMevReward === null) {
-    return totalDelta
-  } else {
-    return (prevSlashedMevReward as BigInt).plus(totalDelta)
-  }
-}
+import { updateVaultApy } from '../entities/apySnapshots'
+import { createOrLoadV2Pool } from '../entities/v2pool'
 
 export function updateRewards(value: JSONValue, callbackDataValue: Value): void {
   const callbackData = callbackDataValue.toArray()
@@ -39,40 +17,44 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
     const vaultId = vaultReward.mustGet('vault').toString().toLowerCase()
     const vault = Vault.load(vaultId)
     if (!vault) {
-      log.warning('[Keeper] RewardsUpdated vault={} not found', [vaultId])
+      log.error('[Keeper] RewardsUpdated vault={} not found', [vaultId])
       continue
     }
 
     // extract vault reward data
-    const consensusReward = vaultReward.mustGet('consensus_reward').toBigInt()
     const lockedMevReward = vaultReward.isSet('locked_mev_reward')
       ? vaultReward.mustGet('locked_mev_reward').toBigInt()
       : BigInt.zero()
     const unlockedMevReward = vaultReward.mustGet('unlocked_mev_reward').toBigInt()
+    const consensusReward = vaultReward.mustGet('consensus_reward').toBigInt()
+    const executionReward = unlockedMevReward.plus(lockedMevReward)
     const proof = vaultReward.mustGet('proof').toArray()
 
-    // calculate new vault rewards
-    const newTotalReward = consensusReward.plus(unlockedMevReward).plus(lockedMevReward)
-    let periodReward: BigInt
+    // calculate period rewards
+    let periodConsensusReward: BigInt, periodExecutionReward: BigInt
     if (vault.isGenesis) {
       // period reward is calculated during harvest
-      periodReward = BigInt.zero()
-    } else if (vault.totalReward === null) {
+      periodConsensusReward = BigInt.zero()
+      periodExecutionReward = BigInt.zero()
+    } else if (vault.proofReward === null) {
       // the first rewards update, no delta
-      periodReward = newTotalReward
+      periodConsensusReward = consensusReward
+      periodExecutionReward = executionReward
     } else {
       // calculate delta from previous update
-      periodReward = newTotalReward.minus(vault.totalReward as BigInt)
+      periodConsensusReward = consensusReward.minus(vault.consensusReward)
+      periodExecutionReward = executionReward.minus(vault.lockedExecutionReward.plus(vault.unlockedExecutionReward))
     }
 
-    if (!vault.isGenesis) {
-      // genesis vault snapshots are created during harvest
-      updateDaySnapshots(vault, vault.rewardsTimestamp, updateTimestamp, periodReward)
+    // calculate smoothing pool penalty
+    let slashedMevReward = vault.slashedMevReward
+    if (vault.lockedExecutionReward.gt(lockedMevReward) && vault.unlockedExecutionReward.ge(unlockedMevReward)) {
+      slashedMevReward = slashedMevReward.plus(vault.lockedExecutionReward.minus(lockedMevReward))
     }
 
+    // calculate proof values for state update
     let proofReward: BigInt
     let proofUnlockedMevReward: BigInt
-    let slashedMevReward: BigInt
     if (vault.mevEscrow !== null) {
       // vault has own mev escrow, proof reward is consensus reward, nothing can be slashed
       proofReward = consensusReward
@@ -81,33 +63,35 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
     } else {
       // vault uses shared mev escrow, proof reward is consensus reward + total mev reward
       proofReward = consensusReward.plus(lockedMevReward).plus(unlockedMevReward)
-      // calculate slashed mev reward
-      slashedMevReward = calculateSlashedMevReward(
-        vault.slashedMevReward,
-        lockedMevReward,
-        unlockedMevReward,
-        vault.lockedMevReward,
-        vault.proofUnlockedMevReward,
-      )
       proofUnlockedMevReward = unlockedMevReward
     }
 
+    if (!vault.isGenesis) {
+      // genesis vault apy is updated during harvest
+      if (
+        rewardsIpfsHash == 'bafkreiao5xwideky4lult6jq4mo5rajl7yueebe2piuq6te6uocwfry6wq' &&
+        vault.mevEscrow !== null
+      ) {
+        // skip for vaults with own mev escrow for the first rewards update
+        log.warning('[Keeper] RewardsUpdated Skipping execution rewards update for vault={}', [vaultId])
+        updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, periodConsensusReward, BigInt.fromI32(0))
+      } else {
+        updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, periodConsensusReward, periodExecutionReward)
+      }
+    }
+
     // update vault state
-    vault.totalReward = newTotalReward
-    vault.totalAssets = vault.totalAssets.plus(periodReward)
+    vault.totalAssets = vault.totalAssets.plus(periodConsensusReward).plus(periodExecutionReward)
     vault.rewardsRoot = rewardsRoot
     vault.proofReward = proofReward
     vault.proofUnlockedMevReward = proofUnlockedMevReward
-    vault.lockedMevReward = lockedMevReward
+    vault.consensusReward = consensusReward
+    vault.lockedExecutionReward = lockedMevReward
+    vault.unlockedExecutionReward = unlockedMevReward
     vault.slashedMevReward = slashedMevReward
     vault.proof = proof.map<string>((proofValue: JSONValue) => proofValue.toString())
     vault.rewardsTimestamp = updateTimestamp
     vault.rewardsIpfsHash = rewardsIpfsHash
-
-    if (!vault.isGenesis) {
-      // for genesis vault avg reward per second is calculated during harvest
-      updateAvgRewardPerAsset(updateTimestamp, vault)
-    }
     vault.save()
   }
 }
@@ -138,42 +122,14 @@ export function handleHarvested(event: Harvested): void {
 
   const vault = Vault.load(vaultAddress) as Vault
   if (!vault.isGenesis) {
-    vault.principalAssets = vault.principalAssets.plus(totalAssetsDelta)
+    vault.principalAssets = vault.totalAssets
     vault.save()
     log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
-    return
+  } else {
+    const v2Pool = createOrLoadV2Pool()
+    if (!v2Pool.migrated) {
+      v2Pool.migrated = true
+      v2Pool.save()
+    }
   }
-
-  let v2Pool = createOrLoadV2Pool()
-  if (v2Pool.rewardsTimestamp === null) {
-    // deduct all the rewards accumulated in v2
-    totalAssetsDelta = totalAssetsDelta.minus(v2Pool.totalRewards)
-  }
-  // calculate principals
-  const v2PoolPrincipal = v2Pool.totalRewards.plus(v2Pool.principalAssets)
-  const genesisVaultPrincipal = vault.principalAssets
-  const totalPrincipal = genesisVaultPrincipal.plus(v2PoolPrincipal)
-
-  // calculate period rewards
-  const v2PoolPeriodReward = totalAssetsDelta.times(v2PoolPrincipal).div(totalPrincipal)
-  const genesisVaultPeriodReward = totalAssetsDelta.times(genesisVaultPrincipal).div(totalPrincipal)
-
-  // update genesis vault snapshots
-  updateDaySnapshots(vault, v2Pool.rewardsTimestamp, vault.rewardsTimestamp as BigInt, genesisVaultPeriodReward)
-
-  // update v2 pool snapshots
-  updateV2PoolDaySnapshots(v2Pool, v2Pool.rewardsTimestamp, vault.rewardsTimestamp as BigInt, v2PoolPeriodReward)
-
-  // save new rewards timestamp
-  v2Pool.rewardsTimestamp = vault.rewardsTimestamp
-
-  // update vault total and principal assets
-  vault.totalAssets = vault.totalAssets.plus(genesisVaultPeriodReward)
-  vault.principalAssets = vault.principalAssets.plus(genesisVaultPeriodReward)
-  updateAvgRewardPerAsset(vault.rewardsTimestamp as BigInt, vault)
-  updateV2PoolAvgRewardPerAsset(vault.rewardsTimestamp as BigInt, v2Pool)
-  vault.save()
-  v2Pool.save()
-
-  log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
 }

@@ -112,9 +112,6 @@ type Vault @entity {
   "The address of the vault's keys manager"
   keysManager: Bytes!
 
-  "Average reward on one asset"
-  avgRewardPerAsset: BigDecimal!
-
   "The MEV and priority fees escrow address. If it's null, then the vault uses shared MEV escrow."
   mevEscrow: Bytes
 
@@ -139,20 +136,23 @@ type Vault @entity {
   "The vault unlocked MEV reward used to submit state update proof"
   proofUnlockedMevReward: BigInt
 
+  "The vault rewards root proof used to submit state update proof"
+  proof: [String!]
+
   "The vault allocators"
   allocators: [Allocator!]! @derivedFrom(field: "vault")
 
-  "The vault total reward"
-  totalReward: BigInt
+  "The vault consensus reward"
+  consensusReward: BigInt!
 
-  "The vault locked shared MEV reward"
-  lockedMevReward: BigInt
+  "The vault execution reward that is locked in the smoothing pool"
+  lockedExecutionReward: BigInt!
 
-  "The vault slashed shared MEV reward"
-  slashedMevReward: BigInt
+  "The vault execution reward"
+  unlockedExecutionReward: BigInt!
 
-  "The vault rewards root proof used to submit state update proof"
-  proof: [String!]
+  "The vault slashed MEV reward in the smoothing pool"
+  slashedMevReward: BigInt!
 
   "The vault allocators' actions"
   allocatorActions: [AllocatorAction!]! @derivedFrom(field: "vault")
@@ -160,17 +160,14 @@ type Vault @entity {
   "The vault exit requests"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "vault")
 
-  "The vault day snapshots"
-  daySnapshots: [DaySnapshot!]! @derivedFrom(field: "vault")
+  "The vault apy snapshots"
+  apySnapshots: [VaultApySnapshot!]! @derivedFrom(field: "vault")
 
   "The total number of shares"
   totalShares: BigInt!
 
   "The vault score. Managed by the backend service."
   score: BigDecimal!
-
-  "Defines whether vault is verified or not. Managed by the backend service."
-  verified: Boolean!
 
   "The total number of assets"
   totalAssets: BigInt!
@@ -187,11 +184,17 @@ type Vault @entity {
   "Indicates whether the Vault is private"
   isPrivate: Boolean!
 
+  "Indicates whether the Vault is with blocklist"
+  isBlocklist: Boolean!
+
   "Indicates whether the Vault has ERC-20 token"
   isErc20: Boolean!
 
   "If the Vault is private, whitelister can add/remove allocators"
   whitelister: Bytes
+
+  "If the Vault is with blocklist, blocklist manager can block allocators from depositing"
+  blocklistManager: Bytes
 
   "Vault address string for search"
   addressString: String!
@@ -204,6 +207,15 @@ type Vault @entity {
 
   "Whether the vault is a genesis vault (v2 pool migration)"
   isGenesis: Boolean!
+
+  "The total number of APY snapshots"
+  apySnapshotsCount: BigInt!
+
+  "The current pool APY"
+  currentApy: BigDecimal!
+
+  "The weekly pool APY"
+  weeklyApy: BigDecimal!
 }
 
 enum AllocatorActionType {
@@ -211,6 +223,8 @@ enum AllocatorActionType {
   Deposited
   Migrated
   Redeemed
+  TransferIn
+  TransferOut
   ExitQueueEntered
   ExitedAssetsClaimed
   OsTokenMinted
@@ -245,21 +259,30 @@ type AllocatorAction @entity {
   createdAt: BigInt!
 }
 
-type DaySnapshot @entity {
+type VaultApySnapshot @entity {
   "<Vault ID>-<date>"
   id: ID!
 
-  "The timestamp rounded to current day by dividing by 86400"
-  date: Int!
+  "The vault APY for the period"
+  apy: BigDecimal!
 
-  "The total number of assets"
-  totalAssets: BigInt!
+  "The period consensus reward"
+  periodConsensusReward: BigInt!
 
-  "The reward on one asset"
-  rewardPerAsset: BigDecimal!
+  "The period execution reward"
+  periodExecutionReward: BigInt!
+
+  "The total assets in the vault that share the period reward"
+  principalAssets: BigInt!
+
+  "The period start epoch timestamp"
+  fromEpochTimestamp: BigInt!
+
+  "The period end epoch timestamp"
+  toEpochTimestamp: BigInt!
 
   "The snapshot's vault"
-  vault: Vault!
+  vault: Vault
 }
 
 """
@@ -322,6 +345,23 @@ type PrivateVaultAccount @entity {
 }
 
 """
+Account that is blocked in the Vault
+"""
+type VaultBlockedAccount @entity {
+  "<Vault ID>-<address>"
+  id: ID!
+
+  "The address of the account"
+  address: Bytes!
+
+  "The blocklist Vault"
+  vault: Vault!
+
+  "The timestamp when the account was added"
+  createdAt: BigInt!
+}
+
+"""
 Reward splitter used to distribute fee accumulated in the vault
 """
 type RewardSplitter @entity {
@@ -377,7 +417,7 @@ type V2Pool @entity {
   totalAssets: BigInt!
 
   "Total rewards accumulated"
-  totalRewards: BigInt!
+  rewardAssets: BigInt!
 
   "Total assets staked"
   principalAssets: BigInt!
@@ -385,9 +425,35 @@ type V2Pool @entity {
   "The staking fee percent charged by the pool"
   feePercent: Int!
 
-  "Average reward on one asset"
-  avgRewardPerAsset: BigDecimal!
+  "The consensus and execution rewards of the pool"
+  totalReward: BigInt
+
+  "Whether V2 Pool has migrated to V3"
+  migrated: Boolean!
+
+  "The total number of APY snapshots"
+  apySnapshotsCount: BigInt!
+
+  "The current pool APY"
+  currentApy: BigDecimal!
+
+  "The weekly pool APY"
+  weeklyApy: BigDecimal!
 
   "Last rewards update timestamp"
   rewardsTimestamp: BigInt
+}
+
+"""
+Vaults statistics
+"""
+type VaultsStat @entity {
+  "1"
+  id: ID!
+
+  "The total assets locked in vaults"
+  totalAssets: BigInt!
+
+  "The total number of vaults"
+  vaultsCount: BigInt!
 }

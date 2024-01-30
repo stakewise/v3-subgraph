@@ -1,13 +1,15 @@
 import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import {
-  Vault as VaultTemplate,
-  PrivateVault as PrivateVaultTemplate,
   Erc20Vault as Erc20VaultTemplate,
+  PrivateVault as PrivateVaultTemplate,
+  Vault as VaultTemplate,
 } from '../../generated/templates'
-import { Vault, OsTokenPosition } from '../../generated/schema'
+import { OsTokenPosition, Vault, VaultsStat } from '../../generated/schema'
 import { createOrLoadNetwork } from './network'
 import { createTransaction } from './transaction'
+
+const vaultsStatId = '1'
 
 export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: boolean): void {
   const block = event.block
@@ -37,18 +39,24 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.feePercent = feePercent
   vault.feeRecipient = admin
   vault.keysManager = admin
-  vault.avgRewardPerAsset = BigDecimal.zero()
+  vault.consensusReward = BigInt.zero()
+  vault.lockedExecutionReward = BigInt.zero()
+  vault.unlockedExecutionReward = BigInt.zero()
+  vault.slashedMevReward = BigInt.zero()
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
-  vault.verified = false
   vault.totalAssets = BigInt.zero()
   vault.queuedShares = BigInt.zero()
   vault.unclaimedAssets = BigInt.zero()
   vault.principalAssets = BigInt.zero()
   vault.isPrivate = isPrivate
+  vault.isBlocklist = false
   vault.isErc20 = isErc20
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
+  vault.apySnapshotsCount = BigInt.zero()
+  vault.currentApy = BigDecimal.zero()
+  vault.weeklyApy = BigDecimal.zero()
   vault.isGenesis = false
 
   if (ownMevEscrow != Address.zero()) {
@@ -66,6 +74,10 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   const network = createOrLoadNetwork()
   network.vaultsTotal = network.vaultsTotal + 1
   network.save()
+
+  const vaultsStat = createOrLoadVaultsStat()
+  vaultsStat.vaultsCount = vaultsStat.vaultsCount.plus(BigInt.fromI32(1))
+  vaultsStat.save()
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -96,4 +108,16 @@ export function createOrLoadOsTokenPosition(holder: Address, vaultAddress: Addre
   }
 
   return osTokenPosition
+}
+
+export function createOrLoadVaultsStat(): VaultsStat {
+  let vaultsStat = VaultsStat.load(vaultsStatId)
+  if (vaultsStat === null) {
+    vaultsStat = new VaultsStat(vaultsStatId)
+    vaultsStat.totalAssets = BigInt.zero()
+    vaultsStat.vaultsCount = BigInt.zero()
+    vaultsStat.save()
+  }
+
+  return vaultsStat
 }
