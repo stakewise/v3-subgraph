@@ -21,9 +21,11 @@ if (!configName) {
 
 const zeroAddress = '0x0000000000000000000000000000000000000000'
 const configPath = path.resolve(__dirname, '..', 'src', 'config', `${configName}.json`)
-const resultPath = path.resolve(__dirname, '..', 'src', 'helpers', `${configName}.ts`)
+const resultPath = path.resolve(__dirname, '..', 'src', 'helpers', `constants.ts`)
 
-let result = `import { Address } from '@graphprotocol/graph-ts'\n\n`
+let result = `import { Address, BigInt } from '@graphprotocol/graph-ts'\n\n`
+
+result += `\nexport const DAY = BigInt.fromI32(24 * 60 * 60)\n`
 
 const camelToSnakeCase = (inputString) => inputString.replace(/([A-Z])/g, '_$1').toUpperCase()
 
@@ -54,11 +56,5 @@ readFile(configPath, 'utf8', (error, data) => {
     }
   })
 
-  writeFileSync(resultPath, result, (error) => {
-    if (error) {
-      throw new Error(error)
-    }
-
-    console.log('SUCCESS!')
-  });
+  writeFileSync(resultPath, result)
 })
