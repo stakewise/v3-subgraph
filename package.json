@@ -8,6 +8,8 @@
   "scripts": {
     "prepare": "husky install",
     "---SCRIPTS---": "",
+    "const-mainnet": "node ./scripts/createConstants.js mainnet",
+    "const-holesky": "node ./scripts/createConstants.js holesky",
     "generate-abis": "node ./scripts/generateAbis.js",
     "deploy": "node ./scripts/deploy.js",
     "---HOLESKY---": "",
