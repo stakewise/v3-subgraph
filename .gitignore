@@ -34,3 +34,6 @@ subgraph.yaml
 tests/.bin
 tests/*.json
 matchstick.yaml
+
+# Other
+src/helpers/constants.ts
