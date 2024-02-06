@@ -1,4 +1,4 @@
-const { readFile, writeFileSync } = require('fs')
+const { readFile, writeFileSync, existsSync, mkdirSync } = require('fs')
 const path = require('path')
 
 
@@ -20,8 +20,9 @@ if (!configName) {
 }
 
 const zeroAddress = '0x0000000000000000000000000000000000000000'
-const configPath = path.resolve(__dirname, '..', 'src', 'config', `${configName}.json`)
+const helpersFolderPath = path.resolve(__dirname, '..', 'src', 'helpers')
 const resultPath = path.resolve(__dirname, '..', 'src', 'helpers', `constants.ts`)
+const configPath = path.resolve(__dirname, '..', 'src', 'config', `${configName}.json`)
 
 let result = `import { Address, BigInt } from '@graphprotocol/graph-ts'\n\n`
 
@@ -55,6 +56,12 @@ readFile(configPath, 'utf8', (error, data) => {
       result += createStringConst(name, data)
     }
   })
+
+  const isHelpersFolderExist = existsSync(helpersFolderPath)
+
+  if (!isHelpersFolderExist) {
+    mkdirSync(helpersFolderPath)
+  }
 
   writeFileSync(resultPath, result)
 })
