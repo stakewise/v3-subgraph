@@ -4,6 +4,7 @@ import { Vault } from '../../generated/schema'
 import { Harvested, RewardsUpdated } from '../../generated/Keeper/Keeper'
 import { updateVaultApy } from '../entities/apySnapshots'
 import { createOrLoadV2Pool } from '../entities/v2pool'
+import { IGNORED_APY_CALC_OWN_MEV_IPFS_HASH } from '../helpers/constants'
 
 export function updateRewards(value: JSONValue, callbackDataValue: Value): void {
   const callbackData = callbackDataValue.toArray()
@@ -68,10 +69,7 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
 
     if (!vault.isGenesis) {
       // genesis vault apy is updated during harvest
-      if (
-        rewardsIpfsHash == 'bafkreiao5xwideky4lult6jq4mo5rajl7yueebe2piuq6te6uocwfry6wq' &&
-        vault.mevEscrow !== null
-      ) {
+      if (rewardsIpfsHash == IGNORED_APY_CALC_OWN_MEV_IPFS_HASH && vault.mevEscrow !== null) {
         // skip for vaults with own mev escrow for the first rewards update
         log.warning('[Keeper] RewardsUpdated Skipping execution rewards update for vault={}', [vaultId])
         updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, periodConsensusReward, BigInt.fromI32(0))

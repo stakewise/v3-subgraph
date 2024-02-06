@@ -468,8 +468,10 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
-  vault.currentApy = BigDecimal.zero()
   vault.weeklyApy = BigDecimal.zero()
+  vault.apy = BigDecimal.zero()
+  vault.executionApy = BigDecimal.zero()
+  vault.consensusApy = BigDecimal.zero()
   vault.isGenesis = true
   vault.save()
   VaultTemplate.create(vaultAddress)
@@ -526,8 +528,10 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
-  vault.currentApy = BigDecimal.zero()
   vault.weeklyApy = BigDecimal.zero()
+  vault.apy = BigDecimal.zero()
+  vault.executionApy = BigDecimal.zero()
+  vault.consensusApy = BigDecimal.zero()
   vault.isGenesis = false
   vault.blocklistManager = admin
   vault.save()

@@ -1,5 +1,6 @@
 {
   "network": "mainnet",
+  "ignoredApyCalcOwnMevIpfsHash": "",
   "ethVaultFactory": {
     "address": "0x1428BB71261f01BbC03ce4eC7cEEA674f94b5F18",
     "startBlock": "215406"
