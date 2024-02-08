@@ -52,6 +52,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.isPrivate = isPrivate
   vault.isBlocklist = false
   vault.isErc20 = isErc20
+  vault.isOsTokenEnabled = true
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
   vault.apySnapshotsCount = BigInt.zero()

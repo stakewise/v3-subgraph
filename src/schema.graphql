@@ -190,6 +190,9 @@ type Vault @entity {
   "Indicates whether the Vault has ERC-20 token"
   isErc20: Boolean!
 
+  "Indicates whether the Vault supports minting OsToken"
+  isOsTokenEnabled: Boolean!
+
   "If the Vault is private, whitelister can add/remove allocators"
   whitelister: Bytes
 
