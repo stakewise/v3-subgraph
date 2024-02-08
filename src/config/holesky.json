@@ -1,5 +1,6 @@
 {
   "network": "mainnet",
+  "ignoredApyCalcOwnMevIpfsHash": "",
   "ethVaultFactory": {
     "address": "0x1428BB71261f01BbC03ce4eC7cEEA674f94b5F18",
     "startBlock": "215406"
@@ -32,9 +33,13 @@
     "address": "0xf42cEAFa21Beb670573f32C31485E84233AFDB6b",
     "startBlock": "215444"
   },
-  "foxVault": {
-    "address": "0x0000000000000000000000000000000000000000",
-    "startBlock": "215444"
+  "foxVault1": {
+    "address": "0x3c4ae629bf823475192124E02b9879D3C1fd4538",
+    "startBlock": "896101"
+  },
+  "foxVault2": {
+    "address": "0x2D84E5330606843609eAdC96EaCd5C425c8cb0eC",
+    "startBlock": "895945"
   },
   "rewardSplitterFactory": {
     "address": "0x6c56AC64457B8AeA1Bb8d1f5eA2d1E397C9c7a13",

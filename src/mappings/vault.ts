@@ -19,7 +19,7 @@ import {
   ValidatorsRootUpdated,
 } from '../../generated/templates/Vault/Vault'
 import { GenesisVaultCreated, Migrated } from '../../generated/GenesisVault/GenesisVault'
-import { EthFoxVaultCreated } from '../../generated/FoxVault/FoxVault'
+import { EthFoxVaultCreated } from '../../generated/FoxVault1/FoxVault'
 
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
@@ -465,11 +465,14 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.isPrivate = false
   vault.isBlocklist = false
   vault.isErc20 = false
+  vault.isOsTokenEnabled = true
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
-  vault.currentApy = BigDecimal.zero()
   vault.weeklyApy = BigDecimal.zero()
+  vault.apy = BigDecimal.zero()
+  vault.executionApy = BigDecimal.zero()
+  vault.consensusApy = BigDecimal.zero()
   vault.isGenesis = true
   vault.save()
   VaultTemplate.create(vaultAddress)
@@ -522,12 +525,15 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.isPrivate = false
   vault.isBlocklist = true
   vault.isErc20 = false
+  vault.isOsTokenEnabled = false
   vault.mevEscrow = ownMevEscrow
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
-  vault.currentApy = BigDecimal.zero()
   vault.weeklyApy = BigDecimal.zero()
+  vault.apy = BigDecimal.zero()
+  vault.executionApy = BigDecimal.zero()
+  vault.consensusApy = BigDecimal.zero()
   vault.isGenesis = false
   vault.blocklistManager = admin
   vault.save()

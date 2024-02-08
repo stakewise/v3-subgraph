@@ -6,7 +6,12 @@ const secondsInYear = '31536000'
 const maxPercent = '100'
 const wad = '1000000000000000000'
 
-export function getRewardPerAsset(reward: BigInt, totalAssets: BigInt, feePercent: i32): BigDecimal {
+export function getRewardPerAsset(
+  reward: BigInt,
+  totalAssets: BigInt,
+  feePercent: i32,
+  totalDuration: BigInt,
+): BigDecimal {
   if (totalAssets.le(BigInt.zero())) {
     return BigDecimal.zero()
   }
@@ -17,8 +22,20 @@ export function getRewardPerAsset(reward: BigInt, totalAssets: BigInt, feePercen
     .div(maxPercentDecimal)
 
   const totalAssetsDecimal = BigDecimal.fromString(totalAssets.toString())
-  return rewardDecimal.div(totalAssetsDecimal)
+  return rewardDecimal
+    .times(BigDecimal.fromString(secondsInYear))
+    .times(BigDecimal.fromString(maxPercent))
+    .div(totalAssetsDecimal)
+    .div(BigDecimal.fromString(totalDuration.toString()))
 }
+
+// function _calculateMedian(values: Array<BigDecimal>): BigDecimal {
+//   const sortedValues = values.sort((a, b) => (a.lt(b) ? -1 : 1))
+//   const mid = sortedValues.length / 2
+//   return sortedValues.length % 2 !== 0
+//     ? sortedValues[i32(mid)]
+//     : sortedValues[mid - 1].plus(sortedValues[mid]).div(BigDecimal.fromString('2'))
+// }
 
 export function updateVaultApy(
   vault: Vault,
@@ -32,18 +49,22 @@ export function updateVaultApy(
     return
   }
   const totalDuration = toTimestamp.minus(fromTimestamp)
-  const rewardPerAsset = getRewardPerAsset(
-    periodConsensusReward.plus(periodExecutionReward),
+  const currentExecApy = getRewardPerAsset(
+    periodExecutionReward,
     vault.principalAssets,
     vault.feePercent,
+    totalDuration,
   )
-  const currentApy = rewardPerAsset
-    .times(BigDecimal.fromString(secondsInYear))
-    .div(BigDecimal.fromString(totalDuration.toString()))
-    .times(BigDecimal.fromString(maxPercent))
+  const currentConsensusApy = getRewardPerAsset(
+    periodConsensusReward,
+    vault.principalAssets,
+    vault.feePercent,
+    totalDuration,
+  )
 
   // calculate weekly apy
-  let apySum = currentApy
+  let execApySum = currentExecApy
+  let consensusApySum = currentConsensusApy
   let snapshotsCounter = 1
   const totalSnapshots = vault.apySnapshotsCount
   for (let i = 1; i < snapshotsPerWeek; i++) {
@@ -52,25 +73,28 @@ export function updateVaultApy(
     if (snapshot === null) {
       break
     }
-
-    apySum = apySum.plus(snapshot.apy)
+    execApySum = execApySum.plus(snapshot.executionApy)
+    consensusApySum = consensusApySum.plus(snapshot.consensusApy)
     snapshotsCounter += 1
   }
 
   const snapshotId = `${vault.id}-${totalSnapshots}`
   const vaultApySnapshot = new VaultApySnapshot(snapshotId)
-  vaultApySnapshot.apy = currentApy
+  vaultApySnapshot.apy = currentExecApy.plus(currentConsensusApy)
+  vaultApySnapshot.executionApy = currentExecApy
+  vaultApySnapshot.consensusApy = currentConsensusApy
   vaultApySnapshot.periodExecutionReward = periodExecutionReward
   vaultApySnapshot.periodConsensusReward = periodConsensusReward
   vaultApySnapshot.principalAssets = vault.principalAssets
-  // TODO: convert to epochs
   vaultApySnapshot.fromEpochTimestamp = fromTimestamp
   vaultApySnapshot.toEpochTimestamp = toTimestamp
   vaultApySnapshot.vault = vault.id
   vaultApySnapshot.save()
 
-  vault.currentApy = currentApy
-  vault.weeklyApy = apySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
+  vault.executionApy = execApySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
+  vault.consensusApy = consensusApySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
+  vault.apy = vault.executionApy.plus(vault.consensusApy)
+  vault.weeklyApy = vault.apy
   vault.apySnapshotsCount = vault.apySnapshotsCount.plus(BigInt.fromI32(1))
 }
 
@@ -86,18 +110,17 @@ export function updatePoolApy(
     return
   }
   const totalDuration = toTimestamp.minus(fromTimestamp)
-  const rewardPerAsset = getRewardPerAsset(
-    periodConsensusReward.plus(periodExecutionReward),
+  const currentExecApy = getRewardPerAsset(periodExecutionReward, pool.principalAssets, pool.feePercent, totalDuration)
+  const currentConsensusApy = getRewardPerAsset(
+    periodConsensusReward,
     pool.principalAssets,
     pool.feePercent,
+    totalDuration,
   )
-  const currentApy = rewardPerAsset
-    .times(BigDecimal.fromString(secondsInYear))
-    .div(BigDecimal.fromString(totalDuration.toString()))
-    .times(BigDecimal.fromString(maxPercent))
 
   // calculate weekly apy
-  let apySum = currentApy
+  let execApySum = currentExecApy
+  let consensusApySum = currentConsensusApy
   let snapshotsCounter = 1
   const totalSnapshots = pool.apySnapshotsCount
   for (let i = 1; i < snapshotsPerWeek; i++) {
@@ -106,24 +129,27 @@ export function updatePoolApy(
     if (snapshot === null) {
       break
     }
-
-    apySum = apySum.plus(snapshot.apy)
+    execApySum = execApySum.plus(snapshot.executionApy)
+    consensusApySum = consensusApySum.plus(snapshot.consensusApy)
     snapshotsCounter += 1
   }
 
   const snapshotId = `${pool.id}-${totalSnapshots}`
   const poolApySnapshot = new VaultApySnapshot(snapshotId)
-  poolApySnapshot.apy = currentApy
+  poolApySnapshot.apy = currentExecApy.plus(currentConsensusApy)
+  poolApySnapshot.executionApy = currentExecApy
+  poolApySnapshot.consensusApy = currentConsensusApy
   poolApySnapshot.periodExecutionReward = periodExecutionReward
   poolApySnapshot.periodConsensusReward = periodConsensusReward
   poolApySnapshot.principalAssets = pool.principalAssets
-  // TODO: convert to epochs
   poolApySnapshot.fromEpochTimestamp = fromTimestamp
   poolApySnapshot.toEpochTimestamp = toTimestamp
   poolApySnapshot.save()
 
-  pool.currentApy = currentApy
-  pool.weeklyApy = apySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
+  pool.executionApy = execApySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
+  pool.consensusApy = consensusApySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
+  pool.apy = pool.executionApy.plus(pool.consensusApy)
+  pool.weeklyApy = pool.apy
   pool.apySnapshotsCount = pool.apySnapshotsCount.plus(BigInt.fromI32(1))
 }
 

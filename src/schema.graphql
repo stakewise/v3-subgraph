@@ -190,6 +190,9 @@ type Vault @entity {
   "Indicates whether the Vault has ERC-20 token"
   isErc20: Boolean!
 
+  "Indicates whether the Vault supports minting OsToken"
+  isOsTokenEnabled: Boolean!
+
   "If the Vault is private, whitelister can add/remove allocators"
   whitelister: Bytes
 
@@ -211,10 +214,16 @@ type Vault @entity {
   "The total number of APY snapshots"
   apySnapshotsCount: BigInt!
 
-  "The current pool APY"
-  currentApy: BigDecimal!
+  "The vault weekly total APY"
+  apy: BigDecimal!
 
-  "The weekly pool APY"
+  "The vault weekly consensus APY"
+  consensusApy: BigDecimal!
+
+  "The vault weekly execution APY"
+  executionApy: BigDecimal!
+
+  "(deprecated) The weekly pool APY"
   weeklyApy: BigDecimal!
 }
 
@@ -265,6 +274,12 @@ type VaultApySnapshot @entity {
 
   "The vault APY for the period"
   apy: BigDecimal!
+
+  "The vault consensus APY for the period"
+  consensusApy: BigDecimal!
+
+  "The vault execution APY for the period"
+  executionApy: BigDecimal!
 
   "The period consensus reward"
   periodConsensusReward: BigInt!
@@ -425,8 +440,11 @@ type V2Pool @entity {
   "The staking fee percent charged by the pool"
   feePercent: Int!
 
-  "The consensus and execution rewards of the pool"
-  totalReward: BigInt
+  "The vault and pool execution reward"
+  executionReward: BigInt
+
+  "The vault and pool consensus reward"
+  consensusReward: BigInt
 
   "Whether V2 Pool has migrated to V3"
   migrated: Boolean!
@@ -434,10 +452,16 @@ type V2Pool @entity {
   "The total number of APY snapshots"
   apySnapshotsCount: BigInt!
 
-  "The current pool APY"
-  currentApy: BigDecimal!
+  "The pool weekly total APY"
+  apy: BigDecimal!
 
-  "The weekly pool APY"
+  "The pool weekly consensus APY"
+  consensusApy: BigDecimal!
+
+  "The pool weekly execution APY"
+  executionApy: BigDecimal!
+
+  "(deprecated) The weekly pool APY"
   weeklyApy: BigDecimal!
 
   "Last rewards update timestamp"
