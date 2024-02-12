@@ -60,6 +60,8 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.apy = BigDecimal.zero()
   vault.executionApy = BigDecimal.zero()
   vault.consensusApy = BigDecimal.zero()
+  vault.blocklistCount = BigInt.zero()
+  vault.whitelistCount = BigInt.zero()
   vault.isGenesis = false
 
   if (ownMevEscrow != Address.zero()) {

@@ -223,6 +223,12 @@ type Vault @entity {
   "The vault weekly execution APY"
   executionApy: BigDecimal!
 
+  "The total number of vault blocklisted accounts"
+  blocklistCount: BigInt!
+
+  "The total number of vault whitelisted accounts"
+  whitelistCount: BigInt!
+
   "(deprecated) The weekly pool APY"
   weeklyApy: BigDecimal!
 }

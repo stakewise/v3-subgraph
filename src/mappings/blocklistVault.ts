@@ -10,6 +10,7 @@ export function handleBlocklistUpdated(event: BlocklistUpdated): void {
   const blocked = params.isBlocked
 
   const vaultAddress = event.address.toHex()
+  const vault = Vault.load(vaultAddress) as Vault
   const id = `${vaultAddress}-${address.toHex()}`
 
   if (blocked) {
@@ -18,11 +19,16 @@ export function handleBlocklistUpdated(event: BlocklistUpdated): void {
     blockedAccount.vault = vaultAddress
     blockedAccount.address = address
     blockedAccount.createdAt = event.block.timestamp
+    vault.blocklistCount = vault.blocklistCount + 1
 
     blockedAccount.save()
   } else {
+    vault.blocklistCount = vault.blocklistCount - 1
+
     store.remove('VaultBlockedAccount', id)
   }
+
+  vault.save()
 
   createTransaction(event.transaction.hash.toHex())
 

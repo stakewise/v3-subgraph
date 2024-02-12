@@ -10,6 +10,7 @@ export function handleWhitelistUpdated(event: WhitelistUpdated): void {
   const approved = params.approved
 
   const vaultAddress = event.address.toHex()
+  const vault = Vault.load(vaultAddress) as Vault
   const id = `${vaultAddress}-${address.toHex()}`
 
   if (approved) {
@@ -18,11 +19,16 @@ export function handleWhitelistUpdated(event: WhitelistUpdated): void {
     privateVaultAccount.vault = vaultAddress
     privateVaultAccount.address = address
     privateVaultAccount.createdAt = event.block.timestamp
+    vault.whitelistCount = vault.whitelistCount + 1
 
     privateVaultAccount.save()
   } else {
+    vault.whitelistCount = vault.whitelistCount - 1
+
     store.remove('PrivateVaultAccount', id)
   }
+
+  vault.save()
 
   createTransaction(event.transaction.hash.toHex())
 
