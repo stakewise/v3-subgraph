@@ -47,6 +47,10 @@ export function handleRewardsUpdatedV2(event: RewardsUpdatedV2): void {
     const newTotalReward = newConsensusReward.plus(newExecutionReward)
     prevConsensusReward = pool.rewardAssets.times(newConsensusReward).div(newTotalReward)
     prevExecutionReward = pool.rewardAssets.minus(prevConsensusReward)
+  } else if ((vault.rewardsTimestamp as BigInt).equals(pool.rewardsTimestamp as BigInt)) {
+    // skip state update for harvested vault
+    log.warning('[V2 Pool] state update for harvested vault', [])
+    return
   } else {
     prevExecutionReward = pool.executionReward as BigInt
     prevConsensusReward = pool.consensusReward as BigInt
