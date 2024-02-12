@@ -12,9 +12,11 @@ export function getRewardPerAsset(
   feePercent: i32,
   totalDuration: BigInt,
 ): BigDecimal {
-  if (totalAssets.le(BigInt.zero())) {
+  if (totalAssets.le(BigInt.zero()) || totalDuration.le(BigInt.zero())) {
     return BigDecimal.zero()
   }
+
+  // Constants
   const maxPercentDecimal = BigDecimal.fromString('10000')
   const feePercentDecimal = BigDecimal.fromString(feePercent.toString())
   const rewardDecimal = BigDecimal.fromString(reward.toString())
