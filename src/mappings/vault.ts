@@ -473,6 +473,8 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.apy = BigDecimal.zero()
   vault.executionApy = BigDecimal.zero()
   vault.consensusApy = BigDecimal.zero()
+  vault.blocklistCount = BigInt.zero()
+  vault.whitelistCount = BigInt.zero()
   vault.isGenesis = true
   vault.save()
   VaultTemplate.create(vaultAddress)
@@ -536,6 +538,8 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.consensusApy = BigDecimal.zero()
   vault.isGenesis = false
   vault.blocklistManager = admin
+  vault.blocklistCount = BigInt.zero()
+  vault.whitelistCount = BigInt.zero()
   vault.save()
   VaultTemplate.create(vaultAddress)
   BlocklistVaultTemplate.create(vaultAddress)
