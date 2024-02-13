@@ -1,4 +1,4 @@
-import { log, store } from '@graphprotocol/graph-ts'
+import { BigInt, log, store } from '@graphprotocol/graph-ts'
 
 import { WhitelistUpdated, WhitelisterUpdated } from '../../generated/templates/PrivateVault/PrivateVault'
 import { PrivateVaultAccount, Vault } from '../../generated/schema'
@@ -19,11 +19,11 @@ export function handleWhitelistUpdated(event: WhitelistUpdated): void {
     privateVaultAccount.vault = vaultAddress
     privateVaultAccount.address = address
     privateVaultAccount.createdAt = event.block.timestamp
-    vault.whitelistCount = vault.whitelistCount + 1
+    vault.whitelistCount = vault.whitelistCount.plus(BigInt.fromI32(1))
 
     privateVaultAccount.save()
   } else {
-    vault.whitelistCount = vault.whitelistCount - 1
+    vault.whitelistCount = vault.whitelistCount.minus(BigInt.fromI32(1))
 
     store.remove('PrivateVaultAccount', id)
   }

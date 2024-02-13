@@ -1,4 +1,4 @@
-import { log, store } from '@graphprotocol/graph-ts'
+import { BigInt, log, store } from '@graphprotocol/graph-ts'
 
 import { BlocklistManagerUpdated, BlocklistUpdated } from '../../generated/templates/BlocklistVault/BlocklistVault'
 import { VaultBlockedAccount, Vault } from '../../generated/schema'
@@ -19,11 +19,11 @@ export function handleBlocklistUpdated(event: BlocklistUpdated): void {
     blockedAccount.vault = vaultAddress
     blockedAccount.address = address
     blockedAccount.createdAt = event.block.timestamp
-    vault.blocklistCount = vault.blocklistCount + 1
+    vault.blocklistCount = vault.blocklistCount.plus(BigInt.fromI32(1))
 
     blockedAccount.save()
   } else {
-    vault.blocklistCount = vault.blocklistCount - 1
+    vault.blocklistCount = vault.blocklistCount.minus(BigInt.fromI32(1))
 
     store.remove('VaultBlockedAccount', id)
   }
