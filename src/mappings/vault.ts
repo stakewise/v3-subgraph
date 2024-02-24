@@ -1,7 +1,11 @@
-import { Address, BigDecimal, BigInt, ipfs, json, log, store } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, DataSourceContext, ipfs, json, log, store } from '@graphprotocol/graph-ts'
 
 import { ExitRequest, Vault } from '../../generated/schema'
-import { Vault as VaultTemplate, BlocklistVault as BlocklistVaultTemplate } from '../../generated/templates'
+import {
+  Vault as VaultTemplate,
+  BlocklistVault as BlocklistVaultTemplate,
+  OwnMevEscrow as OwnMevEscrowTemplate,
+} from '../../generated/templates'
 import {
   CheckpointCreated,
   Deposited,
@@ -19,7 +23,7 @@ import {
   ValidatorsRootUpdated,
 } from '../../generated/templates/Vault/Vault'
 import { GenesisVaultCreated, Migrated } from '../../generated/GenesisVault/GenesisVault'
-import { EthFoxVaultCreated } from '../../generated/FoxVault1/FoxVault'
+import { EthFoxVaultCreated } from '../../generated/FoxVault/FoxVault'
 
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
@@ -469,7 +473,6 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
-  vault.weeklyApy = BigDecimal.zero()
   vault.apy = BigDecimal.zero()
   vault.executionApy = BigDecimal.zero()
   vault.consensusApy = BigDecimal.zero()
@@ -532,7 +535,6 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
-  vault.weeklyApy = BigDecimal.zero()
   vault.apy = BigDecimal.zero()
   vault.executionApy = BigDecimal.zero()
   vault.consensusApy = BigDecimal.zero()
@@ -543,6 +545,10 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.save()
   VaultTemplate.create(vaultAddress)
   BlocklistVaultTemplate.create(vaultAddress)
+
+  const context = new DataSourceContext()
+  context.setString('vault', vaultAddressHex)
+  OwnMevEscrowTemplate.createWithContext(ownMevEscrow, context)
 
   const network = createOrLoadNetwork()
   network.vaultsTotal = network.vaultsTotal + 1

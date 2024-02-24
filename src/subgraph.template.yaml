@@ -134,6 +134,8 @@ dataSources:
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
+        - name: PriceFeed
+          file: ./abis/PriceFeed.json
       eventHandlers:
         - event: RewardsUpdated(indexed address,indexed bytes32,uint256,uint64,uint64,string)
           handler: handleRewardsUpdated
@@ -191,35 +193,12 @@ dataSources:
         - event: Migrated(address,uint256,uint256)
           handler: handleMigrated
   - kind: ethereum/contract
-    name: FoxVault1
+    name: FoxVault
     network: {{ network }}
     source:
-      address: '{{ foxVault1.address }}'
+      address: '{{ foxVault.address }}'
       abi: FoxVault
-      startBlock: {{ foxVault1.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./mappings/vault.ts
-      entities:
-        - Vault
-        - Network
-        - VaultsStat
-        - Transaction
-      abis:
-        - name: FoxVault
-          file: ./abis/FoxVault.json
-      eventHandlers:
-        - event: EthFoxVaultCreated(address,address,uint256,uint16,string)
-          handler: handleFoxVaultCreated
-  - kind: ethereum/contract
-    name: FoxVault2
-    network: {{ network }}
-    source:
-      address: '{{ foxVault2.address }}'
-      abi: FoxVault
-      startBlock: {{ foxVault2.startBlock }}
+      startBlock: {{ foxVault.startBlock }}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -471,6 +450,24 @@ templates:
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
+  - kind: ethereum/contract
+    name: OwnMevEscrow
+    network: {{ network }}
+    source:
+      abi: OwnMevEscrow
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./mappings/mevEscrow.ts
+      entities:
+        - Vault
+      abis:
+        - name: OwnMevEscrow
+          file: ./abis/OwnMevEscrow.json
+      eventHandlers:
+        - event: Harvested(uint256)
+          handler: handleHarvested
   - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}

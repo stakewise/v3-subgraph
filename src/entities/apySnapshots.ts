@@ -1,10 +1,10 @@
 import { BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 import { OsToken, OsTokenSnapshot, V2Pool, Vault, VaultApySnapshot } from '../../generated/schema'
+import { WAD } from '../helpers/constants'
 
 const snapshotsPerWeek = 14
 const secondsInYear = '31536000'
 const maxPercent = '100'
-const wad = '1000000000000000000'
 
 export function getRewardPerAsset(
   reward: BigInt,
@@ -96,7 +96,6 @@ export function updateVaultApy(
   vault.executionApy = execApySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
   vault.consensusApy = consensusApySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
   vault.apy = vault.executionApy.plus(vault.consensusApy)
-  vault.weeklyApy = vault.apy
   vault.apySnapshotsCount = vault.apySnapshotsCount.plus(BigInt.fromI32(1))
 }
 
@@ -151,7 +150,6 @@ export function updatePoolApy(
   pool.executionApy = execApySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
   pool.consensusApy = consensusApySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
   pool.apy = pool.executionApy.plus(pool.consensusApy)
-  pool.weeklyApy = pool.apy
   pool.apySnapshotsCount = pool.apySnapshotsCount.plus(BigInt.fromI32(1))
 }
 
@@ -181,5 +179,5 @@ export function updateOsTokenApy(osToken: OsToken, newAvgRewardPerSecond: BigInt
     .times(BigDecimal.fromString(secondsInYear))
     .times(BigDecimal.fromString(maxPercent))
     .div(BigDecimal.fromString(snapshotsCounter.toString()))
-    .div(BigDecimal.fromString(wad))
+    .div(BigDecimal.fromString(WAD))
 }

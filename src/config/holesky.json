@@ -1,6 +1,8 @@
 {
   "network": "mainnet",
-  "ignoredApyCalcOwnMevIpfsHash": "",
+  "wad": "1000000000000000000",
+  "daiUsdPriceFeed": "0x0000000000000000000000000000000000000000",
+  "gnoUsdPriceFeed": "0x0000000000000000000000000000000000000000",
   "ethVaultFactory": {
     "address": "0x1428BB71261f01BbC03ce4eC7cEEA674f94b5F18",
     "startBlock": "215406"
@@ -33,7 +35,7 @@
     "address": "0xf42cEAFa21Beb670573f32C31485E84233AFDB6b",
     "startBlock": "215444"
   },
-  "foxVault1": {
+  "foxVault": {
     "address": "0x3c4ae629bf823475192124E02b9879D3C1fd4538",
     "startBlock": "896101"
   },

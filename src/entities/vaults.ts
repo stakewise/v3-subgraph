@@ -1,8 +1,9 @@
-import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, DataSourceContext, ethereum, log } from '@graphprotocol/graph-ts'
 import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import {
   Erc20Vault as Erc20VaultTemplate,
   PrivateVault as PrivateVaultTemplate,
+  OwnMevEscrow as OwnMevEscrowTemplate,
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import { OsTokenPosition, Vault, VaultsStat } from '../../generated/schema'
@@ -56,7 +57,6 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
-  vault.weeklyApy = BigDecimal.zero()
   vault.apy = BigDecimal.zero()
   vault.executionApy = BigDecimal.zero()
   vault.consensusApy = BigDecimal.zero()
@@ -66,6 +66,9 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
 
   if (ownMevEscrow != Address.zero()) {
     vault.mevEscrow = event.params.ownMevEscrow
+    const context = new DataSourceContext()
+    context.setString('vault', vaultAddressHex)
+    OwnMevEscrowTemplate.createWithContext(ownMevEscrow, context)
   }
 
   if (vault.isPrivate) {

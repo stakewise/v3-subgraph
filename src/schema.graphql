@@ -228,9 +228,6 @@ type Vault @entity {
 
   "The total number of vault whitelisted accounts"
   whitelistCount: BigInt!
-
-  "(deprecated) The weekly pool APY"
-  weeklyApy: BigDecimal!
 }
 
 enum AllocatorActionType {
@@ -467,11 +464,11 @@ type V2Pool @entity {
   "The pool weekly execution APY"
   executionApy: BigDecimal!
 
-  "(deprecated) The weekly pool APY"
-  weeklyApy: BigDecimal!
-
   "Last rewards update timestamp"
   rewardsTimestamp: BigInt
+
+  "The last genesis vault harvest delta"
+  vaultHarvestDelta: BigInt
 }
 
 """

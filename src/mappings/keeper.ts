@@ -1,17 +1,20 @@
-import { BigInt, ipfs, JSONValue, log, Value } from '@graphprotocol/graph-ts'
+import { BigInt, Bytes, ipfs, json, JSONValue, log } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
 import { Harvested, RewardsUpdated } from '../../generated/Keeper/Keeper'
 import { updateVaultApy } from '../entities/apySnapshots'
 import { createOrLoadV2Pool } from '../entities/v2pool'
-import { IGNORED_APY_CALC_OWN_MEV_IPFS_HASH } from '../helpers/constants'
+import { NETWORK, WAD } from '../helpers/constants'
+import { getConversionRate } from '../entities/network'
 
-export function updateRewards(value: JSONValue, callbackDataValue: Value): void {
-  const callbackData = callbackDataValue.toArray()
-  const rewardsRoot = callbackData[0].toBytes()
-  const updateTimestamp = callbackData[1].toBigInt()
-  const rewardsIpfsHash = callbackData[2].toString()
+export function updateRewards(
+  value: JSONValue,
+  rewardsRoot: Bytes,
+  updateTimestamp: BigInt,
+  rewardsIpfsHash: string,
+): void {
   const vaultRewards = value.toObject().mustGet('vaults').toArray()
+  const executionRewardRate = getConversionRate()
   for (let i = 0; i < vaultRewards.length; i++) {
     // load vault object
     const vaultReward = vaultRewards[i].toObject()
@@ -23,9 +26,8 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
     }
 
     // extract vault reward data
-    const lockedMevReward = vaultReward.isSet('locked_mev_reward')
-      ? vaultReward.mustGet('locked_mev_reward').toBigInt()
-      : BigInt.zero()
+    const lockedMevReward =
+      vault.mevEscrow === null ? vaultReward.mustGet('locked_mev_reward').toBigInt() : BigInt.zero()
     const unlockedMevReward = vaultReward.mustGet('unlocked_mev_reward').toBigInt()
     const consensusReward = vaultReward.mustGet('consensus_reward').toBigInt()
     const executionReward = unlockedMevReward.plus(lockedMevReward)
@@ -63,23 +65,33 @@ export function updateRewards(value: JSONValue, callbackDataValue: Value): void 
       proofUnlockedMevReward = BigInt.zero()
     } else {
       // vault uses shared mev escrow, proof reward is consensus reward + total mev reward
-      proofReward = consensusReward.plus(lockedMevReward).plus(unlockedMevReward)
+      if (NETWORK === 'mainnet') {
+        proofReward = consensusReward.plus(lockedMevReward).plus(unlockedMevReward)
+      } else {
+        // for gnosis network, execution rewards are received in DAI and converted later by the operator
+        proofReward = consensusReward
+      }
       proofUnlockedMevReward = unlockedMevReward
     }
 
     if (!vault.isGenesis) {
       // genesis vault apy is updated during harvest
-      if (rewardsIpfsHash == IGNORED_APY_CALC_OWN_MEV_IPFS_HASH && vault.mevEscrow !== null) {
-        // skip for vaults with own mev escrow for the first rewards update
-        log.warning('[Keeper] RewardsUpdated Skipping execution rewards update for vault={}', [vaultId])
-        updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, periodConsensusReward, BigInt.fromI32(0))
-      } else {
-        updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, periodConsensusReward, periodExecutionReward)
-      }
+      updateVaultApy(
+        vault,
+        vault.rewardsTimestamp,
+        updateTimestamp,
+        periodConsensusReward,
+        periodExecutionReward.times(executionRewardRate).div(BigInt.fromString(WAD)),
+      )
     }
 
     // update vault state
-    vault.totalAssets = vault.totalAssets.plus(periodConsensusReward).plus(periodExecutionReward)
+    if (NETWORK === 'mainnet') {
+      vault.totalAssets = vault.totalAssets.plus(periodConsensusReward).plus(periodExecutionReward)
+    } else {
+      // for gnosis network, execution rewards must be converted for GNO before adding them to the total assets
+      vault.totalAssets = vault.totalAssets.plus(periodConsensusReward)
+    }
     vault.rewardsRoot = rewardsRoot
     vault.proofReward = proofReward
     vault.proofUnlockedMevReward = proofUnlockedMevReward
@@ -99,13 +111,8 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const rewardsIpfsHash = event.params.rewardsIpfsHash
   const updateTimestamp = event.params.updateTimestamp
 
-  const callbackData = Value.fromArray([
-    Value.fromBytes(rewardsRoot),
-    Value.fromBigInt(updateTimestamp),
-    Value.fromString(rewardsIpfsHash),
-  ])
-
-  ipfs.mapJSON(rewardsIpfsHash, 'updateRewards', callbackData)
+  const data = ipfs.cat(rewardsIpfsHash) as Bytes
+  updateRewards(json.fromBytes(data), rewardsRoot, updateTimestamp, rewardsIpfsHash)
   log.info('[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={}', [
     rewardsRoot.toHex(),
     rewardsIpfsHash,
@@ -120,14 +127,19 @@ export function handleHarvested(event: Harvested): void {
 
   const vault = Vault.load(vaultAddress) as Vault
   if (!vault.isGenesis) {
-    vault.principalAssets = vault.totalAssets
+    vault.principalAssets = vault.principalAssets.plus(totalAssetsDelta)
+    if (vault.totalAssets.lt(vault.principalAssets)) {
+      vault.totalAssets = vault.principalAssets
+    }
     vault.save()
-    log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
   } else {
     const v2Pool = createOrLoadV2Pool()
     if (!v2Pool.migrated) {
+      totalAssetsDelta = totalAssetsDelta.minus(v2Pool.rewardAssets)
       v2Pool.migrated = true
-      v2Pool.save()
     }
+    v2Pool.vaultHarvestDelta = totalAssetsDelta
+    v2Pool.save()
   }
+  log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
 }
