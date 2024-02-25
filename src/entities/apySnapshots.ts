@@ -31,13 +31,44 @@ export function getRewardPerAsset(
     .div(BigDecimal.fromString(totalDuration.toString()))
 }
 
-// function _calculateMedian(values: Array<BigDecimal>): BigDecimal {
-//   const sortedValues = values.sort((a, b) => (a.lt(b) ? -1 : 1))
-//   const mid = sortedValues.length / 2
-//   return sortedValues.length % 2 !== 0
-//     ? sortedValues[i32(mid)]
-//     : sortedValues[mid - 1].plus(sortedValues[mid]).div(BigDecimal.fromString('2'))
-// }
+function _calculateMedian(values: Array<BigDecimal>): BigDecimal {
+  if (values.length === 0) {
+    return BigDecimal.fromString('0')
+  }
+
+  // Sort the values
+  const sortedValues = values.sort((a, b) => (a.lt(b) ? -1 : a.gt(b) ? 1 : 0))
+  const mid = sortedValues.length / 2
+
+  if (sortedValues.length % 2 !== 0) {
+    // For odd number of elements, directly access the middle element
+    return sortedValues[(mid - 0.5) as i32] // Adjusting for 0-based index
+  } else {
+    // For even number of elements, calculate the average of the two middle elements
+    const lowerMidIndex = mid - 1
+    const upperMidIndex = mid
+    return sortedValues[lowerMidIndex as i32].plus(sortedValues[upperMidIndex as i32]).div(BigDecimal.fromString('2'))
+  }
+}
+
+function _calculateAverage(values: Array<BigDecimal>): BigDecimal {
+  if (values.length === 0) {
+    return BigDecimal.fromString('0')
+  }
+
+  // Start with a sum of zero.
+  let sum: BigDecimal = BigDecimal.fromString('0')
+
+  // Iterate over all values to calculate the sum.
+  for (let i = 0; i < values.length; i++) {
+    sum = sum.plus(values[i])
+  }
+
+  // Divide the sum by the number of values to get the average.
+  // Note: BigDecimal division needs to handle scale/precision appropriately.
+  // Here, 'values.length' is converted to a BigDecimal for division.
+  return sum.div(BigDecimal.fromString(values.length.toString()))
+}
 
 export function updateVaultApy(
   vault: Vault,
@@ -65,9 +96,8 @@ export function updateVaultApy(
   )
 
   // calculate weekly apy
-  let execApySum = currentExecApy
-  let consensusApySum = currentConsensusApy
-  let snapshotsCounter = 1
+  let executionApys: Array<BigDecimal> = [currentExecApy]
+  let consensusApys: Array<BigDecimal> = [currentConsensusApy]
   const totalSnapshots = vault.apySnapshotsCount
   for (let i = 1; i < snapshotsPerWeek; i++) {
     const snapshotId = `${vault.id}-${totalSnapshots.minus(BigInt.fromI32(i))}`
@@ -75,9 +105,8 @@ export function updateVaultApy(
     if (snapshot === null) {
       break
     }
-    execApySum = execApySum.plus(snapshot.executionApy)
-    consensusApySum = consensusApySum.plus(snapshot.consensusApy)
-    snapshotsCounter += 1
+    executionApys.push(snapshot.executionApy)
+    consensusApys.push(snapshot.consensusApy)
   }
 
   const snapshotId = `${vault.id}-${totalSnapshots}`
@@ -93,9 +122,12 @@ export function updateVaultApy(
   vaultApySnapshot.vault = vault.id
   vaultApySnapshot.save()
 
-  vault.executionApy = execApySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
-  vault.consensusApy = consensusApySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
+  vault.executionApy = _calculateAverage(executionApys)
+  vault.consensusApy = _calculateAverage(consensusApys)
   vault.apy = vault.executionApy.plus(vault.consensusApy)
+  vault.medianExecutionApy = _calculateMedian(executionApys)
+  vault.medianConsensusApy = _calculateMedian(consensusApys)
+  vault.medianApy = vault.medianExecutionApy.plus(vault.medianConsensusApy)
   vault.apySnapshotsCount = vault.apySnapshotsCount.plus(BigInt.fromI32(1))
 }
 
@@ -120,9 +152,8 @@ export function updatePoolApy(
   )
 
   // calculate weekly apy
-  let execApySum = currentExecApy
-  let consensusApySum = currentConsensusApy
-  let snapshotsCounter = 1
+  let execApys: Array<BigDecimal> = [currentExecApy]
+  let consensusApys: Array<BigDecimal> = [currentConsensusApy]
   const totalSnapshots = pool.apySnapshotsCount
   for (let i = 1; i < snapshotsPerWeek; i++) {
     const snapshotId = `${pool.id}-${totalSnapshots.minus(BigInt.fromI32(i))}`
@@ -130,9 +161,8 @@ export function updatePoolApy(
     if (snapshot === null) {
       break
     }
-    execApySum = execApySum.plus(snapshot.executionApy)
-    consensusApySum = consensusApySum.plus(snapshot.consensusApy)
-    snapshotsCounter += 1
+    execApys.push(snapshot.executionApy)
+    consensusApys.push(snapshot.consensusApy)
   }
 
   const snapshotId = `${pool.id}-${totalSnapshots}`
@@ -147,8 +177,8 @@ export function updatePoolApy(
   poolApySnapshot.toEpochTimestamp = toTimestamp
   poolApySnapshot.save()
 
-  pool.executionApy = execApySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
-  pool.consensusApy = consensusApySum.div(BigDecimal.fromString(snapshotsCounter.toString()))
+  pool.executionApy = _calculateAverage(execApys)
+  pool.consensusApy = _calculateAverage(consensusApys)
   pool.apy = pool.executionApy.plus(pool.consensusApy)
   pool.apySnapshotsCount = pool.apySnapshotsCount.plus(BigInt.fromI32(1))
 }

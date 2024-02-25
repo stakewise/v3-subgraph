@@ -47,8 +47,6 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
   vault.totalAssets = BigInt.zero()
-  vault.queuedShares = BigInt.zero()
-  vault.unclaimedAssets = BigInt.zero()
   vault.principalAssets = BigInt.zero()
   vault.isPrivate = isPrivate
   vault.isBlocklist = false
@@ -60,9 +58,13 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.apy = BigDecimal.zero()
   vault.executionApy = BigDecimal.zero()
   vault.consensusApy = BigDecimal.zero()
+  vault.medianApy = BigDecimal.zero()
+  vault.medianExecutionApy = BigDecimal.zero()
+  vault.medianConsensusApy = BigDecimal.zero()
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = false
+  vault.version = BigInt.fromI32(1)
 
   if (ownMevEscrow != Address.zero()) {
     vault.mevEscrow = event.params.ownMevEscrow
