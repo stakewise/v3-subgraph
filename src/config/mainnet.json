@@ -54,5 +54,10 @@
   "v2StakedEthToken": {
     "address": "0xFe2e637202056d30016725477c5da089Ab0A043A",
     "startBlock": "11726303"
+  },
+  "starknetMerkleDrop": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "startBlock": "18470145",
+    "ipfsHash": ""
   }
 }

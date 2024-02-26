@@ -1,4 +1,4 @@
-specVersion: 0.0.7
+specVersion: 0.0.8
 description: The liquid staking protocol
 repository: https://github.com/stakewise/v3-subgraph
 schema:
@@ -15,7 +15,7 @@ dataSources:
       startBlock: {{ osToken.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/osToken.ts
       entities:
@@ -35,7 +35,7 @@ dataSources:
       startBlock: {{ ethVaultFactory.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/vaultFactory.ts
       entities:
@@ -57,7 +57,7 @@ dataSources:
       startBlock: {{ ethPrivVaultFactory.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/vaultFactory.ts
       entities:
@@ -79,7 +79,7 @@ dataSources:
       startBlock: {{ ethErc20VaultFactory.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/vaultFactory.ts
       entities:
@@ -101,7 +101,7 @@ dataSources:
       startBlock: {{ ethPrivErc20VaultFactory.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/vaultFactory.ts
       entities:
@@ -124,7 +124,7 @@ dataSources:
       startBlock: {{ keeper.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/keeper.ts
       entities:
@@ -150,7 +150,7 @@ dataSources:
       startBlock: {{ osTokenVaultController.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/osToken.ts
       entities:
@@ -173,7 +173,7 @@ dataSources:
       startBlock: {{ genesisVault.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
@@ -201,7 +201,7 @@ dataSources:
       startBlock: {{ foxVault.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
@@ -224,7 +224,7 @@ dataSources:
       startBlock: {{ rewardSplitterFactory.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/rewardSplitter.ts
       entities:
@@ -245,7 +245,7 @@ dataSources:
       startBlock: {{ v2RewardEthToken.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/v2pool.ts
       entities:
@@ -265,7 +265,7 @@ dataSources:
       startBlock: {{ v2RewardEthToken.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/v2pool.ts
       entities:
@@ -285,7 +285,7 @@ dataSources:
       startBlock: {{ v2RewardEthToken.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/v2pool.ts
       entities:
@@ -307,7 +307,7 @@ dataSources:
       startBlock: {{ v2StakedEthToken.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/v2pool.ts
       entities:
@@ -318,6 +318,37 @@ dataSources:
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleStakedEthTokenTransfer
+  - kind: ethereum/contract
+    name: StarknetMerkleDrop
+    network: {{ network }}
+    context:
+      merkleDropAddress:
+        type: String
+        data: '{{ starknetMerkleDrop.address }}'
+      merkleDropIpfsHash:
+        type: String
+        data: '{{ starknetMerkleDrop.ipfsHash }}'
+    source:
+      address: '{{ starknetMerkleDrop.address }}'
+      abi: MerkleDrop
+      startBlock: {{ starknetMerkleDrop.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/merkleDrop.ts
+      entities:
+        - MerkleDropAllocation
+      abis:
+        - name: MerkleDrop
+          file: ./abis/MerkleDrop.json
+      eventHandlers:
+        - event: Claimed(uint256,address,uint256)
+          handler: handleClaimed
+      blockHandlers:
+        - handler: initialize
+          filter:
+            kind: once
 templates:
   - kind: ethereum/contract
     name: Erc20Token
@@ -326,7 +357,7 @@ templates:
       abi: Erc20Token
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/osToken.ts
       entities:
@@ -344,7 +375,7 @@ templates:
       abi: Vault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
@@ -396,7 +427,7 @@ templates:
       abi: PrivateVault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/privateVault.ts
       entities:
@@ -418,7 +449,7 @@ templates:
       abi: BlocklistVault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/blocklistVault.ts
       entities:
@@ -440,7 +471,7 @@ templates:
       abi: Erc20Vault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/erc20Vault.ts
       entities:
@@ -459,7 +490,7 @@ templates:
       abi: OwnMevEscrow
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/mevEscrow.ts
       entities:
@@ -477,7 +508,7 @@ templates:
       abi: RewardSplitter
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/rewardSplitter.ts
       entities:
