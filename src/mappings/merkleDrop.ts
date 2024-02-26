@@ -7,6 +7,8 @@ export function initialize(block: ethereum.Block): void {
   const ipfsHash = context.getString('merkleDropIpfsHash')
   const merkleDropAddress = context.getString('merkleDropAddress')
   const data = ipfs.cat(ipfsHash) as Bytes
+
+  // save allocations to the subgraph
   const allocations = json.fromBytes(data).toObject().mustGet('claims').toArray()
   for (let i = 0; i < allocations.length; i++) {
     const allocation = allocations[i].toObject()
@@ -23,6 +25,7 @@ export function initialize(block: ethereum.Block): void {
   }
   log.info('[MerkleDrop] Initialize merkle drop at block={}', [block.number.toString()])
 }
+
 export function handleClaimed(event: Claimed): void {
   const allocationId = `${event.address.toHex()}-${event.params.account.toHex()}`
   let allocation = MerkleDropAllocation.load(allocationId) as MerkleDropAllocation
