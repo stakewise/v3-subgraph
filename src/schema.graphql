@@ -217,6 +217,9 @@ type Vault @entity {
   "The vault average weekly total APY"
   apy: BigDecimal!
 
+  "(deprecated) The vault average weekly total APY"
+  weeklyApy: BigDecimal!
+
   "The vault average weekly consensus APY"
   consensusApy: BigDecimal!
 
@@ -464,13 +467,16 @@ type V2Pool @entity {
   "The total number of APY snapshots"
   apySnapshotsCount: BigInt!
 
-  "The pool weekly total APY"
+  "The pool average weekly total APY"
   apy: BigDecimal!
 
-  "The pool weekly consensus APY"
+  "(deprecated) The pool average weekly total APY"
+  weeklyApy: BigDecimal!
+
+  "The pool average weekly consensus APY"
   consensusApy: BigDecimal!
 
-  "The pool weekly execution APY"
+  "The pool average weekly execution APY"
   executionApy: BigDecimal!
 
   "Last rewards update timestamp"

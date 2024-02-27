@@ -499,6 +499,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
   vault.apy = BigDecimal.zero()
+  vault.weeklyApy = BigDecimal.zero()
   vault.executionApy = BigDecimal.zero()
   vault.consensusApy = BigDecimal.zero()
   vault.medianApy = BigDecimal.zero()
@@ -563,6 +564,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
   vault.apy = BigDecimal.zero()
+  vault.weeklyApy = BigDecimal.zero()
   vault.executionApy = BigDecimal.zero()
   vault.consensusApy = BigDecimal.zero()
   vault.medianApy = BigDecimal.zero()

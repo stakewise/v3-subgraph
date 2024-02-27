@@ -125,6 +125,7 @@ export function updateVaultApy(
   vault.executionApy = _calculateAverage(executionApys)
   vault.consensusApy = _calculateAverage(consensusApys)
   vault.apy = vault.executionApy.plus(vault.consensusApy)
+  vault.weeklyApy = vault.apy
   vault.medianExecutionApy = _calculateMedian(executionApys)
   vault.medianConsensusApy = _calculateMedian(consensusApys)
   vault.medianApy = vault.medianExecutionApy.plus(vault.medianConsensusApy)
@@ -180,6 +181,7 @@ export function updatePoolApy(
   pool.executionApy = _calculateAverage(execApys)
   pool.consensusApy = _calculateAverage(consensusApys)
   pool.apy = pool.executionApy.plus(pool.consensusApy)
+  pool.weeklyApy = pool.apy
   pool.apySnapshotsCount = pool.apySnapshotsCount.plus(BigInt.fromI32(1))
 }
 

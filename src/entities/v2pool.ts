@@ -16,6 +16,7 @@ export function createOrLoadV2Pool(): V2Pool {
     pool.migrated = false
     pool.apySnapshotsCount = BigInt.zero()
     pool.apy = BigDecimal.zero()
+    pool.weeklyApy = BigDecimal.zero()
     pool.executionApy = BigDecimal.zero()
     pool.consensusApy = BigDecimal.zero()
     pool.save()

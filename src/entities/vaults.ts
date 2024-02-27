@@ -56,6 +56,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.createdAt = block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
   vault.apy = BigDecimal.zero()
+  vault.weeklyApy = BigDecimal.zero()
   vault.executionApy = BigDecimal.zero()
   vault.consensusApy = BigDecimal.zero()
   vault.medianApy = BigDecimal.zero()
