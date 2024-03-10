@@ -1,15 +1,16 @@
 import { Address, BigInt, log } from '@graphprotocol/graph-ts'
-import { RewardsUpdated as RewardsUpdatedV0 } from '../../generated/V2RewardEthTokenV0/V2RewardEthTokenV0'
-import { RewardsUpdated as RewardsUpdatedV1 } from '../../generated/V2RewardEthTokenV1/V2RewardEthTokenV1'
 import {
-  RewardsUpdated as RewardsUpdatedV2,
-  Transfer as RewardEthTokenTransfer,
-} from '../../generated/V2RewardEthTokenV2/V2RewardEthTokenV2'
-import { Transfer as StakedEthTokenTransfer } from '../../generated/V2StakedEthToken/V2StakedEthToken'
+  RewardsUpdated as RewardsUpdatedV0,
+  RewardsUpdated1 as RewardsUpdatedV1,
+  RewardsUpdated2 as RewardsUpdatedV2,
+  Transfer as RewardTokenTransfer,
+} from '../../generated/V2RewardToken/V2RewardToken'
+import { Transfer as StakedTokenTransfer } from '../../generated/V2StakedToken/V2StakedToken'
 import { Vault } from '../../generated/schema'
 import { createOrLoadV2Pool } from '../entities/v2pool'
 import { updatePoolApy, updateVaultApy } from '../entities/apySnapshots'
-import { GENESIS_VAULT } from '../helpers/constants'
+import { GENESIS_VAULT, WAD } from '../helpers/constants'
+import { getConversionRate } from '../entities/network'
 
 export function handleRewardsUpdatedV0(event: RewardsUpdatedV0): void {
   let pool = createOrLoadV2Pool()
@@ -32,6 +33,7 @@ export function handleRewardsUpdatedV1(event: RewardsUpdatedV1): void {
 export function handleRewardsUpdatedV2(event: RewardsUpdatedV2): void {
   let pool = createOrLoadV2Pool()
   if (!pool.migrated) {
+    // pool hasn't been migrated yet, update V2 rewards
     pool.rewardAssets = event.params.totalRewards
     pool.totalAssets = pool.principalAssets.plus(pool.rewardAssets)
     pool.save()
@@ -39,43 +41,55 @@ export function handleRewardsUpdatedV2(event: RewardsUpdatedV2): void {
     return
   }
 
+  // calculate period pool and vault rewards
   const vault = Vault.load(GENESIS_VAULT.toHex()) as Vault
-  const newConsensusReward = vault.consensusReward
-  const newExecutionReward = vault.unlockedExecutionReward.plus(vault.lockedExecutionReward)
-  let prevConsensusReward: BigInt, prevExecutionReward: BigInt
-  if (pool.rewardsTimestamp === null) {
-    const newTotalReward = newConsensusReward.plus(newExecutionReward)
-    prevConsensusReward = pool.rewardAssets.times(newConsensusReward).div(newTotalReward)
-    prevExecutionReward = pool.rewardAssets.minus(prevConsensusReward)
-  } else if ((vault.rewardsTimestamp as BigInt).equals(pool.rewardsTimestamp as BigInt)) {
-    // skip state update for harvested vault
-    log.warning('[V2 Pool] state update for harvested vault', [])
+  if (pool.rewardsTimestamp !== null && (vault.rewardsTimestamp as BigInt).equals(pool.rewardsTimestamp as BigInt)) {
+    // rewards haven't been updated
+    log.info('[V2 Pool] RewardsUpdated V2 skipped, rewardsTimestamp={}', [(pool.rewardsTimestamp as BigInt).toString()])
     return
+  }
+  const totalPrincipal = vault.principalAssets.plus(pool.totalAssets)
+  const totalPeriodReward = pool.vaultHarvestDelta as BigInt
+  let poolPeriodReward: BigInt
+  if (totalPeriodReward.lt(BigInt.zero())) {
+    poolPeriodReward = totalPeriodReward.times(pool.totalAssets).div(totalPrincipal)
   } else {
-    prevExecutionReward = pool.executionReward as BigInt
-    prevConsensusReward = pool.consensusReward as BigInt
+    poolPeriodReward = event.params.periodRewards
+  }
+  const vaultPeriodReward = totalPeriodReward.minus(poolPeriodReward)
+
+  // skip updating apy if it's the first rewards update
+  if (pool.rewardsTimestamp === null) {
+    pool.rewardsTimestamp = vault.rewardsTimestamp
+    pool.rewardAssets = event.params.totalRewards
+    pool.totalAssets = pool.principalAssets.plus(pool.rewardAssets)
+    pool.executionReward = vault.unlockedExecutionReward.plus(vault.lockedExecutionReward)
+    pool.consensusReward = vault.consensusReward
+    pool.save()
+
+    vault.totalAssets = vault.totalAssets.plus(vaultPeriodReward)
+    vault.principalAssets = vault.principalAssets.plus(vaultPeriodReward)
+    vault.save()
+    return
   }
 
-  // calculate principal assets
-  const v2PoolPrincipal = pool.totalAssets
-  const genesisVaultPrincipal = vault.principalAssets
-  const totalPrincipal = genesisVaultPrincipal.plus(v2PoolPrincipal)
-
-  // calculate period rewards
-  const totalPeriodReward = newConsensusReward
-    .plus(newExecutionReward)
-    .minus(prevConsensusReward)
-    .minus(prevExecutionReward)
-  const v2PoolPeriodReward = event.params.periodRewards
-  const vaultPeriodReward = totalPeriodReward.minus(v2PoolPeriodReward)
+  const periodConsensusReward = vault.consensusReward.minus(pool.consensusReward as BigInt)
+  const periodExecutionReward = vault.unlockedExecutionReward
+    .plus(vault.lockedExecutionReward)
+    .minus(pool.executionReward as BigInt)
 
   // update genesis vault
+  const executionRewardRate = getConversionRate()
   updateVaultApy(
     vault,
     pool.rewardsTimestamp,
     vault.rewardsTimestamp as BigInt,
-    newConsensusReward.minus(prevConsensusReward).times(genesisVaultPrincipal).div(totalPrincipal),
-    newExecutionReward.minus(prevExecutionReward).times(genesisVaultPrincipal).div(totalPrincipal),
+    periodConsensusReward.times(vault.principalAssets).div(totalPrincipal),
+    periodExecutionReward
+      .times(vault.principalAssets)
+      .times(executionRewardRate)
+      .div(totalPrincipal)
+      .div(BigInt.fromString(WAD)),
   )
   vault.totalAssets = vault.totalAssets.plus(vaultPeriodReward)
   vault.principalAssets = vault.principalAssets.plus(vaultPeriodReward)
@@ -86,19 +100,24 @@ export function handleRewardsUpdatedV2(event: RewardsUpdatedV2): void {
     pool,
     pool.rewardsTimestamp,
     vault.rewardsTimestamp as BigInt,
-    newConsensusReward.minus(prevConsensusReward).times(v2PoolPrincipal).div(totalPrincipal),
-    newExecutionReward.minus(prevExecutionReward).times(v2PoolPrincipal).div(totalPrincipal),
+    periodConsensusReward.times(pool.totalAssets).div(totalPrincipal),
+    periodExecutionReward
+      .times(pool.totalAssets)
+      .times(executionRewardRate)
+      .div(totalPrincipal)
+      .div(BigInt.fromString(WAD)),
   )
   pool.rewardsTimestamp = vault.rewardsTimestamp
   pool.rewardAssets = event.params.totalRewards
   pool.totalAssets = pool.principalAssets.plus(pool.rewardAssets)
-  pool.executionReward = newExecutionReward
-  pool.consensusReward = newConsensusReward
+  pool.executionReward = vault.unlockedExecutionReward.plus(vault.lockedExecutionReward)
+  pool.consensusReward = vault.consensusReward
+  pool.vaultHarvestDelta = BigInt.zero()
   pool.save()
   log.info('[V2 Pool] RewardsUpdated V2 totalRewards={}', [pool.rewardAssets.toString()])
 }
 
-export function handleRewardEthTokenTransfer(event: RewardEthTokenTransfer): void {
+export function handleRewardTokenTransfer(event: RewardTokenTransfer): void {
   const isBurn = event.params.to == Address.zero()
   if (!isBurn) {
     // handle only burn events
@@ -111,10 +130,10 @@ export function handleRewardEthTokenTransfer(event: RewardEthTokenTransfer): voi
   pool.totalAssets = pool.principalAssets.plus(pool.rewardAssets)
   pool.save()
 
-  log.info('[V2 Pool] StakedEthToken burn amount={}', [value.toString()])
+  log.info('[V2 Pool] StakedToken burn amount={}', [value.toString()])
 }
 
-export function handleStakedEthTokenTransfer(event: StakedEthTokenTransfer): void {
+export function handleStakedTokenTransfer(event: StakedTokenTransfer): void {
   const isMint = event.params.from == Address.zero()
   const isBurn = event.params.to == Address.zero()
   if (!(isMint || isBurn)) {
@@ -126,12 +145,12 @@ export function handleStakedEthTokenTransfer(event: StakedEthTokenTransfer): voi
   let value = event.params.value
   if (isMint) {
     pool.principalAssets = pool.principalAssets.plus(value)
-    log.info('[V2 Pool] StakedEthToken mint amount={}', [value.toString()])
+    log.info('[V2 Pool] StakedToken mint amount={}', [value.toString()])
   }
 
   if (isBurn) {
     pool.principalAssets = pool.principalAssets.minus(value)
-    log.info('[V2 Pool] StakedEthToken burn amount={}', [value.toString()])
+    log.info('[V2 Pool] StakedToken burn amount={}', [value.toString()])
   }
   pool.totalAssets = pool.principalAssets.plus(pool.rewardAssets)
   pool.save()

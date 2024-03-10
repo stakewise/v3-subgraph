@@ -1,7 +1,7 @@
 import { log, BigInt } from '@graphprotocol/graph-ts'
-import { RewardSplitterCreated } from '../../generated/RewardSplitterFactory/RewardSplitterFactory'
 import { RewardSplitter as RewardSplitterTemplate } from '../../generated/templates'
 import { SharesIncreased, SharesDecreased } from '../../generated/templates/RewardSplitter/RewardSplitter'
+import { RewardSplitterCreated } from '../../generated/templates/RewardSplitterFactory/RewardSplitterFactory'
 import { RewardSplitter } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
 import { createOrLoadRewardSplitterShareHolder } from '../entities/rewardSplitter'

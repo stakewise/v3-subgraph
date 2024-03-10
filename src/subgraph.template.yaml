@@ -1,4 +1,4 @@
-specVersion: 0.0.7
+specVersion: 0.0.8
 description: The liquid staking protocol
 repository: https://github.com/stakewise/v3-subgraph
 schema:
@@ -15,7 +15,7 @@ dataSources:
       startBlock: {{ osToken.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/osToken.ts
       entities:
@@ -27,95 +27,6 @@ dataSources:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
   - kind: ethereum/contract
-    name: VaultFactory
-    network: {{ network }}
-    source:
-      address: '{{ ethVaultFactory.address }}'
-      abi: VaultFactory
-      startBlock: {{ ethVaultFactory.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./mappings/vaultFactory.ts
-      entities:
-        - Vault
-        - Network
-        - Transaction
-      abis:
-        - name: VaultFactory
-          file: ./abis/VaultFactory.json
-      eventHandlers:
-        - event: VaultCreated(indexed address,indexed address,address,bytes)
-          handler: handleVaultCreated
-  - kind: ethereum/contract
-    name: PrivVaultFactory
-    network: {{ network }}
-    source:
-      address: '{{ ethPrivVaultFactory.address }}'
-      abi: VaultFactory
-      startBlock: {{ ethPrivVaultFactory.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./mappings/vaultFactory.ts
-      entities:
-        - Vault
-        - Network
-        - Transaction
-      abis:
-        - name: VaultFactory
-          file: ./abis/VaultFactory.json
-      eventHandlers:
-        - event: VaultCreated(indexed address,indexed address,address,bytes)
-          handler: handlePrivVaultCreated
-  - kind: ethereum/contract
-    name: Erc20VaultFactory
-    network: {{ network }}
-    source:
-      address: '{{ ethErc20VaultFactory.address }}'
-      abi: VaultFactory
-      startBlock: {{ ethErc20VaultFactory.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./mappings/vaultFactory.ts
-      entities:
-        - Vault
-        - Network
-        - Transaction
-      abis:
-        - name: VaultFactory
-          file: ./abis/VaultFactory.json
-      eventHandlers:
-        - event: VaultCreated(indexed address,indexed address,address,bytes)
-          handler: handleErc20VaultCreated
-  - kind: ethereum/contract
-    name: PrivErc20VaultFactory
-    network: {{ network }}
-    source:
-      address: '{{ ethPrivErc20VaultFactory.address }}'
-      abi: VaultFactory
-      startBlock: {{ ethPrivErc20VaultFactory.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./mappings/vaultFactory.ts
-      entities:
-        - Vault
-        - Network
-        - Transaction
-        - VaultsStat
-      abis:
-        - name: VaultFactory
-          file: ./abis/VaultFactory.json
-      eventHandlers:
-        - event: VaultCreated(indexed address,indexed address,address,bytes)
-          handler: handlePrivErc20VaultCreated
-  - kind: ethereum/contract
     name: Keeper
     network: {{ network }}
     source:
@@ -124,7 +35,7 @@ dataSources:
       startBlock: {{ keeper.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/keeper.ts
       entities:
@@ -134,11 +45,17 @@ dataSources:
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
+        - name: PriceFeed
+          file: ./abis/PriceFeed.json
       eventHandlers:
         - event: RewardsUpdated(indexed address,indexed bytes32,uint256,uint64,uint64,string)
           handler: handleRewardsUpdated
         - event: Harvested(indexed address,indexed bytes32,int256,uint256)
           handler: handleHarvested
+      blockHandlers:
+        - handler: initialize
+          filter:
+            kind: once
   - kind: ethereum/contract
     name: OsTokenVaultController
     network: {{ network }}
@@ -148,7 +65,7 @@ dataSources:
       startBlock: {{ osTokenVaultController.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/osToken.ts
       entities:
@@ -171,7 +88,7 @@ dataSources:
       startBlock: {{ genesisVault.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
@@ -191,15 +108,15 @@ dataSources:
         - event: Migrated(address,uint256,uint256)
           handler: handleMigrated
   - kind: ethereum/contract
-    name: FoxVault1
+    name: FoxVault
     network: {{ network }}
     source:
-      address: '{{ foxVault1.address }}'
+      address: '{{ foxVault.address }}'
       abi: FoxVault
-      startBlock: {{ foxVault1.startBlock }}
+      startBlock: {{ foxVault.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
@@ -214,38 +131,112 @@ dataSources:
         - event: EthFoxVaultCreated(address,address,uint256,uint16,string)
           handler: handleFoxVaultCreated
   - kind: ethereum/contract
-    name: FoxVault2
+    name: V2RewardToken
     network: {{ network }}
     source:
-      address: '{{ foxVault2.address }}'
-      abi: FoxVault
-      startBlock: {{ foxVault2.startBlock }}
+      address: '{{ v2RewardToken.address }}'
+      abi: V2RewardToken
+      startBlock: {{ v2RewardToken.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
-      file: ./mappings/vault.ts
+      file: ./mappings/v2pool.ts
+      entities:
+        - V2Pool
+      abis:
+        - name: V2RewardToken
+          file: ./abis/V2RewardToken.json
+      eventHandlers:
+        - event: RewardsUpdated(uint256,uint256,uint256,uint256)
+          handler: handleRewardsUpdatedV0
+        - event: RewardsUpdated(uint256,uint256,uint256)
+          handler: handleRewardsUpdatedV1
+        - event: RewardsUpdated(uint256,uint256,uint256,uint256,uint256)
+          handler: handleRewardsUpdatedV2
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleRewardTokenTransfer
+  - kind: ethereum/contract
+    name: V2StakedToken
+    network: {{ network }}
+    source:
+      address: '{{ v2StakedToken.address }}'
+      abi: V2StakedToken
+      startBlock: {{ v2StakedToken.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/v2pool.ts
+      entities:
+        - V2Pool
+      abis:
+        - name: V2StakedToken
+          file: ./abis/V2StakedToken.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleStakedTokenTransfer
+  - kind: ethereum/contract
+    name: StarknetMerkleDrop
+    network: {{ network }}
+    context:
+      merkleDropAddress:
+        type: String
+        data: '{{ starknetMerkleDrop.address }}'
+      merkleDropIpfsHash:
+        type: String
+        data: '{{ starknetMerkleDrop.ipfsHash }}'
+    source:
+      address: '{{ starknetMerkleDrop.address }}'
+      abi: MerkleDrop
+      startBlock: {{ starknetMerkleDrop.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/merkleDrop.ts
+      entities:
+        - MerkleDropAllocation
+        - Transaction
+      abis:
+        - name: MerkleDrop
+          file: ./abis/MerkleDrop.json
+      eventHandlers:
+        - event: Claimed(uint256,address,uint256)
+          handler: handleClaimed
+      blockHandlers:
+        - handler: initialize
+          filter:
+            kind: once
+templates:
+  - kind: ethereum/contract
+    name: VaultFactory
+    network: {{ network }}
+    source:
+      abi: VaultFactory
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/vaultFactory.ts
       entities:
         - Vault
         - Network
-        - VaultsStat
         - Transaction
       abis:
-        - name: FoxVault
-          file: ./abis/FoxVault.json
+        - name: VaultFactory
+          file: ./abis/VaultFactory.json
       eventHandlers:
-        - event: EthFoxVaultCreated(address,address,uint256,uint16,string)
-          handler: handleFoxVaultCreated
+        - event: VaultCreated(indexed address,indexed address,address,bytes)
+          handler: handleVaultCreated
   - kind: ethereum/contract
     name: RewardSplitterFactory
     network: {{ network }}
     source:
-      address: '{{ rewardSplitterFactory.address }}'
       abi: RewardSplitterFactory
-      startBlock: {{ rewardSplitterFactory.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/rewardSplitter.ts
       entities:
@@ -258,114 +249,13 @@ dataSources:
         - event: RewardSplitterCreated(address,address,address)
           handler: handleRewardSplitterCreated
   - kind: ethereum/contract
-    name: V2RewardEthTokenV0
-    network: {{ network }}
-    source:
-      address: '{{ v2RewardEthToken.address }}'
-      abi: V2RewardEthTokenV0
-      startBlock: {{ v2RewardEthToken.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./mappings/v2pool.ts
-      entities:
-        - V2Pool
-      abis:
-        - name: V2RewardEthTokenV0
-          file: ./abis/V2RewardEthTokenV0.json
-      eventHandlers:
-        - event: RewardsUpdated(uint256,uint256,uint256,uint256)
-          handler: handleRewardsUpdatedV0
-  - kind: ethereum/contract
-    name: V2RewardEthTokenV1
-    network: {{ network }}
-    source:
-      address: '{{ v2RewardEthToken.address }}'
-      abi: V2RewardEthTokenV1
-      startBlock: {{ v2RewardEthToken.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./mappings/v2pool.ts
-      entities:
-        - V2Pool
-      abis:
-        - name: V2RewardEthTokenV1
-          file: ./abis/V2RewardEthTokenV1.json
-      eventHandlers:
-        - event: RewardsUpdated(uint256,uint256,uint256)
-          handler: handleRewardsUpdatedV1
-  - kind: ethereum/contract
-    name: V2RewardEthTokenV2
-    network: {{ network }}
-    source:
-      address: '{{ v2RewardEthToken.address }}'
-      abi: V2RewardEthTokenV2
-      startBlock: {{ v2RewardEthToken.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./mappings/v2pool.ts
-      entities:
-        - V2Pool
-      abis:
-        - name: V2RewardEthTokenV2
-          file: ./abis/V2RewardEthTokenV2.json
-      eventHandlers:
-        - event: RewardsUpdated(uint256,uint256,uint256,uint256,uint256)
-          handler: handleRewardsUpdatedV2
-        - event: Transfer(indexed address,indexed address,uint256)
-          handler: handleRewardEthTokenTransfer
-  - kind: ethereum/contract
-    name: V2StakedEthToken
-    network: {{ network }}
-    source:
-      address: '{{ v2StakedEthToken.address }}'
-      abi: V2StakedEthToken
-      startBlock: {{ v2StakedEthToken.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./mappings/v2pool.ts
-      entities:
-        - V2Pool
-      abis:
-        - name: V2StakedEthToken
-          file: ./abis/V2StakedEthToken.json
-      eventHandlers:
-        - event: Transfer(indexed address,indexed address,uint256)
-          handler: handleStakedEthTokenTransfer
-templates:
-  - kind: ethereum/contract
-    name: Erc20Token
-    network: {{ network }}
-    source:
-      abi: Erc20Token
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./mappings/osToken.ts
-      entities:
-        - OsTokenHolder
-      abis:
-        - name: Erc20Token
-          file: ./abis/Erc20Token.json
-      eventHandlers:
-        - event: Transfer(indexed address,indexed address,uint256)
-          handler: handleTransfer
-  - kind: ethereum/contract
     name: Vault
     network: {{ network }}
     source:
       abi: Vault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
@@ -385,7 +275,9 @@ templates:
         - event: Redeemed(indexed address,indexed address,uint256,uint256)
           handler: handleRedeemed
         - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256)
-          handler: handleExitQueueEntered
+          handler: handleV1ExitQueueEntered
+        - event: V2ExitQueueEntered(indexed address,indexed address,uint256,uint256,uint256)
+          handler: handleV2ExitQueueEntered
         - event: ExitedAssetsClaimed(indexed address,uint256,uint256,uint256)
           handler: handleExitedAssetsClaimed
         - event: ValidatorsRootUpdated(indexed address,indexed bytes32)
@@ -408,6 +300,8 @@ templates:
           handler: handleOsTokenLiquidated
         - event: OsTokenRedeemed(indexed address,indexed address,address,uint256,uint256,uint256)
           handler: handleOsTokenRedeemed
+        - event: Initialized(uint64)
+          handler: handleInitialized
   - kind: ethereum/contract
     name: PrivateVault
     network: {{ network }}
@@ -415,7 +309,7 @@ templates:
       abi: PrivateVault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/privateVault.ts
       entities:
@@ -437,7 +331,7 @@ templates:
       abi: BlocklistVault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/blocklistVault.ts
       entities:
@@ -459,7 +353,7 @@ templates:
       abi: Erc20Vault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/erc20Vault.ts
       entities:
@@ -472,13 +366,52 @@ templates:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
   - kind: ethereum/contract
+    name: GnoVault
+    network: {{ network }}
+    source:
+      abi: GnoVault
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/gnoVault.ts
+      entities:
+        - Vault
+        - Transaction
+      abis:
+        - name: GnoVault
+          file: ./abis/GnoVault.json
+      eventHandlers:
+        - event: XdaiSwapped(uint256,uint256)
+          handler: handleXdaiSwapped
+        - event: XdaiManagerUpdated(address,address)
+          handler: handleXdaiManagerUpdated
+  - kind: ethereum/contract
+    name: OwnMevEscrow
+    network: {{ network }}
+    source:
+      abi: OwnMevEscrow
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/mevEscrow.ts
+      entities:
+        - Vault
+      abis:
+        - name: OwnMevEscrow
+          file: ./abis/OwnMevEscrow.json
+      eventHandlers:
+        - event: Harvested(uint256)
+          handler: handleHarvested
+  - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}
     source:
       abi: RewardSplitter
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.8
       language: wasm/assemblyscript
       file: ./mappings/rewardSplitter.ts
       entities:

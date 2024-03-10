@@ -5,23 +5,23 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "periodRewards",
+        "name": "index",
         "type": "uint256"
       },
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "totalRewards",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "rewardPerToken",
+        "name": "amount",
         "type": "uint256"
       }
     ],
-    "name": "RewardsUpdated",
+    "name": "Claimed",
     "type": "event"
   }
 ]

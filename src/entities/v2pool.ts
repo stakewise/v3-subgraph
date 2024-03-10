@@ -1,6 +1,7 @@
 import { BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 
 import { V2Pool } from '../../generated/schema'
+import { V2_POOL_FEE_PERCENT } from '../helpers/constants'
 
 const poolId = '1'
 
@@ -12,11 +13,11 @@ export function createOrLoadV2Pool(): V2Pool {
     pool.totalAssets = BigInt.zero()
     pool.rewardAssets = BigInt.zero()
     pool.principalAssets = BigInt.zero()
-    pool.feePercent = 1000
+    pool.feePercent = I32.parseInt(V2_POOL_FEE_PERCENT)
     pool.migrated = false
     pool.apySnapshotsCount = BigInt.zero()
-    pool.weeklyApy = BigDecimal.zero()
     pool.apy = BigDecimal.zero()
+    pool.weeklyApy = BigDecimal.zero()
     pool.executionApy = BigDecimal.zero()
     pool.consensusApy = BigDecimal.zero()
     pool.save()

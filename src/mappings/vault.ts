@@ -1,14 +1,20 @@
-import { Address, BigDecimal, BigInt, ipfs, json, log, store } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, DataSourceContext, ipfs, json, log, store } from '@graphprotocol/graph-ts'
 
 import { ExitRequest, Vault } from '../../generated/schema'
-import { Vault as VaultTemplate, BlocklistVault as BlocklistVaultTemplate } from '../../generated/templates'
+import {
+  BlocklistVault as BlocklistVaultTemplate,
+  OwnMevEscrow as OwnMevEscrowTemplate,
+  Vault as VaultTemplate,
+} from '../../generated/templates'
 import {
   CheckpointCreated,
   Deposited,
   ExitedAssetsClaimed,
-  ExitQueueEntered,
+  ExitQueueEntered as V1ExitQueueEntered,
+  V2ExitQueueEntered,
   FeeRecipientUpdated,
   FeeSharesMinted,
+  Initialized,
   KeysManagerUpdated,
   MetadataUpdated,
   OsTokenBurned,
@@ -19,7 +25,7 @@ import {
   ValidatorsRootUpdated,
 } from '../../generated/templates/Vault/Vault'
 import { GenesisVaultCreated, Migrated } from '../../generated/GenesisVault/GenesisVault'
-import { EthFoxVaultCreated } from '../../generated/FoxVault1/FoxVault'
+import { EthFoxVaultCreated } from '../../generated/FoxVault/FoxVault'
 
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
@@ -126,6 +132,19 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
   log.info('[Vault] MetadataUpdated metadataIpfsHash={}', [params.metadataIpfsHash])
 }
 
+// Event emitted on vault upgrade
+export function handleInitialized(event: Initialized): void {
+  const vaultAddress = event.address.toHex()
+  const vault = Vault.load(vaultAddress) as Vault
+  const newVersion = event.params.version
+  vault.version = newVersion
+  vault.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[Vault] Initialized vault={} version={}', [vaultAddress, newVersion.toString()])
+}
+
 // Event emitted on validators root and IPFS hash update
 export function handleValidatorsRootUpdated(event: ValidatorsRootUpdated): void {
   const params = event.params
@@ -183,23 +202,19 @@ export function handleKeysManagerUpdated(event: KeysManagerUpdated): void {
   log.info('[Vault] KeysManagerUpdated vault={} keysManager={}', [vaultAddress, keysManager.toHex()])
 }
 
-// Event emitted when an allocator enters the exit queue.
+// Event emitted when an allocator enters the V1 exit queue.
 // Shares locked, but assets can't be claimed until shares burned (on CheckpointCreated event)
-export function handleExitQueueEntered(event: ExitQueueEntered): void {
+export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   const params = event.params
 
   const owner = params.owner
-  const shares = params.shares
   const receiver = params.receiver
   const positionTicket = params.positionTicket
+  const shares = params.shares
   const vaultAddress = event.address.toHex()
 
   // Update vault queued shares
   const vault = Vault.load(vaultAddress) as Vault
-
-  vault.queuedShares = vault.queuedShares.plus(shares)
-  vault.save()
-
   if (!vault.isErc20) {
     // if it's ERC-20 vault shares are updated in Transfer event handler
     const allocator = createOrLoadAllocator(owner, event.address)
@@ -221,11 +236,60 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   exitRequest.owner = owner
   exitRequest.receiver = receiver
   exitRequest.totalShares = shares
+  exitRequest.totalAssets = BigInt.zero()
   exitRequest.positionTicket = positionTicket
   exitRequest.timestamp = timestamp
   exitRequest.save()
 
-  log.info('[Vault] ExitQueueEntered vault={} owner={} shares={}', [vaultAddress, owner.toHex(), shares.toString()])
+  log.info('[Vault] V1ExitQueueEntered vault={} owner={} shares={}', [vaultAddress, owner.toHex(), shares.toString()])
+}
+
+// Event emitted when an allocator enters the V2 exit queue.
+// Shares are burned, but assets can't be claimed until available in vault
+export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
+  const params = event.params
+
+  const owner = params.owner
+  const receiver = params.receiver
+  const positionTicket = params.positionTicket
+  const shares = params.shares
+  const assets = params.assets
+  const vaultAddress = event.address.toHex()
+
+  // Update vault queued shares
+  const vault = Vault.load(vaultAddress) as Vault
+  if (!vault.isErc20) {
+    // if it's ERC-20 vault shares are updated in Transfer event handler
+    const allocator = createOrLoadAllocator(owner, event.address)
+    allocator.shares = allocator.shares.minus(shares)
+    allocator.save()
+  }
+
+  const timestamp = event.block.timestamp
+
+  createAllocatorAction(event, event.address, 'ExitQueueEntered', owner, assets, shares)
+
+  createTransaction(event.transaction.hash.toHex())
+
+  // Create exit request
+  const exitRequestId = `${vaultAddress}-${positionTicket}`
+  const exitRequest = new ExitRequest(exitRequestId)
+
+  exitRequest.vault = vaultAddress
+  exitRequest.owner = owner
+  exitRequest.receiver = receiver
+  exitRequest.totalShares = BigInt.zero()
+  exitRequest.totalAssets = assets
+  exitRequest.positionTicket = positionTicket
+  exitRequest.timestamp = timestamp
+  exitRequest.save()
+
+  log.info('[Vault] V2ExitQueueEntered vault={} owner={} shares={} assets={}', [
+    vaultAddress,
+    owner.toHex(),
+    shares.toString(),
+    assets.toString(),
+  ])
 }
 
 // Event emitted when an allocator claim assets partially or completely.
@@ -236,14 +300,12 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const receiver = params.receiver
   const prevPositionTicket = params.prevPositionTicket
   const newPositionTicket = params.newPositionTicket
-  const withdrawnAssets = params.withdrawnAssets
+  const claimedAssets = params.withdrawnAssets
   const vaultAddress = event.address.toHex()
   const vault = Vault.load(vaultAddress) as Vault
-
-  vault.unclaimedAssets = vault.unclaimedAssets.minus(withdrawnAssets)
   vault.save()
 
-  createAllocatorAction(event, event.address, 'ExitedAssetsClaimed', receiver, withdrawnAssets, null)
+  createAllocatorAction(event, event.address, 'ExitedAssetsClaimed', receiver, claimedAssets, null)
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -254,8 +316,13 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
   if (!isExitQueueRequestResolved) {
     const nextExitQueueRequestId = `${vaultAddress}-${newPositionTicket}`
-    const withdrawnShares = newPositionTicket.minus(prevPositionTicket)
-    const totalShares = prevExitRequest.totalShares.minus(withdrawnShares)
+    let withdrawnShares: BigInt = BigInt.zero()
+    let withdrawnAssets: BigInt = BigInt.zero()
+    if (prevExitRequest.totalShares.gt(BigInt.zero())) {
+      withdrawnShares = newPositionTicket.minus(prevPositionTicket)
+    } else {
+      withdrawnAssets = claimedAssets
+    }
 
     const nextExitRequest = new ExitRequest(nextExitQueueRequestId)
 
@@ -264,13 +331,14 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     nextExitRequest.timestamp = prevExitRequest.timestamp
     nextExitRequest.receiver = receiver
     nextExitRequest.positionTicket = newPositionTicket
-    nextExitRequest.totalShares = totalShares
+    nextExitRequest.totalShares = prevExitRequest.totalShares.minus(withdrawnShares)
+    nextExitRequest.totalAssets = prevExitRequest.totalAssets.minus(withdrawnAssets)
     nextExitRequest.save()
   }
 
   store.remove('ExitRequest', prevExitRequestId)
 
-  log.info('[Vault] ExitedAssetsClaimed vault={} withdrawnAssets={}', [vaultAddress, withdrawnAssets.toString()])
+  log.info('[Vault] ExitedAssetsClaimed vault={} withdrawnAssets={}', [vaultAddress, claimedAssets.toString()])
 }
 
 // Event emitted when shares burned. After that assets become available for claim
@@ -283,10 +351,8 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
 
   const vault = Vault.load(vaultAddress) as Vault
   vault.totalShares = vault.totalShares.minus(burnedShares)
-  vault.queuedShares = vault.queuedShares.minus(burnedShares)
   vault.totalAssets = vault.totalAssets.minus(exitedAssets)
   vault.principalAssets = vault.principalAssets.minus(exitedAssets)
-  vault.unclaimedAssets = vault.unclaimedAssets.plus(exitedAssets)
   vault.save()
 
   const vaultsStat = createOrLoadVaultsStat()
@@ -459,8 +525,6 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
   vault.totalAssets = BigInt.zero()
-  vault.queuedShares = BigInt.zero()
-  vault.unclaimedAssets = BigInt.zero()
   vault.principalAssets = BigInt.zero()
   vault.isPrivate = false
   vault.isBlocklist = false
@@ -469,13 +533,17 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
-  vault.weeklyApy = BigDecimal.zero()
   vault.apy = BigDecimal.zero()
+  vault.weeklyApy = BigDecimal.zero()
   vault.executionApy = BigDecimal.zero()
   vault.consensusApy = BigDecimal.zero()
+  vault.medianApy = BigDecimal.zero()
+  vault.medianExecutionApy = BigDecimal.zero()
+  vault.medianConsensusApy = BigDecimal.zero()
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = true
+  vault.version = BigInt.fromI32(1)
   vault.save()
   VaultTemplate.create(vaultAddress)
 
@@ -521,8 +589,6 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
   vault.totalAssets = BigInt.zero()
-  vault.queuedShares = BigInt.zero()
-  vault.unclaimedAssets = BigInt.zero()
   vault.principalAssets = BigInt.zero()
   vault.isPrivate = false
   vault.isBlocklist = true
@@ -532,17 +598,25 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
-  vault.weeklyApy = BigDecimal.zero()
   vault.apy = BigDecimal.zero()
+  vault.weeklyApy = BigDecimal.zero()
   vault.executionApy = BigDecimal.zero()
   vault.consensusApy = BigDecimal.zero()
+  vault.medianApy = BigDecimal.zero()
+  vault.medianExecutionApy = BigDecimal.zero()
+  vault.medianConsensusApy = BigDecimal.zero()
   vault.isGenesis = false
   vault.blocklistManager = admin
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
+  vault.version = BigInt.fromI32(1)
   vault.save()
   VaultTemplate.create(vaultAddress)
   BlocklistVaultTemplate.create(vaultAddress)
+
+  const context = new DataSourceContext()
+  context.setString('vault', vaultAddressHex)
+  OwnMevEscrowTemplate.createWithContext(ownMevEscrow, context)
 
   const network = createOrLoadNetwork()
   network.vaultsTotal = network.vaultsTotal + 1

@@ -1,18 +1,11 @@
-import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
+import { dataSource } from '@graphprotocol/graph-ts'
+import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
 import { createVault } from '../entities/vaults'
 
 export function handleVaultCreated(event: VaultCreated): void {
-  createVault(event, false, false)
-}
-
-export function handlePrivVaultCreated(event: VaultCreated): void {
-  createVault(event, true, false)
-}
-
-export function handleErc20VaultCreated(event: VaultCreated): void {
-  createVault(event, false, true)
-}
-
-export function handlePrivErc20VaultCreated(event: VaultCreated): void {
-  createVault(event, true, true)
+  let context = dataSource.context()
+  let isPrivate = context.getBoolean('isPrivate')
+  let isErc20 = context.getBoolean('isErc20')
+  let isBlocklist = context.getBoolean('isBlocklist')
+  createVault(event, isPrivate, isErc20, isBlocklist)
 }

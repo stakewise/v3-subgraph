@@ -1,17 +1,19 @@
-import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
-import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
+import { Address, BigDecimal, BigInt, DataSourceContext, ethereum, log } from '@graphprotocol/graph-ts'
 import {
   Erc20Vault as Erc20VaultTemplate,
   PrivateVault as PrivateVaultTemplate,
+  BlocklistVault as BlocklistVaultTemplate,
+  OwnMevEscrow as OwnMevEscrowTemplate,
   Vault as VaultTemplate,
 } from '../../generated/templates'
+import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
 import { OsTokenPosition, Vault, VaultsStat } from '../../generated/schema'
 import { createOrLoadNetwork } from './network'
 import { createTransaction } from './transaction'
 
 const vaultsStatId = '1'
 
-export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: boolean): void {
+export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: boolean, isBlocklist: boolean): void {
   const block = event.block
   const vaultAddress = event.params.vault
   const vaultAddressHex = vaultAddress.toHex()
@@ -46,31 +48,41 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
   vault.totalAssets = BigInt.zero()
-  vault.queuedShares = BigInt.zero()
-  vault.unclaimedAssets = BigInt.zero()
   vault.principalAssets = BigInt.zero()
   vault.isPrivate = isPrivate
-  vault.isBlocklist = false
+  vault.isBlocklist = isBlocklist
   vault.isErc20 = isErc20
   vault.isOsTokenEnabled = true
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
-  vault.weeklyApy = BigDecimal.zero()
   vault.apy = BigDecimal.zero()
+  vault.weeklyApy = BigDecimal.zero()
   vault.executionApy = BigDecimal.zero()
   vault.consensusApy = BigDecimal.zero()
+  vault.medianApy = BigDecimal.zero()
+  vault.medianExecutionApy = BigDecimal.zero()
+  vault.medianConsensusApy = BigDecimal.zero()
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = false
+  vault.version = BigInt.fromI32(1)
 
   if (ownMevEscrow != Address.zero()) {
     vault.mevEscrow = event.params.ownMevEscrow
+    const context = new DataSourceContext()
+    context.setString('vault', vaultAddressHex)
+    OwnMevEscrowTemplate.createWithContext(ownMevEscrow, context)
   }
 
   if (vault.isPrivate) {
     PrivateVaultTemplate.create(vaultAddress)
     vault.whitelister = admin
+  }
+
+  if (vault.isBlocklist) {
+    BlocklistVaultTemplate.create(vaultAddress)
+    vault.blocklistManager = admin
   }
 
   vault.save()
@@ -87,7 +99,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   createTransaction(event.transaction.hash.toHex())
 
   log.info(
-    '[VaultFactory] VaultCreated address={} admin={} mevEscrow={} feePercent={} capacity={} isPrivate={} isErc20={}',
+    '[VaultFactory] VaultCreated address={} admin={} mevEscrow={} feePercent={} capacity={} isPrivate={} isErc20={} isBlocklist={}',
     [
       vaultAddressHex,
       admin.toHex(),
@@ -96,6 +108,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
       capacity.toString(),
       isPrivate.toString(),
       isErc20.toString(),
+      isBlocklist.toString(),
     ],
   )
 }

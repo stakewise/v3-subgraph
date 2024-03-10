@@ -65,6 +65,9 @@ type ExitRequest @entity {
   "The number of shares queued for exit"
   totalShares: BigInt!
 
+  "The number of assets queued for exit"
+  totalAssets: BigInt!
+
   "The timestamp when the exit request was created"
   timestamp: BigInt!
 
@@ -172,12 +175,6 @@ type Vault @entity {
   "The total number of assets"
   totalAssets: BigInt!
 
-  "The number of shares queued for the exit"
-  queuedShares: BigInt!
-
-  "The number of assets that are waiting to be claimed after exit"
-  unclaimedAssets: BigInt!
-
   "The number of assets used for rewardPerAsset calculation"
   principalAssets: BigInt!
 
@@ -199,6 +196,9 @@ type Vault @entity {
   "If the Vault is with blocklist, blocklist manager can block allocators from depositing"
   blocklistManager: Bytes
 
+  "The xDAI manager can swap xDAI to GNO on gnosis network"
+  xdaiManager: Bytes
+
   "Vault address string for search"
   addressString: String!
 
@@ -208,29 +208,41 @@ type Vault @entity {
   "The timestamp the vault was created at"
   createdAt: BigInt!
 
+  "The vault version"
+  version: BigInt!
+
   "Whether the vault is a genesis vault (v2 pool migration)"
   isGenesis: Boolean!
 
   "The total number of APY snapshots"
   apySnapshotsCount: BigInt!
 
-  "The vault weekly total APY"
+  "The vault average weekly total APY"
   apy: BigDecimal!
 
-  "The vault weekly consensus APY"
+  "(deprecated) The vault average weekly total APY"
+  weeklyApy: BigDecimal!
+
+  "The vault average weekly consensus APY"
   consensusApy: BigDecimal!
 
-  "The vault weekly execution APY"
+  "The vault average weekly execution APY"
   executionApy: BigDecimal!
+
+  "The vault median weekly total APY"
+  medianApy: BigDecimal!
+
+  "The vault median weekly execution APY"
+  medianExecutionApy: BigDecimal!
+
+  "The vault median weekly consensus APY"
+  medianConsensusApy: BigDecimal!
 
   "The total number of vault blocklisted accounts"
   blocklistCount: BigInt!
 
   "The total number of vault whitelisted accounts"
   whitelistCount: BigInt!
-
-  "(deprecated) The weekly pool APY"
-  weeklyApy: BigDecimal!
 }
 
 enum AllocatorActionType {
@@ -458,20 +470,23 @@ type V2Pool @entity {
   "The total number of APY snapshots"
   apySnapshotsCount: BigInt!
 
-  "The pool weekly total APY"
+  "The pool average weekly total APY"
   apy: BigDecimal!
 
-  "The pool weekly consensus APY"
+  "(deprecated) The pool average weekly total APY"
+  weeklyApy: BigDecimal!
+
+  "The pool average weekly consensus APY"
   consensusApy: BigDecimal!
 
-  "The pool weekly execution APY"
+  "The pool average weekly execution APY"
   executionApy: BigDecimal!
-
-  "(deprecated) The weekly pool APY"
-  weeklyApy: BigDecimal!
 
   "Last rewards update timestamp"
   rewardsTimestamp: BigInt
+
+  "The last genesis vault harvest delta"
+  vaultHarvestDelta: BigInt
 }
 
 """
@@ -486,4 +501,24 @@ type VaultsStat @entity {
 
   "The total number of vaults"
   vaultsCount: BigInt!
+}
+
+type MerkleDropAllocation @entity {
+  "<contract address>-<user-address>"
+  id: ID!
+
+  "The index of the allocation in the merkle drop"
+  index: BigInt!
+
+  "The amount of the allocation"
+  amount: BigInt!
+
+  "The address of the allocation receiver"
+  account: Bytes!
+
+  "The proof of the allocation"
+  proof: [String!]
+
+  "Defines whether the allocation is claimed"
+  isClaimed: Boolean!
 }
