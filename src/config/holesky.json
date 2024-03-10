@@ -1,24 +1,22 @@
 {
-  "network": "mainnet",
+  "network": "holesky",
   "wad": "1000000000000000000",
+  "zeroAddress": "0x0000000000000000000000000000000000000000",
   "daiUsdPriceFeed": "0x0000000000000000000000000000000000000000",
   "gnoUsdPriceFeed": "0x0000000000000000000000000000000000000000",
-  "ethVaultFactory": {
-    "address": "0x1428BB71261f01BbC03ce4eC7cEEA674f94b5F18",
-    "startBlock": "215406"
-  },
-  "ethPrivVaultFactory": {
-    "address": "0x9741f8e49fFa322714511b5D17bD052698eAFA43",
-    "startBlock": "215415"
-  },
-  "ethErc20VaultFactory": {
-    "address": "0x4C1140F4A5E3DD459De642A46bd1df6FBe287e1B",
-    "startBlock": "215427"
-  },
-  "ethPrivErc20VaultFactory": {
-    "address": "0x930A2D0ADEbF4E69Bb929F6456C3D4bcabf52796",
-    "startBlock": "215437"
-  },
+  "v2PoolFeePercent": "1000",
+  "vaultFactoryV1": "0x1428BB71261f01BbC03ce4eC7cEEA674f94b5F18",
+  "privVaultFactoryV1": "0x9741f8e49fFa322714511b5D17bD052698eAFA43",
+  "erc20VaultFactoryV1": "0x4C1140F4A5E3DD459De642A46bd1df6FBe287e1B",
+  "privErc20VaultFactoryV1": "0x930A2D0ADEbF4E69Bb929F6456C3D4bcabf52796",
+  "vaultFactoryV2": "0x61E12791C717B80CcE1a50bC97548fA281493e2a",
+  "privVaultFactoryV2": "0x47Bf64605a71f5ea1FBE230735ab04669cC312D5",
+  "blocklistVaultFactoryV2": "0x0a57971758644A61279756591100c19e1691D068",
+  "erc20VaultFactoryV2": "0x7a77934d32D78bFe8Dc1e23415b5679960a1c610",
+  "privErc20VaultFactoryV2": "0x93a3f880E07B27dacA6Ef2d3C23E77DBd6294487",
+  "blocklistErc20VaultFactoryV2": "0x0F8c209445282d937DaC0eA0a6706590250F9aFD",
+  "rewardSplitterFactoryV1": "0x6c56AC64457B8AeA1Bb8d1f5eA2d1E397C9c7a13",
+  "rewardSplitterFactoryV2": "0x76747FeE60601be298E84A8a3D4D2D0dc82555F4",
   "keeper": {
     "address": "0xB580799Bf7d62721D1a523f0FDF2f5Ed7BA4e259",
     "startBlock": "215379"
@@ -39,19 +37,11 @@
     "address": "0x3c4ae629bf823475192124E02b9879D3C1fd4538",
     "startBlock": "896101"
   },
-  "foxVault2": {
-    "address": "0x2D84E5330606843609eAdC96EaCd5C425c8cb0eC",
-    "startBlock": "895945"
-  },
-  "rewardSplitterFactory": {
-    "address": "0x6c56AC64457B8AeA1Bb8d1f5eA2d1E397C9c7a13",
-    "startBlock": "215461"
-  },
-  "v2RewardEthToken": {
+  "v2RewardToken": {
     "address": "0x0000000000000000000000000000000000000000",
     "startBlock": "215406"
   },
-  "v2StakedEthToken": {
+  "v2StakedToken": {
     "address": "0x0000000000000000000000000000000000000000",
     "startBlock": "215406"
   },

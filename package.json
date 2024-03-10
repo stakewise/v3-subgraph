@@ -1,6 +1,6 @@
 {
   "name": "v3-subgraph",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Subgraph for the StakeWise Protocol",
   "repository": "https://github.com/stakewise/v3-subgraph",
   "license": "AGPL-3.0-only",
@@ -31,7 +31,18 @@
     "build:mainnet": "npm run prepare:mainnet && npm run generate-wasm:mainnet",
     "test:mainnet": "npm run prepare:mainnet && npm run generate-tests-yaml:mainnet && graph test",
     "deploy-hosted:mainnet": "npm run prepare:mainnet && npm run deploy network:mainnet node:hosted",
-    "deploy-local:mainnet": "npm run prepare:mainnet && npm run deploy network:mainnet node:local"
+    "deploy-local:mainnet": "npm run prepare:mainnet && npm run deploy network:mainnet node:local",
+    "---CHIADO---": "",
+    "generate-const:chiado": "node ./scripts/createConstants.js chiado",
+    "generate-yaml:chiado": "mustache src/config/chiado.json src/subgraph.template.yaml > src/subgraph-chiado.yaml",
+    "generate-tests-yaml:chiado": "mustache src/config/chiado.json matchstick.template.yaml > matchstick.yaml",
+    "generate-types:chiado": "graph codegen src/subgraph-chiado.yaml",
+    "generate-wasm:chiado": "graph build src/subgraph-chiado.yaml -o build/chiado",
+    "prepare:chiado": "npm run generate-const:chiado && npm run generate-yaml:chiado && npm run generate-types:chiado",
+    "build:chiado": "npm run prepare:chiado && npm run generate-wasm:chiado",
+    "test:chiado": "npm run prepare:chiado && npm run generate-tests-yaml:chiado && graph test",
+    "deploy-hosted:chiado": "npm run prepare:chiado && npm run deploy network:chiado node:hosted",
+    "deploy-local:chiado": "npm run prepare:chiado && npm run deploy network:chiado node:local"
   },
   "devDependencies": {
     "@graphprotocol/graph-cli": "0.67.2",

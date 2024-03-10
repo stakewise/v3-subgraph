@@ -1,18 +1,19 @@
 import { Address, BigDecimal, BigInt, DataSourceContext, ethereum, log } from '@graphprotocol/graph-ts'
-import { VaultCreated } from '../../generated/VaultFactory/VaultFactory'
 import {
   Erc20Vault as Erc20VaultTemplate,
   PrivateVault as PrivateVaultTemplate,
+  BlocklistVault as BlocklistVaultTemplate,
   OwnMevEscrow as OwnMevEscrowTemplate,
   Vault as VaultTemplate,
 } from '../../generated/templates'
+import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
 import { OsTokenPosition, Vault, VaultsStat } from '../../generated/schema'
 import { createOrLoadNetwork } from './network'
 import { createTransaction } from './transaction'
 
 const vaultsStatId = '1'
 
-export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: boolean): void {
+export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: boolean, isBlocklist: boolean): void {
   const block = event.block
   const vaultAddress = event.params.vault
   const vaultAddressHex = vaultAddress.toHex()
@@ -49,7 +50,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.totalAssets = BigInt.zero()
   vault.principalAssets = BigInt.zero()
   vault.isPrivate = isPrivate
-  vault.isBlocklist = false
+  vault.isBlocklist = isBlocklist
   vault.isErc20 = isErc20
   vault.isOsTokenEnabled = true
   vault.addressString = vaultAddressHex
@@ -79,6 +80,11 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
     vault.whitelister = admin
   }
 
+  if (vault.isBlocklist) {
+    BlocklistVaultTemplate.create(vaultAddress)
+    vault.blocklistManager = admin
+  }
+
   vault.save()
   VaultTemplate.create(vaultAddress)
 
@@ -93,7 +99,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   createTransaction(event.transaction.hash.toHex())
 
   log.info(
-    '[VaultFactory] VaultCreated address={} admin={} mevEscrow={} feePercent={} capacity={} isPrivate={} isErc20={}',
+    '[VaultFactory] VaultCreated address={} admin={} mevEscrow={} feePercent={} capacity={} isPrivate={} isErc20={} isBlocklist={}',
     [
       vaultAddressHex,
       admin.toHex(),
@@ -102,6 +108,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
       capacity.toString(),
       isPrivate.toString(),
       isErc20.toString(),
+      isBlocklist.toString(),
     ],
   )
 }

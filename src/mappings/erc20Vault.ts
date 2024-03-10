@@ -1,4 +1,4 @@
-import { Address, store, log, BigInt } from '@graphprotocol/graph-ts'
+import { Address, store, log } from '@graphprotocol/graph-ts'
 import { Transfer } from '../../generated/templates/Erc20Vault/Erc20Vault'
 import { createAllocatorAction, createOrLoadAllocator } from '../entities/allocator'
 import { createTransaction } from '../entities/transaction'
@@ -25,12 +25,12 @@ export function handleTransfer(event: Transfer): void {
   } else {
     allocatorFrom.save()
   }
-  createAllocatorAction(event, vaultAddress, 'TransferOut', from, BigInt.zero(), value)
+  createAllocatorAction(event, vaultAddress, 'TransferOut', from, null, value)
 
   const allocatorTo = createOrLoadAllocator(to, vaultAddress)
   allocatorTo.shares = allocatorTo.shares.plus(value)
   allocatorTo.save()
-  createAllocatorAction(event, vaultAddress, 'TransferIn', to, BigInt.zero(), value)
+  createAllocatorAction(event, vaultAddress, 'TransferIn', to, null, value)
 
   createTransaction(event.transaction.hash.toHex())
 

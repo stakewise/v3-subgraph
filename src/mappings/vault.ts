@@ -2,15 +2,16 @@ import { Address, BigDecimal, BigInt, DataSourceContext, ipfs, json, log, store 
 
 import { ExitRequest, Vault } from '../../generated/schema'
 import {
-  Vault as VaultTemplate,
   BlocklistVault as BlocklistVaultTemplate,
   OwnMevEscrow as OwnMevEscrowTemplate,
+  Vault as VaultTemplate,
 } from '../../generated/templates'
 import {
   CheckpointCreated,
   Deposited,
   ExitedAssetsClaimed,
-  ExitQueueEntered,
+  ExitQueueEntered as V1ExitQueueEntered,
+  V2ExitQueueEntered,
   FeeRecipientUpdated,
   FeeSharesMinted,
   Initialized,
@@ -201,28 +202,62 @@ export function handleKeysManagerUpdated(event: KeysManagerUpdated): void {
   log.info('[Vault] KeysManagerUpdated vault={} keysManager={}', [vaultAddress, keysManager.toHex()])
 }
 
-// Event emitted when an allocator enters the exit queue.
+// Event emitted when an allocator enters the V1 exit queue.
 // Shares locked, but assets can't be claimed until shares burned (on CheckpointCreated event)
-export function handleExitQueueEntered(event: ExitQueueEntered): void {
+export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   const params = event.params
 
   const owner = params.owner
   const receiver = params.receiver
   const positionTicket = params.positionTicket
+  const shares = params.shares
   const vaultAddress = event.address.toHex()
 
   // Update vault queued shares
   const vault = Vault.load(vaultAddress) as Vault
-  let shares: BigInt = BigInt.fromI32(0)
-  let assets: BigInt = BigInt.fromI32(0)
-  if (vault.version.equals(BigInt.fromI32(1))) {
-    // in version 1 event returns shares
-    shares = params.assets
-  } else {
-    // in version 2 and above event returns assets
-    assets = params.assets
+  if (!vault.isErc20) {
+    // if it's ERC-20 vault shares are updated in Transfer event handler
+    const allocator = createOrLoadAllocator(owner, event.address)
+    allocator.shares = allocator.shares.minus(shares)
+    allocator.save()
   }
 
+  const timestamp = event.block.timestamp
+
+  createAllocatorAction(event, event.address, 'ExitQueueEntered', owner, null, shares)
+
+  createTransaction(event.transaction.hash.toHex())
+
+  // Create exit request
+  const exitRequestId = `${vaultAddress}-${positionTicket}`
+  const exitRequest = new ExitRequest(exitRequestId)
+
+  exitRequest.vault = vaultAddress
+  exitRequest.owner = owner
+  exitRequest.receiver = receiver
+  exitRequest.totalShares = shares
+  exitRequest.totalAssets = BigInt.zero()
+  exitRequest.positionTicket = positionTicket
+  exitRequest.timestamp = timestamp
+  exitRequest.save()
+
+  log.info('[Vault] V1ExitQueueEntered vault={} owner={} shares={}', [vaultAddress, owner.toHex(), shares.toString()])
+}
+
+// Event emitted when an allocator enters the V2 exit queue.
+// Shares are burned, but assets can't be claimed until available in vault
+export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
+  const params = event.params
+
+  const owner = params.owner
+  const receiver = params.receiver
+  const positionTicket = params.positionTicket
+  const shares = params.shares
+  const assets = params.assets
+  const vaultAddress = event.address.toHex()
+
+  // Update vault queued shares
+  const vault = Vault.load(vaultAddress) as Vault
   if (!vault.isErc20) {
     // if it's ERC-20 vault shares are updated in Transfer event handler
     const allocator = createOrLoadAllocator(owner, event.address)
@@ -243,13 +278,13 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   exitRequest.vault = vaultAddress
   exitRequest.owner = owner
   exitRequest.receiver = receiver
-  exitRequest.totalShares = shares
+  exitRequest.totalShares = BigInt.zero()
   exitRequest.totalAssets = assets
   exitRequest.positionTicket = positionTicket
   exitRequest.timestamp = timestamp
   exitRequest.save()
 
-  log.info('[Vault] ExitQueueEntered vault={} owner={} shares={} assets={}', [
+  log.info('[Vault] V2ExitQueueEntered vault={} owner={} shares={} assets={}', [
     vaultAddress,
     owner.toHex(),
     shares.toString(),

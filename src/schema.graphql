@@ -196,6 +196,9 @@ type Vault @entity {
   "If the Vault is with blocklist, blocklist manager can block allocators from depositing"
   blocklistManager: Bytes
 
+  "The xDAI manager can swap xDAI to GNO on gnosis network"
+  xdaiManager: Bytes
+
   "Vault address string for search"
   addressString: String!
 

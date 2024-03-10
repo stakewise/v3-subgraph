@@ -1,11 +1,120 @@
-import { BigInt, Bytes, ipfs, json, JSONValue, log } from '@graphprotocol/graph-ts'
+import {
+  Address,
+  BigInt,
+  Bytes,
+  DataSourceContext,
+  ethereum,
+  ipfs,
+  json,
+  JSONValue,
+  log,
+} from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
 import { Harvested, RewardsUpdated } from '../../generated/Keeper/Keeper'
+import {
+  VaultFactory as VaultFactoryTemplate,
+  RewardSplitterFactory as RewardSplitterFactoryTemplate,
+} from '../../generated/templates'
 import { updateVaultApy } from '../entities/apySnapshots'
 import { createOrLoadV2Pool } from '../entities/v2pool'
-import { NETWORK, WAD } from '../helpers/constants'
+import {
+  BLOCKLIST_ERC20_VAULT_FACTORY_V2,
+  BLOCKLIST_VAULT_FACTORY_V2,
+  ERC20_VAULT_FACTORY_V1,
+  ERC20_VAULT_FACTORY_V2,
+  GNO_USD_PRICE_FEED,
+  PRIV_ERC20_VAULT_FACTORY_V1,
+  PRIV_ERC20_VAULT_FACTORY_V2,
+  PRIV_VAULT_FACTORY_V1,
+  PRIV_VAULT_FACTORY_V2,
+  VAULT_FACTORY_V1,
+  VAULT_FACTORY_V2,
+  REWARD_SPLITTER_FACTORY_V1,
+  REWARD_SPLITTER_FACTORY_V2,
+  WAD,
+  ZERO_ADDRESS,
+} from '../helpers/constants'
 import { getConversionRate } from '../entities/network'
+
+const IS_PRIVATE_KEY = 'isPrivate'
+const IS_ERC20_KEY = 'isErc20'
+const IS_BLOCKLIST_KEY = 'isBlocklist'
+
+export function initialize(block: ethereum.Block): void {
+  let context = new DataSourceContext()
+
+  // create non-erc20 vault factories
+  context.setBoolean(IS_PRIVATE_KEY, false)
+  context.setBoolean(IS_ERC20_KEY, false)
+  context.setBoolean(IS_BLOCKLIST_KEY, false)
+  if (VAULT_FACTORY_V1 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(VAULT_FACTORY_V1), context)
+    log.info('[Keeper] Initialize VaultFactory V1 at block={}', [block.number.toString()])
+  }
+  if (VAULT_FACTORY_V2 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(VAULT_FACTORY_V2), context)
+    log.info('[Keeper] Initialize VaultFactory V2 at block={}', [block.number.toString()])
+  }
+
+  context.setBoolean(IS_PRIVATE_KEY, true)
+  if (PRIV_VAULT_FACTORY_V1 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(PRIV_VAULT_FACTORY_V1), context)
+    log.info('[Keeper] Initialize PrivateVaultFactory V1 at block={}', [block.number.toString()])
+  }
+  if (PRIV_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(PRIV_VAULT_FACTORY_V2), context)
+    log.info('[Keeper] Initialize PrivateVaultFactory V2 at block={}', [block.number.toString()])
+  }
+
+  context.setBoolean(IS_PRIVATE_KEY, false)
+  context.setBoolean(IS_BLOCKLIST_KEY, true)
+  if (BLOCKLIST_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(BLOCKLIST_VAULT_FACTORY_V2), context)
+    log.info('[Keeper] Initialize BlocklistVaultFactory V2 at block={}', [block.number.toString()])
+  }
+
+  // create erc20 vault factories
+  context.setBoolean(IS_PRIVATE_KEY, false)
+  context.setBoolean(IS_ERC20_KEY, true)
+  context.setBoolean(IS_BLOCKLIST_KEY, false)
+  if (ERC20_VAULT_FACTORY_V1 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(ERC20_VAULT_FACTORY_V1), context)
+    log.info('[Keeper] Initialize ERC20VaultFactory V1 at block={}', [block.number.toString()])
+  }
+  if (ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(ERC20_VAULT_FACTORY_V2), context)
+    log.info('[Keeper] Initialize ERC20VaultFactory V2 at block={}', [block.number.toString()])
+  }
+
+  context.setBoolean(IS_PRIVATE_KEY, true)
+  if (PRIV_ERC20_VAULT_FACTORY_V1 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(PRIV_ERC20_VAULT_FACTORY_V1), context)
+    log.info('[Keeper] Initialize PrivateERC20VaultFactory V1 at block={}', [block.number.toString()])
+  }
+  if (PRIV_ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(PRIV_ERC20_VAULT_FACTORY_V2), context)
+    log.info('[Keeper] Initialize PrivateERC20VaultFactory V2 at block={}', [block.number.toString()])
+  }
+
+  context.setBoolean(IS_PRIVATE_KEY, false)
+  context.setBoolean(IS_BLOCKLIST_KEY, true)
+  if (BLOCKLIST_ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V2), context)
+    log.info('[Keeper] Initialize BlocklistERC20VaultFactory V2 at block={}', [block.number.toString()])
+  }
+
+  // create reward splitter factories
+  if (REWARD_SPLITTER_FACTORY_V1 != ZERO_ADDRESS) {
+    RewardSplitterFactoryTemplate.create(Address.fromString(REWARD_SPLITTER_FACTORY_V1))
+    log.info('[Keeper] Initialize RewardSplitterFactory V1 at block={}', [block.number.toString()])
+  }
+
+  if (REWARD_SPLITTER_FACTORY_V2 != ZERO_ADDRESS) {
+    RewardSplitterFactoryTemplate.create(Address.fromString(REWARD_SPLITTER_FACTORY_V2))
+    log.info('[Keeper] Initialize RewardSplitterFactory V2 at block={}', [block.number.toString()])
+  }
+}
 
 export function updateRewards(
   value: JSONValue,
@@ -65,7 +174,7 @@ export function updateRewards(
       proofUnlockedMevReward = BigInt.zero()
     } else {
       // vault uses shared mev escrow, proof reward is consensus reward + total mev reward
-      if (NETWORK === 'mainnet') {
+      if (GNO_USD_PRICE_FEED == ZERO_ADDRESS) {
         proofReward = consensusReward.plus(lockedMevReward).plus(unlockedMevReward)
       } else {
         // for gnosis network, execution rewards are received in DAI and converted later by the operator
@@ -86,7 +195,7 @@ export function updateRewards(
     }
 
     // update vault state
-    if (NETWORK === 'mainnet') {
+    if (GNO_USD_PRICE_FEED == ZERO_ADDRESS) {
       vault.totalAssets = vault.totalAssets.plus(periodConsensusReward).plus(periodExecutionReward)
     } else {
       // for gnosis network, execution rewards must be converted for GNO before adding them to the total assets
