@@ -46,8 +46,8 @@
     "startBlock": "11726303"
   },
   "starknetMerkleDrop": {
-    "address": "0x84a20bF39A34B84F54A0ec063fa8fB2E5c86EEA0",
-    "startBlock": "19518043",
-    "ipfsHash": "QmbpMK29mrv6NwiZMZuchS8EhRtKggHxRALQEUTasgzXnL"
+    "address": "0x409bdB1d7B284dC0778A2bA1F4447F12a7C6a9D2",
+    "startBlock": "19527723",
+    "ipfsHash": "QmQt6asgZe9gU6wptgAH4ErCog8kZZTxLDdiX4rKpesQoM"
   }
 }
