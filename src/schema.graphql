@@ -119,7 +119,7 @@ type Vault @entity {
   feeRecipient: Bytes!
 
   "The address of the vault's validators manager"
-  validatorsManager: Bytes!
+  validatorsManager: Bytes
 
   "The address of the vault's keys manager (deprecated)"
   keysManager: Bytes!
