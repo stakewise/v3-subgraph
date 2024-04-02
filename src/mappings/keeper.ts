@@ -13,8 +13,9 @@ import {
 import { Vault } from '../../generated/schema'
 import { Harvested, RewardsUpdated } from '../../generated/Keeper/Keeper'
 import {
-  VaultFactory as VaultFactoryTemplate,
+  FoxVault as FoxVaultTemplate,
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
+  VaultFactory as VaultFactoryTemplate,
 } from '../../generated/templates'
 import { updateVaultApy } from '../entities/apySnapshots'
 import { createOrLoadV2Pool } from '../entities/v2pool'
@@ -23,15 +24,17 @@ import {
   BLOCKLIST_VAULT_FACTORY_V2,
   ERC20_VAULT_FACTORY_V1,
   ERC20_VAULT_FACTORY_V2,
+  FOX_VAULT1,
+  FOX_VAULT2,
   GNO_USD_PRICE_FEED,
   PRIV_ERC20_VAULT_FACTORY_V1,
   PRIV_ERC20_VAULT_FACTORY_V2,
   PRIV_VAULT_FACTORY_V1,
   PRIV_VAULT_FACTORY_V2,
-  VAULT_FACTORY_V1,
-  VAULT_FACTORY_V2,
   REWARD_SPLITTER_FACTORY_V1,
   REWARD_SPLITTER_FACTORY_V2,
+  VAULT_FACTORY_V1,
+  VAULT_FACTORY_V2,
   WAD,
   ZERO_ADDRESS,
 } from '../helpers/constants'
@@ -113,6 +116,14 @@ export function initialize(block: ethereum.Block): void {
   if (REWARD_SPLITTER_FACTORY_V2 != ZERO_ADDRESS) {
     RewardSplitterFactoryTemplate.create(Address.fromString(REWARD_SPLITTER_FACTORY_V2))
     log.info('[Keeper] Initialize RewardSplitterFactory V2 at block={}', [block.number.toString()])
+  }
+
+  if (FOX_VAULT1 != ZERO_ADDRESS) {
+    FoxVaultTemplate.create(Address.fromString(FOX_VAULT1))
+  }
+
+  if (FOX_VAULT2 != ZERO_ADDRESS) {
+    FoxVaultTemplate.create(Address.fromString(FOX_VAULT2))
   }
 }
 

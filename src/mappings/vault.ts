@@ -23,9 +23,10 @@ import {
   OsTokenRedeemed,
   Redeemed,
   ValidatorsRootUpdated,
+  ValidatorsManagerUpdated,
 } from '../../generated/templates/Vault/Vault'
 import { GenesisVaultCreated, Migrated } from '../../generated/GenesisVault/GenesisVault'
-import { EthFoxVaultCreated } from '../../generated/FoxVault/FoxVault'
+import { EthFoxVaultCreated } from '../../generated/templates/FoxVault/FoxVault'
 
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
@@ -33,6 +34,7 @@ import { createAllocatorAction, createOrLoadAllocator } from '../entities/alloca
 import { createOrLoadNetwork } from '../entities/network'
 import { createOrLoadOsTokenPosition, createOrLoadVaultsStat } from '../entities/vaults'
 import { createOrLoadOsToken } from '../entities/osToken'
+import { DEPOSIT_DATA_REGISTRY } from '../helpers/constants'
 
 // Event emitted on assets transfer from allocator to vault
 export function handleDeposited(event: Deposited): void {
@@ -70,7 +72,7 @@ export function handleDeposited(event: Deposited): void {
   ])
 }
 
-// Event emitted on assets withdraw from vault to allocator
+// Event emitted on assets withdraw from vault to allocator (deprecated)
 export function handleRedeemed(event: Redeemed): void {
   const params = event.params
   const assets = params.assets
@@ -137,6 +139,12 @@ export function handleInitialized(event: Initialized): void {
   const vaultAddress = event.address.toHex()
   const vault = Vault.load(vaultAddress) as Vault
   const newVersion = event.params.version
+
+  if (newVersion.equals(BigInt.fromI32(2))) {
+    // migration to deposit manager
+    vault.validatorsManager = DEPOSIT_DATA_REGISTRY
+  }
+
   vault.version = newVersion
   vault.save()
 
@@ -145,7 +153,7 @@ export function handleInitialized(event: Initialized): void {
   log.info('[Vault] Initialized vault={} version={}', [vaultAddress, newVersion.toString()])
 }
 
-// Event emitted on validators root and IPFS hash update
+// Event emitted on validators root and IPFS hash update (deprecated)
 export function handleValidatorsRootUpdated(event: ValidatorsRootUpdated): void {
   const params = event.params
 
@@ -156,6 +164,7 @@ export function handleValidatorsRootUpdated(event: ValidatorsRootUpdated): void 
   const vault = Vault.load(vaultAddress) as Vault
 
   vault.validatorsRoot = validatorsRoot
+  vault.depositDataRoot = validatorsRoot
 
   vault.save()
 
@@ -183,7 +192,7 @@ export function handleFeeRecipientUpdated(event: FeeRecipientUpdated): void {
   log.info('[Vault] FeeRecipientUpdated vault={} feeRecipient={}', [vaultAddress, feeRecipient.toHex()])
 }
 
-// Event emitted on keys manager update
+// Event emitted on keys manager update (deprecated)
 export function handleKeysManagerUpdated(event: KeysManagerUpdated): void {
   const params = event.params
 
@@ -194,6 +203,7 @@ export function handleKeysManagerUpdated(event: KeysManagerUpdated): void {
   const vault = Vault.load(vaultAddress) as Vault
 
   vault.keysManager = keysManager
+  vault.depositDataManager = keysManager
 
   vault.save()
 
@@ -202,7 +212,26 @@ export function handleKeysManagerUpdated(event: KeysManagerUpdated): void {
   log.info('[Vault] KeysManagerUpdated vault={} keysManager={}', [vaultAddress, keysManager.toHex()])
 }
 
-// Event emitted when an allocator enters the V1 exit queue.
+// Event emitted on validators manager update
+export function handleValidatorsManagerUpdated(event: ValidatorsManagerUpdated): void {
+  const params = event.params
+
+  const validatorsManager = params.validatorsManager
+
+  const vaultAddress = event.address.toHex()
+
+  const vault = Vault.load(vaultAddress) as Vault
+
+  vault.validatorsManager = validatorsManager
+
+  vault.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[Vault] ValidatorsManagerUpdated vault={} validatorsManager={}', [vaultAddress, validatorsManager.toHex()])
+}
+
+// Event emitted when an allocator enters the V1 exit queue. (deprecated)
 // Shares locked, but assets can't be claimed until shares burned (on CheckpointCreated event)
 export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   const params = event.params
@@ -517,7 +546,8 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.capacity = capacity
   vault.feePercent = feePercent
   vault.feeRecipient = admin
-  vault.keysManager = admin
+  vault.keysManager = admin // Deprecated
+  vault.depositDataManager = admin
   vault.consensusReward = BigInt.zero()
   vault.lockedExecutionReward = BigInt.zero()
   vault.unlockedExecutionReward = BigInt.zero()
@@ -581,7 +611,8 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.capacity = capacity
   vault.feePercent = feePercent
   vault.feeRecipient = admin
-  vault.keysManager = admin
+  vault.keysManager = admin // Deprecated
+  vault.depositDataManager = admin
   vault.consensusReward = BigInt.zero()
   vault.lockedExecutionReward = BigInt.zero()
   vault.unlockedExecutionReward = BigInt.zero()
