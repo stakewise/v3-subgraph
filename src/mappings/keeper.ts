@@ -120,10 +120,12 @@ export function initialize(block: ethereum.Block): void {
 
   if (FOX_VAULT1 != ZERO_ADDRESS) {
     FoxVaultTemplate.create(Address.fromString(FOX_VAULT1))
+    log.info('[Keeper] Initialize FoxVault1 at block={}', [block.number.toString()])
   }
 
   if (FOX_VAULT2 != ZERO_ADDRESS) {
     FoxVaultTemplate.create(Address.fromString(FOX_VAULT2))
+    log.info('[Keeper] Initialize FoxVault2 at block={}', [block.number.toString()])
   }
 }
 

@@ -18,7 +18,7 @@
   "rewardSplitterFactoryV1": "0x6c56AC64457B8AeA1Bb8d1f5eA2d1E397C9c7a13",
   "rewardSplitterFactoryV2": "0x76747FeE60601be298E84A8a3D4D2D0dc82555F4",
   "foxVault1": "0x3c4ae629bf823475192124E02b9879D3C1fd4538",
-  "foxVault2": "0xB790391ee99b9193Ebb80022bf127d24Bac586c4",
+  "foxVault2": "0x37Bf0883c27365CffCd0C4202918df930989891f",
   "keeper": {
     "address": "0xB580799Bf7d62721D1a523f0FDF2f5Ed7BA4e259",
     "startBlock": "215379"
