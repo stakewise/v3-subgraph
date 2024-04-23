@@ -17,6 +17,8 @@
   "blocklistErc20VaultFactoryV2": "0x4e97Eca0aae622d49cc0ceC0e50a9880b1D6abD5",
   "rewardSplitterFactoryV1": "0x0000000000000000000000000000000000000000",
   "rewardSplitterFactoryV2": "0xE4480EcE26B697D42952a2380E42a88510020711",
+  "foxVault1": "0x0000000000000000000000000000000000000000",
+  "foxVault2": "0x0000000000000000000000000000000000000000",
   "keeper": {
     "address": "0x96Bd48CD98D2CC602b93A2BBbF05d7eEB21CdE8E",
     "startBlock": "8630451"
@@ -32,10 +34,6 @@
   "genesisVault": {
     "address": "0xA2600eB0A0cd1DD80b090Fc2D319516CDBF5d721",
     "startBlock": "8630602"
-  },
-  "foxVault": {
-    "address": "0x0000000000000000000000000000000000000000",
-    "startBlock": "8577722"
   },
   "v2RewardToken": {
     "address": "0xfe076029B7D46fbe2ad4B9CBf377aA10B309e560",
