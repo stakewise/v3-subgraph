@@ -25,7 +25,7 @@ import {
   ValidatorsRootUpdated,
 } from '../../generated/templates/Vault/Vault'
 import { GenesisVaultCreated, Migrated } from '../../generated/GenesisVault/GenesisVault'
-import { EthFoxVaultCreated } from '../../generated/FoxVault/FoxVault'
+import { EthFoxVaultCreated } from '../../generated/templates/FoxVault/FoxVault'
 
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
