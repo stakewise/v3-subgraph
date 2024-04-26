@@ -73,6 +73,12 @@ type ExitRequest @entity {
 
   "The exit request vault"
   vault: Vault!
+
+  "The estimated withdrawal timestamp. Managed by the backend service."
+  withdrawalTimestamp: BigInt
+
+  "The withdrawal status. Managed by the backend service."
+  withdrawalStatus: String
 }
 
 """
