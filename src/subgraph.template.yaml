@@ -409,8 +409,6 @@ templates:
       eventHandlers:
         - event: XdaiSwapped(uint256,uint256)
           handler: handleXdaiSwapped
-        - event: XdaiManagerUpdated(address,address)
-          handler: handleXdaiManagerUpdated
   - kind: ethereum/contract
     name: OwnMevEscrow
     network: {{ network }}

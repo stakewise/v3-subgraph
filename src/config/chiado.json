@@ -2,54 +2,54 @@
   "network": "mainnet",
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
-  "daiUsdPriceFeed": "0x978302cAcAdEDE5d503390E176e86F3889Df6Ce6",
-  "gnoUsdPriceFeed": "0xC68FFbF358D6Ba32Ac86C7bE6cd037fbD15D0D46",
+  "daiUsdPriceFeed": "0x390C320Ae2B001C7CB31A690e2500b55313aC986",
+  "gnoUsdPriceFeed": "0xcC5E385EdB2fEaB9C9A6DE97b572f1d811312ae7",
   "v2PoolFeePercent": "1500",
   "vaultFactoryV1": "0x0000000000000000000000000000000000000000",
-  "vaultFactoryV2": "0xe79b759eF5835776b5A55A55552b86b57f66aA0E",
+  "vaultFactoryV2": "0xfA14e7A35EA37c08eC006a15831dCC8eCcf2B51f",
   "privVaultFactoryV1": "0x0000000000000000000000000000000000000000",
-  "privVaultFactoryV2": "0xd65846faa8fB7C22777869E9eDDB13F4D0DeD3be",
+  "privVaultFactoryV2": "0x1A9ADdd9ca10338cFd146578b5DfE3caAa660Dfa",
   "erc20VaultFactoryV1": "0x0000000000000000000000000000000000000000",
-  "erc20VaultFactoryV2": "0xf9706bd4540e59B1D3Bd77b5B9E55C2486a7a145",
+  "erc20VaultFactoryV2": "0x6A67A0caB72bF86a81A2E331949EC3890fcB37E5",
   "privErc20VaultFactoryV1": "0x0000000000000000000000000000000000000000",
-  "privErc20VaultFactoryV2": "0x352FA9D876910D51A1Ed309605c899a3D93773F1",
+  "privErc20VaultFactoryV2": "0xFD16734b47A570c7a446F879874A134dAa6ae496",
   "blocklistVaultFactoryV2": "0x765a1B647cd2020FD08CDD810CB1D00Eeb02E151",
-  "blocklistErc20VaultFactoryV2": "0x4e97Eca0aae622d49cc0ceC0e50a9880b1D6abD5",
+  "blocklistErc20VaultFactoryV2": "0xFD6920C6D8D9f5a291B798B2F805d1c51CeEFaDe",
   "rewardSplitterFactoryV1": "0x0000000000000000000000000000000000000000",
-  "rewardSplitterFactoryV2": "0xE4480EcE26B697D42952a2380E42a88510020711",
+  "rewardSplitterFactoryV2": "0xa2D8b88EB39909dD5309542B3623eFA5640D5f24",
   "foxVault1": "0x0000000000000000000000000000000000000000",
   "foxVault2": "0x0000000000000000000000000000000000000000",
   "keeper": {
-    "address": "0x96Bd48CD98D2CC602b93A2BBbF05d7eEB21CdE8E",
-    "startBlock": "8630451"
+    "address": "0x6DfF9E878a83A2d84ef5AC242705E08BF0F33fdD",
+    "startBlock": "9652014"
   },
   "osToken": {
-    "address": "0x555f0C927E853aEa52f88ca9f5a7b4f215cBe039",
-    "startBlock": "8630445"
+    "address": "0x2c72f8019BF6aab4D430f527DC35Ff8F903b7295",
+    "startBlock": "9652008"
   },
   "osTokenVaultController": {
-    "address": "0xf99dc8Df363be34AbA6A4EAdE77c9d61e85b126F",
-    "startBlock": "8630440"
+    "address": "0x6d0e8Ceb65Ed8B954CBB8b32eaC034580ec07A59",
+    "startBlock": "9652002"
   },
   "genesisVault": {
-    "address": "0xA2600eB0A0cd1DD80b090Fc2D319516CDBF5d721",
-    "startBlock": "8630602"
+    "address": "0xF3d3071905A6495a4D2f8650E8b3baaAE827DD13",
+    "startBlock": "9652149"
   },
   "depositDataRegistry": {
-    "address": "0x0000000000000000000000000000000000000000",
-    "startBlock": "8630602"
+    "address": "0x197292Fb9893Bc06329ee8E3Fd07d8ceF29E4d13",
+    "startBlock": "9652041"
   },
   "v2RewardToken": {
-    "address": "0xfe076029B7D46fbe2ad4B9CBf377aA10B309e560",
-    "startBlock": "8576666"
+    "address": "0x3A945FD94A1d810B5e1c4536747F0de358d32854",
+    "startBlock": "9650953"
   },
   "v2StakedToken": {
-    "address": "0xF2f5A23f849e02001da0DfdeC0F4CD3c3a79337e",
-    "startBlock": "8576697"
+    "address": "0x5da7d1De2e84047De2A7988a7E01B494d54284e7",
+    "startBlock": "9650951"
   },
   "starknetMerkleDrop": {
     "address": "0x0000000000000000000000000000000000000000",
-    "startBlock": "8577722",
+    "startBlock": "9650951",
     "ipfsHash": ""
   }
 }
