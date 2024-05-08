@@ -27,6 +27,10 @@
     "address": "0xF603c5A3F774F05d4D848A9bB139809790890864",
     "startBlock": "215376"
   },
+  "swiseToken": {
+    "address": "0x484871C6D54a3dAEBeBBDB0AB7a54c97D72986Bb",
+    "startBlock": "166860"
+  },
   "osTokenVaultController": {
     "address": "0x7BbC1733ee018f103A9a9052a18fA9273255Cf36",
     "startBlock": "215371"

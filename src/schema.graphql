@@ -47,6 +47,43 @@ type OsTokenHolder @entity {
 }
 
 """
+Token transfer
+"""
+type TokenTransfer @entity {
+  "The transfer hash"
+  id: ID!
+
+  "The transfer token"
+  token: Token!
+
+  "The transfer amount"
+  amount: BigInt!
+
+  "The transfer sender"
+  from: String!
+
+  "The transfer receiver"
+  to: String!
+
+  "The transfer timestamp"
+  timestamp: BigInt!
+}
+
+"""
+Token
+"""
+type Token @entity {
+  "The token symbol"
+  id: ID!
+
+  "The total number of token transfers"
+  transfersCount: BigInt!
+
+  "The token transfers"
+  transfers: [TokenTransfer!]! @derivedFrom(field: "token")
+}
+
+"""
 Vault exit request
 """
 type ExitRequest @entity {

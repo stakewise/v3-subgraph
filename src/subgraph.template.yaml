@@ -20,6 +20,29 @@ dataSources:
       file: ./mappings/osToken.ts
       entities:
         - OsTokenHolder
+        - TokenTransfer
+        - Token
+      abis:
+        - name: Erc20Token
+          file: ./abis/Erc20Token.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
+  - kind: ethereum/contract
+    name: TokenTransfer
+    network: {{ network }}
+    source:
+      address: '{{ swiseToken.address }}'
+      abi: Erc20Token
+      startBlock: {{ swiseToken.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/swiseToken.ts
+      entities:
+        - TokenTransfer
+        - Token
       abis:
         - name: Erc20Token
           file: ./abis/Erc20Token.json
