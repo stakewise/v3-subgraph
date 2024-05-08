@@ -118,14 +118,23 @@ type Vault @entity {
   "The address of the vault's fee recipient"
   feeRecipient: Bytes!
 
-  "The address of the vault's keys manager"
+  "The address of the vault's validators manager"
+  validatorsManager: Bytes
+
+  "The address of the vault's keys manager (deprecated)"
   keysManager: Bytes!
+
+  "The address of the vault's deposit data manager. If it's null, then the vault uses own validators manager."
+  depositDataManager: Bytes!
 
   "The MEV and priority fees escrow address. If it's null, then the vault uses shared MEV escrow."
   mevEscrow: Bytes
 
-  "The vault validators merkle tree root"
+  "The vault validators merkle tree root (deprecated)"
   validatorsRoot: Bytes
+
+  "The vault deposit data merkle tree root"
+  depositDataRoot: Bytes
 
   "The vault metadata IPFS hash"
   metadataIpfsHash: String
@@ -201,9 +210,6 @@ type Vault @entity {
 
   "If the Vault is with blocklist, blocklist manager can block allocators from depositing"
   blocklistManager: Bytes
-
-  "The xDAI manager can swap xDAI to GNO on gnosis network"
-  xdaiManager: Bytes
 
   "Vault address string for search"
   addressString: String!

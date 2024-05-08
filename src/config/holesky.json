@@ -9,14 +9,16 @@
   "privVaultFactoryV1": "0x9741f8e49fFa322714511b5D17bD052698eAFA43",
   "erc20VaultFactoryV1": "0x4C1140F4A5E3DD459De642A46bd1df6FBe287e1B",
   "privErc20VaultFactoryV1": "0x930A2D0ADEbF4E69Bb929F6456C3D4bcabf52796",
-  "vaultFactoryV2": "0x61E12791C717B80CcE1a50bC97548fA281493e2a",
-  "privVaultFactoryV2": "0x47Bf64605a71f5ea1FBE230735ab04669cC312D5",
-  "blocklistVaultFactoryV2": "0x0a57971758644A61279756591100c19e1691D068",
-  "erc20VaultFactoryV2": "0x7a77934d32D78bFe8Dc1e23415b5679960a1c610",
-  "privErc20VaultFactoryV2": "0x93a3f880E07B27dacA6Ef2d3C23E77DBd6294487",
-  "blocklistErc20VaultFactoryV2": "0x0F8c209445282d937DaC0eA0a6706590250F9aFD",
+  "vaultFactoryV2": "0xc93C070124Cb78fE9Dee9F0527168F81850a384b",
+  "privVaultFactoryV2": "0xDe0b026f1A7b143A650732EdcCce5a30784BFe20",
+  "blocklistVaultFactoryV2": "0x1F05A6F83e72732046DF4cac3215d1fd00E2Bc5C",
+  "erc20VaultFactoryV2": "0x2B324944213F5781A23A07ea3f55884b535DcF36",
+  "privErc20VaultFactoryV2": "0x400f8E12c8503D6803141E3F5CCc3e0C01A44899",
+  "blocklistErc20VaultFactoryV2": "0x76FC9b44D4b18eef3CdF8FEeee0B926775F00e6e",
   "rewardSplitterFactoryV1": "0x6c56AC64457B8AeA1Bb8d1f5eA2d1E397C9c7a13",
-  "rewardSplitterFactoryV2": "0x76747FeE60601be298E84A8a3D4D2D0dc82555F4",
+  "rewardSplitterFactoryV2": "0x384B388A040C6b32c9B5927aB25891F2bAd4E5f7",
+  "foxVault1": "0x3c4ae629bf823475192124E02b9879D3C1fd4538",
+  "foxVault2": "0x37Bf0883c27365CffCd0C4202918df930989891f",
   "keeper": {
     "address": "0xB580799Bf7d62721D1a523f0FDF2f5Ed7BA4e259",
     "startBlock": "215379"
@@ -33,9 +35,9 @@
     "address": "0xf42cEAFa21Beb670573f32C31485E84233AFDB6b",
     "startBlock": "215444"
   },
-  "foxVault": {
-    "address": "0x3c4ae629bf823475192124E02b9879D3C1fd4538",
-    "startBlock": "896101"
+  "depositDataRegistry": {
+    "address": "0x1Dfb40a149940300f183d21E5B200c5DaaF3A842",
+    "startBlock": "1491091"
   },
   "v2RewardToken": {
     "address": "0x0000000000000000000000000000000000000000",

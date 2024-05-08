@@ -40,7 +40,8 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.capacity = capacity
   vault.feePercent = feePercent
   vault.feeRecipient = admin
-  vault.keysManager = admin
+  vault.keysManager = admin // Deprecated
+  vault.depositDataManager = admin
   vault.consensusReward = BigInt.zero()
   vault.lockedExecutionReward = BigInt.zero()
   vault.unlockedExecutionReward = BigInt.zero()
