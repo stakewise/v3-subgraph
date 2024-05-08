@@ -29,7 +29,7 @@ dataSources:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
   - kind: ethereum/contract
-    name: TokenTransfer
+    name: SwiseToken
     network: {{ network }}
     source:
       address: '{{ swiseToken.address }}'
