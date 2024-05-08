@@ -571,3 +571,17 @@ type MerkleDropAllocation @entity {
   "Defines whether the allocation is claimed"
   isClaimed: Boolean!
 }
+
+"""
+Vesting Escrow
+"""
+type VestingEscrow @entity {
+  "The vesting escrow address"
+  id: ID!
+
+  "The vesting escrow token address"
+  token: String!
+
+  "The vesting escrow recipient"
+  recipient: String!
+}
