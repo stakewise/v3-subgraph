@@ -14,8 +14,9 @@ import { Vault } from '../../generated/schema'
 import { Harvested, RewardsUpdated } from '../../generated/Keeper/Keeper'
 import {
   FoxVault as FoxVaultTemplate,
-  RewardSplitterFactory as RewardSplitterFactoryTemplate,
   VaultFactory as VaultFactoryTemplate,
+  VestingEscrowFactory as VestingEscrowFactoryTemplate,
+  RewardSplitterFactory as RewardSplitterFactoryTemplate,
 } from '../../generated/templates'
 import { updateVaultApy } from '../entities/apySnapshots'
 import { createOrLoadV2Pool } from '../entities/v2pool'
@@ -24,6 +25,7 @@ import {
   BLOCKLIST_VAULT_FACTORY_V2,
   ERC20_VAULT_FACTORY_V1,
   ERC20_VAULT_FACTORY_V2,
+  VESTING_ESCROW_FACTORY,
   FOX_VAULT1,
   FOX_VAULT2,
   GNO_USD_PRICE_FEED,
@@ -126,6 +128,12 @@ export function initialize(block: ethereum.Block): void {
   if (FOX_VAULT2 != ZERO_ADDRESS) {
     FoxVaultTemplate.create(Address.fromString(FOX_VAULT2))
     log.info('[Keeper] Initialize FoxVault2 at block={}', [block.number.toString()])
+  }
+
+  // create vesting escrow factory
+  if (VESTING_ESCROW_FACTORY != ZERO_ADDRESS) {
+    VestingEscrowFactoryTemplate.create(Address.fromString(VESTING_ESCROW_FACTORY))
+    log.info('[Keeper] Initialize VestingEscrowFactory at block={}', [block.number.toString()])
   }
 }
 
