@@ -47,6 +47,7 @@ export function handleTransfer(event: Transfer): void {
     event.params.from.toHexString(),
     event.params.to.toHexString(),
     event.params.value,
+    event.block.timestamp,
     'osEth',
   )
 

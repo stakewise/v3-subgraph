@@ -19,6 +19,7 @@ export function createTokenTransfer(
   from: string,
   to: string,
   amount: BigInt,
+  timestamp: BigInt,
   tokenSymbol: string,
 ): void {
   const transfer = new TokenTransfer(id)
@@ -28,6 +29,7 @@ export function createTokenTransfer(
   transfer.to = to
   transfer.from = from
   transfer.amount = amount
+  transfer.timestamp = timestamp
   transfer.tokenSymbol = tokenSymbol
   transfer.save()
 
