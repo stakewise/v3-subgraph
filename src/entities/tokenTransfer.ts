@@ -33,7 +33,10 @@ export function createTokenTransfer(
   transfer.tokenSymbol = tokenSymbol
   transfer.save()
 
+  tokenHolderFrom.address = from
   tokenHolderFrom.transfersCount = tokenHolderFrom.transfersCount.plus(BigInt.fromI32(1))
+
+  tokenHolderTo.address = to
   tokenHolderTo.transfersCount = tokenHolderTo.transfersCount.plus(BigInt.fromI32(1))
 
   tokenHolderFrom.save()
