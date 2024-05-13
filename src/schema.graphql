@@ -53,11 +53,11 @@ type TokenTransfer @entity {
   "The transfer hash"
   id: ID!
 
-  "The transfer token"
-  token: Token!
-
   "The transfer amount"
   amount: BigInt!
+
+  "The transfer token symbol"
+  tokenSymbol: String!
 
   "The transfer sender"
   from: String!
@@ -70,17 +70,20 @@ type TokenTransfer @entity {
 }
 
 """
-Token
+Token holder
 """
-type Token @entity {
-  "The token symbol"
+type TokenHolder @entity {
+  "<Token symbol>-<Token holder address>"
   id: ID!
+
+  "The token holder address"
+  address: String!
 
   "The total number of token transfers"
   transfersCount: BigInt!
 
   "The token transfers"
-  transfers: [TokenTransfer!]! @derivedFrom(field: "token")
+  transfers: [TokenTransfer!]!
 }
 
 """

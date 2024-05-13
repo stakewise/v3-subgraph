@@ -1,11 +1,11 @@
 import { BigInt } from '@graphprotocol/graph-ts'
-import { Token, TokenTransfer } from '../../generated/schema'
+import { TokenHolder, TokenTransfer } from '../../generated/schema'
 
-export function createOrLoadToken(tokenSymbol: string): Token {
-  let token = Token.load(tokenSymbol)
+export function createOrLoadTokenHolder(tokenSymbol: string): TokenHolder {
+  let token = TokenHolder.load(tokenSymbol)
 
   if (token === null) {
-    token = new Token(tokenSymbol)
+    token = new TokenHolder(tokenSymbol)
 
     token.transfersCount = BigInt.zero()
     token.save()
@@ -22,14 +22,18 @@ export function createTokenTransfer(
   tokenSymbol: string,
 ): void {
   const transfer = new TokenTransfer(id)
-  const token = createOrLoadToken(tokenSymbol)
+  const tokenHolderFrom = createOrLoadTokenHolder(`${tokenSymbol}-${from}`)
+  const tokenHolderTo = createOrLoadTokenHolder(`${tokenSymbol}-${to}`)
 
   transfer.to = to
   transfer.from = from
   transfer.amount = amount
-  transfer.token = token.id
+  transfer.tokenSymbol = tokenSymbol
   transfer.save()
 
-  token.transfersCount = token.transfersCount.plus(BigInt.fromI32(1))
-  token.save()
+  tokenHolderFrom.transfersCount = tokenHolderFrom.transfersCount.plus(BigInt.fromI32(1))
+  tokenHolderTo.transfersCount = tokenHolderTo.transfersCount.plus(BigInt.fromI32(1))
+
+  tokenHolderFrom.save()
+  tokenHolderTo.save()
 }
