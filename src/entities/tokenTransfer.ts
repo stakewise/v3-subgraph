@@ -27,6 +27,7 @@ export function createTokenTransfer(
   transfer.to = to
   transfer.from = from
   transfer.amount = amount
+  transfer.token = token.id
   transfer.save()
 
   token.transfersCount = token.transfersCount.plus(BigInt.fromI32(1))
