@@ -21,7 +21,7 @@ dataSources:
       entities:
         - OsTokenHolder
         - TokenTransfer
-        - Token
+        - TokenHolder
       abis:
         - name: Erc20Token
           file: ./abis/Erc20Token.json
@@ -42,7 +42,7 @@ dataSources:
       file: ./mappings/swiseToken.ts
       entities:
         - TokenTransfer
-        - Token
+        - TokenHolder
       abis:
         - name: Erc20Token
           file: ./abis/Erc20Token.json
