@@ -7,7 +7,7 @@ export function createOrLoadTokenHolder(tokenSymbol: string, tokenHolderAddress:
   let token = TokenHolder.load(id)
 
   if (token === null) {
-    token = new TokenHolder(tokenSymbol)
+    token = new TokenHolder(id)
 
     token.address = tokenHolderAddress
     token.transfersCount = BigInt.zero()
