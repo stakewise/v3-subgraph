@@ -81,9 +81,6 @@ type TokenHolder @entity {
 
   "The total number of token transfers"
   transfersCount: BigInt!
-
-  "The token transfers"
-  transfers: [TokenTransfer!]!
 }
 
 """
