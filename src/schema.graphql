@@ -76,6 +76,9 @@ type TokenHolder @entity {
   "<Token symbol>-<Token holder address>"
   id: ID!
 
+  "The token symbol"
+  tokenSymbol: String!
+
   "The token holder address"
   address: String!
 

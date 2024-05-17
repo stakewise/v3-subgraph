@@ -10,7 +10,7 @@ export function handleTransfer(event: Transfer): void {
     event.params.to.toHexString(),
     event.params.value,
     event.block.timestamp,
-    'swise',
+    'SWISE',
   )
 
   log.info('[SwiseToken] Transfer from={} to={} amount={}', [
