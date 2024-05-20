@@ -19,7 +19,10 @@
   "rewardSplitterFactoryV2": "0x384B388A040C6b32c9B5927aB25891F2bAd4E5f7",
   "foxVault1": "0x3c4ae629bf823475192124E02b9879D3C1fd4538",
   "foxVault2": "0x37Bf0883c27365CffCd0C4202918df930989891f",
-  "vestingEscrowFactory": "0x0000000000000000000000000000000000000000",
+  "vestingEscrowFactory": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "startBlock": "215379"
+  },
   "keeper": {
     "address": "0xB580799Bf7d62721D1a523f0FDF2f5Ed7BA4e259",
     "startBlock": "215379"
