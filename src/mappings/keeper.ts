@@ -14,8 +14,8 @@ import { Vault } from '../../generated/schema'
 import { Harvested, RewardsUpdated } from '../../generated/Keeper/Keeper'
 import {
   FoxVault as FoxVaultTemplate,
-  VaultFactory as VaultFactoryTemplate,
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
+  VaultFactory as VaultFactoryTemplate,
 } from '../../generated/templates'
 import { updateVaultApy } from '../entities/apySnapshots'
 import { createOrLoadV2Pool } from '../entities/v2pool'
@@ -24,7 +24,6 @@ import {
   BLOCKLIST_VAULT_FACTORY_V2,
   ERC20_VAULT_FACTORY_V1,
   ERC20_VAULT_FACTORY_V2,
-  VESTING_ESCROW_FACTORY,
   FOX_VAULT1,
   FOX_VAULT2,
   GNO_USD_PRICE_FEED,
