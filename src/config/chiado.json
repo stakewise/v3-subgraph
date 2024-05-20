@@ -32,8 +32,8 @@
     "startBlock": "9652008"
   },
   "swiseToken": {
-    "address": "0xfdA94F056346d2320d4B5E468D6Ad099b2277746",
-    "startBlock": "8630445"
+    "address": "0x0000000000000000000000000000000000000000",
+    "startBlock": "9652014"
   },
   "osTokenVaultController": {
     "address": "0x6d0e8Ceb65Ed8B954CBB8b32eaC034580ec07A59",
