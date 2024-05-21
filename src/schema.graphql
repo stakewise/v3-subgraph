@@ -47,6 +47,46 @@ type OsTokenHolder @entity {
 }
 
 """
+Token transfer
+"""
+type TokenTransfer @entity {
+  "The transfer hash"
+  id: ID!
+
+  "The transfer amount"
+  amount: BigInt!
+
+  "The transfer token symbol"
+  tokenSymbol: String!
+
+  "The transfer sender"
+  from: String!
+
+  "The transfer receiver"
+  to: String!
+
+  "The transfer timestamp"
+  timestamp: BigInt!
+}
+
+"""
+Token holder
+"""
+type TokenHolder @entity {
+  "<Token symbol>-<Token holder address>"
+  id: ID!
+
+  "The token symbol"
+  tokenSymbol: String!
+
+  "The token holder address"
+  address: String!
+
+  "The total number of token transfers"
+  transfersCount: BigInt!
+}
+
+"""
 Vault exit request
 """
 type ExitRequest @entity {
@@ -531,4 +571,18 @@ type MerkleDropAllocation @entity {
 
   "Defines whether the allocation is claimed"
   isClaimed: Boolean!
+}
+
+"""
+Vesting Escrow
+"""
+type VestingEscrow @entity {
+  "The vesting escrow address"
+  id: ID!
+
+  "The vesting escrow token address"
+  token: String!
+
+  "The vesting escrow recipient"
+  recipient: String!
 }

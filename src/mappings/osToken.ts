@@ -1,8 +1,9 @@
 import { log } from '@graphprotocol/graph-ts'
-import { AvgRewardPerSecondUpdated, StateUpdated } from '../../generated/OsTokenVaultController/OsTokenVaultController'
 import { Transfer } from '../../generated/Erc20Token/Erc20Token'
-import { createOrLoadOsToken, isSupportedOsTokenHolder, createOrLoadOsTokenHolder } from '../entities/osToken'
+import { AvgRewardPerSecondUpdated, StateUpdated } from '../../generated/OsTokenVaultController/OsTokenVaultController'
 import { updateOsTokenApy } from '../entities/apySnapshots'
+import { createTokenTransfer } from '../entities/tokenTransfer'
+import { createOrLoadOsToken, isSupportedOsTokenHolder, createOrLoadOsTokenHolder } from '../entities/osToken'
 
 export function handleAvgRewardPerSecondUpdated(event: AvgRewardPerSecondUpdated): void {
   const newAvgRewardPerSecond = event.params.avgRewardPerSecond
@@ -40,6 +41,15 @@ export function handleTransfer(event: Transfer): void {
     toHolder.timestamp = event.block.timestamp
     toHolder.save()
   }
+
+  createTokenTransfer(
+    event.transaction.hash.toHex(),
+    event.params.from.toHexString(),
+    event.params.to.toHexString(),
+    event.params.value,
+    event.block.timestamp,
+    'osETH',
+  )
 
   log.info('[OsToken] Transfer from={} to={} amount={}', [
     event.params.from.toHexString(),

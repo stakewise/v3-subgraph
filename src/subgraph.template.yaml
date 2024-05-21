@@ -20,6 +20,29 @@ dataSources:
       file: ./mappings/osToken.ts
       entities:
         - OsTokenHolder
+        - TokenTransfer
+        - TokenHolder
+      abis:
+        - name: Erc20Token
+          file: ./abis/Erc20Token.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
+  - kind: ethereum/contract
+    name: SwiseToken
+    network: {{ network }}
+    source:
+      address: '{{ swiseToken.address }}'
+      abi: Erc20Token
+      startBlock: {{ swiseToken.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/swiseToken.ts
+      entities:
+        - TokenTransfer
+        - TokenHolder
       abis:
         - name: Erc20Token
           file: ./abis/Erc20Token.json
@@ -210,6 +233,26 @@ dataSources:
           handler: handleDepositDataMigrated
         - event: DepositDataRootUpdated(indexed address,bytes32)
           handler: handleDepositDataRootUpdated
+  - kind: ethereum/contract
+    name: VestingEscrowFactory
+    network: {{ network }}
+    source:
+      address: '{{ vestingEscrowFactory.address }}'
+      abi: VestingEscrowFactory
+      startBlock: {{ vestingEscrowFactory.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/vestingEscrow.ts
+      entities:
+        - VestingEscrow
+      abis:
+        - name: VestingEscrowFactory
+          file: ./abis/VestingEscrowFactory.json
+      eventHandlers:
+        - event: VestingEscrowCreated(indexed address,indexed address,indexed address,address,address,uint256,uint256,uint256,uint256)
+          handler: handleVestingEscrowCreated
 templates:
   - kind: ethereum/contract
     name: VaultFactory

@@ -19,6 +19,10 @@
   "rewardSplitterFactoryV2": "0xa2D8b88EB39909dD5309542B3623eFA5640D5f24",
   "foxVault1": "0x0000000000000000000000000000000000000000",
   "foxVault2": "0x0000000000000000000000000000000000000000",
+  "vestingEscrowFactory": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "startBlock": "9652014"
+  },
   "keeper": {
     "address": "0x6DfF9E878a83A2d84ef5AC242705E08BF0F33fdD",
     "startBlock": "9652014"
@@ -26,6 +30,10 @@
   "osToken": {
     "address": "0x2c72f8019BF6aab4D430f527DC35Ff8F903b7295",
     "startBlock": "9652008"
+  },
+  "swiseToken": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "startBlock": "9652014"
   },
   "osTokenVaultController": {
     "address": "0x6d0e8Ceb65Ed8B954CBB8b32eaC034580ec07A59",

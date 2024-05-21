@@ -1,5 +1,5 @@
 import {Address, BigDecimal, BigInt} from '@graphprotocol/graph-ts'
-import { OsToken, OsTokenSnapshot, OsTokenHolder } from '../../generated/schema'
+import { OsToken, OsTokenHolder } from '../../generated/schema'
 
 const osTokenId = '1'
 
