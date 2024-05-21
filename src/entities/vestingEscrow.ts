@@ -1,6 +1,7 @@
 import { log } from '@graphprotocol/graph-ts'
-import { VestingEscrowCreated } from '../../generated/templates/VestingEscrowFactory/VestingEscrowFactory'
 import { VestingEscrow } from '../../generated/schema'
+import { VestingEscrowCreated } from '../../generated/VestingEscrowFactory/VestingEscrowFactory'
+
 
 export function createVestingEscrow(event: VestingEscrowCreated): void {
   const vestingEscrowAddress = event.params.escrow
