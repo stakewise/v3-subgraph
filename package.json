@@ -45,8 +45,8 @@
     "deploy-local:chiado": "npm run prepare:chiado && npm run deploy network:chiado node:local"
   },
   "devDependencies": {
-    "@graphprotocol/graph-cli": "0.69.1",
-    "@graphprotocol/graph-ts": "0.34.0",
+    "@graphprotocol/graph-cli": "0.67.2",
+    "@graphprotocol/graph-ts": "0.32.0",
     "@types/node": "20.11.30",
     "@typescript-eslint/eslint-plugin": "7.4.0",
     "@typescript-eslint/parser": "7.4.0",
