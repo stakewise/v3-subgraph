@@ -247,21 +247,27 @@ export function handleHarvested(event: Harvested): void {
   let totalAssetsDelta = event.params.totalAssetsDelta
   const vaultAddress = event.params.vault.toHex()
 
-  const vault = Vault.load(vaultAddress) as Vault
-  if (!vault.isGenesis) {
-    vault.principalAssets = vault.principalAssets.plus(totalAssetsDelta)
-    if (vault.totalAssets.lt(vault.principalAssets)) {
-      vault.totalAssets = vault.principalAssets
-    }
-    vault.save()
+  const vault = Vault.load(vaultAddress)
+
+  if (vault === null) {
+    log.info('[Keeper] Harvested vault={} is null', [vaultAddress])
   } else {
-    const v2Pool = createOrLoadV2Pool()
-    if (!v2Pool.migrated) {
-      totalAssetsDelta = totalAssetsDelta.minus(v2Pool.rewardAssets)
-      v2Pool.migrated = true
+    if (!vault.isGenesis) {
+      vault.principalAssets = vault.principalAssets.plus(totalAssetsDelta)
+      if (vault.totalAssets.lt(vault.principalAssets)) {
+        vault.totalAssets = vault.principalAssets
+      }
+      vault.save()
+    } else {
+      const v2Pool = createOrLoadV2Pool()
+      if (!v2Pool.migrated) {
+        totalAssetsDelta = totalAssetsDelta.minus(v2Pool.rewardAssets)
+        v2Pool.migrated = true
+      }
+      v2Pool.vaultHarvestDelta = totalAssetsDelta
+      v2Pool.save()
     }
-    v2Pool.vaultHarvestDelta = totalAssetsDelta
-    v2Pool.save()
+
+    log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
   }
-  log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
 }
