@@ -1,6 +1,6 @@
 {
   "name": "v3-subgraph",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Subgraph for the StakeWise Protocol",
   "repository": "https://github.com/stakewise/v3-subgraph",
   "license": "AGPL-3.0-only",
@@ -45,20 +45,20 @@
     "deploy-local:chiado": "npm run prepare:chiado && npm run deploy network:chiado node:local"
   },
   "devDependencies": {
-    "@graphprotocol/graph-cli": "0.69.1",
-    "@graphprotocol/graph-ts": "0.34.0",
-    "@types/node": "20.11.30",
-    "@typescript-eslint/eslint-plugin": "7.4.0",
-    "@typescript-eslint/parser": "7.4.0",
+    "@graphprotocol/graph-cli": "0.73.0",
+    "@graphprotocol/graph-ts": "0.35.1",
+    "@types/node": "20.14.2",
+    "@typescript-eslint/eslint-plugin": "7.13.0",
+    "@typescript-eslint/parser": "7.13.0",
     "dotenv": "16.4.5",
     "eslint": "8.57.0",
     "eslint-config-prettier": "9.1.0",
     "husky": "9.0.11",
-    "lint-staged": "15.2.2",
+    "lint-staged": "15.2.6",
     "matchstick-as": "0.6.0",
     "mustache": "4.2.0",
-    "prettier": "3.2.5",
-    "typescript": "5.4.3"
+    "prettier": "3.3.2",
+    "typescript": "5.4.5"
   },
   "engines": {
     "node": "18"

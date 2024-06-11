@@ -9,14 +9,14 @@
   "privVaultFactoryV1": "0x9741f8e49fFa322714511b5D17bD052698eAFA43",
   "erc20VaultFactoryV1": "0x4C1140F4A5E3DD459De642A46bd1df6FBe287e1B",
   "privErc20VaultFactoryV1": "0x930A2D0ADEbF4E69Bb929F6456C3D4bcabf52796",
-  "vaultFactoryV2": "0xc93C070124Cb78fE9Dee9F0527168F81850a384b",
-  "privVaultFactoryV2": "0xDe0b026f1A7b143A650732EdcCce5a30784BFe20",
-  "blocklistVaultFactoryV2": "0x1F05A6F83e72732046DF4cac3215d1fd00E2Bc5C",
-  "erc20VaultFactoryV2": "0x2B324944213F5781A23A07ea3f55884b535DcF36",
-  "privErc20VaultFactoryV2": "0x400f8E12c8503D6803141E3F5CCc3e0C01A44899",
-  "blocklistErc20VaultFactoryV2": "0x76FC9b44D4b18eef3CdF8FEeee0B926775F00e6e",
+  "vaultFactoryV2": "0xd68ef965D4E32b99Fd2D014Fc35304f3C273277E",
+  "privVaultFactoryV2": "0x09fD091483d64b3b9d5474F374ddFE6039F79aAd",
+  "blocklistVaultFactoryV2": "0x473a94aBe8f173cac48A6213f61335E21B913875",
+  "erc20VaultFactoryV2": "0x10C5066FB5DA1C0D7eb189DE4dfA26d23e8e4aDa",
+  "privErc20VaultFactoryV2": "0x5da7d1De2e84047De2A7988a7E01B494d54284e7",
+  "blocklistErc20VaultFactoryV2": "0x3A945FD94A1d810B5e1c4536747F0de358d32854",
   "rewardSplitterFactoryV1": "0x6c56AC64457B8AeA1Bb8d1f5eA2d1E397C9c7a13",
-  "rewardSplitterFactoryV2": "0x384B388A040C6b32c9B5927aB25891F2bAd4E5f7",
+  "rewardSplitterFactoryV2": "0x7Fcb1857011BAF51003018e9299deE9012de0967",
   "foxVault1": "0x3c4ae629bf823475192124E02b9879D3C1fd4538",
   "foxVault2": "0x37Bf0883c27365CffCd0C4202918df930989891f",
   "vestingEscrowFactory": {
@@ -44,16 +44,16 @@
     "startBlock": "215444"
   },
   "depositDataRegistry": {
-    "address": "0x1Dfb40a149940300f183d21E5B200c5DaaF3A842",
-    "startBlock": "1491091"
+    "address": "0xf25f9A254F38aF10Dc352bF8F446Dc09a820ca76",
+    "startBlock": "1711347"
   },
   "v2RewardToken": {
-    "address": "0x0000000000000000000000000000000000000000",
-    "startBlock": "215406"
+    "address": "0xd57c19f20168406d162852515030e00e49bB7781",
+    "startBlock": "1104929"
   },
   "v2StakedToken": {
-    "address": "0x0000000000000000000000000000000000000000",
-    "startBlock": "215406"
+    "address": "0xFb534BB912Eb83b7b629329195b8DF798Ea325b2",
+    "startBlock": "1104931"
   },
   "starknetMerkleDrop": {
     "address": "0xe8a222D887b468a71Ee8a27df4fa3b886A4B7BA1",
