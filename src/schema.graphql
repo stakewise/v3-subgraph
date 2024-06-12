@@ -218,7 +218,7 @@ type Vault @entity {
   "The vault apy snapshots"
   apySnapshots: [VaultApySnapshot!]! @derivedFrom(field: "vault")
 
-  "The vault eigen pods"
+  "The vault eigen pods (only for vaults with isRestake=true)"
   eigenPods: [EigenPod!]! @derivedFrom(field: "vault")
 
   "The total number of shares"

@@ -1,4 +1,4 @@
-import { BigInt, Address, log } from '@graphprotocol/graph-ts'
+import { BigInt, log } from '@graphprotocol/graph-ts'
 
 import {
   StakerDelegated,
@@ -24,7 +24,6 @@ export function handleEigenPodCreated(event: EigenPodCreated): void {
   const eigenPod = new EigenPod(eigenPodId)
 
   eigenPod.address = pod
-  eigenPod.operator = Address.zero()
   eigenPod.vault = vaultAddress
   eigenPod.shares = BigInt.zero()
   eigenPod.createdAt = event.block.timestamp
