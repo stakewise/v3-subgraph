@@ -63,11 +63,11 @@
   },
   "eigenDelegationManager": {
     "address": "0xA44151489861Fe9e3055d95adC98FbD462B948e7",
-    "startBlock": "1167043"
+    "startBlock": "1711347"
   },
   "eigenPodManager": {
     "address": "0x30770d7E3e71112d7A6b7259542D1f680a70e315",
-    "startBlock": "1167043"
+    "startBlock": "1711347"
   },
   "starknetMerkleDrop": {
     "address": "0xe8a222D887b468a71Ee8a27df4fa3b886A4B7BA1",
