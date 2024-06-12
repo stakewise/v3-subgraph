@@ -15,6 +15,12 @@
   "privErc20VaultFactoryV2": "0x81feD710De1aC9D3D860F6C9aB4f150B1dfF621d",
   "blocklistVaultFactoryV2": "0x6e16fc22013e07B8C8e6d4b30280F44d42A60a97",
   "blocklistErc20VaultFactoryV2": "0xdd9e0dBFb218fb17f0A2f96E77224e00dF095bf2",
+  "restakeVaultFactoryV2": "0x0000000000000000000000000000000000000000",
+  "restakePrivVaultFactoryV2": "0x0000000000000000000000000000000000000000",
+  "restakeBlocklistVaultFactoryV2": "0x0000000000000000000000000000000000000000",
+  "restakeErc20VaultFactoryV2": "0x0000000000000000000000000000000000000000",
+  "restakePrivErc20VaultFactoryV2": "0x0000000000000000000000000000000000000000",
+  "restakeBlocklistErc20VaultFactoryV2": "0x0000000000000000000000000000000000000000",
   "rewardSplitterFactoryV1": "0x0000000000000000000000000000000000000000",
   "rewardSplitterFactoryV2": "0x63De511Ff504E70109Bb8312d1329f2C88c14f77",
   "foxVault1": "0x0000000000000000000000000000000000000000",
@@ -53,6 +59,14 @@
   },
   "v2StakedToken": {
     "address": "0x61A58F486c9E23D3ACB88792c50ddcdde7cda656",
+    "startBlock": "10257854"
+  },
+  "eigenDelegationManager": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "startBlock": "10257854"
+  },
+  "eigenPodManager": {
+    "address": "0x0000000000000000000000000000000000000000",
     "startBlock": "10257854"
   },
   "starknetMerkleDrop": {
