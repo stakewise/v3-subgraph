@@ -44,8 +44,8 @@ export function handleTransfer(event: Transfer): void {
 
   createTokenTransfer(
     event.transaction.hash.toHex(),
-    event.params.from.toHexString(),
-    event.params.to.toHexString(),
+    event.params.from,
+    event.params.to,
     event.params.value,
     event.block.timestamp,
     'osETH',

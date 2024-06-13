@@ -1,8 +1,8 @@
-import { BigInt } from '@graphprotocol/graph-ts'
+import { Address, BigInt } from '@graphprotocol/graph-ts'
 import { TokenHolder, TokenTransfer } from '../../generated/schema'
 
-export function createOrLoadTokenHolder(tokenSymbol: string, tokenHolderAddress: string): TokenHolder {
-  const id = `${tokenSymbol}-${tokenHolderAddress}`
+export function createOrLoadTokenHolder(tokenSymbol: string, tokenHolderAddress: Address): TokenHolder {
+  const id = `${tokenSymbol}-${tokenHolderAddress.toHex()}`
 
   let token = TokenHolder.load(id)
 
@@ -20,8 +20,8 @@ export function createOrLoadTokenHolder(tokenSymbol: string, tokenHolderAddress:
 
 export function createTokenTransfer(
   id: string,
-  from: string,
-  to: string,
+  from: Address,
+  to: Address,
   amount: BigInt,
   timestamp: BigInt,
   tokenSymbol: string,
