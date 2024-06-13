@@ -177,38 +177,6 @@ dataSources:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleStakedTokenTransfer
   - kind: ethereum/contract
-    name: StarknetMerkleDrop
-    network: {{ network }}
-    context:
-      merkleDropAddress:
-        type: String
-        data: '{{ starknetMerkleDrop.address }}'
-      merkleDropIpfsHash:
-        type: String
-        data: '{{ starknetMerkleDrop.ipfsHash }}'
-    source:
-      address: '{{ starknetMerkleDrop.address }}'
-      abi: MerkleDrop
-      startBlock: {{ starknetMerkleDrop.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.8
-      language: wasm/assemblyscript
-      file: ./mappings/merkleDrop.ts
-      entities:
-        - MerkleDropAllocation
-        - Transaction
-      abis:
-        - name: MerkleDrop
-          file: ./abis/MerkleDrop.json
-      eventHandlers:
-        - event: Claimed(uint256,address,uint256)
-          handler: handleClaimed
-      blockHandlers:
-        - handler: initialize
-          filter:
-            kind: once
-  - kind: ethereum/contract
     name: DepositDataRegistry
     network: {{ network }}
     source:

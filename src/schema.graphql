@@ -567,26 +567,6 @@ type VaultsStat @entity {
   vaultsCount: BigInt!
 }
 
-type MerkleDropAllocation @entity {
-  "<contract address>-<user-address>"
-  id: ID!
-
-  "The index of the allocation in the merkle drop"
-  index: BigInt!
-
-  "The amount of the allocation"
-  amount: BigInt!
-
-  "The address of the allocation receiver"
-  account: Bytes!
-
-  "The proof of the allocation"
-  proof: [String!]
-
-  "Defines whether the allocation is claimed"
-  isClaimed: Boolean!
-}
-
 """
 Vesting Escrow
 """
