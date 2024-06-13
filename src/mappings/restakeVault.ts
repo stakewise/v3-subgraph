@@ -34,7 +34,7 @@ export function handleEigenPodCreated(event: EigenPodCreated): void {
   log.info('[EigenPod] EigenPodCreated vault={} owner={} pod={}', [vaultAddress, eigenPodId, pod.toHex()])
 }
 
-// Handler for the RestakeWithdrawalsManagerUpdated event
+// Handler for the RestakeOperatorsManagerUpdated event
 export function handleRestakeOperatorsManagerUpdated(event: RestakeOperatorsManagerUpdated): void {
   const params = event.params
   const operatorsManager = params.newRestakeOperatorsManager
