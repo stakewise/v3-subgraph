@@ -37,6 +37,7 @@ export function handleDepositDataMigrated(event: DepositDataMigrated): void {
   // Update deprecated validators root
   vault.validatorsRoot = depositDataRoot
 
+  // zero address is when the default deposit data manager was used (admin)
   if (depositDataManager.equals(Address.zero())) {
     vault.depositDataManager = vault.admin
   } else {
