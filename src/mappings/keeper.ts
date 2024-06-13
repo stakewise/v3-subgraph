@@ -35,6 +35,12 @@ import {
   REWARD_SPLITTER_FACTORY_V2,
   VAULT_FACTORY_V1,
   VAULT_FACTORY_V2,
+  RESTAKE_VAULT_FACTORY_V2,
+  RESTAKE_PRIV_VAULT_FACTORY_V2,
+  RESTAKE_BLOCKLIST_VAULT_FACTORY_V2,
+  RESTAKE_ERC20_VAULT_FACTORY_V2,
+  RESTAKE_PRIV_ERC20_VAULT_FACTORY_V2,
+  RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2,
   WAD,
   ZERO_ADDRESS,
 } from '../helpers/constants'
@@ -43,6 +49,7 @@ import { getConversionRate } from '../entities/network'
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
 const IS_BLOCKLIST_KEY = 'isBlocklist'
+const IS_RESTAKE_KEY = 'isRestake'
 
 export function initialize(block: ethereum.Block): void {
   let context = new DataSourceContext()
@@ -51,6 +58,7 @@ export function initialize(block: ethereum.Block): void {
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_ERC20_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, false)
+  context.setBoolean(IS_RESTAKE_KEY, false)
   if (VAULT_FACTORY_V1 != ZERO_ADDRESS) {
     VaultFactoryTemplate.createWithContext(Address.fromString(VAULT_FACTORY_V1), context)
     log.info('[Keeper] Initialize VaultFactory V1 at block={}', [block.number.toString()])
@@ -105,6 +113,51 @@ export function initialize(block: ethereum.Block): void {
   if (BLOCKLIST_ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
     VaultFactoryTemplate.createWithContext(Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V2), context)
     log.info('[Keeper] Initialize BlocklistERC20VaultFactory V2 at block={}', [block.number.toString()])
+  }
+
+  // create restake vault factories
+  context.setBoolean(IS_PRIVATE_KEY, false)
+  context.setBoolean(IS_ERC20_KEY, false)
+  context.setBoolean(IS_BLOCKLIST_KEY, false)
+  context.setBoolean(IS_RESTAKE_KEY, true)
+  if (RESTAKE_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(RESTAKE_VAULT_FACTORY_V2), context)
+    log.info('[Keeper] Initialize RestakeVaultFactory V2 at block={}', [block.number.toString()])
+  }
+
+  context.setBoolean(IS_PRIVATE_KEY, true)
+  if (RESTAKE_PRIV_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(RESTAKE_PRIV_VAULT_FACTORY_V2), context)
+    log.info('[Keeper] Initialize RestakePrivateVaultFactory V2 at block={}', [block.number.toString()])
+  }
+
+  context.setBoolean(IS_PRIVATE_KEY, false)
+  context.setBoolean(IS_BLOCKLIST_KEY, true)
+  if (RESTAKE_BLOCKLIST_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(RESTAKE_BLOCKLIST_VAULT_FACTORY_V2), context)
+    log.info('[Keeper] Initialize RestakeBlocklistVaultFactory V2 at block={}', [block.number.toString()])
+  }
+
+  // create restake erc20 vault factories
+  context.setBoolean(IS_PRIVATE_KEY, false)
+  context.setBoolean(IS_ERC20_KEY, true)
+  context.setBoolean(IS_BLOCKLIST_KEY, false)
+  if (RESTAKE_ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(RESTAKE_ERC20_VAULT_FACTORY_V2), context)
+    log.info('[Keeper] Initialize RestakeERC20VaultFactory V2 at block={}', [block.number.toString()])
+  }
+
+  context.setBoolean(IS_PRIVATE_KEY, true)
+  if (RESTAKE_PRIV_ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(RESTAKE_PRIV_ERC20_VAULT_FACTORY_V2), context)
+    log.info('[Keeper] Initialize RestakePrivateERC20VaultFactory V2 at block={}', [block.number.toString()])
+  }
+
+  context.setBoolean(IS_PRIVATE_KEY, false)
+  context.setBoolean(IS_BLOCKLIST_KEY, true)
+  if (RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
+    VaultFactoryTemplate.createWithContext(Address.fromString(RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2), context)
+    log.info('[Keeper] Initialize RestakeBlocklistERC20VaultFactory V2 at block={}', [block.number.toString()])
   }
 
   // create reward splitter factories

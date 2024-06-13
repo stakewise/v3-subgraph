@@ -559,6 +559,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.isPrivate = false
   vault.isBlocklist = false
   vault.isErc20 = false
+  vault.isRestake = false
   vault.isOsTokenEnabled = true
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
@@ -624,6 +625,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.isPrivate = false
   vault.isBlocklist = true
   vault.isErc20 = false
+  vault.isRestake = false
   vault.isOsTokenEnabled = false
   vault.mevEscrow = ownMevEscrow
   vault.addressString = vaultAddressHex

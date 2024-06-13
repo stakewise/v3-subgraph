@@ -116,7 +116,6 @@ type ExitRequest @entity {
 
   "The estimated withdrawal timestamp. Managed by the backend service."
   withdrawalTimestamp: BigInt
-
 }
 
 """
@@ -219,6 +218,9 @@ type Vault @entity {
   "The vault apy snapshots"
   apySnapshots: [VaultApySnapshot!]! @derivedFrom(field: "vault")
 
+  "The vault eigen pods (only for vaults with isRestake=true)"
+  eigenPods: [EigenPod!]! @derivedFrom(field: "vault")
+
   "The total number of shares"
   totalShares: BigInt!
 
@@ -240,6 +242,9 @@ type Vault @entity {
   "Indicates whether the Vault has ERC-20 token"
   isErc20: Boolean!
 
+  "Indicates whether the Vault is a restaking vault"
+  isRestake: Boolean!
+
   "Indicates whether the Vault supports minting OsToken"
   isOsTokenEnabled: Boolean!
 
@@ -248,6 +253,12 @@ type Vault @entity {
 
   "If the Vault is with blocklist, blocklist manager can block allocators from depositing"
   blocklistManager: Bytes
+
+  "If the Vault is a restaking vault, restake operators manager can add/remove restake operators"
+  restakeOperatorsManager: Bytes
+
+  "If the Vault is a restaking vault, restake withdrawals manager can manage EigenLayer withdrawals"
+  restakeWithdrawalsManager: Bytes
 
   "Vault address string for search"
   addressString: String!
@@ -585,4 +596,27 @@ type VestingEscrow @entity {
 
   "The vesting escrow recipient"
   recipient: Bytes!
+}
+
+"""
+The restake vault eigen pod
+"""
+type EigenPod @entity {
+  "The address of the eigen pod owner"
+  id: ID!
+
+  "The eigenPod's address"
+  address: Bytes!
+
+  "The eigenPod's vault"
+  vault: Vault!
+
+  "The eigenPod's shares"
+  shares: BigInt!
+
+  "The eigenPod's operator"
+  operator: Bytes
+
+  "The timestamp when the pod was created"
+  createdAt: BigInt!
 }

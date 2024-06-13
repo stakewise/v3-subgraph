@@ -17,6 +17,12 @@
   "blocklistErc20VaultFactoryV2": "0x3A945FD94A1d810B5e1c4536747F0de358d32854",
   "rewardSplitterFactoryV1": "0x6c56AC64457B8AeA1Bb8d1f5eA2d1E397C9c7a13",
   "rewardSplitterFactoryV2": "0x7Fcb1857011BAF51003018e9299deE9012de0967",
+  "restakeVaultFactoryV2": "0x390C320Ae2B001C7CB31A690e2500b55313aC986",
+  "restakePrivVaultFactoryV2": "0x2a7FBFAaa33CFDB9E0EB3eb3F6aB01eA985354F2",
+  "restakeBlocklistVaultFactoryV2": "0x9e345cFa4A00aA2714264E9072800B89787aa826",
+  "restakeErc20VaultFactoryV2": "0x67E134aa61ee3903665a8045EC32886bfdf0B2B5",
+  "restakePrivErc20VaultFactoryV2": "0x860c75A594966f78fbd7c07D1748219CE9c42c39",
+  "restakeBlocklistErc20VaultFactoryV2": "0xd14013F989825037196089A498E8b7D3763B8695",
   "foxVault1": "0x3c4ae629bf823475192124E02b9879D3C1fd4538",
   "foxVault2": "0x37Bf0883c27365CffCd0C4202918df930989891f",
   "vestingEscrowFactory": {
@@ -54,6 +60,14 @@
   "v2StakedToken": {
     "address": "0xFb534BB912Eb83b7b629329195b8DF798Ea325b2",
     "startBlock": "1104931"
+  },
+  "eigenDelegationManager": {
+    "address": "0xA44151489861Fe9e3055d95adC98FbD462B948e7",
+    "startBlock": "1711347"
+  },
+  "eigenPodManager": {
+    "address": "0x30770d7E3e71112d7A6b7259542D1f680a70e315",
+    "startBlock": "1711347"
   },
   "starknetMerkleDrop": {
     "address": "0xe8a222D887b468a71Ee8a27df4fa3b886A4B7BA1",
