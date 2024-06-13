@@ -60,10 +60,10 @@ type TokenTransfer @entity {
   tokenSymbol: String!
 
   "The transfer sender"
-  from: String!
+  from: Bytes!
 
   "The transfer receiver"
-  to: String!
+  to: Bytes!
 
   "The transfer timestamp"
   timestamp: BigInt!
@@ -80,7 +80,7 @@ type TokenHolder @entity {
   tokenSymbol: String!
 
   "The token holder address"
-  address: String!
+  address: Bytes!
 
   "The total number of token transfers"
   transfersCount: BigInt!
@@ -584,5 +584,5 @@ type VestingEscrow @entity {
   token: String!
 
   "The vesting escrow recipient"
-  recipient: String!
+  recipient: Bytes!
 }
