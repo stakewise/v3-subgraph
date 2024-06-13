@@ -521,7 +521,7 @@ templates:
         - event: RestakeOperatorsManagerUpdated(address)
           handler: handleRestakeOperatorsManagerUpdated
         - event: RestakeWithdrawalsManagerUpdated(address)
-          handler: handleRestakeWithdrawalManagerUpdated
+          handler: handleRestakeWithdrawalsManagerUpdated
   - kind: ethereum/contract
     name: OwnMevEscrow
     network: {{ network }}
