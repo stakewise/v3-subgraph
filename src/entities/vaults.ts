@@ -52,6 +52,7 @@ export function createVault(
   vault.consensusReward = BigInt.zero()
   vault.lockedExecutionReward = BigInt.zero()
   vault.unlockedExecutionReward = BigInt.zero()
+  vault.unconvertedExecutionReward = BigInt.zero()
   vault.slashedMevReward = BigInt.zero()
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()

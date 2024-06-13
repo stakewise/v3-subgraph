@@ -261,11 +261,13 @@ export function updateRewards(
     }
 
     // update vault state
-    if (GNO_USD_PRICE_FEED == ZERO_ADDRESS) {
+    if (executionRewardRate.equals(BigInt.fromString(WAD))) {
       vault.totalAssets = vault.totalAssets.plus(periodConsensusReward).plus(periodExecutionReward)
     } else {
       // for gnosis network, execution rewards must be converted for GNO before adding them to the total assets
       vault.totalAssets = vault.totalAssets.plus(periodConsensusReward)
+      const unlockedExecutionRewardDelta = unlockedMevReward.minus(vault.unlockedExecutionReward)
+      vault.unconvertedExecutionReward = vault.unconvertedExecutionReward.plus(unlockedExecutionRewardDelta)
     }
     vault.rewardsRoot = rewardsRoot
     vault.proofReward = proofReward

@@ -1,4 +1,4 @@
-import { log } from '@graphprotocol/graph-ts'
+import { BigInt, log } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
 import { XdaiSwapped } from '../../generated/templates/GnoVault/GnoVault'
@@ -13,6 +13,11 @@ export function handleXdaiSwapped(event: XdaiSwapped): void {
   const vault = Vault.load(vaultAddress.toHex()) as Vault
   vault.totalAssets = vault.totalAssets.plus(assets)
   vault.principalAssets = vault.principalAssets.plus(assets)
+  if (vault.unconvertedExecutionReward.le(params.amount)) {
+    vault.unconvertedExecutionReward = BigInt.zero()
+  } else {
+    vault.unconvertedExecutionReward = vault.unconvertedExecutionReward.minus(params.amount)
+  }
   vault.save()
 
   const vaultsStat = createOrLoadVaultsStat()
