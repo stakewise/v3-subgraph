@@ -1,4 +1,4 @@
-import { log } from '@graphprotocol/graph-ts'
+import { Address, log } from '@graphprotocol/graph-ts'
 import { Vault } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
 import {
@@ -36,9 +36,15 @@ export function handleDepositDataMigrated(event: DepositDataMigrated): void {
   vault.depositDataRoot = depositDataRoot
   // Update deprecated validators root
   vault.validatorsRoot = depositDataRoot
-  vault.depositDataManager = depositDataManager
+
+  // zero address is when the default deposit data manager was used (admin)
+  if (depositDataManager.equals(Address.zero())) {
+    vault.depositDataManager = vault.admin
+  } else {
+    vault.depositDataManager = depositDataManager
+  }
   // Update deprecated vault keys manager
-  vault.keysManager = depositDataManager
+  vault.keysManager = vault.depositDataManager
   vault.save()
 
   createTransaction(event.transaction.hash.toHex())

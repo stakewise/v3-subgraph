@@ -68,10 +68,5 @@
   "eigenPodManager": {
     "address": "0x91E677b07F7AF907ec9a428aafA9fc14a0d3A338",
     "startBlock": "17445563"
-  },
-  "starknetMerkleDrop": {
-    "address": "0xB14eA5899D03d400705Aec4c9172E97E56022a07",
-    "startBlock": "19560077",
-    "ipfsHash": "QmZmFrVLXHZfrQGTgh6bTvhKEhvqikDurErduFLRxnfiPF"
   }
 }
