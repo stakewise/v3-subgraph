@@ -4,6 +4,7 @@ const path = require('path')
 const isMainnet = process.argv.includes('mainnet')
 const isHolesky = process.argv.includes('holesky')
 const isChiado = process.argv.includes('chiado')
+const isGnosis = process.argv.includes('gnosis')
 
 let configName = null
 
@@ -17,6 +18,10 @@ if (isHolesky) {
 
 if (isChiado) {
   configName = 'chiado'
+}
+
+if (isGnosis) {
+  configName = 'gnosis'
 }
 
 if (!configName) {

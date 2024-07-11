@@ -43,7 +43,7 @@ const validateEnv = () => {
 const validateArgs = () => {
   const { network, node } = args
 
-  const allowedNetworks = ['holesky', 'mainnet', 'chiado']
+  const allowedNetworks = ['holesky', 'mainnet', 'chiado', 'gnosis']
   const allowedNodes = ['hosted', 'local']
 
   if (!network) {
