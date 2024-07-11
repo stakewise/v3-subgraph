@@ -6,31 +6,6 @@ const snapshotsPerWeek = 14
 const secondsInYear = '31536000'
 const maxPercent = '100'
 
-export function getRewardPerAsset(
-  reward: BigInt,
-  totalAssets: BigInt,
-  feePercent: i32,
-  totalDuration: BigInt,
-): BigDecimal {
-  if (totalAssets.le(BigInt.zero()) || totalDuration.le(BigInt.zero())) {
-    return BigDecimal.zero()
-  }
-
-  // Constants
-  const maxPercentDecimal = BigDecimal.fromString('10000')
-  const feePercentDecimal = BigDecimal.fromString(feePercent.toString())
-  const rewardDecimal = BigDecimal.fromString(reward.toString())
-    .times(maxPercentDecimal.minus(feePercentDecimal))
-    .div(maxPercentDecimal)
-
-  const totalAssetsDecimal = BigDecimal.fromString(totalAssets.toString())
-  return rewardDecimal
-    .times(BigDecimal.fromString(secondsInYear))
-    .times(BigDecimal.fromString(maxPercent))
-    .div(totalAssetsDecimal)
-    .div(BigDecimal.fromString(totalDuration.toString()))
-}
-
 function _calculateMedian(values: Array<BigDecimal>): BigDecimal {
   if (values.length === 0) {
     return BigDecimal.fromString('0')
@@ -46,8 +21,7 @@ function _calculateMedian(values: Array<BigDecimal>): BigDecimal {
   } else {
     // For even number of elements, calculate the average of the two middle elements
     const lowerMidIndex = mid - 1
-    const upperMidIndex = mid
-    return sortedValues[lowerMidIndex as i32].plus(sortedValues[upperMidIndex as i32]).div(BigDecimal.fromString('2'))
+    return sortedValues[lowerMidIndex as i32].plus(sortedValues[mid as i32]).div(BigDecimal.fromString('2'))
   }
 }
 
@@ -74,26 +48,22 @@ export function updateVaultApy(
   vault: Vault,
   fromTimestamp: BigInt | null,
   toTimestamp: BigInt,
-  periodConsensusReward: BigInt,
-  periodExecutionReward: BigInt,
+  rateChange: BigInt,
 ): void {
   if (fromTimestamp === null) {
     // it's the first update, skip
     return
   }
   const totalDuration = toTimestamp.minus(fromTimestamp)
-  const currentExecApy = getRewardPerAsset(
-    periodExecutionReward,
-    vault.principalAssets,
-    vault.feePercent,
-    totalDuration,
-  )
-  const currentConsensusApy = getRewardPerAsset(
-    periodConsensusReward,
-    vault.principalAssets,
-    vault.feePercent,
-    totalDuration,
-  )
+  const currentApy = BigDecimal.fromString(rateChange.toString())
+    .times(BigDecimal.fromString(secondsInYear))
+    .times(BigDecimal.fromString(maxPercent))
+    .div(BigDecimal.fromString(WAD))
+    .div(BigDecimal.fromString(totalDuration.toString()))
+
+  // TODO: remove after deprecation period
+  const currentExecApy = currentApy.div(BigDecimal.fromString('2'))
+  const currentConsensusApy = currentApy.minus(currentExecApy)
 
   // calculate weekly apy
   let executionApys: Array<BigDecimal> = [currentExecApy]
@@ -114,9 +84,6 @@ export function updateVaultApy(
   vaultApySnapshot.apy = currentExecApy.plus(currentConsensusApy)
   vaultApySnapshot.executionApy = currentExecApy
   vaultApySnapshot.consensusApy = currentConsensusApy
-  vaultApySnapshot.periodExecutionReward = periodExecutionReward
-  vaultApySnapshot.periodConsensusReward = periodConsensusReward
-  vaultApySnapshot.principalAssets = vault.principalAssets
   vaultApySnapshot.fromEpochTimestamp = fromTimestamp
   vaultApySnapshot.toEpochTimestamp = toTimestamp
   vaultApySnapshot.vault = vault.id
@@ -136,21 +103,22 @@ export function updatePoolApy(
   pool: V2Pool,
   fromTimestamp: BigInt | null,
   toTimestamp: BigInt,
-  periodConsensusReward: BigInt,
-  periodExecutionReward: BigInt,
+  rateChange: BigInt,
 ): void {
   if (fromTimestamp === null) {
     // it's the first update, skip
     return
   }
   const totalDuration = toTimestamp.minus(fromTimestamp)
-  const currentExecApy = getRewardPerAsset(periodExecutionReward, pool.principalAssets, pool.feePercent, totalDuration)
-  const currentConsensusApy = getRewardPerAsset(
-    periodConsensusReward,
-    pool.principalAssets,
-    pool.feePercent,
-    totalDuration,
-  )
+  const currentApy = BigDecimal.fromString(rateChange.toString())
+    .times(BigDecimal.fromString(secondsInYear))
+    .times(BigDecimal.fromString(maxPercent))
+    .div(BigDecimal.fromString(WAD))
+    .div(BigDecimal.fromString(totalDuration.toString()))
+
+  // TODO: remove after deprecation period
+  const currentExecApy = currentApy.div(BigDecimal.fromString('2'))
+  const currentConsensusApy = currentApy.minus(currentExecApy)
 
   // calculate weekly apy
   let execApys: Array<BigDecimal> = [currentExecApy]
@@ -171,9 +139,6 @@ export function updatePoolApy(
   poolApySnapshot.apy = currentExecApy.plus(currentConsensusApy)
   poolApySnapshot.executionApy = currentExecApy
   poolApySnapshot.consensusApy = currentConsensusApy
-  poolApySnapshot.periodExecutionReward = periodExecutionReward
-  poolApySnapshot.periodConsensusReward = periodConsensusReward
-  poolApySnapshot.principalAssets = pool.principalAssets
   poolApySnapshot.fromEpochTimestamp = fromTimestamp
   poolApySnapshot.toEpochTimestamp = toTimestamp
   poolApySnapshot.save()

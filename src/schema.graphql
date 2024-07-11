@@ -212,6 +212,9 @@ type Vault @entity {
   "The vault slashed MEV reward in the smoothing pool"
   slashedMevReward: BigInt!
 
+  "Defines whether the vault can harvest new rewards"
+  canHarvest: Boolean!
+
   "The vault allocators' actions"
   allocatorActions: [AllocatorAction!]! @derivedFrom(field: "vault")
 
@@ -235,6 +238,12 @@ type Vault @entity {
 
   "The number of assets used for rewardPerAsset calculation"
   principalAssets: BigInt!
+
+  "The current exchange rate for 10^18 amount"
+  rate: BigInt!
+
+  "The total number of assets that are exiting (in V2 vaults)"
+  exitingAssets: BigInt!
 
   "Indicates whether the Vault is private"
   isPrivate: Boolean!
@@ -362,15 +371,6 @@ type VaultApySnapshot @entity {
 
   "The vault execution APY for the period"
   executionApy: BigDecimal!
-
-  "The period consensus reward"
-  periodConsensusReward: BigInt!
-
-  "The period execution reward"
-  periodExecutionReward: BigInt!
-
-  "The total assets in the vault that share the period reward"
-  principalAssets: BigInt!
 
   "The period start epoch timestamp"
   fromEpochTimestamp: BigInt!
@@ -519,20 +519,20 @@ type V2Pool @entity {
   "Total assets staked"
   principalAssets: BigInt!
 
+  "Total penalty accrued"
+  penaltyAssets: BigInt!
+
   "The staking fee percent charged by the pool"
   feePercent: Int!
-
-  "The vault and pool execution reward"
-  executionReward: BigInt
-
-  "The vault and pool consensus reward"
-  consensusReward: BigInt
 
   "Whether V2 Pool has migrated to V3"
   migrated: Boolean!
 
   "The total number of APY snapshots"
   apySnapshotsCount: BigInt!
+
+  "The current exchange rate for 10^18 staked token"
+  rate: BigInt!
 
   "The pool average weekly total APY"
   apy: BigDecimal!
@@ -548,9 +548,6 @@ type V2Pool @entity {
 
   "Last rewards update timestamp"
   rewardsTimestamp: BigInt
-
-  "The last genesis vault harvest delta"
-  vaultHarvestDelta: BigInt
 }
 
 """

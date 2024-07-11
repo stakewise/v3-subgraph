@@ -11,6 +11,7 @@ import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactor
 import { OsTokenPosition, Vault, VaultsStat } from '../../generated/schema'
 import { createOrLoadNetwork } from './network'
 import { createTransaction } from './transaction'
+import { WAD } from '../helpers/constants'
 
 const vaultsStatId = '1'
 
@@ -49,6 +50,7 @@ export function createVault(
   vault.feeRecipient = admin
   vault.keysManager = admin // Deprecated
   vault.depositDataManager = admin
+  vault.canHarvest = false
   vault.consensusReward = BigInt.zero()
   vault.lockedExecutionReward = BigInt.zero()
   vault.unlockedExecutionReward = BigInt.zero()
@@ -58,11 +60,13 @@ export function createVault(
   vault.score = BigDecimal.zero()
   vault.totalAssets = BigInt.zero()
   vault.principalAssets = BigInt.zero()
+  vault.rate = BigInt.fromString(WAD)
+  vault.exitingAssets = BigInt.zero()
   vault.isPrivate = isPrivate
   vault.isBlocklist = isBlocklist
   vault.isRestake = isRestake
   vault.isErc20 = isErc20
-  vault.isOsTokenEnabled = true
+  vault.isOsTokenEnabled = !isRestake
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
   vault.apySnapshotsCount = BigInt.zero()

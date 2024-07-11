@@ -17,8 +17,7 @@ import {
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
   VaultFactory as VaultFactoryTemplate,
 } from '../../generated/templates'
-import { updateVaultApy } from '../entities/apySnapshots'
-import { createOrLoadV2Pool } from '../entities/v2pool'
+import { updatePoolApy, updateVaultApy } from '../entities/apySnapshots'
 import {
   BLOCKLIST_ERC20_VAULT_FACTORY_V2,
   BLOCKLIST_VAULT_FACTORY_V2,
@@ -26,7 +25,6 @@ import {
   ERC20_VAULT_FACTORY_V2,
   FOX_VAULT1,
   FOX_VAULT2,
-  GNO_USD_PRICE_FEED,
   PRIV_ERC20_VAULT_FACTORY_V1,
   PRIV_ERC20_VAULT_FACTORY_V2,
   PRIV_VAULT_FACTORY_V1,
@@ -41,10 +39,11 @@ import {
   RESTAKE_ERC20_VAULT_FACTORY_V2,
   RESTAKE_PRIV_ERC20_VAULT_FACTORY_V2,
   RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2,
-  WAD,
   ZERO_ADDRESS,
 } from '../helpers/constants'
-import { getConversionRate } from '../entities/network'
+import { getPoolStateUpdate, getVaultStateUpdate, getVaultTotalAssets, isGnosisNetwork } from '../helpers/utils'
+import { createOrLoadVaultsStat } from '../entities/vaults'
+import { createOrLoadV2Pool } from '../entities/v2pool'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -189,7 +188,9 @@ export function updateRewards(
   rewardsIpfsHash: string,
 ): void {
   const vaultRewards = value.toObject().mustGet('vaults').toArray()
-  const executionRewardRate = getConversionRate()
+  const vaultsStat = createOrLoadVaultsStat()
+  const isGnosis = isGnosisNetwork()
+  const v2Pool = createOrLoadV2Pool()
   for (let i = 0; i < vaultRewards.length; i++) {
     // load vault object
     const vaultReward = vaultRewards[i].toObject()
@@ -205,24 +206,33 @@ export function updateRewards(
       vault.mevEscrow === null ? vaultReward.mustGet('locked_mev_reward').toBigInt() : BigInt.zero()
     const unlockedMevReward = vaultReward.mustGet('unlocked_mev_reward').toBigInt()
     const consensusReward = vaultReward.mustGet('consensus_reward').toBigInt()
-    const executionReward = unlockedMevReward.plus(lockedMevReward)
-    const proof = vaultReward.mustGet('proof').toArray()
+    const proof = vaultReward
+      .mustGet('proof')
+      .toArray()
+      .map<Bytes>((p: JSONValue): Bytes => Bytes.fromHexString(p.toString()) as Bytes)
 
-    // calculate period rewards
-    let periodConsensusReward: BigInt, periodExecutionReward: BigInt
-    if (vault.isGenesis) {
-      // period reward is calculated during harvest
-      periodConsensusReward = BigInt.zero()
-      periodExecutionReward = BigInt.zero()
-    } else if (vault.proofReward === null) {
-      // the first rewards update, no delta
-      periodConsensusReward = consensusReward
-      periodExecutionReward = executionReward
+    // calculate proof values for state update
+    let proofReward: BigInt
+    let proofUnlockedMevReward: BigInt
+    if (vault.mevEscrow !== null) {
+      // vault has own mev escrow, proof reward is consensus reward, nothing can be locked
+      proofReward = consensusReward
+      proofUnlockedMevReward = BigInt.zero()
+    } else if (isGnosis) {
+      // for gnosis network, execution rewards are received in DAI and must be converted to GNO
+      proofReward = consensusReward
+      proofUnlockedMevReward = unlockedMevReward
     } else {
-      // calculate delta from previous update
-      periodConsensusReward = consensusReward.minus(vault.consensusReward)
-      periodExecutionReward = executionReward.minus(vault.lockedExecutionReward.plus(vault.unlockedExecutionReward))
+      // vault uses shared mev escrow, proof reward is consensus reward + total mev reward
+      proofReward = consensusReward.plus(lockedMevReward).plus(unlockedMevReward)
+      proofUnlockedMevReward = unlockedMevReward
     }
+
+    // fetch new principal and total assets
+    const stateUpdate = getVaultStateUpdate(vault, rewardsRoot, proofReward, proofUnlockedMevReward, proof)
+    const newRate = stateUpdate[0]
+    const newTotalAssets = stateUpdate[1]
+    const newTotalShares = stateUpdate[2]
 
     // calculate smoothing pool penalty
     let slashedMevReward = vault.slashedMevReward
@@ -230,45 +240,12 @@ export function updateRewards(
       slashedMevReward = slashedMevReward.plus(vault.lockedExecutionReward.minus(lockedMevReward))
     }
 
-    // calculate proof values for state update
-    let proofReward: BigInt
-    let proofUnlockedMevReward: BigInt
-    if (vault.mevEscrow !== null) {
-      // vault has own mev escrow, proof reward is consensus reward, nothing can be slashed
-      proofReward = consensusReward
-      slashedMevReward = BigInt.zero()
-      proofUnlockedMevReward = BigInt.zero()
-    } else {
-      // vault uses shared mev escrow, proof reward is consensus reward + total mev reward
-      if (GNO_USD_PRICE_FEED == ZERO_ADDRESS) {
-        proofReward = consensusReward.plus(lockedMevReward).plus(unlockedMevReward)
-      } else {
-        // for gnosis network, execution rewards are received in DAI and converted later by the operator
-        proofReward = consensusReward
-      }
-      proofUnlockedMevReward = unlockedMevReward
-    }
+    updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, newRate.minus(vault.rate))
 
-    if (!vault.isGenesis) {
-      // genesis vault apy is updated during harvest
-      updateVaultApy(
-        vault,
-        vault.rewardsTimestamp,
-        updateTimestamp,
-        periodConsensusReward,
-        periodExecutionReward.times(executionRewardRate).div(BigInt.fromString(WAD)),
-      )
-    }
-
-    // update vault state
-    if (executionRewardRate.equals(BigInt.fromString(WAD))) {
-      vault.totalAssets = vault.totalAssets.plus(periodConsensusReward).plus(periodExecutionReward)
-    } else {
-      // for gnosis network, execution rewards must be converted for GNO before adding them to the total assets
-      vault.totalAssets = vault.totalAssets.plus(periodConsensusReward)
-      const unlockedExecutionRewardDelta = unlockedMevReward.minus(vault.unlockedExecutionReward)
-      vault.unconvertedExecutionReward = vault.unconvertedExecutionReward.plus(unlockedExecutionRewardDelta)
-    }
+    vaultsStat.totalAssets = vaultsStat.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
+    vault.totalAssets = newTotalAssets
+    vault.totalShares = newTotalShares
+    vault.rate = newRate
     vault.rewardsRoot = rewardsRoot
     vault.proofReward = proofReward
     vault.proofUnlockedMevReward = proofUnlockedMevReward
@@ -276,11 +253,30 @@ export function updateRewards(
     vault.lockedExecutionReward = lockedMevReward
     vault.unlockedExecutionReward = unlockedMevReward
     vault.slashedMevReward = slashedMevReward
-    vault.proof = proof.map<string>((proofValue: JSONValue) => proofValue.toString())
+    vault.proof = proof.map<string>((proofValue: Bytes) => proofValue.toHexString())
     vault.rewardsTimestamp = updateTimestamp
     vault.rewardsIpfsHash = rewardsIpfsHash
+    vault.canHarvest = true
     vault.save()
+
+    // update v2 pool data
+    if (vault.isGenesis && v2Pool.migrated) {
+      const stateUpdate = getPoolStateUpdate(rewardsRoot, proofReward, proofUnlockedMevReward, proof)
+      const newRate = stateUpdate[0]
+      const newRewardAssets = stateUpdate[1]
+      const newPrincipalAssets = stateUpdate[2]
+      const newPenaltyAssets = stateUpdate[3]
+      updatePoolApy(v2Pool, v2Pool.rewardsTimestamp, updateTimestamp, newRate.minus(v2Pool.rate))
+      v2Pool.rate = newRate
+      v2Pool.principalAssets = newPrincipalAssets
+      v2Pool.rewardAssets = newRewardAssets
+      v2Pool.penaltyAssets = newPenaltyAssets
+      v2Pool.totalAssets = newRewardAssets.plus(newPrincipalAssets).minus(newPenaltyAssets)
+      v2Pool.rewardsTimestamp = updateTimestamp
+      v2Pool.save()
+    }
   }
+  vaultsStat.save()
 }
 
 export function handleRewardsUpdated(event: RewardsUpdated): void {
@@ -299,24 +295,21 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
 
 // Event emitted on Keeper assets harvest
 export function handleHarvested(event: Harvested): void {
-  let totalAssetsDelta = event.params.totalAssetsDelta
   const vaultAddress = event.params.vault.toHex()
+  const totalAssetsDelta = event.params.totalAssetsDelta
 
   const vault = Vault.load(vaultAddress) as Vault
-  if (!vault.isGenesis) {
-    vault.principalAssets = vault.principalAssets.plus(totalAssetsDelta)
-    if (vault.totalAssets.lt(vault.principalAssets)) {
-      vault.totalAssets = vault.principalAssets
-    }
-    vault.save()
-  } else {
+  vault.canHarvest = (vault.rewardsRoot as Bytes).notEqual(event.params.rewardsRoot)
+  if (vault.isGenesis) {
     const v2Pool = createOrLoadV2Pool()
     if (!v2Pool.migrated) {
-      totalAssetsDelta = totalAssetsDelta.minus(v2Pool.rewardAssets)
       v2Pool.migrated = true
+      v2Pool.save()
     }
-    v2Pool.vaultHarvestDelta = totalAssetsDelta
-    v2Pool.save()
+    vault.principalAssets = getVaultTotalAssets(vault)
+  } else {
+    vault.principalAssets = vault.principalAssets.plus(totalAssetsDelta)
   }
+  vault.save()
   log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
 }

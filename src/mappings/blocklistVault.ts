@@ -51,7 +51,7 @@ export function handleBlocklistManagerUpdated(event: BlocklistManagerUpdated): v
 
   createTransaction(event.transaction.hash.toHex())
 
-  log.info('[PrivateVault] BlocklistManagerUpdated vault={} blocklistManager={}', [
+  log.info('[BlocklistVault] BlocklistManagerUpdated vault={} blocklistManager={}', [
     vaultAddress,
     blocklistManager.toHex(),
   ])

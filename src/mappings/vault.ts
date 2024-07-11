@@ -24,6 +24,7 @@ import {
   Redeemed,
   ValidatorsRootUpdated,
   ValidatorsManagerUpdated,
+  ExitingAssetsPenalized,
 } from '../../generated/templates/Vault/Vault'
 import { GenesisVaultCreated, Migrated } from '../../generated/GenesisVault/GenesisVault'
 import { EthFoxVaultCreated } from '../../generated/templates/FoxVault/FoxVault'
@@ -34,7 +35,7 @@ import { createAllocatorAction, createOrLoadAllocator } from '../entities/alloca
 import { createOrLoadNetwork } from '../entities/network'
 import { createOrLoadOsTokenPosition, createOrLoadVaultsStat } from '../entities/vaults'
 import { createOrLoadOsToken } from '../entities/osToken'
-import { DEPOSIT_DATA_REGISTRY } from '../helpers/constants'
+import { DEPOSIT_DATA_REGISTRY, WAD } from '../helpers/constants'
 
 // Event emitted on assets transfer from allocator to vault
 export function handleDeposited(event: Deposited): void {
@@ -285,14 +286,22 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   const assets = params.assets
   const vaultAddress = event.address.toHex()
 
-  // Update vault queued shares
+  // Update vault shares and assets
   const vault = Vault.load(vaultAddress) as Vault
-  if (!vault.isErc20) {
-    // if it's ERC-20 vault shares are updated in Transfer event handler
-    const allocator = createOrLoadAllocator(owner, event.address)
-    allocator.shares = allocator.shares.minus(shares)
-    allocator.save()
-  }
+  vault.totalShares = vault.totalShares.minus(shares)
+  vault.totalAssets = vault.totalAssets.minus(assets)
+  vault.principalAssets = vault.principalAssets.minus(assets)
+  vault.exitingAssets = vault.exitingAssets.plus(assets)
+  vault.save()
+
+  const vaultsStat = createOrLoadVaultsStat()
+  vaultsStat.totalAssets = vaultsStat.totalAssets.minus(assets)
+  vaultsStat.save()
+
+  // Update allocator shares
+  const allocator = createOrLoadAllocator(owner, event.address)
+  allocator.shares = allocator.shares.minus(shares)
+  allocator.save()
 
   const timestamp = event.block.timestamp
 
@@ -331,8 +340,6 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const newPositionTicket = params.newPositionTicket
   const claimedAssets = params.withdrawnAssets
   const vaultAddress = event.address.toHex()
-  const vault = Vault.load(vaultAddress) as Vault
-  vault.save()
 
   createAllocatorAction(event, event.address, 'ExitedAssetsClaimed', receiver, claimedAssets, null)
 
@@ -342,15 +349,23 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const prevExitRequest = ExitRequest.load(prevExitRequestId) as ExitRequest
 
   const isExitQueueRequestResolved = newPositionTicket.equals(BigInt.zero())
+  const isV2ExitRequest = prevExitRequest.totalShares.equals(BigInt.zero())
+
+  if (isV2ExitRequest) {
+    // Update vault shares and assets
+    const vault = Vault.load(vaultAddress) as Vault
+    vault.exitingAssets = vault.exitingAssets.minus(claimedAssets)
+    vault.save()
+  }
 
   if (!isExitQueueRequestResolved) {
     const nextExitQueueRequestId = `${vaultAddress}-${newPositionTicket}`
     let withdrawnShares: BigInt = BigInt.zero()
     let withdrawnAssets: BigInt = BigInt.zero()
-    if (prevExitRequest.totalShares.gt(BigInt.zero())) {
-      withdrawnShares = newPositionTicket.minus(prevPositionTicket)
-    } else {
+    if (isV2ExitRequest) {
       withdrawnAssets = claimedAssets
+    } else {
+      withdrawnShares = newPositionTicket.minus(prevPositionTicket)
     }
 
     const nextExitRequest = new ExitRequest(nextExitQueueRequestId)
@@ -379,21 +394,11 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
   const vaultAddress = event.address.toHex()
 
   const vault = Vault.load(vaultAddress) as Vault
-  vault.totalShares = vault.totalShares.minus(burnedShares)
-  vault.totalAssets = vault.totalAssets.minus(exitedAssets)
   vault.principalAssets = vault.principalAssets.minus(exitedAssets)
   vault.save()
 
-  const vaultsStat = createOrLoadVaultsStat()
-  vaultsStat.totalAssets = vaultsStat.totalAssets.minus(exitedAssets)
-  vaultsStat.save()
-
-  // queued shares are burned
-  const allocator = createOrLoadAllocator(event.address, event.address)
-  allocator.shares = allocator.shares.minus(burnedShares)
-  allocator.save()
-
-  log.info('[Vault] CheckpointCreated burnedShares={} exitedAssets={}', [
+  log.info('[Vault] CheckpointCreated vault={} burnedShares={} exitedAssets={}', [
+    vaultAddress,
     burnedShares.toString(),
     exitedAssets.toString(),
   ])
@@ -407,10 +412,6 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
   const assets = params.assets
   const shares = params.shares
 
-  const vault = Vault.load(vaultAddress.toHex()) as Vault
-  vault.totalShares = vault.totalShares.plus(shares)
-  vault.save()
-
   const allocator = createOrLoadAllocator(receiver, vaultAddress)
   allocator.shares = allocator.shares.plus(shares)
   allocator.save()
@@ -421,6 +422,17 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
     assets.toString(),
     shares.toString(),
   ])
+}
+
+export function handleExitingAssetsPenalized(event: ExitingAssetsPenalized): void {
+  const vaultAddress = event.address
+  const penaltyAssets = event.params.penalty
+
+  const vault = Vault.load(vaultAddress.toHex()) as Vault
+  vault.exitingAssets = vault.exitingAssets.minus(penaltyAssets)
+  vault.save()
+
+  log.info('[Vault] ExitingAssetsPenalized vault={} penaltyAssets={}', [vaultAddress.toHex(), penaltyAssets.toString()])
 }
 
 export function handleOsTokenMinted(event: OsTokenMinted): void {
@@ -552,11 +564,14 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.lockedExecutionReward = BigInt.zero()
   vault.unlockedExecutionReward = BigInt.zero()
   vault.unconvertedExecutionReward = BigInt.zero()
+  vault.canHarvest = false
   vault.slashedMevReward = BigInt.zero()
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
+  vault.rate = BigInt.fromString(WAD)
   vault.totalAssets = BigInt.zero()
   vault.principalAssets = BigInt.zero()
+  vault.exitingAssets = BigInt.zero()
   vault.isPrivate = false
   vault.isBlocklist = false
   vault.isErc20 = false
@@ -619,11 +634,14 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.lockedExecutionReward = BigInt.zero()
   vault.unlockedExecutionReward = BigInt.zero()
   vault.unconvertedExecutionReward = BigInt.zero()
+  vault.canHarvest = false
   vault.slashedMevReward = BigInt.zero()
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
+  vault.rate = BigInt.fromString(WAD)
   vault.totalAssets = BigInt.zero()
   vault.principalAssets = BigInt.zero()
+  vault.exitingAssets = BigInt.zero()
   vault.isPrivate = false
   vault.isBlocklist = true
   vault.isErc20 = false

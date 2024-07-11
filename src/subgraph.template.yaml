@@ -68,8 +68,10 @@ dataSources:
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
-        - name: PriceFeed
-          file: ./abis/PriceFeed.json
+        - name: Vault
+          file: ./abis/Vault.json
+        - name: Multicall
+          file: ./abis/Multicall.json
       eventHandlers:
         - event: RewardsUpdated(indexed address,indexed bytes32,uint256,uint64,uint64,string)
           handler: handleRewardsUpdated
@@ -351,6 +353,8 @@ templates:
           handler: handleValidatorsManagerUpdated
         - event: CheckpointCreated(uint256,uint256)
           handler: handleCheckpointCreated
+        - event: ExitingAssetsPenalized(uint256)
+          handler: handleExitingAssetsPenalized
         - event: FeeSharesMinted(address,uint256,uint256)
           handler: handleFeeSharesMinted
         - event: OsTokenMinted(indexed address,address,uint256,uint256,address)
