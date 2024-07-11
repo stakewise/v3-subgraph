@@ -298,7 +298,11 @@ export function handleHarvested(event: Harvested): void {
   const vaultAddress = event.params.vault.toHex()
   const totalAssetsDelta = event.params.totalAssetsDelta
 
-  const vault = Vault.load(vaultAddress) as Vault
+  const vault = Vault.load(vaultAddress)
+  if (vault == null) {
+    log.error('[Keeper] Harvested vault={} not found', [vaultAddress])
+    return
+  }
   vault.canHarvest = (vault.rewardsRoot as Bytes).notEqual(event.params.rewardsRoot)
   if (vault.isGenesis) {
     const v2Pool = createOrLoadV2Pool()

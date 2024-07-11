@@ -5,7 +5,7 @@ import { Vault as VaultContract } from '../../generated/Keeper/Vault'
 import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from '../../generated/Keeper/Multicall'
 
 export function isGnosisNetwork(): boolean {
-  return NETWORK == 'gnosis-chiado' || NETWORK == 'gnosis'
+  return NETWORK == 'chiado' || NETWORK == 'gnosis'
 }
 
 const multicallContractAddr = Address.fromString('0xcA11bde05977b3631167028862bE2a173976CA11')

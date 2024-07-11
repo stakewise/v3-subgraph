@@ -1,5 +1,5 @@
 {
-  "network": "gnosis-chiado",
+  "network": "chiado",
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
   "v2PoolFeePercent": "1500",
