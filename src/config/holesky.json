@@ -44,20 +44,20 @@
     "startBlock": "215371"
   },
   "genesisVault": {
-    "address": "0x0bD7de255880d0e4DBD8cA6081a129FD56Ecb661",
-    "startBlock": "1869831"
+    "address": "0x8A94e1d22D83990205843cda08376d16F150c9bb",
+    "startBlock": "1948516"
   },
   "depositDataRegistry": {
     "address": "0xAC0F906E433d58FA868F936E8A43230473652885",
     "startBlock": "1871189"
   },
   "v2RewardToken": {
-    "address": "0x14c74b1C7eCa8362D4ABcCd71051Ce174d61a3D4",
-    "startBlock": "1869701"
+    "address": "0x2ee2E20702B5881a1171c5dbEd01C3d1e49Bf632",
+    "startBlock": "1948507"
   },
   "v2StakedToken": {
-    "address": "0xb948180A455ad82f5D1b2946F2972F6Cc15293a5",
-    "startBlock": "1869726"
+    "address": "0x91167861c590Fd68bEbE662951fBE30C9B23D759",
+    "startBlock": "1948508"
   },
   "eigenDelegationManager": {
     "address": "0xA44151489861Fe9e3055d95adC98FbD462B948e7",
