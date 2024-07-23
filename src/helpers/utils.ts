@@ -116,9 +116,10 @@ export function getPoolStateUpdate(
     penaltyAssets = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
     principalAssets = ethereum.decode('uint256', resultValue[3].returnData)!.toBigInt()
   }
-  const newRate = BigInt.fromString(WAD)
-    .times(rewardAssets.plus(principalAssets).minus(penaltyAssets))
-    .div(principalAssets)
+  let newRate = BigInt.fromString(WAD)
+  if (principalAssets.gt(BigInt.fromI32(0))) {
+    newRate = newRate.times(rewardAssets.plus(principalAssets).minus(penaltyAssets)).div(principalAssets)
+  }
 
   return [newRate, rewardAssets, principalAssets, penaltyAssets]
 }

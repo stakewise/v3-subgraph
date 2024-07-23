@@ -61,7 +61,11 @@ export function handleDepositDataRootUpdated(event: DepositDataRootUpdated): voi
   const depositDataRoot = event.params.depositDataRoot
 
   // Vault must exist at the time of the event
-  const vault = Vault.load(vaultAddress) as Vault
+  const vault = Vault.load(vaultAddress)
+  if (vault === null) {
+    log.error('[DepositDataRegistry] DepositDataRootUpdated vault={} not found', [vaultAddress])
+    return
+  }
   vault.depositDataRoot = depositDataRoot
   // Update deprecated validators root
   vault.validatorsRoot = depositDataRoot

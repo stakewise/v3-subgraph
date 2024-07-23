@@ -240,7 +240,9 @@ export function updateRewards(
       slashedMevReward = slashedMevReward.plus(vault.lockedExecutionReward.minus(lockedMevReward))
     }
 
-    updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, newRate.minus(vault.rate))
+    if (!vault.isGenesis || v2Pool.migrated) {
+      updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, newRate.minus(vault.rate))
+    }
 
     vaultsStat.totalAssets = vaultsStat.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
     vault.totalAssets = newTotalAssets
