@@ -40,6 +40,7 @@ import {
   RESTAKE_PRIV_ERC20_VAULT_FACTORY_V2,
   RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2,
   ZERO_ADDRESS,
+  WAD,
 } from '../helpers/constants'
 import { getPoolStateUpdate, getVaultStateUpdate, getVaultTotalAssets, isGnosisNetwork } from '../helpers/utils'
 import { createOrLoadVaultsStat } from '../entities/vaults'
@@ -228,20 +229,24 @@ export function updateRewards(
       proofUnlockedMevReward = unlockedMevReward
     }
 
-    // fetch new principal and total assets
-    const stateUpdate = getVaultStateUpdate(vault, rewardsRoot, proofReward, proofUnlockedMevReward, proof)
-    const newRate = stateUpdate[0]
-    const newTotalAssets = stateUpdate[1]
-    const newTotalShares = stateUpdate[2]
+    // fetch new principal, total assets and rate
+    let newRate: BigInt, newTotalAssets: BigInt, newTotalShares: BigInt
+    if (vault.isGenesis && !v2Pool.migrated) {
+      newRate = BigInt.fromString(WAD)
+      newTotalAssets = BigInt.zero()
+      newTotalShares = BigInt.zero()
+    } else {
+      const stateUpdate = getVaultStateUpdate(vault, rewardsRoot, proofReward, proofUnlockedMevReward, proof)
+      newRate = stateUpdate[0]
+      newTotalAssets = stateUpdate[1]
+      newTotalShares = stateUpdate[2]
+      updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, newRate.minus(vault.rate))
+    }
 
     // calculate smoothing pool penalty
     let slashedMevReward = vault.slashedMevReward
     if (vault.lockedExecutionReward.gt(lockedMevReward) && vault.unlockedExecutionReward.ge(unlockedMevReward)) {
       slashedMevReward = slashedMevReward.plus(vault.lockedExecutionReward.minus(lockedMevReward))
-    }
-
-    if (!vault.isGenesis || v2Pool.migrated) {
-      updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, newRate.minus(vault.rate))
     }
 
     vaultsStat.totalAssets = vaultsStat.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
