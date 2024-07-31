@@ -117,6 +117,12 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
   const vault = Vault.load(vaultAddress) as Vault
 
   vault.metadataIpfsHash = params.metadataIpfsHash
+  vault.metadataUpdatedAt = event.block.timestamp
+
+  vault.description = ''
+  vault.displayName = ''
+  vault.imageUrl = ''
+
   const data = ipfs.cat(params.metadataIpfsHash)
 
   if (data) {
@@ -124,7 +130,6 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
 
     if (parsedJson.isOk && !parsedJson.isError) {
       updateMetadata(parsedJson.value, vault)
-      vault.metadataUpdatedAt = event.block.timestamp
     }
   }
 
