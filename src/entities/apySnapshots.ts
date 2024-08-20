@@ -151,14 +151,21 @@ export function updatePoolApy(
 }
 
 export function updateOsTokenApy(osToken: OsToken, newAvgRewardPerSecond: BigInt, timestamp: BigInt): void {
+  // calculate borrow reward per second
+  const borrowRewardPerSecond = newAvgRewardPerSecond
+    .times(BigInt.fromI32(osToken.feePercent))
+    .div(BigInt.fromString('10000'))
+
   // create new snapshot
   const totalSnapshots = osToken.snapshotsCount
   const snapshot = new OsTokenSnapshot(totalSnapshots.toString())
   snapshot.avgRewardPerSecond = newAvgRewardPerSecond
+  snapshot.borrowRewardPerSecond = borrowRewardPerSecond
   snapshot.createdAt = timestamp
   snapshot.save()
 
   let rewardPerSecondSum = newAvgRewardPerSecond
+  let borrowRewardPerSecondSum = borrowRewardPerSecond
   let snapshotsCounter = 1
 
   for (let i = 1; i < snapshotsPerWeek; i++) {
@@ -168,11 +175,17 @@ export function updateOsTokenApy(osToken: OsToken, newAvgRewardPerSecond: BigInt
     }
 
     rewardPerSecondSum = rewardPerSecondSum.plus(snapshot.avgRewardPerSecond)
+    borrowRewardPerSecondSum = borrowRewardPerSecondSum.plus(snapshot.borrowRewardPerSecond)
     snapshotsCounter += 1
   }
 
   osToken.snapshotsCount = osToken.snapshotsCount.plus(BigInt.fromI32(1))
   osToken.apy = BigDecimal.fromString(rewardPerSecondSum.toString())
+    .times(BigDecimal.fromString(secondsInYear))
+    .times(BigDecimal.fromString(maxPercent))
+    .div(BigDecimal.fromString(snapshotsCounter.toString()))
+    .div(BigDecimal.fromString(WAD))
+  osToken.borrowApy = BigDecimal.fromString(borrowRewardPerSecondSum.toString())
     .times(BigDecimal.fromString(secondsInYear))
     .times(BigDecimal.fromString(maxPercent))
     .div(BigDecimal.fromString(snapshotsCounter.toString()))
