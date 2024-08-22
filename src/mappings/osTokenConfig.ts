@@ -1,11 +1,11 @@
 import { Address, log, BigInt } from '@graphprotocol/graph-ts'
 import { Vault } from '../../generated/schema'
-import { createOrLoadOsTokenDefaultConfig } from '../entities/osTokenConfig'
+import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 import { OsTokenConfigUpdated as OsTokenConfigV1Updated } from '../../generated/OsTokenConfigV1/OsTokenConfigV1'
 import { OsTokenConfigUpdated as OsTokenConfigV2Updated } from '../../generated/OsTokenConfigV2/OsTokenConfigV2'
 
 export function updateDefaultOsTokenConfig(version: string, ltvPercent: BigInt, liqThresholdPercent: BigInt): void {
-  const osTokenDefaultConfig = createOrLoadOsTokenDefaultConfig(version)
+  const osTokenDefaultConfig = createOrLoadOsTokenConfig(version)
 
   osTokenDefaultConfig.ltvPercent = ltvPercent
   osTokenDefaultConfig.liqThresholdPercent = liqThresholdPercent

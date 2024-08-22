@@ -1,11 +1,11 @@
 import { BigInt } from '@graphprotocol/graph-ts'
-import { OsTokenDefaultConfig } from '../../generated/schema'
+import { OsTokenConfig } from '../../generated/schema'
 
-export function createOrLoadOsTokenDefaultConfig(version: string): OsTokenDefaultConfig {
-  let osTokenConfig = OsTokenDefaultConfig.load(version)
+export function createOrLoadOsTokenConfig(version: string): OsTokenConfig {
+  let osTokenConfig = OsTokenConfig.load(version)
 
   if (osTokenConfig == null) {
-    osTokenConfig = new OsTokenDefaultConfig(version)
+    osTokenConfig = new OsTokenConfig(version)
     osTokenConfig.ltvPercent = BigInt.zero()
     osTokenConfig.liqThresholdPercent = BigInt.zero()
     osTokenConfig.save()

@@ -613,7 +613,7 @@ type EigenPod @entity {
 """
 The OsToken config
 """
-type OsTokenDefaultConfig @entity {
+type OsTokenConfig @entity {
   "The version of the vault"
   id: ID!
 
