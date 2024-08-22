@@ -582,6 +582,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.isErc20 = false
   vault.isRestake = false
   vault.isOsTokenEnabled = true
+  vault.isCollateralized = false
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
@@ -652,6 +653,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.isErc20 = false
   vault.isRestake = false
   vault.isOsTokenEnabled = false
+  vault.isCollateralized = false
   vault.mevEscrow = ownMevEscrow
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp

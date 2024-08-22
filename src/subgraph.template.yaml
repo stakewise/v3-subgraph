@@ -77,6 +77,8 @@ dataSources:
           handler: handleRewardsUpdated
         - event: Harvested(indexed address,indexed bytes32,int256,uint256)
           handler: handleHarvested
+        - event: ValidatorsApproval(indexed address,string)
+          handler: handleValidatorsApproval
       blockHandlers:
         - handler: initialize
           filter:

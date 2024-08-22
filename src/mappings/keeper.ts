@@ -11,7 +11,7 @@ import {
 } from '@graphprotocol/graph-ts'
 
 import { Vault } from '../../generated/schema'
-import { Harvested, RewardsUpdated } from '../../generated/Keeper/Keeper'
+import { Harvested, RewardsUpdated, ValidatorsApproval } from '../../generated/Keeper/Keeper'
 import {
   FoxVault as FoxVaultTemplate,
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
@@ -323,4 +323,18 @@ export function handleHarvested(event: Harvested): void {
   }
   vault.save()
   log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
+}
+
+export function handleValidatorsApproval(event: ValidatorsApproval): void {
+  const vaultAddress = event.params.vault.toHex()
+
+  const vault = Vault.load(vaultAddress)
+  if (vault == null) {
+    log.error('[Keeper] ValidatorsApproval vault={} not found', [vaultAddress])
+    return
+  }
+  vault.isCollateralized = true
+  vault.save()
+
+  log.info('[Keeper] ValidatorsApproval vault={}', [vaultAddress])
 }
