@@ -327,12 +327,13 @@ export function handleHarvested(event: Harvested): void {
 
 export function handleValidatorsApproval(event: ValidatorsApproval): void {
   const vaultAddress = event.params.vault.toHex()
-
   const vault = Vault.load(vaultAddress)
-  if (vault == null) {
+
+  if (vault === null) {
     log.error('[Keeper] ValidatorsApproval vault={} not found', [vaultAddress])
     return
   }
+
   vault.isCollateralized = true
   vault.save()
 
