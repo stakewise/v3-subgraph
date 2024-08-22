@@ -105,6 +105,46 @@ dataSources:
         - event: StateUpdated(uint256,uint256,uint256)
           handler: handleStateUpdated
   - kind: ethereum/contract
+    name: OsTokenConfigV1
+    network: {{ network }}
+    source:
+      address: '{{ osTokenConfigV1.address }}'
+      abi: OsTokenConfigV1
+      startBlock: {{ osTokenConfigV1.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/osTokenConfig.ts
+      entities:
+        - Vault
+      abis:
+        - name: OsTokenConfigV1
+          file: ./abis/OsTokenConfigV1.json
+      eventHandlers:
+        - event: OsTokenConfigUpdated(uint16,uint16,uint16,uint16,uint16)
+          handler: handleOsTokenConfigV1Updated
+  - kind: ethereum/contract
+    name: OsTokenConfigV2
+    network: {{ network }}
+    source:
+      address: '{{ osTokenConfigV2.address }}'
+      abi: OsTokenConfigV2
+      startBlock: {{ osTokenConfigV2.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/osTokenConfig.ts
+      entities:
+        - Vault
+      abis:
+        - name: OsTokenConfigV2
+          file: ./abis/OsTokenConfigV2.json
+      eventHandlers:
+        - event: OsTokenConfigUpdated(address,uint128,uint64,uint64)
+          handler: handleOsTokenConfigV2Updated
+  - kind: ethereum/contract
     name: GenesisVault
     network: {{ network }}
     source:

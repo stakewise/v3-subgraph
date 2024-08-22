@@ -260,6 +260,9 @@ type Vault @entity {
   "Indicates whether the Vault supports minting OsToken"
   isOsTokenEnabled: Boolean!
 
+  "Indicates whether the Vault has registered validators"
+  isCollateralized: Boolean!
+
   "If the Vault is private, whitelister can add/remove allocators"
   whitelister: Bytes
 
@@ -283,6 +286,12 @@ type Vault @entity {
 
   "The vault version"
   version: BigInt!
+
+  "The vault osToken LTV percent"
+  ltvPercent: BigInt
+
+  "The vault osToken liquidation threshold percent"
+  liqThresholdPercent: BigInt
 
   "Whether the vault is a genesis vault (v2 pool migration)"
   isGenesis: Boolean!
@@ -599,4 +608,18 @@ type EigenPod @entity {
 
   "The timestamp when the pod was created"
   createdAt: BigInt!
+}
+
+"""
+The OsToken config
+"""
+type OsTokenDefaultConfig @entity {
+  "The version of the vault"
+  id: ID!
+
+  "The vault osToken LTV percent"
+  ltvPercent: BigInt!
+
+  "The vault osToken liquidation threshold percent"
+  liqThresholdPercent: BigInt!
 }
