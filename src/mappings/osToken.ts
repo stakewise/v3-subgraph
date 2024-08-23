@@ -48,7 +48,7 @@ export function handleTransfer(event: Transfer): void {
     event.params.to,
     event.params.value,
     event.block.timestamp,
-    'osETH',
+    'osToken',
   )
 
   log.info('[OsToken] Transfer from={} to={} amount={}', [
