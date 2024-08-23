@@ -287,11 +287,8 @@ type Vault @entity {
   "The vault version"
   version: BigInt!
 
-  "The vault osToken LTV percent"
-  ltvPercent: BigInt
-
-  "The vault osToken liquidation threshold percent"
-  liqThresholdPercent: BigInt
+  "The vault osTokenConfig"
+  osTokenConfig: OsTokenConfig!
 
   "Whether the vault is a genesis vault (v2 pool migration)"
   isGenesis: Boolean!
@@ -614,7 +611,7 @@ type EigenPod @entity {
 The OsToken config
 """
 type OsTokenConfig @entity {
-  "The version of the osToken config"
+  "The ID of the OsTokenConfig"
   id: ID!
 
   "The vault osToken LTV percent"

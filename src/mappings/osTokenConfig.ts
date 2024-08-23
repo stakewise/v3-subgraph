@@ -4,13 +4,13 @@ import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 import { OsTokenConfigUpdated as OsTokenConfigV1Updated } from '../../generated/OsTokenConfigV1/OsTokenConfigV1'
 import { OsTokenConfigUpdated as OsTokenConfigV2Updated } from '../../generated/OsTokenConfigV2/OsTokenConfigV2'
 
-export function updateDefaultOsTokenConfig(version: string, ltvPercent: BigInt, liqThresholdPercent: BigInt): void {
-  const osTokenDefaultConfig = createOrLoadOsTokenConfig(version)
+export function updateOsTokenConfig(version: string, ltvPercent: BigInt, liqThresholdPercent: BigInt): void {
+  const osTokenConfig = createOrLoadOsTokenConfig(version)
 
-  osTokenDefaultConfig.ltvPercent = ltvPercent
-  osTokenDefaultConfig.liqThresholdPercent = liqThresholdPercent
+  osTokenConfig.ltvPercent = ltvPercent
+  osTokenConfig.liqThresholdPercent = liqThresholdPercent
 
-  osTokenDefaultConfig.save()
+  osTokenConfig.save()
 
   log.info('[OsTokenConfig] OsTokenConfigUpdated version={} ltvPercent={} liqThresholdPercent={}', [
     version,
@@ -26,7 +26,7 @@ export function handleOsTokenConfigV1Updated(event: OsTokenConfigV1Updated): voi
   const multiplier = BigInt.fromString('100000000000000')
   const modifiedLiqThresholdPercent = BigInt.fromI32(liqThresholdPercent).times(multiplier)
 
-  updateDefaultOsTokenConfig('1', BigInt.fromI32(ltvPercent), modifiedLiqThresholdPercent)
+  updateOsTokenConfig('1', BigInt.fromI32(ltvPercent), modifiedLiqThresholdPercent)
 }
 
 export function handleOsTokenConfigV2Updated(event: OsTokenConfigV2Updated): void {
@@ -37,12 +37,14 @@ export function handleOsTokenConfigV2Updated(event: OsTokenConfigV2Updated): voi
   const liqThresholdPercent = event.params.liqThresholdPercent
 
   if (event.params.vault.equals(zeroAddress)) {
-    updateDefaultOsTokenConfig('2', ltvPercent, liqThresholdPercent)
+    updateOsTokenConfig('2', ltvPercent, liqThresholdPercent)
   } else {
     const vault = Vault.load(vaultAddress) as Vault
+    const osTokenConfigId = `${vaultAddress}-2`
 
-    vault.ltvPercent = ltvPercent
-    vault.liqThresholdPercent = liqThresholdPercent
+    updateOsTokenConfig(osTokenConfigId, ltvPercent, liqThresholdPercent)
+
+    vault.osTokenConfig = osTokenConfigId
 
     vault.save()
   }

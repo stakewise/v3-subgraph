@@ -12,6 +12,7 @@ import { OsTokenPosition, Vault, VaultsStat } from '../../generated/schema'
 import { createOrLoadNetwork } from './network'
 import { createTransaction } from './transaction'
 import { WAD } from '../helpers/constants'
+import { createOrLoadOsTokenConfig } from './osTokenConfig'
 
 const vaultsStatId = '1'
 
@@ -67,6 +68,7 @@ export function createVault(
   vault.isRestake = isRestake
   vault.isErc20 = isErc20
   vault.isOsTokenEnabled = !isRestake
+  vault.isCollateralized = false
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
@@ -81,6 +83,9 @@ export function createVault(
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = false
   vault.version = BigInt.fromI32(1)
+  vault.osTokenConfig = '1'
+
+  createOrLoadOsTokenConfig('1')
 
   if (ownMevEscrow != Address.zero()) {
     vault.mevEscrow = event.params.ownMevEscrow
