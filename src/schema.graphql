@@ -614,7 +614,7 @@ type EigenPod @entity {
 The OsToken config
 """
 type OsTokenConfig @entity {
-  "The version of the vault"
+  "The version of the osToken config"
   id: ID!
 
   "The vault osToken LTV percent"
