@@ -152,8 +152,8 @@ export function handleInitialized(event: Initialized): void {
     vault.validatorsManager = DEPOSIT_DATA_REGISTRY
   }
 
-  if (vault.version.toString() === vault.osTokenConfig) {
-    const newOsTokenConfigVersion = newVersion.toString()
+  if (vault.osTokenConfig === '1') {
+    const newOsTokenConfigVersion = '2'
 
     createOrLoadOsTokenConfig(newOsTokenConfigVersion)
 
