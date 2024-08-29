@@ -39,6 +39,14 @@
     "address": "0x484871C6D54a3dAEBeBBDB0AB7a54c97D72986Bb",
     "startBlock": "166860"
   },
+  "osTokenConfigV1": {
+    "address": "0x4483965Ed85cd5e67f2a7a0EB462aCcC37b23D72",
+    "startBlock": "215390"
+  },
+  "osTokenConfigV2": {
+    "address": "0x124C33d07F94B31aDF87C12F7cA3a586d3510928",
+    "startBlock": "1871180"
+  },
   "osTokenVaultController": {
     "address": "0x7BbC1733ee018f103A9a9052a18fA9273255Cf36",
     "startBlock": "215371"

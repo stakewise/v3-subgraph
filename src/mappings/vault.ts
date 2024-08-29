@@ -36,6 +36,7 @@ import { createOrLoadNetwork } from '../entities/network'
 import { createOrLoadOsTokenPosition, createOrLoadVaultsStat } from '../entities/vaults'
 import { createOrLoadOsToken } from '../entities/osToken'
 import { DEPOSIT_DATA_REGISTRY, WAD } from '../helpers/constants'
+import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 
 // Event emitted on assets transfer from allocator to vault
 export function handleDeposited(event: Deposited): void {
@@ -151,7 +152,18 @@ export function handleInitialized(event: Initialized): void {
     vault.validatorsManager = DEPOSIT_DATA_REGISTRY
   }
 
+  const isSecondOrHigher = newVersion.ge(BigInt.fromI32(2))
+
+  if (isSecondOrHigher) {
+    const newOsTokenConfigVersion = '2'
+
+    createOrLoadOsTokenConfig(newOsTokenConfigVersion)
+
+    vault.osTokenConfig = newOsTokenConfigVersion
+  }
+
   vault.version = newVersion
+
   vault.save()
 
   createTransaction(event.transaction.hash.toHex())
@@ -582,6 +594,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.isErc20 = false
   vault.isRestake = false
   vault.isOsTokenEnabled = true
+  vault.isCollateralized = false
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
@@ -596,6 +609,10 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = true
   vault.version = BigInt.fromI32(1)
+  vault.osTokenConfig = '1'
+
+  createOrLoadOsTokenConfig('1')
+
   vault.save()
   VaultTemplate.create(vaultAddress)
 
@@ -652,6 +669,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.isErc20 = false
   vault.isRestake = false
   vault.isOsTokenEnabled = false
+  vault.isCollateralized = false
   vault.mevEscrow = ownMevEscrow
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
@@ -668,6 +686,10 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
   vault.version = BigInt.fromI32(1)
+  vault.osTokenConfig = '1'
+
+  createOrLoadOsTokenConfig('1')
+
   vault.save()
   VaultTemplate.create(vaultAddress)
   BlocklistVaultTemplate.create(vaultAddress)
