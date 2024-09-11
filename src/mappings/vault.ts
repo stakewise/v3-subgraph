@@ -285,6 +285,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   exitRequest.totalShares = shares
   exitRequest.totalAssets = BigInt.zero()
   exitRequest.positionTicket = positionTicket
+  exitRequest.isV2Position = false
   exitRequest.timestamp = timestamp
   exitRequest.save()
 
@@ -336,6 +337,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   exitRequest.totalShares = BigInt.zero()
   exitRequest.totalAssets = assets
   exitRequest.positionTicket = positionTicket
+  exitRequest.isV2Position = true
   exitRequest.timestamp = timestamp
   exitRequest.save()
 
@@ -392,6 +394,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     nextExitRequest.timestamp = prevExitRequest.timestamp
     nextExitRequest.receiver = receiver
     nextExitRequest.positionTicket = newPositionTicket
+    nextExitRequest.isV2Position = prevExitRequest.isV2Position
     nextExitRequest.totalShares = prevExitRequest.totalShares.minus(withdrawnShares)
     nextExitRequest.totalAssets = prevExitRequest.totalAssets.minus(withdrawnAssets)
     nextExitRequest.save()
@@ -594,7 +597,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.isErc20 = false
   vault.isRestake = false
   vault.isOsTokenEnabled = true
-  vault.isCollateralized = false
+  vault.isCollateralized = true
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.apySnapshotsCount = BigInt.zero()
