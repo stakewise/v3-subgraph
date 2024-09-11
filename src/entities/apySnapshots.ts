@@ -181,6 +181,7 @@ export function updateOsTokenApy(osToken: OsToken, newAvgRewardPerSecond: BigInt
 
   osToken.snapshotsCount = osToken.snapshotsCount.plus(BigInt.fromI32(1))
   osToken.apy = BigDecimal.fromString(rewardPerSecondSum.toString())
+    .minus(BigDecimal.fromString(borrowRewardPerSecondSum.toString()))
     .times(BigDecimal.fromString(secondsInYear))
     .times(BigDecimal.fromString(maxPercent))
     .div(BigDecimal.fromString(snapshotsCounter.toString()))
