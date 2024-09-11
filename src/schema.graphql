@@ -96,16 +96,19 @@ type ExitRequest @entity {
   "The exit queue position ticket"
   positionTicket: BigInt!
 
-  "The exiting shares owner"
+  "Defines whether the exit request is V2"
+  isV2Position: Boolean!
+
+  "The address that has created exit position"
   owner: Bytes!
 
-  "The exited assets receiver"
+  "The address that will receive exited assets"
   receiver: Bytes!
 
-  "The number of shares queued for exit"
+  "The number of shares queued for exit. Will be zero for V2 vaults as shares are burned when user enters exit queue."
   totalShares: BigInt!
 
-  "The number of assets queued for exit"
+  "The total number of assets queued for exit"
   totalAssets: BigInt!
 
   "The timestamp when the exit request was created"
