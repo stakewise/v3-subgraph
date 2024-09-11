@@ -398,6 +398,12 @@ type OsToken @entity {
   "The OsToken APY"
   apy: BigDecimal!
 
+  "The OsToken borrow APY"
+  borrowApy: BigDecimal!
+
+  "The OsToken fee percent"
+  feePercent: Int!
+
   "The OsToken total supply"
   totalSupply: BigInt!
 
@@ -414,6 +420,9 @@ type OsTokenSnapshot @entity {
 
   "The OsToken average reward per second"
   avgRewardPerSecond: BigInt!
+
+  "The OsToken average borrow reward per second"
+  borrowRewardPerSecond: BigInt!
 
   "The timestamp the snapshot was created at"
   createdAt: BigInt!

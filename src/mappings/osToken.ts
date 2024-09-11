@@ -1,6 +1,10 @@
 import { log } from '@graphprotocol/graph-ts'
 import { Transfer } from '../../generated/Erc20Token/Erc20Token'
-import { AvgRewardPerSecondUpdated, StateUpdated } from '../../generated/OsTokenVaultController/OsTokenVaultController'
+import {
+  AvgRewardPerSecondUpdated,
+  FeePercentUpdated,
+  StateUpdated,
+} from '../../generated/OsTokenVaultController/OsTokenVaultController'
 import { updateOsTokenApy } from '../entities/apySnapshots'
 import { createTokenTransfer } from '../entities/tokenTransfer'
 import { createOrLoadOsToken, isSupportedOsTokenHolder, createOrLoadOsTokenHolder } from '../entities/osToken'
@@ -56,4 +60,12 @@ export function handleTransfer(event: Transfer): void {
     event.params.to.toHexString(),
     event.params.value.toString(),
   ])
+}
+
+export function handleFeePercentUpdated(event: FeePercentUpdated): void {
+  const osToken = createOrLoadOsToken()
+  osToken.feePercent = event.params.feePercent
+  osToken.save()
+
+  log.info('[OsTokenController] FeePercentUpdated feePercent={}', [event.params.feePercent.toString()])
 }

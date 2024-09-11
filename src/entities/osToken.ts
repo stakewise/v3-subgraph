@@ -1,4 +1,4 @@
-import {Address, BigDecimal, BigInt} from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 import { OsToken, OsTokenHolder } from '../../generated/schema'
 
 const osTokenId = '1'
@@ -9,6 +9,8 @@ export function createOrLoadOsToken(): OsToken {
     osToken = new OsToken(osTokenId)
 
     osToken.apy = BigDecimal.zero()
+    osToken.borrowApy = BigDecimal.zero()
+    osToken.feePercent = 0
     osToken.totalSupply = BigInt.zero()
     osToken.snapshotsCount = BigInt.zero()
     osToken.save()
@@ -17,22 +19,18 @@ export function createOrLoadOsToken(): OsToken {
   return osToken
 }
 
-export function createOrLoadOsTokenHolder(
-  holderAddress: Address,
-): OsTokenHolder {
-  let holderId = holderAddress.toHexString();
-  let holder = OsTokenHolder.load(holderId);
+export function createOrLoadOsTokenHolder(holderAddress: Address): OsTokenHolder {
+  let holderId = holderAddress.toHexString()
+  let holder = OsTokenHolder.load(holderId)
   if (holder == null) {
-    holder = new OsTokenHolder(holderId);
-    holder.shares = BigInt.zero();
-    holder.timestamp = BigInt.zero();
-    holder.save();
+    holder = new OsTokenHolder(holderId)
+    holder.shares = BigInt.zero()
+    holder.timestamp = BigInt.zero()
+    holder.save()
   }
-  return holder as OsTokenHolder;
+  return holder as OsTokenHolder
 }
 
 export function isSupportedOsTokenHolder(holderAddress: Address): boolean {
-  return (
-    holderAddress != Address.zero()
-  );
+  return holderAddress != Address.zero()
 }

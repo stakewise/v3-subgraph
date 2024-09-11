@@ -106,6 +106,8 @@ dataSources:
           handler: handleAvgRewardPerSecondUpdated
         - event: StateUpdated(uint256,uint256,uint256)
           handler: handleStateUpdated
+        - event: FeePercentUpdated(uint16)
+          handler: handleFeePercentUpdated
   - kind: ethereum/contract
     name: OsTokenConfigV1
     network: {{ network }}
