@@ -14,9 +14,9 @@ dataSources:
     name: BlockHandlers
     network: {{ network }}
     source:
-      address: '{{ osTokenVaultController.address }}'
+      address: '{{ keeper.address }}'
       abi: OsTokenVaultController
-      startBlock: {{ blockHandlersStartBlock }}
+      startBlock: {{ keeper.startBlock }}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.8
