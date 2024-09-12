@@ -1,10 +1,14 @@
 specVersion: 0.0.8
 description: The liquid staking protocol
+graft:
+  base: QmY7WedBWYZpPpMPQb7YmsEpxQsjn9Ke5XvJH9S8m45HUM
+  block: 18470106
 repository: https://github.com/stakewise/v3-subgraph
 schema:
   file: ./schema.graphql
 features:
   - ipfsOnEthereumContracts
+  - grafting
 dataSources:
   - kind: ethereum/contract
     name: BlockHandlers
@@ -419,8 +423,6 @@ templates:
           handler: handleKeysManagerUpdated
         - event: ValidatorsManagerUpdated(indexed address,indexed address)
           handler: handleValidatorsManagerUpdated
-        - event: CheckpointCreated(uint256,uint256)
-          handler: handleCheckpointCreated
         - event: ExitingAssetsPenalized(uint256)
           handler: handleExitingAssetsPenalized
         - event: FeeSharesMinted(address,uint256,uint256)
