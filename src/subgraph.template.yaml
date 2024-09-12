@@ -539,24 +539,6 @@ templates:
         - event: RestakeWithdrawalsManagerUpdated(address)
           handler: handleRestakeWithdrawalsManagerUpdated
   - kind: ethereum/contract
-    name: OwnMevEscrow
-    network: {{ network }}
-    source:
-      abi: OwnMevEscrow
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.8
-      language: wasm/assemblyscript
-      file: ./mappings/mevEscrow.ts
-      entities:
-        - Vault
-      abis:
-        - name: OwnMevEscrow
-          file: ./abis/OwnMevEscrow.json
-      eventHandlers:
-        - event: Harvested(uint256)
-          handler: handleHarvested
-  - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}
     source:

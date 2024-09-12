@@ -14,8 +14,6 @@ export function handleXdaiSwapped(event: XdaiSwapped): void {
   vault.unconvertedExecutionReward = vault.unconvertedExecutionReward.le(xdaiAssets)
     ? BigInt.zero()
     : vault.unconvertedExecutionReward.minus(xdaiAssets)
-
-  vault.principalAssets = vault.principalAssets.plus(gnoAssets)
   vault.save()
 
   log.info('[GnoVault] XdaiSwapped vault={} xdai={} gno={}', [

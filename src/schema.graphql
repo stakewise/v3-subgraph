@@ -11,6 +11,9 @@ type Allocator @entity {
   "The allocator's shares amount"
   shares: BigInt!
 
+  "The allocator's assets amount"
+  assets: BigInt!
+
   "The vault of the allocator"
   vault: Vault!
 }
@@ -30,20 +33,6 @@ type OsTokenPosition @entity {
 
   "The vault of the holder"
   vault: Vault!
-}
-
-"""
-OsToken holder
-"""
-type OsTokenHolder @entity {
-  "The address of the OsToken holder"
-  id: ID!
-
-  "The total holder shares"
-  shares: BigInt!
-
-  "The timestamp when the holder was updated"
-  timestamp: BigInt!
 }
 
 """
@@ -81,6 +70,9 @@ type TokenHolder @entity {
 
   "The token holder address"
   address: Bytes!
+
+  "The token holder balance"
+  balance: BigInt!
 
   "The total number of token transfers"
   transfersCount: BigInt!
@@ -238,9 +230,6 @@ type Vault @entity {
 
   "The total number of assets"
   totalAssets: BigInt!
-
-  "The number of assets used for rewardPerAsset calculation"
-  principalAssets: BigInt!
 
   "The current exchange rate for 10^18 amount"
   rate: BigInt!

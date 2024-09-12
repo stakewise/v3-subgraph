@@ -1,10 +1,9 @@
-import { Address, BigDecimal, BigInt, DataSourceContext, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import {
   Erc20Vault as Erc20VaultTemplate,
   PrivateVault as PrivateVaultTemplate,
   BlocklistVault as BlocklistVaultTemplate,
   RestakeVault as RestakeVaultTemplate,
-  OwnMevEscrow as OwnMevEscrowTemplate,
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
@@ -60,7 +59,6 @@ export function createVault(
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
   vault.totalAssets = BigInt.zero()
-  vault.principalAssets = BigInt.zero()
   vault.rate = BigInt.fromString(WAD)
   vault.exitingAssets = BigInt.zero()
   vault.isPrivate = isPrivate
@@ -86,13 +84,6 @@ export function createVault(
   vault.osTokenConfig = '1'
 
   createOrLoadOsTokenConfig('1')
-
-  if (ownMevEscrow != Address.zero()) {
-    vault.mevEscrow = event.params.ownMevEscrow
-    const context = new DataSourceContext()
-    context.setString('vault', vaultAddressHex)
-    OwnMevEscrowTemplate.createWithContext(ownMevEscrow, context)
-  }
 
   if (isPrivate) {
     PrivateVaultTemplate.create(vaultAddress)
@@ -137,6 +128,13 @@ export function createVault(
       isRestake.toString(),
     ],
   )
+}
+
+export function convertSharesToAssets(vault: Vault, shares: BigInt): BigInt {
+  if (vault.totalShares.equals(BigInt.zero())) {
+    return shares
+  }
+  return shares.times(vault.totalAssets).div(vault.totalShares)
 }
 
 export function createOrLoadOsTokenPosition(holder: Address, vaultAddress: Address): OsTokenPosition {

@@ -7,7 +7,7 @@ import {
 } from '../../generated/OsTokenVaultController/OsTokenVaultController'
 import { updateOsTokenApy } from '../entities/apySnapshots'
 import { createTokenTransfer } from '../entities/tokenTransfer'
-import { createOrLoadOsToken, isSupportedOsTokenHolder, createOrLoadOsTokenHolder } from '../entities/osToken'
+import { createOrLoadOsToken } from '../entities/osToken'
 
 export function handleAvgRewardPerSecondUpdated(event: AvgRewardPerSecondUpdated): void {
   const newAvgRewardPerSecond = event.params.avgRewardPerSecond
@@ -30,22 +30,6 @@ export function handleStateUpdated(event: StateUpdated): void {
 }
 
 export function handleTransfer(event: Transfer): void {
-  if (isSupportedOsTokenHolder(event.params.from)) {
-    let fromHolder = createOrLoadOsTokenHolder(event.params.from)
-
-    fromHolder.shares = fromHolder.shares.minus(event.params.value)
-    fromHolder.timestamp = event.block.timestamp
-    fromHolder.save()
-  }
-
-  if (isSupportedOsTokenHolder(event.params.to)) {
-    let toHolder = createOrLoadOsTokenHolder(event.params.to)
-
-    toHolder.shares = toHolder.shares.plus(event.params.value)
-    toHolder.timestamp = event.block.timestamp
-    toHolder.save()
-  }
-
   createTokenTransfer(
     event.transaction.hash.toHex(),
     event.params.from,

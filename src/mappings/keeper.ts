@@ -42,8 +42,8 @@ import {
   ZERO_ADDRESS,
   WAD,
 } from '../helpers/constants'
-import { getPoolStateUpdate, getVaultStateUpdate, getVaultTotalAssets, isGnosisNetwork } from '../helpers/utils'
-import { createOrLoadVaultsStat } from '../entities/vaults'
+import { getPoolStateUpdate, getVaultStateUpdate, isGnosisNetwork } from '../helpers/utils'
+import { convertSharesToAssets, createOrLoadVaultsStat } from '../entities/vaults'
 import { createOrLoadV2Pool } from '../entities/v2pool'
 
 const IS_PRIVATE_KEY = 'isPrivate'
@@ -282,6 +282,14 @@ export function updateRewards(
       v2Pool.rewardsTimestamp = updateTimestamp
       v2Pool.save()
     }
+
+    // update assets for all the allocators
+    let allocators = vault.allocators.load()
+    for (let j = 0; j < allocators.length; j++) {
+      const allocator = allocators[j]
+      allocator.assets = convertSharesToAssets(vault, allocator.shares)
+      allocator.save()
+    }
   }
   vaultsStat.save()
 }
@@ -311,17 +319,14 @@ export function handleHarvested(event: Harvested): void {
     return
   }
   vault.canHarvest = (vault.rewardsRoot as Bytes).notEqual(event.params.rewardsRoot)
+  vault.save()
   if (vault.isGenesis) {
     const v2Pool = createOrLoadV2Pool()
     if (!v2Pool.migrated) {
       v2Pool.migrated = true
       v2Pool.save()
     }
-    vault.principalAssets = getVaultTotalAssets(vault)
-  } else {
-    vault.principalAssets = vault.principalAssets.plus(totalAssetsDelta)
   }
-  vault.save()
   log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
 }
 

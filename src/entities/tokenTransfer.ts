@@ -35,15 +35,16 @@ export function createTokenTransfer(
   transfer.tokenSymbol = tokenSymbol
   transfer.save()
 
-  if (from) {
+  if (from != Address.zero()) {
     const tokenHolderFrom = createOrLoadTokenHolder(tokenSymbol, from)
 
+    tokenHolderFrom.balance = tokenHolderFrom.balance.minus(amount)
     tokenHolderFrom.transfersCount = tokenHolderFrom.transfersCount.plus(BigInt.fromI32(1))
     tokenHolderFrom.save()
   }
-  if (to) {
+  if (to != Address.zero()) {
     const tokenHolderTo = createOrLoadTokenHolder(tokenSymbol, to)
-
+    tokenHolderTo.balance = tokenHolderTo.balance.plus(amount)
     tokenHolderTo.transfersCount = tokenHolderTo.transfersCount.plus(BigInt.fromI32(1))
     tokenHolderTo.save()
   }
