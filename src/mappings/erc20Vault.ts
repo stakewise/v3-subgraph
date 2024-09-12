@@ -1,9 +1,10 @@
 import { Address, store, log } from '@graphprotocol/graph-ts'
 import { Transfer } from '../../generated/templates/Erc20Vault/Erc20Vault'
 import { Vault } from '../../generated/schema'
-import { createAllocatorAction, createOrLoadAllocator } from '../entities/allocator'
+import { createAllocatorAction, createOrLoadAllocator, updateAllocatorLtv } from '../entities/allocator'
 import { createTransaction } from '../entities/transaction'
 import { convertSharesToAssets } from '../entities/vaults'
+import { createOrLoadOsToken } from '../entities/osToken'
 
 // Event emitted on mint, burn or transfer shares between allocators
 export function handleTransfer(event: Transfer): void {
@@ -28,6 +29,7 @@ export function handleTransfer(event: Transfer): void {
   if (allocatorFrom.shares.isZero()) {
     store.remove('Allocator', allocatorFrom.id)
   } else {
+    updateAllocatorLtv(allocatorFrom, createOrLoadOsToken())
     allocatorFrom.save()
   }
   createAllocatorAction(event, vaultAddress, 'TransferOut', from, assets, shares)
@@ -35,6 +37,7 @@ export function handleTransfer(event: Transfer): void {
   const allocatorTo = createOrLoadAllocator(to, vaultAddress)
   allocatorTo.shares = allocatorTo.shares.plus(shares)
   allocatorTo.assets = convertSharesToAssets(vault, allocatorTo.shares)
+  updateAllocatorLtv(allocatorTo, createOrLoadOsToken())
   allocatorTo.save()
   createAllocatorAction(event, vaultAddress, 'TransferIn', to, assets, shares)
 

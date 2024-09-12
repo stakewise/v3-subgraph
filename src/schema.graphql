@@ -14,24 +14,13 @@ type Allocator @entity {
   "The allocator's assets amount"
   assets: BigInt!
 
+  "The allocator's minted OsToken shares amount"
+  mintedOsTokenShares: BigInt!
+
+  "The allocator's LTV percent. Will be null if there are no OsTokens minted"
+  ltv: BigDecimal!
+
   "The vault of the allocator"
-  vault: Vault!
-}
-
-"""
-Vault OsToken position
-"""
-type OsTokenPosition @entity {
-  "<Vault ID>-<Holder address>"
-  id: ID!
-
-  "The holder's address"
-  address: Bytes!
-
-  "The holder's shares amount"
-  shares: BigInt!
-
-  "The vault of the holder"
   vault: Vault!
 }
 
@@ -399,6 +388,9 @@ type OsToken @entity {
   "The OsToken total supply"
   totalSupply: BigInt!
 
+  "The OsToken total assets"
+  totalAssets: BigInt!
+
   "The total number of OsToken snapshots"
   snapshotsCount: BigInt!
 }
@@ -429,6 +421,9 @@ type Network @entity {
 
   "Total vaults"
   vaultsTotal: Int!
+
+  "The addresses of all the vaults"
+  vaultIds: [String!]!
 }
 
 """

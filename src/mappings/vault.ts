@@ -5,8 +5,8 @@ import { BlocklistVault as BlocklistVaultTemplate, Vault as VaultTemplate } from
 import {
   Deposited,
   ExitedAssetsClaimed,
+  ExitingAssetsPenalized,
   ExitQueueEntered as V1ExitQueueEntered,
-  V2ExitQueueEntered,
   FeeRecipientUpdated,
   FeeSharesMinted,
   Initialized,
@@ -17,19 +17,19 @@ import {
   OsTokenMinted,
   OsTokenRedeemed,
   Redeemed,
-  ValidatorsRootUpdated,
+  V2ExitQueueEntered,
   ValidatorsManagerUpdated,
-  ExitingAssetsPenalized,
+  ValidatorsRootUpdated,
 } from '../../generated/templates/Vault/Vault'
 import { GenesisVaultCreated, Migrated } from '../../generated/GenesisVault/GenesisVault'
 import { EthFoxVaultCreated } from '../../generated/templates/FoxVault/FoxVault'
 
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
-import { createAllocatorAction, createOrLoadAllocator } from '../entities/allocator'
+import { createAllocatorAction, createOrLoadAllocator, updateAllocatorLtv } from '../entities/allocator'
 import { createOrLoadNetwork } from '../entities/network'
-import { convertSharesToAssets, createOrLoadOsTokenPosition, createOrLoadVaultsStat } from '../entities/vaults'
-import { createOrLoadOsToken } from '../entities/osToken'
+import { convertSharesToAssets, createOrLoadVaultsStat } from '../entities/vaults'
+import { createOrLoadOsToken, updateOsTokenTotalAssets } from '../entities/osToken'
 import { DEPOSIT_DATA_REGISTRY, WAD } from '../helpers/constants'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 
@@ -53,6 +53,7 @@ export function handleDeposited(event: Deposited): void {
   const allocator = createOrLoadAllocator(receiver, vaultAddress)
   allocator.shares = allocator.shares.plus(shares)
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
+  updateAllocatorLtv(allocator, createOrLoadOsToken())
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
@@ -89,6 +90,7 @@ export function handleRedeemed(event: Redeemed): void {
   const allocator = createOrLoadAllocator(owner, vaultAddress)
   allocator.shares = allocator.shares.minus(shares)
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
+  updateAllocatorLtv(allocator, createOrLoadOsToken())
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
@@ -263,6 +265,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
     const allocator = createOrLoadAllocator(owner, event.address)
     allocator.shares = allocator.shares.minus(shares)
     allocator.assets = convertSharesToAssets(vault, allocator.shares)
+    updateAllocatorLtv(allocator, createOrLoadOsToken())
     allocator.save()
   }
 
@@ -316,6 +319,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   const allocator = createOrLoadAllocator(owner, event.address)
   allocator.shares = allocator.shares.minus(shares)
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
+  updateAllocatorLtv(allocator, createOrLoadOsToken())
   allocator.save()
 
   const timestamp = event.block.timestamp
@@ -406,16 +410,20 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 export function handleFeeSharesMinted(event: FeeSharesMinted): void {
   const params = event.params
   const vaultAddress = event.address
+  const vaultAddressHex = vaultAddress.toHex()
   const receiver = params.receiver
   const assets = params.assets
   const shares = params.shares
 
+  const vault = Vault.load(vaultAddressHex) as Vault
   const allocator = createOrLoadAllocator(receiver, vaultAddress)
   allocator.shares = allocator.shares.plus(shares)
+  allocator.assets = convertSharesToAssets(vault, allocator.shares)
+  updateAllocatorLtv(allocator, createOrLoadOsToken())
   allocator.save()
 
   log.info('[Vault] FeeSharesMinted vault={} receiver={} assets={} shares={}', [
-    vaultAddress.toHex(),
+    vaultAddressHex,
     receiver.toHex(),
     assets.toString(),
     shares.toString(),
@@ -438,18 +446,19 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   const shares = event.params.shares
   const assets = event.params.assets
 
-  const txHash = event.transaction.hash.toHex()
-  createTransaction(txHash)
-
-  createAllocatorAction(event, event.address, 'OsTokenMinted', holder, assets, shares)
-
-  const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
-  osTokenPosition.shares = osTokenPosition.shares.plus(shares)
-  osTokenPosition.save()
-
   const osToken = createOrLoadOsToken()
   osToken.totalSupply = osToken.totalSupply.plus(shares)
+  osToken.totalAssets = osToken.totalAssets.plus(assets)
   osToken.save()
+
+  const allocator = createOrLoadAllocator(holder, event.address)
+  allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.plus(shares)
+  updateAllocatorLtv(allocator, osToken)
+  allocator.save()
+
+  createAllocatorAction(event, event.address, 'OsTokenMinted', holder, assets, shares)
+  const txHash = event.transaction.hash.toHex()
+  createTransaction(txHash)
 
   log.info('[Vault] OsTokenMinted holder={} shares={}', [holder.toHex(), shares.toString()])
 }
@@ -459,18 +468,26 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
   const assets = event.params.assets
   const shares = event.params.shares
 
+  const osToken = createOrLoadOsToken()
+  osToken.totalSupply = osToken.totalSupply.minus(shares)
+  osToken.totalAssets = osToken.totalAssets.minus(assets)
+  if (osToken.totalAssets.lt(BigInt.zero())) {
+    osToken.totalAssets = BigInt.zero()
+  }
+  osToken.save()
+
+  const allocator = createOrLoadAllocator(holder, event.address)
+  allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.minus(shares)
+  if (allocator.mintedOsTokenShares.lt(BigInt.zero())) {
+    allocator.mintedOsTokenShares = BigInt.zero()
+  }
+  updateAllocatorLtv(allocator, osToken)
+  allocator.save()
+
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
   createAllocatorAction(event, event.address, 'OsTokenBurned', holder, assets, shares)
-
-  const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
-  osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
-  osTokenPosition.save()
-
-  const osToken = createOrLoadOsToken()
-  osToken.totalSupply = osToken.totalSupply.minus(shares)
-  osToken.save()
 
   log.info('[Vault] OsTokenBurned holder={} shares={}', [holder.toHex(), shares.toString()])
 }
@@ -491,19 +508,27 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   vaultsStat.totalAssets = vaultsStat.totalAssets.minus(withdrawnAssets)
   vaultsStat.save()
 
+  const osToken = createOrLoadOsToken()
+  osToken.totalSupply = osToken.totalSupply.minus(shares)
+  const osTokenAssetsBefore = osToken.totalAssets
+  updateOsTokenTotalAssets(osToken)
+  osToken.save()
+  const assets = osTokenAssetsBefore.minus(osToken.totalAssets)
+
+  const allocator = createOrLoadAllocator(holder, event.address)
+  allocator.shares = allocator.shares.minus(withdrawnShares)
+  allocator.assets = convertSharesToAssets(vault, allocator.shares)
+  allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.minus(shares)
+  if (allocator.mintedOsTokenShares.lt(BigInt.zero())) {
+    allocator.mintedOsTokenShares = BigInt.zero()
+  }
+  updateAllocatorLtv(allocator, osToken)
+  allocator.save()
+
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
-  createAllocatorAction(event, event.address, 'OsTokenLiquidated', holder, null, shares)
-
-  const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
-  osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
-  osTokenPosition.save()
-
-  const osToken = createOrLoadOsToken()
-  osToken.totalSupply = osToken.totalSupply.minus(shares)
-  osToken.save()
-
+  createAllocatorAction(event, event.address, 'OsTokenLiquidated', holder, assets, shares)
   log.info('[Vault] OsTokenLiquidated holder={} shares={}', [holder.toHex(), shares.toString()])
 }
 
@@ -523,18 +548,26 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   vaultsStat.totalAssets = vaultsStat.totalAssets.minus(withdrawnAssets)
   vaultsStat.save()
 
+  const osToken = createOrLoadOsToken()
+  osToken.totalSupply = osToken.totalSupply.minus(shares)
+  const osTokenAssetsBefore = osToken.totalAssets
+  updateOsTokenTotalAssets(osToken)
+  osToken.save()
+  const assets = osTokenAssetsBefore.minus(osToken.totalAssets)
+
+  const allocator = createOrLoadAllocator(holder, event.address)
+  allocator.shares = allocator.shares.minus(withdrawnShares)
+  allocator.assets = convertSharesToAssets(vault, allocator.shares)
+  if (allocator.mintedOsTokenShares.lt(BigInt.zero())) {
+    allocator.mintedOsTokenShares = BigInt.zero()
+  }
+  updateAllocatorLtv(allocator, osToken)
+  allocator.save()
+
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
-  createAllocatorAction(event, event.address, 'OsTokenRedeemed', holder, null, shares)
-
-  const osTokenPosition = createOrLoadOsTokenPosition(holder, event.address)
-  osTokenPosition.shares = osTokenPosition.shares.lt(shares) ? BigInt.zero() : osTokenPosition.shares.minus(shares)
-  osTokenPosition.save()
-
-  const osToken = createOrLoadOsToken()
-  osToken.totalSupply = osToken.totalSupply.minus(shares)
-  osToken.save()
+  createAllocatorAction(event, event.address, 'OsTokenRedeemed', holder, assets, shares)
 
   log.info('[Vault] OsTokenRedeemed holder={} shares={}', [holder.toHex(), shares.toString()])
 }
@@ -596,6 +629,9 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
 
   const network = createOrLoadNetwork()
   network.vaultsTotal = network.vaultsTotal + 1
+  let vaultIds = network.vaultIds
+  vaultIds.push(vaultAddressHex)
+  network.vaultIds = vaultIds
   network.save()
 
   const vaultsStat = createOrLoadVaultsStat()
@@ -673,6 +709,9 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
 
   const network = createOrLoadNetwork()
   network.vaultsTotal = network.vaultsTotal + 1
+  let vaultIds = network.vaultIds
+  vaultIds.push(vaultAddressHex)
+  network.vaultIds = vaultIds
   network.save()
 
   const vaultsStat = createOrLoadVaultsStat()
@@ -703,19 +742,20 @@ export function handleMigrated(event: Migrated): void {
   vault.totalShares = vault.totalShares.plus(shares)
   vault.save()
 
-  const allocator = createOrLoadAllocator(receiver, vaultAddress)
-  allocator.shares = allocator.shares.plus(shares)
-  allocator.save()
-
   const vaultsStat = createOrLoadVaultsStat()
   vaultsStat.totalAssets = vaultsStat.totalAssets.plus(assets)
   vaultsStat.save()
 
+  const allocator = createOrLoadAllocator(receiver, vaultAddress)
+  allocator.shares = allocator.shares.plus(shares)
+  allocator.assets = convertSharesToAssets(vault, allocator.shares)
+  updateAllocatorLtv(allocator, createOrLoadOsToken())
+  allocator.save()
+
   const txHash = event.transaction.hash.toHex()
+  createTransaction(txHash)
 
   createAllocatorAction(event, vaultAddress, 'Migrated', receiver, assets, shares)
-
-  createTransaction(txHash)
 
   log.info('[GenesisVault] Migrated vault={} receiver={} assets={} shares={}', [
     vaultAddress.toHex(),

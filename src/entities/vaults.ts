@@ -1,13 +1,13 @@
-import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
+import { BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import {
+  BlocklistVault as BlocklistVaultTemplate,
   Erc20Vault as Erc20VaultTemplate,
   PrivateVault as PrivateVaultTemplate,
-  BlocklistVault as BlocklistVaultTemplate,
   RestakeVault as RestakeVaultTemplate,
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
-import { OsTokenPosition, Vault, VaultsStat } from '../../generated/schema'
+import { Vault, VaultsStat } from '../../generated/schema'
 import { createOrLoadNetwork } from './network'
 import { createTransaction } from './transaction'
 import { WAD } from '../helpers/constants'
@@ -105,6 +105,9 @@ export function createVault(
   VaultTemplate.create(vaultAddress)
 
   const network = createOrLoadNetwork()
+  let vaultIds = network.vaultIds
+  vaultIds.push(vaultAddressHex)
+  network.vaultIds = vaultIds
   network.vaultsTotal = network.vaultsTotal + 1
   network.save()
 
@@ -135,21 +138,6 @@ export function convertSharesToAssets(vault: Vault, shares: BigInt): BigInt {
     return shares
   }
   return shares.times(vault.totalAssets).div(vault.totalShares)
-}
-
-export function createOrLoadOsTokenPosition(holder: Address, vaultAddress: Address): OsTokenPosition {
-  const osTokenPositionId = `${vaultAddress.toHex()}-${holder.toHex()}`
-
-  let osTokenPosition = OsTokenPosition.load(osTokenPositionId)
-  if (osTokenPosition === null) {
-    osTokenPosition = new OsTokenPosition(osTokenPositionId)
-    osTokenPosition.shares = BigInt.zero()
-    osTokenPosition.address = holder
-    osTokenPosition.vault = vaultAddress.toHex()
-    osTokenPosition.save()
-  }
-
-  return osTokenPosition
 }
 
 export function createOrLoadVaultsStat(): VaultsStat {

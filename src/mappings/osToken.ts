@@ -1,12 +1,10 @@
 import { log } from '@graphprotocol/graph-ts'
-import { Transfer } from '../../generated/Erc20Token/Erc20Token'
 import {
   AvgRewardPerSecondUpdated,
   FeePercentUpdated,
   StateUpdated,
 } from '../../generated/OsTokenVaultController/OsTokenVaultController'
 import { updateOsTokenApy } from '../entities/apySnapshots'
-import { createTokenTransfer } from '../entities/tokenTransfer'
 import { createOrLoadOsToken } from '../entities/osToken'
 
 export function handleAvgRewardPerSecondUpdated(event: AvgRewardPerSecondUpdated): void {
@@ -22,28 +20,13 @@ export function handleAvgRewardPerSecondUpdated(event: AvgRewardPerSecondUpdated
 
 export function handleStateUpdated(event: StateUpdated): void {
   const shares = event.params.treasuryShares
+  const assets = event.params.treasuryAssets
   const osToken = createOrLoadOsToken()
   osToken.totalSupply = osToken.totalSupply.plus(shares)
+  osToken.totalAssets = osToken.totalAssets.plus(assets)
   osToken.save()
 
   log.info('[OsTokenController] StateUpdated treasuryShares={}', [shares.toString()])
-}
-
-export function handleTransfer(event: Transfer): void {
-  createTokenTransfer(
-    event.transaction.hash.toHex(),
-    event.params.from,
-    event.params.to,
-    event.params.value,
-    event.block.timestamp,
-    'osToken',
-  )
-
-  log.info('[OsToken] Transfer from={} to={} amount={}', [
-    event.params.from.toHexString(),
-    event.params.to.toHexString(),
-    event.params.value.toString(),
-  ])
 }
 
 export function handleFeePercentUpdated(event: FeePercentUpdated): void {

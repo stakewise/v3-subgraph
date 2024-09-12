@@ -1,5 +1,7 @@
 {
   "network": "chiado",
+  "pollingBlocksInterval": "700",
+  "blockHandlersStartBlock": "11761400",
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
   "v2PoolFeePercent": "1500",

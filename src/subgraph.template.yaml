@@ -7,7 +7,36 @@ features:
   - ipfsOnEthereumContracts
 dataSources:
   - kind: ethereum/contract
-    name: Erc20Token
+    name: BlockHandlers
+    network: {{ network }}
+    source:
+      address: '{{ osTokenVaultController.address }}'
+      abi: OsTokenVaultController
+      startBlock: {{ blockHandlersStartBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/blockHandlers.ts
+      entities:
+        - Vault
+        - Allocator
+        - ExitRequest
+      abis:
+        - name: OsTokenVaultController
+          file: ./abis/OsTokenVaultController.json
+        - name: Vault
+          file: ./abis/Vault.json
+      blockHandlers:
+        - handler: initialize
+          filter:
+            kind: once
+        - handler: syncMintedOsTokenShares
+          filter:
+            kind: polling
+            every: {{ pollingBlocksInterval }}
+  - kind: ethereum/contract
+    name: OsToken
     network: {{ network }}
     source:
       address: '{{ osToken.address }}'
@@ -17,9 +46,8 @@ dataSources:
       kind: ethereum/events
       apiVersion: 0.0.8
       language: wasm/assemblyscript
-      file: ./mappings/osToken.ts
+      file: ./mappings/erc20Token.ts
       entities:
-        - OsTokenHolder
         - TokenTransfer
         - TokenHolder
       abis:
@@ -39,7 +67,7 @@ dataSources:
       kind: ethereum/events
       apiVersion: 0.0.8
       language: wasm/assemblyscript
-      file: ./mappings/swiseToken.ts
+      file: ./mappings/erc20Token.ts
       entities:
         - TokenTransfer
         - TokenHolder
@@ -79,10 +107,6 @@ dataSources:
           handler: handleHarvested
         - event: ValidatorsApproval(indexed address,string)
           handler: handleValidatorsApproval
-      blockHandlers:
-        - handler: initialize
-          filter:
-            kind: once
   - kind: ethereum/contract
     name: OsTokenVaultController
     network: {{ network }}

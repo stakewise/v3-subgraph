@@ -1,5 +1,7 @@
 {
   "network": "holesky",
+  "pollingBlocksInterval": "300",
+  "blockHandlersStartBlock": "2320700",
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
   "v2PoolFeePercent": "1000",

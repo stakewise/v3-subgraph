@@ -1,5 +1,7 @@
 {
   "network": "mainnet",
+  "pollingBlocksInterval": "300",
+  "blockHandlersStartBlock": "20734400",
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
   "v2PoolFeePercent": "1000",

@@ -1,6 +1,6 @@
-import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
-
-import { Allocator, AllocatorAction } from '../../generated/schema'
+import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
+import { Allocator, AllocatorAction, OsToken } from '../../generated/schema'
+import { Vault as VaultContract } from '../../generated/BlockHandlers/Vault'
 
 export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: Address): Allocator {
   const vaultAllocatorAddress = `${vaultAddress.toHex()}-${allocatorAddress.toHex()}`
@@ -11,6 +11,8 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator = new Allocator(vaultAllocatorAddress)
     vaultAllocator.shares = BigInt.zero()
     vaultAllocator.assets = BigInt.zero()
+    vaultAllocator.mintedOsTokenShares = BigInt.zero()
+    vaultAllocator.ltv = BigDecimal.zero()
     vaultAllocator.address = allocatorAddress
     vaultAllocator.vault = vaultAddress.toHex()
     vaultAllocator.save()
@@ -24,7 +26,7 @@ export function createAllocatorAction(
   vaultAddress: Address,
   actionType: string,
   owner: Address,
-  assets: BigInt | null,
+  assets: BigInt,
   shares: BigInt | null,
 ): void {
   if (assets === null && shares === null) {
@@ -40,4 +42,24 @@ export function createAllocatorAction(
   allocatorAction.shares = shares
   allocatorAction.createdAt = event.block.timestamp
   allocatorAction.save()
+}
+
+export function updateAllocatorMintedOsTokenShares(allocator: Allocator): void {
+  const vaultAddress = Address.fromString(allocator.vault)
+  const vaultContract = VaultContract.bind(vaultAddress)
+
+  // fetch minted osToken shares for allocator
+  allocator.mintedOsTokenShares = vaultContract.osTokenPositions(Address.fromBytes(allocator.address))
+}
+
+export function updateAllocatorLtv(allocator: Allocator, osToken: OsToken): void {
+  // calculate LTV
+  if (allocator.assets.notEqual(BigInt.zero()) && osToken.totalSupply.notEqual(BigInt.zero())) {
+    const mintedOsTokenAssets = allocator.mintedOsTokenShares.times(osToken.totalAssets).div(osToken.totalSupply)
+    allocator.ltv = BigDecimal.fromString(mintedOsTokenAssets.toString()).div(
+      BigDecimal.fromString(allocator.assets.toString()),
+    )
+  } else {
+    allocator.ltv = BigDecimal.zero()
+  }
 }

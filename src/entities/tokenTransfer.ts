@@ -11,6 +11,7 @@ export function createOrLoadTokenHolder(tokenSymbol: string, tokenHolderAddress:
 
     token.address = tokenHolderAddress
     token.tokenSymbol = tokenSymbol
+    token.balance = BigInt.zero()
     token.transfersCount = BigInt.zero()
     token.save()
   }

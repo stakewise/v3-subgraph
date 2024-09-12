@@ -1,5 +1,7 @@
 {
   "network": "gnosis",
+  "pollingBlocksInterval": "700",
+  "blockHandlersStartBlock": "35962500",
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
   "v2PoolFeePercent": "1500",

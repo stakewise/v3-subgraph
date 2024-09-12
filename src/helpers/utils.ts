@@ -1,7 +1,6 @@
-import { Address, Bytes, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { GENESIS_VAULT, NETWORK, V2_REWARD_TOKEN, V2_STAKED_TOKEN, WAD } from './constants'
 import { Vault } from '../../generated/schema'
-import { Vault as VaultContract } from '../../generated/Keeper/Vault'
 import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from '../../generated/Keeper/Multicall'
 
 export function isGnosisNetwork(): boolean {
@@ -17,12 +16,6 @@ const swapXdaiToGnoSelector = '0xb0d11302'
 const poolRewardAssetsSelector = '0x18160ddd'
 const poolPrincipalAssetsSelector = '0x18160ddd'
 const poolPenaltyAssetsSelector = '0xe6af61c8'
-
-export function getVaultTotalAssets(vault: Vault): BigInt {
-  const vaultAddr = Address.fromString(vault.id)
-  const vaultContract = VaultContract.bind(vaultAddr)
-  return vaultContract.totalAssets()
-}
 
 export function getVaultStateUpdate(
   vault: Vault,
