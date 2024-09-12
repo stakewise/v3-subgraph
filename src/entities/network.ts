@@ -8,6 +8,7 @@ export function createOrLoadNetwork(): Network {
   if (network === null) {
     network = new Network(id)
     network.vaultsTotal = 0
+    network.vaultIds = []
     network.save()
   }
 
