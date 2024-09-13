@@ -94,6 +94,10 @@ export function createVault(
 
   createOrLoadOsTokenConfig('1')
 
+  if (ownMevEscrow != Address.zero()) {
+    vault.mevEscrow = event.params.ownMevEscrow
+  }
+
   if (isPrivate) {
     PrivateVaultTemplate.create(vaultAddress)
     vault.whitelister = admin

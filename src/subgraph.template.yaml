@@ -10,9 +10,9 @@ dataSources:
     name: BlockHandlers
     network: {{ network }}
     source:
-      address: '{{ keeper.address }}'
-      abi: OsTokenVaultController
-      startBlock: {{ keeper.startBlock }}
+      address: '{{ genesisVault.address }}'
+      abi: Vault
+      startBlock: {{ genesisVault.startBlock }}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.8
@@ -28,9 +28,6 @@ dataSources:
         - name: Vault
           file: ./abis/Vault.json
       blockHandlers:
-        - handler: initialize
-          filter:
-            kind: once
         - handler: syncUpdates
           filter:
             kind: polling
@@ -107,6 +104,10 @@ dataSources:
           handler: handleHarvested
         - event: ValidatorsApproval(indexed address,string)
           handler: handleValidatorsApproval
+      blockHandlers:
+        - handler: initialize
+          filter:
+            kind: once
   - kind: ethereum/contract
     name: OsTokenVaultController
     network: {{ network }}
