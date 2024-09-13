@@ -1,22 +1,18 @@
 specVersion: 0.0.8
 description: The liquid staking protocol
-graft:
-  base: QmVmAFgTqcjBbhgku6w7CWDas5yiERuK7yXBH3VDMJ5hzi
-  block: 20015089
 repository: https://github.com/stakewise/v3-subgraph
 schema:
   file: ./schema.graphql
 features:
   - ipfsOnEthereumContracts
-  - grafting
 dataSources:
   - kind: ethereum/contract
     name: BlockHandlers
     network: {{ network }}
     source:
-      address: '{{ osTokenVaultController.address }}'
+      address: '{{ keeper.address }}'
       abi: OsTokenVaultController
-      startBlock: {{ osTokenVaultController.startBlock }}
+      startBlock: {{ keeper.startBlock }}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.8

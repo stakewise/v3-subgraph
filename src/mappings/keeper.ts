@@ -130,8 +130,12 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const rewardsIpfsHash = event.params.rewardsIpfsHash
   const updateTimestamp = event.params.updateTimestamp
 
-  const data = ipfs.cat(rewardsIpfsHash) as Bytes
-  updateRewards(json.fromBytes(data), rewardsRoot, updateTimestamp, rewardsIpfsHash)
+  let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
+  while (data === null) {
+    log.warning('[Keeper] RewardsUpdated ipfs.cat failed, retrying', [])
+    data = ipfs.cat(rewardsIpfsHash)
+  }
+  updateRewards(json.fromBytes(data as Bytes), rewardsRoot, updateTimestamp, rewardsIpfsHash)
   log.info('[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={}', [
     rewardsRoot.toHex(),
     rewardsIpfsHash,
