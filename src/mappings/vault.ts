@@ -275,6 +275,9 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
 
   createTransaction(event.transaction.hash.toHex())
 
+  vault.latestExitTicket = positionTicket
+  vault.save()
+
   // Create exit request
   const exitRequestId = `${vaultAddress}-${positionTicket}`
   const exitRequest = new ExitRequest(exitRequestId)
@@ -282,10 +285,11 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   exitRequest.vault = vaultAddress
   exitRequest.owner = owner
   exitRequest.receiver = receiver
-  exitRequest.totalShares = shares
-  exitRequest.totalAssets = BigInt.zero()
+  exitRequest.totalAssets = assets
+  exitRequest.claimableAssets = BigInt.zero()
   exitRequest.positionTicket = positionTicket
   exitRequest.isV2Position = false
+  exitRequest.exitQueueIndex = null
   exitRequest.timestamp = timestamp
   exitRequest.save()
 
@@ -309,6 +313,9 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   vault.totalShares = vault.totalShares.minus(shares)
   vault.totalAssets = vault.totalAssets.minus(assets)
   vault.exitingAssets = vault.exitingAssets.plus(assets)
+  const exitingTickets = positionTicket.minus(vault.latestExitTicket)
+  vault.exitingTickets = vault.exitingTickets.plus(exitingTickets)
+  vault.latestExitTicket = positionTicket
   vault.save()
 
   const vaultsStat = createOrLoadVaultsStat()
@@ -335,10 +342,11 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   exitRequest.vault = vaultAddress
   exitRequest.owner = owner
   exitRequest.receiver = receiver
-  exitRequest.totalShares = BigInt.zero()
   exitRequest.totalAssets = assets
+  exitRequest.claimableAssets = BigInt.zero()
   exitRequest.positionTicket = positionTicket
   exitRequest.isV2Position = true
+  exitRequest.exitQueueIndex = null
   exitRequest.timestamp = timestamp
   exitRequest.save()
 
@@ -359,6 +367,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const prevPositionTicket = params.prevPositionTicket
   const newPositionTicket = params.newPositionTicket
   const claimedAssets = params.withdrawnAssets
+  const claimedTickets = prevPositionTicket.minus(newPositionTicket)
   const vaultAddress = event.address.toHex()
 
   createAllocatorAction(event, event.address, 'ExitedAssetsClaimed', receiver, claimedAssets, null)
@@ -369,35 +378,26 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const prevExitRequest = ExitRequest.load(prevExitRequestId) as ExitRequest
 
   const isExitQueueRequestResolved = newPositionTicket.equals(BigInt.zero())
-  const isV2ExitRequest = prevExitRequest.totalShares.equals(BigInt.zero())
-
-  if (isV2ExitRequest) {
+  if (prevExitRequest.isV2Position) {
     // Update vault shares and assets
     const vault = Vault.load(vaultAddress) as Vault
     vault.exitingAssets = vault.exitingAssets.minus(claimedAssets)
+    vault.exitingTickets = vault.exitingTickets.minus(claimedTickets)
     vault.save()
   }
 
   if (!isExitQueueRequestResolved) {
     const nextExitQueueRequestId = `${vaultAddress}-${newPositionTicket}`
-    let withdrawnShares: BigInt = BigInt.zero()
-    let withdrawnAssets: BigInt = BigInt.zero()
-    if (isV2ExitRequest) {
-      withdrawnAssets = claimedAssets
-    } else {
-      withdrawnShares = newPositionTicket.minus(prevPositionTicket)
-    }
-
     const nextExitRequest = new ExitRequest(nextExitQueueRequestId)
-
     nextExitRequest.vault = vaultAddress
     nextExitRequest.owner = prevExitRequest.owner
     nextExitRequest.timestamp = prevExitRequest.timestamp
     nextExitRequest.receiver = receiver
     nextExitRequest.positionTicket = newPositionTicket
     nextExitRequest.isV2Position = prevExitRequest.isV2Position
-    nextExitRequest.totalShares = prevExitRequest.totalShares.minus(withdrawnShares)
-    nextExitRequest.totalAssets = prevExitRequest.totalAssets.minus(withdrawnAssets)
+    nextExitRequest.totalAssets = prevExitRequest.totalAssets.minus(claimedAssets)
+    nextExitRequest.claimableAssets = BigInt.zero()
+    nextExitRequest.exitQueueIndex = null
     nextExitRequest.save()
   }
 
@@ -600,6 +600,8 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.rate = BigInt.fromString(WAD)
   vault.totalAssets = BigInt.zero()
   vault.exitingAssets = BigInt.zero()
+  vault.exitingTickets = BigInt.zero()
+  vault.latestExitTicket = BigInt.zero()
   vault.isPrivate = false
   vault.isBlocklist = false
   vault.isErc20 = false
@@ -677,6 +679,8 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.rate = BigInt.fromString(WAD)
   vault.totalAssets = BigInt.zero()
   vault.exitingAssets = BigInt.zero()
+  vault.exitingTickets = BigInt.zero()
+  vault.latestExitTicket = BigInt.zero()
   vault.isPrivate = false
   vault.isBlocklist = true
   vault.isErc20 = false

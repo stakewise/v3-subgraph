@@ -1,6 +1,12 @@
-import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
-import { Allocator, AllocatorAction, OsToken } from '../../generated/schema'
+import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
+import { Allocator, AllocatorAction, ExitRequest, OsToken, Vault } from '../../generated/schema'
 import { Vault as VaultContract } from '../../generated/BlockHandlers/Vault'
+import { convertSharesToAssets, getUpdateStateCall } from './vaults'
+import { createOrLoadOsToken } from './osToken'
+
+const getExitQueueIndexSelector = '0x60d60e6e'
+const calculateExitedAssetsSelector = '0x76b58b90'
+const osTokenPositionsSelector = '0x4ec96b22'
 
 export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: Address): Allocator {
   const vaultAllocatorAddress = `${vaultAddress.toHex()}-${allocatorAddress.toHex()}`
@@ -44,12 +50,29 @@ export function createAllocatorAction(
   allocatorAction.save()
 }
 
-export function updateAllocatorMintedOsTokenShares(allocator: Allocator): void {
-  const vaultAddress = Address.fromString(allocator.vault)
-  const vaultContract = VaultContract.bind(vaultAddress)
+export function updateAllocatorsMintedOsTokenShares(vault: Vault): void {
+  if (!vault.isOsTokenEnabled) {
+    return
+  }
 
-  // fetch minted osToken shares for allocator
-  allocator.mintedOsTokenShares = vaultContract.osTokenPositions(Address.fromBytes(allocator.address))
+  const vaultAddress = Address.fromString(vault.id)
+  const vaultContract = VaultContract.bind(vaultAddress)
+  const allocators = vault.allocators.load()
+  const osToken = createOrLoadOsToken()
+
+  let calls: Array<Bytes> = []
+  for (let i = 0; i < allocators.length; i++) {
+    calls.push(getOsTokenPositionsCall(allocators[i]))
+  }
+
+  let allocator: Allocator
+  const result = vaultContract.multicall(calls)
+  for (let i = 0; i < allocators.length; i++) {
+    allocator = allocators[i]
+    allocator.mintedOsTokenShares = ethereum.decode('uint256', result[i])!.toBigInt()
+    updateAllocatorLtv(allocator, osToken)
+    allocator.save()
+  }
 }
 
 export function updateAllocatorLtv(allocator: Allocator, osToken: OsToken): void {
@@ -62,4 +85,111 @@ export function updateAllocatorLtv(allocator: Allocator, osToken: OsToken): void
   } else {
     allocator.ltv = BigDecimal.zero()
   }
+}
+
+export function updateExitRequests(vault: Vault): void {
+  const vaultAddress = Address.fromString(vault.id)
+  const vaultContract = VaultContract.bind(vaultAddress)
+  const exitRequests = vault.exitRequests.load()
+  let updateStateCall: Bytes | null = null
+  if (
+    vault.rewardsRoot !== null &&
+    vault.proofReward !== null &&
+    vault.proofUnlockedMevReward !== null &&
+    vault.proof !== null &&
+    vault.proof!.length > 0
+  ) {
+    updateStateCall = getUpdateStateCall(
+      vault.rewardsRoot as Bytes,
+      vault.proofReward as BigInt,
+      vault.proofUnlockedMevReward as BigInt,
+      (vault.proof as Array<string>).map<Bytes>((p: string) => Bytes.fromHexString(p)),
+    )
+  }
+
+  let calls: Array<Bytes> = []
+  if (updateStateCall !== null) {
+    calls.push(updateStateCall)
+  }
+  for (let i = 0; i < exitRequests.length; i++) {
+    calls.push(getExitQueueIndexCall(exitRequests[i].positionTicket))
+  }
+
+  let exitRequestsWithIndex: Array<ExitRequest> = []
+  let exitRequest: ExitRequest
+  let result = vaultContract.multicall(calls)
+  if (updateStateCall !== null) {
+    // remove first call result
+    result = result.slice(1)
+  }
+
+  for (let i = 0; i < result.length; i++) {
+    const index = ethereum.decode('int256', result[i])!.toBigInt()
+    exitRequest = exitRequests[i]
+    if (index.lt(BigInt.zero())) {
+      exitRequest.exitQueueIndex = null
+      exitRequest.save()
+    } else {
+      exitRequest.exitQueueIndex = index
+      exitRequestsWithIndex.push(exitRequest)
+    }
+  }
+
+  calls = []
+  if (updateStateCall !== null) {
+    calls.push(updateStateCall)
+  }
+  for (let i = 0; i < exitRequestsWithIndex.length; i++) {
+    exitRequest = exitRequestsWithIndex[i]
+    calls.push(
+      getCalculateExitedAssetsCall(
+        Address.fromBytes(exitRequest.receiver),
+        exitRequest.positionTicket,
+        exitRequest.timestamp,
+        exitRequest.exitQueueIndex as BigInt,
+      ),
+    )
+  }
+
+  result = vaultContract.multicall(calls)
+  if (updateStateCall !== null) {
+    // remove first call result
+    result = result.slice(1)
+  }
+  for (let i = 0; i < result.length; i++) {
+    exitRequest = exitRequestsWithIndex[i]
+    let decodedResult = ethereum.decode('(uint256,uint256,uint256)', result[i])!.toTuple()
+    const leftTickets = decodedResult[0].toBigInt()
+    const exitedAssets = decodedResult[2].toBigInt()
+    if (exitRequest.isV2Position) {
+      exitRequest.totalAssets = leftTickets.times(vault.exitingAssets).div(vault.exitingTickets).plus(exitedAssets)
+    } else {
+      exitRequest.totalAssets = convertSharesToAssets(vault, leftTickets).plus(exitedAssets)
+    }
+    exitRequest.claimableAssets = exitedAssets
+    exitRequest.save()
+  }
+}
+
+function getOsTokenPositionsCall(allocator: Allocator): Bytes {
+  const encodedArgs = ethereum.encode(ethereum.Value.fromAddress(Address.fromBytes(allocator.address)))
+  return Bytes.fromHexString(osTokenPositionsSelector).concat(encodedArgs as Bytes)
+}
+
+function getExitQueueIndexCall(positionTicket: BigInt): Bytes {
+  const encodedArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(positionTicket))
+  return Bytes.fromHexString(getExitQueueIndexSelector).concat(encodedArgs as Bytes)
+}
+
+function getCalculateExitedAssetsCall(
+  receiver: Address,
+  positionTicket: BigInt,
+  timestamp: BigInt,
+  exitQueueIndex: BigInt,
+): Bytes {
+  return Bytes.fromHexString(calculateExitedAssetsSelector)
+    .concat(ethereum.encode(ethereum.Value.fromAddress(receiver))!)
+    .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(positionTicket))!)
+    .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(timestamp))!)
+    .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(exitQueueIndex))!)
 }

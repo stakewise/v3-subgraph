@@ -1,8 +1,8 @@
 specVersion: 0.0.8
 description: The liquid staking protocol
 graft:
-  base: QmY7WedBWYZpPpMPQb7YmsEpxQsjn9Ke5XvJH9S8m45HUM
-  block: 18470106
+  base: QmVmAFgTqcjBbhgku6w7CWDas5yiERuK7yXBH3VDMJ5hzi
+  block: 20015089
 repository: https://github.com/stakewise/v3-subgraph
 schema:
   file: ./schema.graphql
@@ -14,9 +14,9 @@ dataSources:
     name: BlockHandlers
     network: {{ network }}
     source:
-      address: '{{ keeper.address }}'
+      address: '{{ osTokenVaultController.address }}'
       abi: OsTokenVaultController
-      startBlock: {{ keeper.startBlock }}
+      startBlock: {{ osTokenVaultController.startBlock }}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.8
@@ -35,7 +35,7 @@ dataSources:
         - handler: initialize
           filter:
             kind: once
-        - handler: syncMintedOsTokenShares
+        - handler: syncUpdates
           filter:
             kind: polling
             every: {{ pollingBlocksInterval }}

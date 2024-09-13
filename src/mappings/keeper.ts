@@ -1,14 +1,14 @@
 import { BigInt, Bytes, ipfs, json, JSONValue, log } from '@graphprotocol/graph-ts'
 
-import { Vault } from '../../generated/schema'
+import { Allocator, Vault } from '../../generated/schema'
 import { Harvested, RewardsUpdated, ValidatorsApproval } from '../../generated/Keeper/Keeper'
 import { updatePoolApy, updateVaultApy } from '../entities/apySnapshots'
 import { WAD } from '../helpers/constants'
-import { getPoolStateUpdate, getVaultStateUpdate, isGnosisNetwork } from '../helpers/utils'
-import { convertSharesToAssets, createOrLoadVaultsStat } from '../entities/vaults'
-import { createOrLoadV2Pool } from '../entities/v2pool'
+import { convertSharesToAssets, createOrLoadVaultsStat, getVaultStateUpdate } from '../entities/vaults'
+import { createOrLoadV2Pool, getPoolStateUpdate } from '../entities/v2pool'
 import { updateAllocatorLtv } from '../entities/allocator'
 import { createOrLoadOsToken } from '../entities/osToken'
+import { isGnosisNetwork } from '../entities/network'
 
 export function updateRewards(
   value: JSONValue,
@@ -113,9 +113,10 @@ export function updateRewards(
     }
 
     // update assets for all the allocators
+    let allocator: Allocator
     let allocators = vault.allocators.load()
     for (let j = 0; j < allocators.length; j++) {
-      const allocator = allocators[j]
+      allocator = allocators[j]
       allocator.assets = convertSharesToAssets(vault, allocator.shares)
       updateAllocatorLtv(allocator, osToken)
       allocator.save()

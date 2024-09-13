@@ -1,4 +1,5 @@
 import { Network } from '../../generated/schema'
+import { NETWORK } from '../helpers/constants'
 
 export function createOrLoadNetwork(): Network {
   const id = '0'
@@ -13,4 +14,8 @@ export function createOrLoadNetwork(): Network {
   }
 
   return network
+}
+
+export function isGnosisNetwork(): boolean {
+  return NETWORK == 'chiado' || NETWORK == 'gnosis'
 }

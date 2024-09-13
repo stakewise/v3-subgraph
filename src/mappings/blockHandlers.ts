@@ -29,7 +29,7 @@ import {
 } from '../../generated/templates'
 import { Vault } from '../../generated/schema'
 import { createOrLoadOsToken, updateOsTokenTotalAssets } from '../entities/osToken'
-import { updateAllocatorLtv, updateAllocatorMintedOsTokenShares } from '../entities/allocator'
+import { updateExitRequests, updateAllocatorsMintedOsTokenShares } from '../entities/allocator'
 import { createOrLoadNetwork } from '../entities/network'
 
 const IS_PRIVATE_KEY = 'isPrivate'
@@ -168,7 +168,7 @@ export function initialize(block: ethereum.Block): void {
   }
 }
 
-export function syncMintedOsTokenShares(block: ethereum.Block): void {
+export function syncUpdates(block: ethereum.Block): void {
   const osToken = createOrLoadOsToken()
   updateOsTokenTotalAssets(osToken)
   osToken.save()
@@ -181,16 +181,8 @@ export function syncMintedOsTokenShares(block: ethereum.Block): void {
   for (let i = 0; i < network.vaultIds.length; i++) {
     const vaultAddr = network.vaultIds[i]
     const vault = Vault.load(vaultAddr) as Vault
-    if (!vault.isOsTokenEnabled) {
-      continue
-    }
-    const vaultAllocators = vault.allocators.load()
-    for (let j = 0; j < vaultAllocators.length; j++) {
-      const allocator = vaultAllocators[j]
-      updateAllocatorMintedOsTokenShares(allocator)
-      updateAllocatorLtv(allocator, osToken)
-      allocator.save()
-    }
+    updateAllocatorsMintedOsTokenShares(vault)
+    updateExitRequests(vault)
   }
-  log.info('[BlockHandlers] Sync minted OsToken shares at block={}', [block.number.toString()])
+  log.info('[BlockHandlers] Sync updates at block={}', [block.number.toString()])
 }

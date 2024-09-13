@@ -86,11 +86,14 @@ type ExitRequest @entity {
   "The address that will receive exited assets"
   receiver: Bytes!
 
-  "The number of shares queued for exit. Will be zero for V2 vaults as shares are burned when user enters exit queue."
-  totalShares: BigInt!
-
   "The total number of assets queued for exit"
   totalAssets: BigInt!
+
+  "The total number of assets that are exited and can be claimed"
+  claimableAssets: BigInt!
+
+  "The exit queue index that must be used to claim the exit. Will be null if the exit is not claimable"
+  exitQueueIndex: BigInt
 
   "The timestamp when the exit request was created"
   timestamp: BigInt!
@@ -225,6 +228,12 @@ type Vault @entity {
 
   "The total number of assets that are exiting (in V2 vaults)"
   exitingAssets: BigInt!
+
+  "The total number of tickets that are exiting (in V2 vaults)"
+  exitingTickets: BigInt!
+
+  "The latest exit ticket number"
+  latestExitTicket: BigInt!
 
   "Indicates whether the Vault is private"
   isPrivate: Boolean!

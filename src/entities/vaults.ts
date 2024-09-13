@@ -1,4 +1,4 @@
-import { BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import {
   BlocklistVault as BlocklistVaultTemplate,
   Erc20Vault as Erc20VaultTemplate,
@@ -8,12 +8,19 @@ import {
 } from '../../generated/templates'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
 import { Vault, VaultsStat } from '../../generated/schema'
-import { createOrLoadNetwork } from './network'
+import { createOrLoadNetwork, isGnosisNetwork } from './network'
 import { createTransaction } from './transaction'
-import { WAD } from '../helpers/constants'
+import { MULTICALL, WAD } from '../helpers/constants'
 import { createOrLoadOsTokenConfig } from './osTokenConfig'
+import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from '../../generated/Keeper/Multicall'
+import { getAggregateCall } from '../helpers/utils'
 
 const vaultsStatId = '1'
+const updateStateSelector = '0x1a7ff553'
+const totalAssetsSelector = '0x01e1d114'
+const totalSharesSelector = '0x3a98ef39'
+const convertToAssetsSelector = '0x07a2d13a'
+const swapXdaiToGnoSelector = '0xb0d11302'
 
 export function createVault(
   event: VaultCreated,
@@ -61,6 +68,8 @@ export function createVault(
   vault.totalAssets = BigInt.zero()
   vault.rate = BigInt.fromString(WAD)
   vault.exitingAssets = BigInt.zero()
+  vault.exitingTickets = BigInt.zero()
+  vault.latestExitTicket = BigInt.zero()
   vault.isPrivate = isPrivate
   vault.isBlocklist = isBlocklist
   vault.isRestake = isRestake
@@ -150,4 +159,76 @@ export function createOrLoadVaultsStat(): VaultsStat {
   }
 
   return vaultsStat
+}
+
+function getConvertToAssetsCall(shares: BigInt): Bytes {
+  const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(shares))
+  return Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs as Bytes)
+}
+
+export function getUpdateStateCall(
+  rewardsRoot: Bytes,
+  reward: BigInt,
+  unlockedMevReward: BigInt,
+  proof: Array<Bytes>,
+): Bytes {
+  const updateStateArray: Array<ethereum.Value> = [
+    ethereum.Value.fromFixedBytes(rewardsRoot),
+    ethereum.Value.fromSignedBigInt(reward),
+    ethereum.Value.fromUnsignedBigInt(unlockedMevReward),
+    ethereum.Value.fromFixedBytesArray(proof),
+  ]
+  // Encode the tuple
+  const encodedUpdateStateArgs = ethereum.encode(ethereum.Value.fromTuple(changetype<ethereum.Tuple>(updateStateArray)))
+  return Bytes.fromHexString(updateStateSelector).concat(encodedUpdateStateArgs as Bytes)
+}
+
+export function getVaultStateUpdate(
+  vault: Vault,
+  rewardsRoot: Bytes,
+  reward: BigInt,
+  unlockedMevReward: BigInt,
+  proof: Array<Bytes>,
+): Array<BigInt> {
+  const isGnosis = isGnosisNetwork()
+  const vaultAddr = Address.fromString(vault.id)
+  const updateStateCall = getUpdateStateCall(rewardsRoot, reward, unlockedMevReward, proof)
+  const convertToAssetsCall = getConvertToAssetsCall(BigInt.fromString(WAD))
+  const totalAssetsCall = Bytes.fromHexString(totalAssetsSelector)
+  const totalSharesCall = Bytes.fromHexString(totalSharesSelector)
+  const swapXdaiToGnoCall = Bytes.fromHexString(swapXdaiToGnoSelector)
+
+  const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
+  let calls: Array<ethereum.Value> = [getAggregateCall(vaultAddr, updateStateCall)]
+  if (isGnosis) {
+    calls.push(getAggregateCall(vaultAddr, swapXdaiToGnoCall))
+  }
+  calls.push(getAggregateCall(vaultAddr, convertToAssetsCall))
+  calls.push(getAggregateCall(vaultAddr, totalAssetsCall))
+  calls.push(getAggregateCall(vaultAddr, totalSharesCall))
+
+  const result = multicallContract.call('tryAggregate', 'tryAggregate(bool,(address,bytes)[]):((bool,bytes)[])', [
+    ethereum.Value.fromBoolean(false),
+    ethereum.Value.fromArray(calls),
+  ])
+  const resultValue = result[0].toTupleArray<TryAggregateCallReturnDataStruct>()
+  if (!resultValue[0].success) {
+    log.error('[Vault] getVaultStateUpdate failed for vault={} updateStateCall={}', [
+      vault.id,
+      updateStateCall.toHexString(),
+    ])
+    assert(false, 'executeVaultUpdateState failed')
+  }
+
+  let newRate: BigInt, totalAssets: BigInt, totalShares: BigInt
+  if (isGnosis) {
+    newRate = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
+    totalAssets = ethereum.decode('uint256', resultValue[3].returnData)!.toBigInt()
+    totalShares = ethereum.decode('uint256', resultValue[4].returnData)!.toBigInt()
+  } else {
+    newRate = ethereum.decode('uint256', resultValue[1].returnData)!.toBigInt()
+    totalAssets = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
+    totalShares = ethereum.decode('uint256', resultValue[3].returnData)!.toBigInt()
+  }
+  return [newRate, totalAssets, totalShares]
 }
