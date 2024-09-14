@@ -275,7 +275,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
 
   createTransaction(event.transaction.hash.toHex())
 
-  vault.latestExitTicket = positionTicket
+  vault.latestExitTicket = positionTicket.plus(shares)
   vault.save()
 
   // Create exit request
@@ -312,10 +312,15 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   const vault = Vault.load(vaultAddress) as Vault
   vault.totalShares = vault.totalShares.minus(shares)
   vault.totalAssets = vault.totalAssets.minus(assets)
+  let exitingTickets: BigInt
+  if (vault.exitingAssets.le(BigInt.zero())) {
+    exitingTickets = assets
+  } else {
+    exitingTickets = assets.times(vault.exitingTickets).div(vault.exitingAssets)
+  }
   vault.exitingAssets = vault.exitingAssets.plus(assets)
-  const exitingTickets = positionTicket.minus(vault.latestExitTicket)
   vault.exitingTickets = vault.exitingTickets.plus(exitingTickets)
-  vault.latestExitTicket = positionTicket
+  vault.latestExitTicket = positionTicket.plus(exitingTickets)
   vault.save()
 
   const vaultsStat = createOrLoadVaultsStat()
@@ -610,14 +615,8 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.isCollateralized = true
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
-  vault.apySnapshotsCount = BigInt.zero()
   vault.apy = BigDecimal.zero()
-  vault.weeklyApy = BigDecimal.zero()
-  vault.executionApy = BigDecimal.zero()
-  vault.consensusApy = BigDecimal.zero()
-  vault.medianApy = BigDecimal.zero()
-  vault.medianExecutionApy = BigDecimal.zero()
-  vault.medianConsensusApy = BigDecimal.zero()
+  vault.apys = []
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = true
@@ -690,14 +689,8 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.mevEscrow = ownMevEscrow
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
-  vault.apySnapshotsCount = BigInt.zero()
   vault.apy = BigDecimal.zero()
-  vault.weeklyApy = BigDecimal.zero()
-  vault.executionApy = BigDecimal.zero()
-  vault.consensusApy = BigDecimal.zero()
-  vault.medianApy = BigDecimal.zero()
-  vault.medianExecutionApy = BigDecimal.zero()
-  vault.medianConsensusApy = BigDecimal.zero()
+  vault.apys = []
   vault.isGenesis = false
   vault.blocklistManager = admin
   vault.blocklistCount = BigInt.zero()

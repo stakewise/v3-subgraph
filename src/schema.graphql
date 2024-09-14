@@ -20,6 +20,12 @@ type Allocator @entity {
   "The allocator's LTV percent. Will be null if there are no OsTokens minted"
   ltv: BigDecimal!
 
+  "The allocator's week average APY"
+  apy: BigDecimal!
+
+  "The allocator's list of APY snapshots"
+  apys: [BigDecimal!]!
+
   "The vault of the allocator"
   vault: Vault!
 }
@@ -208,9 +214,6 @@ type Vault @entity {
   "The vault exit requests"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "vault")
 
-  "The vault apy snapshots"
-  apySnapshots: [VaultApySnapshot!]! @derivedFrom(field: "vault")
-
   "The vault eigen pods (only for vaults with isRestake=true)"
   eigenPods: [EigenPod!]! @derivedFrom(field: "vault")
 
@@ -283,29 +286,11 @@ type Vault @entity {
   "Whether the vault is a genesis vault (v2 pool migration)"
   isGenesis: Boolean!
 
-  "The total number of APY snapshots"
-  apySnapshotsCount: BigInt!
-
   "The vault average weekly total APY"
   apy: BigDecimal!
 
-  "(deprecated) The vault average weekly total APY"
-  weeklyApy: BigDecimal!
-
-  "The vault average weekly consensus APY"
-  consensusApy: BigDecimal!
-
-  "The vault average weekly execution APY"
-  executionApy: BigDecimal!
-
-  "The vault median weekly total APY"
-  medianApy: BigDecimal!
-
-  "The vault median weekly execution APY"
-  medianExecutionApy: BigDecimal!
-
-  "The vault median weekly consensus APY"
-  medianConsensusApy: BigDecimal!
+  "The list of vault APY snapshot"
+  apys: [BigDecimal!]!
 
   "The total number of vault blocklisted accounts"
   blocklistCount: BigInt!
@@ -355,29 +340,6 @@ type AllocatorAction @entity {
   createdAt: BigInt!
 }
 
-type VaultApySnapshot @entity {
-  "<Vault ID>-<date>"
-  id: ID!
-
-  "The vault APY for the period"
-  apy: BigDecimal!
-
-  "The vault consensus APY for the period"
-  consensusApy: BigDecimal!
-
-  "The vault execution APY for the period"
-  executionApy: BigDecimal!
-
-  "The period start epoch timestamp"
-  fromEpochTimestamp: BigInt!
-
-  "The period end epoch timestamp"
-  toEpochTimestamp: BigInt!
-
-  "The snapshot's vault"
-  vault: Vault
-}
-
 """
 OsToken data
 """
@@ -388,8 +350,8 @@ type OsToken @entity {
   "The OsToken APY"
   apy: BigDecimal!
 
-  "The OsToken borrow APY"
-  borrowApy: BigDecimal!
+  "The list of OsToken APY snapshot"
+  apys: [BigDecimal!]!
 
   "The OsToken fee percent"
   feePercent: Int!
@@ -399,26 +361,6 @@ type OsToken @entity {
 
   "The OsToken total assets"
   totalAssets: BigInt!
-
-  "The total number of OsToken snapshots"
-  snapshotsCount: BigInt!
-}
-
-"""
-Snapshot of OsToken average reward per second
-"""
-type OsTokenSnapshot @entity {
-  "The counter of the snapshot"
-  id: ID!
-
-  "The OsToken average reward per second"
-  avgRewardPerSecond: BigInt!
-
-  "The OsToken average borrow reward per second"
-  borrowRewardPerSecond: BigInt!
-
-  "The timestamp the snapshot was created at"
-  createdAt: BigInt!
 }
 
 """
@@ -539,23 +481,14 @@ type V2Pool @entity {
   "Whether V2 Pool has migrated to V3"
   migrated: Boolean!
 
-  "The total number of APY snapshots"
-  apySnapshotsCount: BigInt!
-
   "The current exchange rate for 10^18 staked token"
   rate: BigInt!
 
   "The pool average weekly total APY"
   apy: BigDecimal!
 
-  "(deprecated) The pool average weekly total APY"
-  weeklyApy: BigDecimal!
-
-  "The pool average weekly consensus APY"
-  consensusApy: BigDecimal!
-
-  "The pool average weekly execution APY"
-  executionApy: BigDecimal!
+  "The list of pool APY snapshot"
+  apys: [BigDecimal!]!
 
   "Last rewards update timestamp"
   rewardsTimestamp: BigInt

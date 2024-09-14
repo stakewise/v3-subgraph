@@ -11,8 +11,11 @@ import {
 import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from '../../generated/Keeper/Multicall'
 import { isGnosisNetwork } from './network'
 import { getUpdateStateCall } from './vaults'
-import { getAggregateCall } from '../helpers/utils'
+import { calculateAverage, getAggregateCall } from '../helpers/utils'
 
+const snapshotsPerWeek = 14
+const secondsInYear = '31536000'
+const maxPercent = '100'
 const poolId = '1'
 const swapXdaiToGnoSelector = '0xb0d11302'
 const poolRewardAssetsSelector = '0x18160ddd'
@@ -32,15 +35,38 @@ export function createOrLoadV2Pool(): V2Pool {
     pool.feePercent = I32.parseInt(V2_POOL_FEE_PERCENT)
     pool.rate = BigInt.fromString(WAD)
     pool.migrated = false
-    pool.apySnapshotsCount = BigInt.zero()
+    pool.apys = []
     pool.apy = BigDecimal.zero()
-    pool.weeklyApy = BigDecimal.zero()
-    pool.executionApy = BigDecimal.zero()
-    pool.consensusApy = BigDecimal.zero()
     pool.save()
   }
 
   return pool
+}
+
+export function updatePoolApy(
+  pool: V2Pool,
+  fromTimestamp: BigInt | null,
+  toTimestamp: BigInt,
+  rateChange: BigInt,
+): void {
+  if (fromTimestamp === null) {
+    // it's the first update, skip
+    return
+  }
+  const totalDuration = toTimestamp.minus(fromTimestamp)
+  const currentApy = BigDecimal.fromString(rateChange.toString())
+    .times(BigDecimal.fromString(secondsInYear))
+    .times(BigDecimal.fromString(maxPercent))
+    .div(BigDecimal.fromString(WAD))
+    .div(BigDecimal.fromString(totalDuration.toString()))
+
+  let apys = pool.apys
+  apys.push(currentApy)
+  if (apys.length > snapshotsPerWeek) {
+    apys = apys.slice(apys.length - snapshotsPerWeek)
+  }
+  pool.apys = apys
+  pool.apy = calculateAverage(apys)
 }
 
 export function getPoolStateUpdate(

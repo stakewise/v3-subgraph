@@ -4,15 +4,14 @@ import {
   FeePercentUpdated,
   StateUpdated,
 } from '../../generated/OsTokenVaultController/OsTokenVaultController'
-import { updateOsTokenApy } from '../entities/apySnapshots'
-import { createOrLoadOsToken } from '../entities/osToken'
+import { createOrLoadOsToken, updateOsTokenApy } from '../entities/osToken'
 
 export function handleAvgRewardPerSecondUpdated(event: AvgRewardPerSecondUpdated): void {
   const newAvgRewardPerSecond = event.params.avgRewardPerSecond
   const osToken = createOrLoadOsToken()
 
   // update OsToken
-  updateOsTokenApy(osToken, newAvgRewardPerSecond, event.block.timestamp)
+  updateOsTokenApy(osToken, newAvgRewardPerSecond)
   osToken.save()
 
   log.info('[OsTokenController] AvgRewardPerSecondUpdated avgRewardPerSecond={}', [newAvgRewardPerSecond.toString()])

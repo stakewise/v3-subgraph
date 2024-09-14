@@ -13,8 +13,11 @@ import { createTransaction } from './transaction'
 import { MULTICALL, WAD } from '../helpers/constants'
 import { createOrLoadOsTokenConfig } from './osTokenConfig'
 import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from '../../generated/Keeper/Multicall'
-import { getAggregateCall } from '../helpers/utils'
+import { calculateAverage, getAggregateCall } from '../helpers/utils'
 
+const snapshotsPerWeek = 14
+const secondsInYear = '31536000'
+const maxPercent = '100'
 const vaultsStatId = '1'
 const updateStateSelector = '0x1a7ff553'
 const totalAssetsSelector = '0x01e1d114'
@@ -78,14 +81,8 @@ export function createVault(
   vault.isCollateralized = false
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
-  vault.apySnapshotsCount = BigInt.zero()
   vault.apy = BigDecimal.zero()
-  vault.weeklyApy = BigDecimal.zero()
-  vault.executionApy = BigDecimal.zero()
-  vault.consensusApy = BigDecimal.zero()
-  vault.medianApy = BigDecimal.zero()
-  vault.medianExecutionApy = BigDecimal.zero()
-  vault.medianConsensusApy = BigDecimal.zero()
+  vault.apys = []
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = false
@@ -146,6 +143,32 @@ export function createVault(
   )
 }
 
+export function updateVaultApy(
+  vault: Vault,
+  fromTimestamp: BigInt | null,
+  toTimestamp: BigInt,
+  rateChange: BigInt,
+): void {
+  if (fromTimestamp === null) {
+    // it's the first update, skip
+    return
+  }
+  const totalDuration = toTimestamp.minus(fromTimestamp)
+  const currentApy = BigDecimal.fromString(rateChange.toString())
+    .times(BigDecimal.fromString(secondsInYear))
+    .times(BigDecimal.fromString(maxPercent))
+    .div(BigDecimal.fromString(WAD))
+    .div(BigDecimal.fromString(totalDuration.toString()))
+
+  let apys = vault.apys
+  apys.push(currentApy)
+  if (apys.length > snapshotsPerWeek) {
+    apys = apys.slice(apys.length - snapshotsPerWeek)
+  }
+  vault.apys = apys
+  vault.apy = calculateAverage(apys)
+}
+
 export function convertSharesToAssets(vault: Vault, shares: BigInt): BigInt {
   if (vault.totalShares.equals(BigInt.zero())) {
     return shares
@@ -163,28 +186,6 @@ export function createOrLoadVaultsStat(): VaultsStat {
   }
 
   return vaultsStat
-}
-
-function getConvertToAssetsCall(shares: BigInt): Bytes {
-  const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(shares))
-  return Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs as Bytes)
-}
-
-export function getUpdateStateCall(
-  rewardsRoot: Bytes,
-  reward: BigInt,
-  unlockedMevReward: BigInt,
-  proof: Array<Bytes>,
-): Bytes {
-  const updateStateArray: Array<ethereum.Value> = [
-    ethereum.Value.fromFixedBytes(rewardsRoot),
-    ethereum.Value.fromSignedBigInt(reward),
-    ethereum.Value.fromUnsignedBigInt(unlockedMevReward),
-    ethereum.Value.fromFixedBytesArray(proof),
-  ]
-  // Encode the tuple
-  const encodedUpdateStateArgs = ethereum.encode(ethereum.Value.fromTuple(changetype<ethereum.Tuple>(updateStateArray)))
-  return Bytes.fromHexString(updateStateSelector).concat(encodedUpdateStateArgs as Bytes)
 }
 
 export function getVaultStateUpdate(
@@ -235,4 +236,26 @@ export function getVaultStateUpdate(
     totalShares = ethereum.decode('uint256', resultValue[3].returnData)!.toBigInt()
   }
   return [newRate, totalAssets, totalShares]
+}
+
+export function getUpdateStateCall(
+  rewardsRoot: Bytes,
+  reward: BigInt,
+  unlockedMevReward: BigInt,
+  proof: Array<Bytes>,
+): Bytes {
+  const updateStateArray: Array<ethereum.Value> = [
+    ethereum.Value.fromFixedBytes(rewardsRoot),
+    ethereum.Value.fromSignedBigInt(reward),
+    ethereum.Value.fromUnsignedBigInt(unlockedMevReward),
+    ethereum.Value.fromFixedBytesArray(proof),
+  ]
+  // Encode the tuple
+  const encodedUpdateStateArgs = ethereum.encode(ethereum.Value.fromTuple(changetype<ethereum.Tuple>(updateStateArray)))
+  return Bytes.fromHexString(updateStateSelector).concat(encodedUpdateStateArgs as Bytes)
+}
+
+function getConvertToAssetsCall(shares: BigInt): Bytes {
+  const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(shares))
+  return Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs as Bytes)
 }

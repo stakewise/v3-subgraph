@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import { Allocator, AllocatorAction, ExitRequest, OsToken, Vault } from '../../generated/schema'
 import { Vault as VaultContract } from '../../generated/BlockHandlers/Vault'
 import { convertSharesToAssets, getUpdateStateCall } from './vaults'
@@ -21,6 +21,8 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.ltv = BigDecimal.zero()
     vaultAllocator.address = allocatorAddress
     vaultAllocator.vault = vaultAddress.toHex()
+    vaultAllocator.apy = BigDecimal.zero()
+    vaultAllocator.apys = []
     vaultAllocator.save()
   }
 
@@ -35,10 +37,6 @@ export function createAllocatorAction(
   assets: BigInt,
   shares: BigInt | null,
 ): void {
-  if (assets === null && shares === null) {
-    log.error('[AllocatorAction] Both assets and shares cannot be null for action={}', [actionType])
-    return
-  }
   const txHash = event.transaction.hash.toHex()
   const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
   allocatorAction.vault = vaultAddress.toHex()
@@ -90,7 +88,7 @@ export function updateAllocatorLtv(allocator: Allocator, osToken: OsToken): void
 export function updateExitRequests(vault: Vault): void {
   const vaultAddress = Address.fromString(vault.id)
   const vaultContract = VaultContract.bind(vaultAddress)
-  const exitRequests = vault.exitRequests.load()
+  const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
   let updateStateCall: Bytes | null = null
   if (
     vault.rewardsRoot !== null &&
@@ -111,12 +109,17 @@ export function updateExitRequests(vault: Vault): void {
   if (updateStateCall !== null) {
     calls.push(updateStateCall)
   }
+  let exitRequest: ExitRequest
+  const pendingExitRequests: Array<ExitRequest> = []
   for (let i = 0; i < exitRequests.length; i++) {
-    calls.push(getExitQueueIndexCall(exitRequests[i].positionTicket))
+    exitRequest = exitRequests[i]
+    if (exitRequest.totalAssets.gt(BigInt.zero())) {
+      pendingExitRequests.push(exitRequest)
+      calls.push(getExitQueueIndexCall(exitRequest.positionTicket))
+    }
   }
 
   let exitRequestsWithIndex: Array<ExitRequest> = []
-  let exitRequest: ExitRequest
   let result = vaultContract.multicall(calls)
   if (updateStateCall !== null) {
     // remove first call result
@@ -125,7 +128,7 @@ export function updateExitRequests(vault: Vault): void {
 
   for (let i = 0; i < result.length; i++) {
     const index = ethereum.decode('int256', result[i])!.toBigInt()
-    exitRequest = exitRequests[i]
+    exitRequest = pendingExitRequests[i]
     if (index.lt(BigInt.zero())) {
       exitRequest.exitQueueIndex = null
       exitRequest.save()
