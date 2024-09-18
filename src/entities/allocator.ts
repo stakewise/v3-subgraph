@@ -2,8 +2,7 @@ import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotoco
 import { Allocator, AllocatorAction, AllocatorSnapshot, OsToken, OsTokenConfig, Vault } from '../../generated/schema'
 import { Vault as VaultContract } from '../../generated/Keeper/Vault'
 import { WAD } from '../helpers/constants'
-import { convertOsTokenSharesToAssets, getOsTokenLastApy } from './osToken'
-import { getVaultLastApy } from './vaults'
+import { convertOsTokenSharesToAssets } from './osToken'
 
 const osTokenPositionsSelector = '0x4ec96b22'
 
@@ -109,7 +108,6 @@ export function getAllocatorOsTokenMintApy(
 
 export function snapshotAllocator(
   allocator: Allocator,
-  vault: Vault,
   osToken: OsToken,
   osTokenConfig: OsTokenConfig,
   assetsDiff: BigInt,
@@ -125,15 +123,12 @@ export function snapshotAllocator(
       .div(osTokenConfig.ltvPercent)
   }
 
-  const vaultApy = getVaultLastApy(vault)
-  const osTokenMintApy = getAllocatorOsTokenMintApy(allocator, getOsTokenLastApy(osToken), osToken, osTokenConfig)
-
   const allocatorSnapshot = new AllocatorSnapshot('1')
   allocatorSnapshot.timestamp = rewardsTimestamp.toI64()
   allocatorSnapshot.allocator = allocator.id
   allocatorSnapshot.earnedAssets = assetsDiff.minus(osTokenAssetsDiff)
+  allocatorSnapshot.totalAssets = allocator.assets
   allocatorSnapshot.ltv = allocator.ltv
-  allocatorSnapshot.apy = vaultApy.minus(osTokenMintApy)
   allocatorSnapshot.save()
 }
 

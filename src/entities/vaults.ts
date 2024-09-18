@@ -171,14 +171,6 @@ export function updateVaultApy(
   vault.apy = calculateAverage(apys)
 }
 
-export function getVaultLastApy(vault: Vault): BigDecimal {
-  const vaultApys = vault.apys
-  if (vaultApys.length > 0) {
-    return vaultApys[vaultApys.length - 1]
-  }
-  return BigDecimal.zero()
-}
-
 export function convertSharesToAssets(vault: Vault, shares: BigInt): BigInt {
   if (vault.totalShares.equals(BigInt.zero())) {
     return shares
@@ -261,9 +253,8 @@ function getConvertToAssetsCall(shares: BigInt): Bytes {
 export function snapshotVault(vault: Vault, assetsDiff: BigInt, rewardsTimestamp: BigInt): void {
   const vaultSnapshot = new VaultSnapshot('1')
   vaultSnapshot.timestamp = rewardsTimestamp.toI64()
-  vaultSnapshot.totalAssets = vault.totalAssets
-  vaultSnapshot.earnedAssets = assetsDiff
-  vaultSnapshot.apy = getVaultLastApy(vault)
   vaultSnapshot.vault = vault.id
+  vaultSnapshot.earnedAssets = assetsDiff
+  vaultSnapshot.totalAssets = vault.totalAssets
   vaultSnapshot.save()
 }

@@ -227,7 +227,7 @@ export function updateRewards(
     osTokenAssetsBefore = osTokenHolder.assets
     osTokenHolder.assets = convertOsTokenSharesToAssets(osToken, osTokenHolder.balance)
     osTokenHolder.save()
-    snapshotOsTokenHolder(osTokenHolder, osToken, osTokenHolder.assets.minus(osTokenAssetsBefore), updateTimestamp)
+    snapshotOsTokenHolder(osTokenHolder, osTokenHolder.assets.minus(osTokenAssetsBefore), updateTimestamp)
   }
 
   // process vault rewards
@@ -360,7 +360,6 @@ export function updateRewards(
       allocator.save()
       snapshotAllocator(
         allocator,
-        vault,
         osToken,
         osTokenConfig,
         allocatorAssetsDiff,

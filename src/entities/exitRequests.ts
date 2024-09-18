@@ -1,6 +1,6 @@
 import { ExitRequestSnapshot, ExitRequest, Vault } from '../../generated/schema'
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
-import { Vault as VaultContract } from '../../generated/ExitRequests/Vault'
+import { Vault as VaultContract } from '../../generated/BlockHandlers/Vault'
 import { convertSharesToAssets, getUpdateStateCall } from './vaults'
 
 const secondsInDay = '86400'
@@ -96,11 +96,19 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
     }
     exitRequest.exitedAssets = exitedAssets
     exitRequest.isClaimable = exitRequest.timestamp.plus(BigInt.fromString(secondsInDay)).gt(block.timestamp)
-    exitRequest.save()
 
-    if (totalAssetsBefore.notEqual(exitRequest.totalAssets)) {
-      snapshotExitRequest(exitRequest, exitRequest.totalAssets.minus(totalAssetsBefore), block.timestamp)
+    if (
+      vault.rewardsTimestamp !== null &&
+      exitRequest.lastSnapshotTimestamp.notEqual(vault.rewardsTimestamp as BigInt)
+    ) {
+      exitRequest.lastSnapshotTimestamp = vault.rewardsTimestamp as BigInt
+      snapshotExitRequest(
+        exitRequest,
+        exitRequest.totalAssets.minus(totalAssetsBefore),
+        vault.rewardsTimestamp as BigInt,
+      )
     }
+    exitRequest.save()
   }
 }
 
@@ -127,5 +135,6 @@ export function snapshotExitRequest(exitRequest: ExitRequest, earnedAssets: BigI
   exitRequestSnapshot.timestamp = rewardsTimestamp.toI64()
   exitRequestSnapshot.exitRequest = exitRequest.id
   exitRequestSnapshot.earnedAssets = earnedAssets
+  exitRequestSnapshot.totalAssets = exitRequest.totalAssets
   exitRequestSnapshot.save()
 }

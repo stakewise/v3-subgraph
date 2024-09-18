@@ -7,7 +7,7 @@ features:
   - ipfsOnEthereumContracts
 dataSources:
   - kind: ethereum/contract
-    name: ExitRequests
+    name: BlockHandlers
     network: {{ network }}
     source:
       address: '{{ genesisVault.address }}'
@@ -17,17 +17,26 @@ dataSources:
       kind: ethereum/events
       apiVersion: 0.0.8
       language: wasm/assemblyscript
-      file: ./mappings/exitRequests.ts
+      file: ./mappings/blockHandlers.ts
       entities:
         - Network
         - Vault
         - ExitRequest
         - ExitRequestSnapshot
+        - RewardSplitter
+        - RewardSplitterShareHolder
+        - RewardSplitterShareHolderSnapshot
       abis:
         - name: Vault
           file: ./abis/Vault.json
+        - name: RewardSplitter
+          file: ./abis/RewardSplitter.json
       blockHandlers:
         - handler: syncExitRequests
+          filter:
+            kind: polling
+            every: {{ pollingBlocksInterval }}
+        - handler: syncRewardSplitters
           filter:
             kind: polling
             every: {{ pollingBlocksInterval }}
@@ -611,3 +620,5 @@ templates:
           handler: handleSharesIncreased
         - event: SharesDecreased(indexed address,uint256)
           handler: handleSharesDecreased
+        - event: RewardsWithdrawn(indexed address,uint256)
+          handler: handleRewardsWithdrawn

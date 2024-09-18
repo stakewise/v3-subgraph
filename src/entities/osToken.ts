@@ -42,14 +42,6 @@ export function createOrLoadOsTokenHolder(osToken: OsToken, holderAddress: Addre
   return holder
 }
 
-export function getOsTokenLastApy(osToken: OsToken): BigDecimal {
-  const apys = osToken.apys
-  if (apys.length > 1) {
-    return apys[apys.length - 2]
-  }
-  return BigDecimal.zero()
-}
-
 export function convertOsTokenSharesToAssets(osToken: OsToken, shares: BigInt): BigInt {
   if (osToken.totalAssets.isZero()) {
     return shares
@@ -117,24 +109,18 @@ export function updateOsTokenTotalAssets(osToken: OsToken, updateTimestamp: BigI
 export function snapshotOsToken(osToken: OsToken, assetsDiff: BigInt, rewardsTimestamp: BigInt): void {
   const osTokenSnapshot = new OsTokenSnapshot('1')
   osTokenSnapshot.timestamp = rewardsTimestamp.toI64()
-  osTokenSnapshot.totalAssets = osToken.totalAssets
   osTokenSnapshot.earnedAssets = assetsDiff.plus(
     assetsDiff.times(BigInt.fromI32(osToken.feePercent)).div(BigInt.fromI32(10000 - osToken.feePercent)),
   )
-  osTokenSnapshot.apy = getOsTokenLastApy(osToken)
+  osTokenSnapshot.totalAssets = osToken.totalAssets
   osTokenSnapshot.save()
 }
 
-export function snapshotOsTokenHolder(
-  holder: OsTokenHolder,
-  osToken: OsToken,
-  assetsDiff: BigInt,
-  timestamp: BigInt,
-): void {
+export function snapshotOsTokenHolder(holder: OsTokenHolder, assetsDiff: BigInt, timestamp: BigInt): void {
   const snapshot = new OsTokenHolderSnapshot('1')
   snapshot.timestamp = timestamp.toI64()
   snapshot.osTokenHolder = holder.id
   snapshot.earnedAssets = assetsDiff
-  snapshot.apy = getOsTokenLastApy(osToken)
+  snapshot.totalAssets = holder.assets
   snapshot.save()
 }

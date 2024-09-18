@@ -126,6 +126,9 @@ type ExitRequest @entity {
 
   "Defines whether the exit request is claimed"
   isClaimed: Boolean!
+
+  "The timestamp of the last exit request snapshot"
+  lastSnapshotTimestamp: BigInt!
 }
 
 """
@@ -227,6 +230,9 @@ type Vault @entity {
 
   "The vault eigen pods (only for vaults with isRestake=true)"
   eigenPods: [EigenPod!]! @derivedFrom(field: "vault")
+
+  "The vault reward splitters"
+  rewardSplitters: [RewardSplitter!]! @derivedFrom(field: "vault")
 
   "The total number of shares"
   totalShares: BigInt!
@@ -466,6 +472,9 @@ type RewardSplitter @entity {
 
   "Shareholders of the reward splitter"
   shareHolders: [RewardSplitterShareHolder!]! @derivedFrom(field: "rewardSplitter")
+
+  "Last snapshot timestamp"
+  lastSnapshotTimestamp: BigInt!
 }
 
 """
@@ -483,6 +492,12 @@ type RewardSplitterShareHolder @entity {
 
   "The amount of shares"
   shares: BigInt!
+
+  "The amount of earned vault shares"
+  earnedVaultShares: BigInt!
+
+  "The amount of earned vault assets"
+  earnedVaultAssets: BigInt!
 }
 
 """
@@ -601,8 +616,8 @@ type AllocatorSnapshot @entity(timeseries: true) {
   timestamp: Timestamp!
   allocator: Allocator!
   earnedAssets: BigInt!
+  totalAssets: BigInt!
   ltv: BigDecimal!
-  apy: BigDecimal!
 }
 
 """
@@ -612,10 +627,9 @@ type AllocatorStats @aggregation(intervals: ["day"], source: "AllocatorSnapshot"
   id: Int8!
   timestamp: Timestamp!
   allocator: Allocator!
-  earnedAssetsSum: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
   ltv: BigDecimal! @aggregate(fn: "last", arg: "ltv")
-  apySum: BigDecimal! @aggregate(fn: "sum", arg: "apy")
-  count: Int8! @aggregate(fn: "count")
 }
 
 """
@@ -624,9 +638,8 @@ The snapshot of the OsToken state
 type OsTokenSnapshot @entity(timeseries: true) {
   id: Int8!
   timestamp: Timestamp!
-  totalAssets: BigInt!
   earnedAssets: BigInt!
-  apy: BigDecimal!
+  totalAssets: BigInt!
 }
 
 """
@@ -635,10 +648,8 @@ The aggregation of the OsToken snapshots
 type OsTokenStats @aggregation(intervals: ["day"], source: "OsTokenSnapshot") {
   id: Int8!
   timestamp: Timestamp!
-  earnedAssetsSum: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
-  totalAssets: BigDecimal! @aggregate(fn: "last", arg: "totalAssets")
-  apySum: BigDecimal! @aggregate(fn: "sum", arg: "apy")
-  count: Int8! @aggregate(fn: "count")
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
 }
 
 """
@@ -649,7 +660,7 @@ type OsTokenHolderSnapshot @entity(timeseries: true) {
   timestamp: Timestamp!
   osTokenHolder: OsTokenHolder!
   earnedAssets: BigInt!
-  apy: BigDecimal!
+  totalAssets: BigInt!
 }
 
 """
@@ -659,9 +670,8 @@ type OsTokenHolderStats @aggregation(intervals: ["day"], source: "OsTokenHolderS
   id: Int8!
   timestamp: Timestamp!
   osTokenHolder: OsTokenHolder!
-  earnedAssetsSum: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
-  apySum: BigDecimal! @aggregate(fn: "sum", arg: "apy")
-  count: Int8! @aggregate(fn: "count")
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
 }
 
 """
@@ -671,9 +681,8 @@ type VaultSnapshot @entity(timeseries: true) {
   id: Int8!
   timestamp: Timestamp!
   vault: Vault!
-  totalAssets: BigInt!
   earnedAssets: BigInt!
-  apy: BigDecimal!
+  totalAssets: BigInt!
 }
 
 """
@@ -683,10 +692,8 @@ type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
   id: Int8!
   timestamp: Timestamp!
   vault: Vault!
-  earnedAssetsSum: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
-  totalAssets: BigDecimal! @aggregate(fn: "last", arg: "totalAssets")
-  apySum: BigDecimal! @aggregate(fn: "sum", arg: "apy")
-  count: Int8! @aggregate(fn: "count")
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
 }
 
 """
@@ -697,6 +704,7 @@ type ExitRequestSnapshot @entity(timeseries: true) {
   timestamp: Timestamp!
   exitRequest: ExitRequest!
   earnedAssets: BigInt!
+  totalAssets: BigInt!
 }
 
 """
@@ -706,5 +714,26 @@ type ExitRequestStats @aggregation(intervals: ["day"], source: "ExitRequestSnaps
   id: Int8!
   timestamp: Timestamp!
   exitRequest: ExitRequest!
-  earnedAssetsSum: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+}
+
+"""
+The snapshot of the RewardSplitterShareHolder state
+"""
+type RewardSplitterShareHolderSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  rewardSpliterShareHolder: RewardSplitterShareHolder!
+  earnedAssets: BigInt!
+}
+
+"""
+The aggregation of the RewardSplitterShareHolder snapshots
+"""
+type RewardSplitterShareHolderStats @aggregation(intervals: ["day"], source: "RewardSplitterShareHolderSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  rewardSpliterShareHolder: RewardSplitterShareHolder!
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
 }
