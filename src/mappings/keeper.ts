@@ -295,6 +295,7 @@ export function updateRewards(
       .plus(lockedMevReward)
       .minus(vault.consensusReward.plus(vault.lockedExecutionReward).plus(vault.unlockedExecutionReward))
     network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
+    network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
     vault.totalAssets = newTotalAssets
     vault.totalShares = newTotalShares
     vault.exitingAssets = newExitingAssets

@@ -390,6 +390,9 @@ type Network @entity {
   "The total assets locked in the network"
   totalAssets: BigInt!
 
+  "The total assets earned in the network"
+  totalEarnedAssets: BigInt!
+
   "Total number of vaults"
   vaultsCount: Int!
 

@@ -21,16 +21,16 @@ and entities within the StakeWise ecosystem.
     npm run build:mainnet
     ```
 
-3.  Deploy subgraph to your prod environment:
-
-    ```shell script
-    IPFS_URL=<your IPFS node> GRAPH_URL=<your graph node> npm run deploy-prod:mainnet
-    ```
-
-4.  Deploy subgraph to your stage environment:
+3.  Deploy subgraph to your stage environment:
 
     ```shell script
     IPFS_URL=<your IPFS node> GRAPH_URL=<your graph node> npm run deploy-stage:mainnet
+    ```
+
+4.  Deploy subgraph to your prod environment:
+
+    ```shell script
+    IPFS_URL=<your IPFS node> GRAPH_URL=<your graph node> npm run deploy-prod:mainnet
     ```
 
 ## Documentation

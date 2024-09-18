@@ -12,6 +12,7 @@ export function createOrLoadNetwork(): Network {
     network.vaultsCount = 0
     network.usersCount = 0
     network.totalAssets = BigInt.zero()
+    network.totalEarnedAssets = BigInt.zero()
     network.vaultIds = []
     network.save()
   }

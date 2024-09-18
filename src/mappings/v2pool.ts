@@ -14,8 +14,10 @@ export function handleRewardsUpdatedV0(event: RewardsUpdatedV0): void {
   const newTotalRewards = event.params.totalRewards
   const pool = createOrLoadV2Pool()
 
+  const rewardsDiff = newTotalRewards.minus(pool.rewardAssets)
   const network = createOrLoadNetwork()
-  network.totalAssets = network.totalAssets.plus(newTotalRewards).minus(pool.rewardAssets)
+  network.totalAssets = network.totalAssets.plus(rewardsDiff)
+  network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
   network.save()
 
   pool.rewardAssets = newTotalRewards
@@ -30,8 +32,10 @@ export function handleRewardsUpdatedV1(event: RewardsUpdatedV1): void {
   const newTotalRewards = event.params.totalRewards
   const pool = createOrLoadV2Pool()
 
+  const rewardsDiff = newTotalRewards.minus(pool.rewardAssets)
   const network = createOrLoadNetwork()
-  network.totalAssets = network.totalAssets.plus(newTotalRewards).minus(pool.rewardAssets)
+  network.totalAssets = network.totalAssets.plus(rewardsDiff)
+  network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
   network.save()
 
   pool.rewardAssets = newTotalRewards
@@ -47,8 +51,10 @@ export function handleRewardsUpdatedV2(event: RewardsUpdatedV2): void {
   if (!pool.migrated) {
     const newTotalRewards = event.params.totalRewards
 
+    const rewardsDiff = newTotalRewards.minus(pool.rewardAssets)
     const network = createOrLoadNetwork()
-    network.totalAssets = network.totalAssets.plus(newTotalRewards).minus(pool.rewardAssets)
+    network.totalAssets = network.totalAssets.plus(rewardsDiff)
+    network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
     network.save()
 
     pool.rewardAssets = newTotalRewards
