@@ -1,4 +1,4 @@
-specVersion: 0.0.8
+specVersion: 1.2.0
 description: The liquid staking protocol
 repository: https://github.com/stakewise/v3-subgraph
 schema:
@@ -7,7 +7,7 @@ features:
   - ipfsOnEthereumContracts
 dataSources:
   - kind: ethereum/contract
-    name: BlockHandlers
+    name: ExitRequests
     network: {{ network }}
     source:
       address: '{{ genesisVault.address }}'
@@ -17,18 +17,17 @@ dataSources:
       kind: ethereum/events
       apiVersion: 0.0.8
       language: wasm/assemblyscript
-      file: ./mappings/blockHandlers.ts
+      file: ./mappings/exitRequests.ts
       entities:
+        - Network
         - Vault
-        - Allocator
         - ExitRequest
+        - ExitRequestSnapshot
       abis:
-        - name: OsTokenVaultController
-          file: ./abis/OsTokenVaultController.json
         - name: Vault
           file: ./abis/Vault.json
       blockHandlers:
-        - handler: syncUpdates
+        - handler: syncExitRequests
           filter:
             kind: polling
             every: {{ pollingBlocksInterval }}
@@ -45,8 +44,11 @@ dataSources:
       language: wasm/assemblyscript
       file: ./mappings/erc20Token.ts
       entities:
+        - User
+        - Network
+        - OsToken
         - TokenTransfer
-        - TokenHolder
+        - OsTokenHolder
       abis:
         - name: Erc20Token
           file: ./abis/Erc20Token.json
@@ -67,7 +69,7 @@ dataSources:
       file: ./mappings/erc20Token.ts
       entities:
         - TokenTransfer
-        - TokenHolder
+        - SwiseTokenHolder
       abis:
         - name: Erc20Token
           file: ./abis/Erc20Token.json
@@ -87,14 +89,24 @@ dataSources:
       language: wasm/assemblyscript
       file: ./mappings/keeper.ts
       entities:
+        - Network
+        - OsToken
+        - OsTokenConfig
+        - OsTokenSnapshot
+        - OsTokenHolder
+        - OsTokenHolderSnapshot
         - Vault
-        - DaySnapshot
+        - VaultSnapshot
         - V2Pool
+        - Allocator
+        - AllocatorSnapshot
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
         - name: Vault
           file: ./abis/Vault.json
+        - name: OsTokenVaultController
+          file: ./abis/OsTokenVaultController.json
         - name: Multicall
           file: ./abis/Multicall.json
       eventHandlers:
@@ -122,13 +134,10 @@ dataSources:
       file: ./mappings/osToken.ts
       entities:
         - OsToken
-        - OsTokenSnapshot
       abis:
         - name: OsTokenVaultController
           file: ./abis/OsTokenVaultController.json
       eventHandlers:
-        - event: AvgRewardPerSecondUpdated(uint256)
-          handler: handleAvgRewardPerSecondUpdated
         - event: StateUpdated(uint256,uint256,uint256)
           handler: handleStateUpdated
         - event: FeePercentUpdated(uint16)
@@ -147,6 +156,7 @@ dataSources:
       file: ./mappings/osTokenConfig.ts
       entities:
         - Vault
+        - OsTokenConfig
       abis:
         - name: OsTokenConfigV1
           file: ./abis/OsTokenConfigV1.json
@@ -167,6 +177,7 @@ dataSources:
       file: ./mappings/osTokenConfig.ts
       entities:
         - Vault
+        - OsTokenConfig
       abis:
         - name: OsTokenConfigV2
           file: ./abis/OsTokenConfigV2.json
@@ -186,13 +197,14 @@ dataSources:
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
+        - Network
+        - User
         - Vault
         - Allocator
-        - DaySnapshot
         - AllocatorAction
         - Transaction
-        - Network
-        - VaultsStat
+        - OsToken
+        - OsTokenConfig
       abis:
         - name: GenesisVault
           file: ./abis/GenesisVault.json
@@ -215,6 +227,9 @@ dataSources:
       file: ./mappings/v2pool.ts
       entities:
         - V2Pool
+        - V2PoolUser
+        - Network
+        - User
       abis:
         - name: V2RewardToken
           file: ./abis/V2RewardToken.json
@@ -241,6 +256,9 @@ dataSources:
       file: ./mappings/v2pool.ts
       entities:
         - V2Pool
+        - V2PoolUser
+        - Network
+        - User
       abis:
         - name: V2StakedToken
           file: ./abis/V2StakedToken.json
@@ -353,6 +371,7 @@ templates:
         - Vault
         - Network
         - Transaction
+        - OsTokenConfig
       abis:
         - name: VaultFactory
           file: ./abis/VaultFactory.json
@@ -389,12 +408,14 @@ templates:
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
+        - Network
+        - User
+        - OsToken
+        - OsTokenConfig
         - Vault
         - Allocator
-        - ExitRequest
-        - DaySnapshot
-        - OsToken
         - AllocatorAction
+        - ExitRequest
         - Transaction
       abis:
         - name: Vault
@@ -420,8 +441,6 @@ templates:
           handler: handleKeysManagerUpdated
         - event: ValidatorsManagerUpdated(indexed address,indexed address)
           handler: handleValidatorsManagerUpdated
-        - event: ExitingAssetsPenalized(uint256)
-          handler: handleExitingAssetsPenalized
         - event: FeeSharesMinted(address,uint256,uint256)
           handler: handleFeeSharesMinted
         - event: OsTokenMinted(indexed address,address,uint256,uint256,address)
@@ -489,7 +508,13 @@ templates:
       language: wasm/assemblyscript
       file: ./mappings/erc20Vault.ts
       entities:
+        - Network
+        - User
+        - Vault
+        - OsToken
+        - OsTokenConfig
         - Allocator
+        - AllocatorAction
         - Transaction
       abis:
         - name: Erc20Vault
@@ -508,9 +533,13 @@ templates:
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
-        - Vault
         - Network
-        - VaultsStat
+        - User
+        - Vault
+        - OsToken
+        - OsTokenConfig
+        - Allocator
+        - AllocatorAction
         - Transaction
       abis:
         - name: FoxVault
@@ -530,7 +559,6 @@ templates:
       file: ./mappings/gnoVault.ts
       entities:
         - Vault
-        - Transaction
       abis:
         - name: GnoVault
           file: ./abis/GnoVault.json

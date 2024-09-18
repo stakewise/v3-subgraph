@@ -1,5 +1,5 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
-import { V2Pool } from '../../generated/schema'
+import { V2Pool, V2PoolUser } from '../../generated/schema'
 import {
   GENESIS_VAULT,
   V2_POOL_FEE_PERCENT,
@@ -43,6 +43,19 @@ export function createOrLoadV2Pool(): V2Pool {
   return pool
 }
 
+export function createOrLoadV2PoolUser(userAddress: Bytes): V2PoolUser {
+  const id = userAddress.toHexString()
+  let v2PoolUser = V2PoolUser.load(id)
+
+  if (v2PoolUser === null) {
+    v2PoolUser = new V2PoolUser(id)
+    v2PoolUser.balance = BigInt.zero()
+    v2PoolUser.save()
+  }
+
+  return v2PoolUser
+}
+
 export function updatePoolApy(
   pool: V2Pool,
   fromTimestamp: BigInt | null,
@@ -54,11 +67,18 @@ export function updatePoolApy(
     return
   }
   const totalDuration = toTimestamp.minus(fromTimestamp)
-  const currentApy = BigDecimal.fromString(rateChange.toString())
+  if (totalDuration.isZero()) {
+    log.error('[V2Pool] updatePoolApy totalDuration is zero fromTimestamp={} toTimestamp={}', [
+      fromTimestamp.toString(),
+      toTimestamp.toString(),
+    ])
+    return
+  }
+  const currentApy = new BigDecimal(rateChange)
     .times(BigDecimal.fromString(secondsInYear))
     .times(BigDecimal.fromString(maxPercent))
     .div(BigDecimal.fromString(WAD))
-    .div(BigDecimal.fromString(totalDuration.toString()))
+    .div(new BigDecimal(totalDuration))
 
   let apys = pool.apys
   apys.push(currentApy)

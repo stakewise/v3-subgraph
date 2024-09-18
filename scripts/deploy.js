@@ -3,13 +3,8 @@ const { execAsync } = require('./util')
 
 require('dotenv').config()
 
-// LOCAL
 const IPFS_URL = process.env.IPFS_URL
-const LOCAL_GRAPH_URL = process.env.LOCAL_GRAPH_URL
-
-// HOSTED
-const HOSTED_GRAPH_TOKEN = process.env.HOSTED_GRAPH_TOKEN
-const HOSTED_SUBGRAPH_URL = process.env.HOSTED_SUBGRAPH_URL
+const GRAPH_URL = process.env.GRAPH_URL
 
 const args = process.argv.reduce((acc, arg) => {
   if (/:/.test(arg)) {
@@ -22,66 +17,45 @@ const args = process.argv.reduce((acc, arg) => {
 }, {})
 
 const validateEnv = () => {
-  if (args.node === 'hosted') {
-    if (!HOSTED_GRAPH_TOKEN) {
-      throw new Error('HOSTED_GRAPH_TOKEN is required env variable for "node:hosted" deployment')
-    }
-    if (!HOSTED_SUBGRAPH_URL) {
-      throw new Error('HOSTED_SUBGRAPH_URL is required env variable for "node:hosted" deployment')
-    }
+  if (!GRAPH_URL) {
+    throw new Error('GRAPH_URL is required env variable')
   }
-  if (args.node === 'local') {
-    if (!LOCAL_GRAPH_URL) {
-      throw new Error('LOCAL_GRAPH_URL is required env variable for "node:local" deployment')
-    }
-    if (!IPFS_URL) {
-      throw new Error('IPFS_URL is required env variable for "node:local" deployment')
-    }
+  if (!IPFS_URL) {
+    throw new Error('IPFS_URL is required env variable')
   }
 }
 
 const validateArgs = () => {
-  const { network, node } = args
+  const { network, env } = args
 
   const allowedNetworks = ['holesky', 'mainnet', 'chiado', 'gnosis']
-  const allowedNodes = ['hosted', 'local']
+  const allowedEnvs = ['prod', 'stage']
 
   if (!network) {
     throw new Error('Argument "network" is required')
   }
-  if (!node) {
-    throw new Error('Argument "node" is required')
+  if (!env) {
+    throw new Error('Argument "env" is required')
   }
   if (!allowedNetworks.includes(network)) {
     throw new Error(`Argument "network" must include one of: ${allowedNetworks.join(', ')}`)
   }
-  if (!allowedNodes.includes(node)) {
-    throw new Error(`Argument "node" must include one of: ${allowedNodes.join(', ')}`)
+  if (!allowedEnvs.includes(env)) {
+    throw new Error(`Argument "env" must include one of: ${allowedEnvs.join(', ')}`)
   }
 }
 
 const deploy = async () => {
-  const { network, node } = args
+  const { network, env } = args
 
   const srcDirectory = path.resolve(__dirname, `../src`)
-  const buildDirectory = path.resolve(__dirname, `../build/${network}`)
 
-  let authCommand = ''
-  let deployCommand = ''
-
-  if (node === 'hosted') {
-    authCommand = `graph auth --product hosted-service ${HOSTED_GRAPH_TOKEN}`
-    deployCommand = `graph deploy --product hosted-service ${HOSTED_SUBGRAPH_URL} --output-dir ${buildDirectory} --access-token ${HOSTED_GRAPH_TOKEN}`
-  }
-  if (node === 'local') {
-    const { version } = require('../package.json')
-
-    authCommand = `graph create --node ${LOCAL_GRAPH_URL} stakewise/stakewise`
-    deployCommand = `graph deploy --version-label ${version} --node ${LOCAL_GRAPH_URL} --ipfs ${IPFS_URL} stakewise/stakewise`
-  }
+  const { version } = require('../package.json')
+  const createCommand = `graph create --node ${GRAPH_URL} stakewise/${env}`
+  const deployCommand = `graph deploy --version-label ${version} --node ${GRAPH_URL} --ipfs ${IPFS_URL} stakewise/${env}`
 
   const command = [
-    authCommand,
+    createCommand,
     `cd ${srcDirectory}`,
     `cp subgraph-${network}.yaml subgraph.yaml`,
     deployCommand,

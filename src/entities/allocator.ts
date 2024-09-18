@@ -1,11 +1,10 @@
-import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
-import { Allocator, AllocatorAction, ExitRequest, OsToken, Vault } from '../../generated/schema'
-import { Vault as VaultContract } from '../../generated/BlockHandlers/Vault'
-import { convertSharesToAssets, getUpdateStateCall } from './vaults'
-import { createOrLoadOsToken } from './osToken'
+import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
+import { Allocator, AllocatorAction, AllocatorSnapshot, OsToken, OsTokenConfig, Vault } from '../../generated/schema'
+import { Vault as VaultContract } from '../../generated/Keeper/Vault'
+import { WAD } from '../helpers/constants'
+import { convertOsTokenSharesToAssets, getOsTokenLastApy } from './osToken'
+import { getVaultLastApy } from './vaults'
 
-const getExitQueueIndexSelector = '0x60d60e6e'
-const calculateExitedAssetsSelector = '0x76b58b90'
 const osTokenPositionsSelector = '0x4ec96b22'
 
 export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: Address): Allocator {
@@ -21,8 +20,7 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.ltv = BigDecimal.zero()
     vaultAllocator.address = allocatorAddress
     vaultAllocator.vault = vaultAddress.toHex()
-    vaultAllocator.apy = BigDecimal.zero()
-    vaultAllocator.apys = []
+    vaultAllocator.osTokenMintApy = BigDecimal.zero()
     vaultAllocator.save()
   }
 
@@ -34,9 +32,13 @@ export function createAllocatorAction(
   vaultAddress: Address,
   actionType: string,
   owner: Address,
-  assets: BigInt,
+  assets: BigInt | null,
   shares: BigInt | null,
 ): void {
+  if (assets === null && shares === null) {
+    log.error('[AllocatorAction] Both assets and shares cannot be null for action={}', [actionType])
+    return
+  }
   const txHash = event.transaction.hash.toHex()
   const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
   allocatorAction.vault = vaultAddress.toHex()
@@ -48,151 +50,94 @@ export function createAllocatorAction(
   allocatorAction.save()
 }
 
-export function updateAllocatorsMintedOsTokenShares(vault: Vault): void {
+export function getAllocatorsMintedShares(vault: Vault, allocators: Allocator[]): Array<BigInt> {
   if (!vault.isOsTokenEnabled) {
-    return
+    let response = new Array<BigInt>(allocators.length)
+    for (let i = 0; i < allocators.length; i++) {
+      response[i] = BigInt.zero()
+    }
+    return response
   }
 
   const vaultAddress = Address.fromString(vault.id)
   const vaultContract = VaultContract.bind(vaultAddress)
-  const allocators = vault.allocators.load()
-  const osToken = createOrLoadOsToken()
 
   let calls: Array<Bytes> = []
   for (let i = 0; i < allocators.length; i++) {
-    calls.push(getOsTokenPositionsCall(allocators[i]))
+    calls.push(_getOsTokenPositionsCall(allocators[i]))
   }
 
-  let allocator: Allocator
   const result = vaultContract.multicall(calls)
+  const mintedShares: Array<BigInt> = []
   for (let i = 0; i < allocators.length; i++) {
-    allocator = allocators[i]
-    allocator.mintedOsTokenShares = ethereum.decode('uint256', result[i])!.toBigInt()
-    updateAllocatorLtv(allocator, osToken)
-    allocator.save()
+    mintedShares.push(ethereum.decode('uint256', result[i])!.toBigInt())
   }
+  return mintedShares
 }
 
-export function updateAllocatorLtv(allocator: Allocator, osToken: OsToken): void {
-  // calculate LTV
-  if (allocator.assets.notEqual(BigInt.zero()) && osToken.totalSupply.notEqual(BigInt.zero())) {
-    const mintedOsTokenAssets = allocator.mintedOsTokenShares.times(osToken.totalAssets).div(osToken.totalSupply)
-    allocator.ltv = BigDecimal.fromString(mintedOsTokenAssets.toString()).div(
-      BigDecimal.fromString(allocator.assets.toString()),
-    )
+export function getAllocatorLtv(allocator: Allocator, osToken: OsToken): BigDecimal {
+  if (allocator.assets.isZero()) {
+    return BigDecimal.zero()
+  }
+  const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, allocator.mintedOsTokenShares)
+  return new BigDecimal(mintedOsTokenAssets).div(new BigDecimal(allocator.assets))
+}
+
+export function getAllocatorOsTokenMintApy(
+  allocator: Allocator,
+  osTokenApy: BigDecimal,
+  osToken: OsToken,
+  osTokenConfig: OsTokenConfig,
+): BigDecimal {
+  if (allocator.assets.isZero() || osTokenConfig.ltvPercent.isZero()) {
+    return BigDecimal.zero()
+  }
+  const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, allocator.mintedOsTokenShares)
+  if (mintedOsTokenAssets.isZero()) {
+    return BigDecimal.zero()
+  }
+
+  const feePercent = new BigDecimal(BigInt.fromI32(osToken.feePercent))
+  const maxPercent = new BigDecimal(BigInt.fromI32(10000))
+  const maxOsTokenMintApy = osTokenApy
+    .times(feePercent)
+    .times(BigDecimal.fromString(WAD))
+    .div(maxPercent.minus(feePercent))
+    .div(new BigDecimal(osTokenConfig.ltvPercent))
+  return maxOsTokenMintApy.times(new BigDecimal(mintedOsTokenAssets)).div(new BigDecimal(allocator.assets))
+}
+
+export function snapshotAllocator(
+  allocator: Allocator,
+  vault: Vault,
+  osToken: OsToken,
+  osTokenConfig: OsTokenConfig,
+  assetsDiff: BigInt,
+  osTokenMintedSharesDiff: BigInt,
+  rewardsTimestamp: BigInt,
+): void {
+  let osTokenAssetsDiff: BigInt
+  if (osTokenConfig.ltvPercent.isZero()) {
+    osTokenAssetsDiff = BigInt.zero()
   } else {
-    allocator.ltv = BigDecimal.zero()
+    osTokenAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenMintedSharesDiff)
+      .times(BigInt.fromString(WAD))
+      .div(osTokenConfig.ltvPercent)
   }
+
+  const vaultApy = getVaultLastApy(vault)
+  const osTokenMintApy = getAllocatorOsTokenMintApy(allocator, getOsTokenLastApy(osToken), osToken, osTokenConfig)
+
+  const allocatorSnapshot = new AllocatorSnapshot('1')
+  allocatorSnapshot.timestamp = rewardsTimestamp.toI64()
+  allocatorSnapshot.allocator = allocator.id
+  allocatorSnapshot.earnedAssets = assetsDiff.minus(osTokenAssetsDiff)
+  allocatorSnapshot.ltv = allocator.ltv
+  allocatorSnapshot.apy = vaultApy.minus(osTokenMintApy)
+  allocatorSnapshot.save()
 }
 
-export function updateExitRequests(vault: Vault): void {
-  const vaultAddress = Address.fromString(vault.id)
-  const vaultContract = VaultContract.bind(vaultAddress)
-  const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
-  let updateStateCall: Bytes | null = null
-  if (
-    vault.rewardsRoot !== null &&
-    vault.proofReward !== null &&
-    vault.proofUnlockedMevReward !== null &&
-    vault.proof !== null &&
-    vault.proof!.length > 0
-  ) {
-    updateStateCall = getUpdateStateCall(
-      vault.rewardsRoot as Bytes,
-      vault.proofReward as BigInt,
-      vault.proofUnlockedMevReward as BigInt,
-      (vault.proof as Array<string>).map<Bytes>((p: string) => Bytes.fromHexString(p)),
-    )
-  }
-
-  let calls: Array<Bytes> = []
-  if (updateStateCall !== null) {
-    calls.push(updateStateCall)
-  }
-  let exitRequest: ExitRequest
-  const pendingExitRequests: Array<ExitRequest> = []
-  for (let i = 0; i < exitRequests.length; i++) {
-    exitRequest = exitRequests[i]
-    if (exitRequest.totalAssets.gt(BigInt.zero())) {
-      pendingExitRequests.push(exitRequest)
-      calls.push(getExitQueueIndexCall(exitRequest.positionTicket))
-    }
-  }
-
-  let exitRequestsWithIndex: Array<ExitRequest> = []
-  let result = vaultContract.multicall(calls)
-  if (updateStateCall !== null) {
-    // remove first call result
-    result = result.slice(1)
-  }
-
-  for (let i = 0; i < result.length; i++) {
-    const index = ethereum.decode('int256', result[i])!.toBigInt()
-    exitRequest = pendingExitRequests[i]
-    if (index.lt(BigInt.zero())) {
-      exitRequest.exitQueueIndex = null
-      exitRequest.save()
-    } else {
-      exitRequest.exitQueueIndex = index
-      exitRequestsWithIndex.push(exitRequest)
-    }
-  }
-
-  calls = []
-  if (updateStateCall !== null) {
-    calls.push(updateStateCall)
-  }
-  for (let i = 0; i < exitRequestsWithIndex.length; i++) {
-    exitRequest = exitRequestsWithIndex[i]
-    calls.push(
-      getCalculateExitedAssetsCall(
-        Address.fromBytes(exitRequest.receiver),
-        exitRequest.positionTicket,
-        exitRequest.timestamp,
-        exitRequest.exitQueueIndex as BigInt,
-      ),
-    )
-  }
-
-  result = vaultContract.multicall(calls)
-  if (updateStateCall !== null) {
-    // remove first call result
-    result = result.slice(1)
-  }
-  for (let i = 0; i < result.length; i++) {
-    exitRequest = exitRequestsWithIndex[i]
-    let decodedResult = ethereum.decode('(uint256,uint256,uint256)', result[i])!.toTuple()
-    const leftTickets = decodedResult[0].toBigInt()
-    const exitedAssets = decodedResult[2].toBigInt()
-    if (exitRequest.isV2Position) {
-      exitRequest.totalAssets = leftTickets.times(vault.exitingAssets).div(vault.exitingTickets).plus(exitedAssets)
-    } else {
-      exitRequest.totalAssets = convertSharesToAssets(vault, leftTickets).plus(exitedAssets)
-    }
-    exitRequest.claimableAssets = exitedAssets
-    exitRequest.save()
-  }
-}
-
-function getOsTokenPositionsCall(allocator: Allocator): Bytes {
+function _getOsTokenPositionsCall(allocator: Allocator): Bytes {
   const encodedArgs = ethereum.encode(ethereum.Value.fromAddress(Address.fromBytes(allocator.address)))
   return Bytes.fromHexString(osTokenPositionsSelector).concat(encodedArgs as Bytes)
-}
-
-function getExitQueueIndexCall(positionTicket: BigInt): Bytes {
-  const encodedArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(positionTicket))
-  return Bytes.fromHexString(getExitQueueIndexSelector).concat(encodedArgs as Bytes)
-}
-
-function getCalculateExitedAssetsCall(
-  receiver: Address,
-  positionTicket: BigInt,
-  timestamp: BigInt,
-  exitQueueIndex: BigInt,
-): Bytes {
-  return Bytes.fromHexString(calculateExitedAssetsSelector)
-    .concat(ethereum.encode(ethereum.Value.fromAddress(receiver))!)
-    .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(positionTicket))!)
-    .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(timestamp))!)
-    .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(exitQueueIndex))!)
 }

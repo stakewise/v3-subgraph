@@ -24,9 +24,11 @@ export function handleOsTokenConfigV1Updated(event: OsTokenConfigV1Updated): voi
   const liqThresholdPercent = event.params.liqThresholdPercent
 
   const multiplier = BigInt.fromString('100000000000000')
-  const modifiedLiqThresholdPercent = BigInt.fromI32(liqThresholdPercent).times(multiplier)
-
-  updateOsTokenConfig('1', BigInt.fromI32(ltvPercent), modifiedLiqThresholdPercent)
+  updateOsTokenConfig(
+    '1',
+    BigInt.fromI32(ltvPercent).times(multiplier),
+    BigInt.fromI32(liqThresholdPercent).times(multiplier),
+  )
 }
 
 export function handleOsTokenConfigV2Updated(event: OsTokenConfigV2Updated): void {

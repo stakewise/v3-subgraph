@@ -38,13 +38,26 @@ import {
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
   VaultFactory as VaultFactoryTemplate,
 } from '../../generated/templates'
-import { Allocator, Vault } from '../../generated/schema'
-import { createOrLoadOsToken } from '../entities/osToken'
-import { updateAllocatorLtv } from '../entities/allocator'
-import { isGnosisNetwork } from '../entities/network'
+import { Allocator, OsTokenHolder, Vault } from '../../generated/schema'
+import {
+  convertOsTokenSharesToAssets,
+  createOrLoadOsToken,
+  snapshotOsToken,
+  snapshotOsTokenHolder,
+  updateOsTokenApy,
+  updateOsTokenTotalAssets,
+} from '../entities/osToken'
+import {
+  getAllocatorsMintedShares,
+  snapshotAllocator,
+  getAllocatorLtv,
+  getAllocatorOsTokenMintApy,
+} from '../entities/allocator'
+import { createOrLoadNetwork, isGnosisNetwork } from '../entities/network'
 import { Harvested, RewardsUpdated, ValidatorsApproval } from '../../generated/Keeper/Keeper'
-import { convertSharesToAssets, createOrLoadVaultsStat, getVaultStateUpdate, updateVaultApy } from '../entities/vaults'
+import { convertSharesToAssets, getVaultStateUpdate, snapshotVault, updateVaultApy } from '../entities/vaults'
 import { createOrLoadV2Pool, getPoolStateUpdate, updatePoolApy } from '../entities/v2pool'
+import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -187,12 +200,37 @@ export function updateRewards(
   rewardsRoot: Bytes,
   updateTimestamp: BigInt,
   rewardsIpfsHash: string,
+  newAvgRewardPerSecond: BigInt,
+  block: ethereum.Block,
 ): void {
   const vaultRewards = value.toObject().mustGet('vaults').toArray()
-  const vaultsStat = createOrLoadVaultsStat()
+  const network = createOrLoadNetwork()
   const isGnosis = isGnosisNetwork()
   const v2Pool = createOrLoadV2Pool()
+
+  // process OsToken rewards update
   const osToken = createOrLoadOsToken()
+  updateOsTokenApy(osToken, newAvgRewardPerSecond)
+  const osTokenTotalAssetsDiff = updateOsTokenTotalAssets(osToken, updateTimestamp, block)
+  osToken.save()
+  snapshotOsToken(osToken, osTokenTotalAssetsDiff, updateTimestamp)
+
+  // update assets of all the osToken holders
+  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
+  let osTokenHolder: OsTokenHolder
+  let osTokenAssetsBefore: BigInt
+  for (let i = 0; i < osTokenHolders.length; i++) {
+    osTokenHolder = osTokenHolders[i]
+    if (osTokenHolder.balance.isZero()) {
+      continue
+    }
+    osTokenAssetsBefore = osTokenHolder.assets
+    osTokenHolder.assets = convertOsTokenSharesToAssets(osToken, osTokenHolder.balance)
+    osTokenHolder.save()
+    snapshotOsTokenHolder(osTokenHolder, osToken, osTokenHolder.assets.minus(osTokenAssetsBefore), updateTimestamp)
+  }
+
+  // process vault rewards
   for (let i = 0; i < vaultRewards.length; i++) {
     // load vault object
     const vaultReward = vaultRewards[i].toObject()
@@ -230,16 +268,18 @@ export function updateRewards(
     }
 
     // fetch new principal, total assets and rate
-    let newRate: BigInt, newTotalAssets: BigInt, newTotalShares: BigInt
+    let newRate: BigInt, newTotalAssets: BigInt, newTotalShares: BigInt, newExitingAssets: BigInt
     if (vault.isGenesis && !v2Pool.migrated) {
       newRate = BigInt.fromString(WAD)
       newTotalAssets = BigInt.zero()
       newTotalShares = BigInt.zero()
+      newExitingAssets = BigInt.zero()
     } else {
       const stateUpdate = getVaultStateUpdate(vault, rewardsRoot, proofReward, proofUnlockedMevReward, proof)
       newRate = stateUpdate[0]
       newTotalAssets = stateUpdate[1]
       newTotalShares = stateUpdate[2]
+      newExitingAssets = stateUpdate[3]
       updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, newRate.minus(vault.rate))
     }
 
@@ -249,9 +289,15 @@ export function updateRewards(
       slashedMevReward = slashedMevReward.plus(vault.lockedExecutionReward.minus(lockedMevReward))
     }
 
-    vaultsStat.totalAssets = vaultsStat.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
+    // update vault
+    const rewardsDiff = consensusReward
+      .plus(unlockedMevReward)
+      .plus(lockedMevReward)
+      .minus(vault.consensusReward.plus(vault.lockedExecutionReward).plus(vault.unlockedExecutionReward))
+    network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
     vault.totalAssets = newTotalAssets
     vault.totalShares = newTotalShares
+    vault.exitingAssets = newExitingAssets
     vault.rate = newRate
     vault.rewardsRoot = rewardsRoot
     vault.proofReward = proofReward
@@ -265,6 +311,7 @@ export function updateRewards(
     vault.rewardsIpfsHash = rewardsIpfsHash
     vault.canHarvest = true
     vault.save()
+    snapshotVault(vault, rewardsDiff, updateTimestamp)
 
     // update v2 pool data
     if (vault.isGenesis && v2Pool.migrated) {
@@ -273,40 +320,76 @@ export function updateRewards(
       const newRewardAssets = stateUpdate[1]
       const newPrincipalAssets = stateUpdate[2]
       const newPenaltyAssets = stateUpdate[3]
+      const poolNewTotalAssets = newRewardAssets.plus(newPrincipalAssets).minus(newPenaltyAssets)
+
+      network.totalAssets = network.totalAssets.plus(poolNewTotalAssets).minus(v2Pool.totalAssets)
       updatePoolApy(v2Pool, v2Pool.rewardsTimestamp, updateTimestamp, newRate.minus(v2Pool.rate))
       v2Pool.rate = newRate
       v2Pool.principalAssets = newPrincipalAssets
       v2Pool.rewardAssets = newRewardAssets
       v2Pool.penaltyAssets = newPenaltyAssets
-      v2Pool.totalAssets = newRewardAssets.plus(newPrincipalAssets).minus(newPenaltyAssets)
+      v2Pool.totalAssets = poolNewTotalAssets
       v2Pool.rewardsTimestamp = updateTimestamp
       v2Pool.save()
     }
 
-    // update assets for all the allocators
+    // update allocators
     let allocator: Allocator
-    let allocators = vault.allocators.load()
+    let allocatorAssetsDiff: BigInt
+    let allocatorNewAssets: BigInt
+    let allocatorNewMintedOsTokenShares: BigInt
+    let allocatorMintedOsTokenSharesDiff: BigInt
+    let allocators: Array<Allocator> = vault.allocators.load()
+    const allocatorsMintedOsTokenShares = getAllocatorsMintedShares(vault, allocators)
+    const osTokenConfig = createOrLoadOsTokenConfig(vault.osTokenConfig)
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocator.assets = convertSharesToAssets(vault, allocator.shares)
-      updateAllocatorLtv(allocator, osToken)
+      if (allocator.shares.isZero()) {
+        continue
+      }
+      allocatorNewAssets = convertSharesToAssets(vault, allocator.shares)
+      allocatorAssetsDiff = allocatorNewAssets.minus(allocator.assets)
+      allocator.assets = allocatorNewAssets
+
+      allocatorNewMintedOsTokenShares = allocatorsMintedOsTokenShares[j]
+      allocatorMintedOsTokenSharesDiff = allocatorNewMintedOsTokenShares.minus(allocator.mintedOsTokenShares)
+      allocator.mintedOsTokenShares = allocatorNewMintedOsTokenShares
+      allocator.ltv = getAllocatorLtv(allocator, osToken)
+      allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
       allocator.save()
+      snapshotAllocator(
+        allocator,
+        vault,
+        osToken,
+        osTokenConfig,
+        allocatorAssetsDiff,
+        allocatorMintedOsTokenSharesDiff,
+        updateTimestamp,
+      )
     }
   }
-  vaultsStat.save()
+  network.save()
 }
 
 export function handleRewardsUpdated(event: RewardsUpdated): void {
   const rewardsRoot = event.params.rewardsRoot
   const rewardsIpfsHash = event.params.rewardsIpfsHash
   const updateTimestamp = event.params.updateTimestamp
+  const newAvgRewardPerSecond = event.params.avgRewardPerSecond
 
   let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
   while (data === null) {
     log.warning('[Keeper] RewardsUpdated ipfs.cat failed, retrying', [])
     data = ipfs.cat(rewardsIpfsHash)
   }
-  updateRewards(json.fromBytes(data as Bytes), rewardsRoot, updateTimestamp, rewardsIpfsHash)
+  updateRewards(
+    json.fromBytes(data as Bytes),
+    rewardsRoot,
+    updateTimestamp,
+    rewardsIpfsHash,
+    newAvgRewardPerSecond,
+    event.block,
+  )
   log.info('[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={}', [
     rewardsRoot.toHex(),
     rewardsIpfsHash,

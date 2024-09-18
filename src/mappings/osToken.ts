@@ -1,28 +1,12 @@
 import { log } from '@graphprotocol/graph-ts'
-import {
-  AvgRewardPerSecondUpdated,
-  FeePercentUpdated,
-  StateUpdated,
-} from '../../generated/OsTokenVaultController/OsTokenVaultController'
-import { createOrLoadOsToken, updateOsTokenApy } from '../entities/osToken'
-
-export function handleAvgRewardPerSecondUpdated(event: AvgRewardPerSecondUpdated): void {
-  const newAvgRewardPerSecond = event.params.avgRewardPerSecond
-  const osToken = createOrLoadOsToken()
-
-  // update OsToken
-  updateOsTokenApy(osToken, newAvgRewardPerSecond)
-  osToken.save()
-
-  log.info('[OsTokenController] AvgRewardPerSecondUpdated avgRewardPerSecond={}', [newAvgRewardPerSecond.toString()])
-}
+import { FeePercentUpdated, StateUpdated } from '../../generated/OsTokenVaultController/OsTokenVaultController'
+import { convertOsTokenSharesToAssets, createOrLoadOsToken } from '../entities/osToken'
 
 export function handleStateUpdated(event: StateUpdated): void {
   const shares = event.params.treasuryShares
-  const assets = event.params.treasuryAssets
   const osToken = createOrLoadOsToken()
+  osToken.totalAssets = osToken.totalAssets.plus(convertOsTokenSharesToAssets(osToken, shares))
   osToken.totalSupply = osToken.totalSupply.plus(shares)
-  osToken.totalAssets = osToken.totalAssets.plus(assets)
   osToken.save()
 
   log.info('[OsTokenController] StateUpdated treasuryShares={}', [shares.toString()])

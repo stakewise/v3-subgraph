@@ -20,11 +20,8 @@ type Allocator @entity {
   "The allocator's LTV percent. Will be null if there are no OsTokens minted"
   ltv: BigDecimal!
 
-  "The allocator's week average APY"
-  apy: BigDecimal!
-
-  "The allocator's list of APY snapshots"
-  apys: [BigDecimal!]!
+  "The allocator's OsToken mint APY"
+  osTokenMintApy: BigDecimal!
 
   "The vault of the allocator"
   vault: Vault!
@@ -54,22 +51,36 @@ type TokenTransfer @entity {
 }
 
 """
-Token holder
+OsToken holder
 """
-type TokenHolder @entity {
-  "<Token symbol>-<Token holder address>"
+type OsTokenHolder @entity {
+  "<OsToken holder address>"
   id: ID!
 
-  "The token symbol"
-  tokenSymbol: String!
-
-  "The token holder address"
-  address: Bytes!
-
-  "The token holder balance"
+  "The OsToken holder balance (shares)"
   balance: BigInt!
 
-  "The total number of token transfers"
+  "The OsToken holder assets"
+  assets: BigInt!
+
+  "The OsToken instance"
+  osToken: OsToken!
+
+  "The total number of OsToken transfers"
+  transfersCount: BigInt!
+}
+
+"""
+SwiseToken holder
+"""
+type SwiseTokenHolder @entity {
+  "<SwiseToken holder address>"
+  id: ID!
+
+  "The SwiseToken holder balance"
+  balance: BigInt!
+
+  "The total number of SwiseToken transfers"
   transfersCount: BigInt!
 }
 
@@ -95,8 +106,8 @@ type ExitRequest @entity {
   "The total number of assets queued for exit"
   totalAssets: BigInt!
 
-  "The total number of assets that are exited and can be claimed"
-  claimableAssets: BigInt!
+  "The total number of assets that has exited"
+  exitedAssets: BigInt!
 
   "The exit queue index that must be used to claim the exit. Will be null if the exit is not claimable"
   exitQueueIndex: BigInt
@@ -109,6 +120,12 @@ type ExitRequest @entity {
 
   "The estimated withdrawal timestamp. Managed by the backend service."
   withdrawalTimestamp: BigInt
+
+  "Defines whether the exit request is claimable"
+  isClaimable: Boolean!
+
+  "Defines whether the exit request is claimed"
+  isClaimed: Boolean!
 }
 
 """
@@ -151,17 +168,11 @@ type Vault @entity {
   "The address of the vault's validators manager"
   validatorsManager: Bytes
 
-  "The address of the vault's keys manager (deprecated)"
-  keysManager: Bytes!
-
   "The address of the vault's deposit data manager. If it's null, then the vault uses own validators manager."
   depositDataManager: Bytes!
 
   "The MEV and priority fees escrow address. If it's null, then the vault uses shared MEV escrow."
   mevEscrow: Bytes
-
-  "The vault validators merkle tree root (deprecated)"
-  validatorsRoot: Bytes
 
   "The vault deposit data merkle tree root"
   depositDataRoot: Bytes
@@ -361,6 +372,12 @@ type OsToken @entity {
 
   "The OsToken total assets"
   totalAssets: BigInt!
+
+  "The OsToken holders"
+  holders: [OsTokenHolder!]! @derivedFrom(field: "osToken")
+
+  "The timestamp of the last rewards update"
+  lastUpdateTimestamp: BigInt!
 }
 
 """
@@ -370,11 +387,28 @@ type Network @entity {
   "Always 0"
   id: ID!
 
-  "Total vaults"
-  vaultsTotal: Int!
+  "The total assets locked in the network"
+  totalAssets: BigInt!
 
-  "The addresses of all the vaults"
+  "Total number of vaults"
+  vaultsCount: Int!
+
+  "The non repeated addresses of all the vaults"
   vaultIds: [String!]!
+
+  "The total number of non repeated vault allocators and osToken holders"
+  usersCount: Int!
+}
+
+type User @entity {
+  "User address"
+  id: ID!
+
+  "The total number of vaults, where user is an allocator"
+  vaultsCount: Int!
+
+  "Defines whether the user holds any osToken shares"
+  isOsTokenHolder: Boolean!
 }
 
 """
@@ -495,17 +529,14 @@ type V2Pool @entity {
 }
 
 """
-Vaults statistics
+StakeWise V2 pool user
 """
-type VaultsStat @entity {
-  "1"
+type V2PoolUser @entity {
+  "The address of the user"
   id: ID!
 
-  "The total assets locked in vaults"
-  totalAssets: BigInt!
-
-  "The total number of vaults"
-  vaultsCount: BigInt!
+  "The balance of the user"
+  balance: BigInt!
 }
 
 """
@@ -557,4 +588,120 @@ type OsTokenConfig @entity {
 
   "The vault osToken liquidation threshold percent"
   liqThresholdPercent: BigInt!
+}
+
+"""
+The snapshot of the allocator state
+"""
+type AllocatorSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  allocator: Allocator!
+  earnedAssets: BigInt!
+  ltv: BigDecimal!
+  apy: BigDecimal!
+}
+
+"""
+The aggregation of the allocator snapshots
+"""
+type AllocatorStats @aggregation(intervals: ["day"], source: "AllocatorSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  allocator: Allocator!
+  earnedAssetsSum: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  ltv: BigDecimal! @aggregate(fn: "last", arg: "ltv")
+  apySum: BigDecimal! @aggregate(fn: "sum", arg: "apy")
+  count: Int8! @aggregate(fn: "count")
+}
+
+"""
+The snapshot of the OsToken state
+"""
+type OsTokenSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  totalAssets: BigInt!
+  earnedAssets: BigInt!
+  apy: BigDecimal!
+}
+
+"""
+The aggregation of the OsToken snapshots
+"""
+type OsTokenStats @aggregation(intervals: ["day"], source: "OsTokenSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  earnedAssetsSum: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigDecimal! @aggregate(fn: "last", arg: "totalAssets")
+  apySum: BigDecimal! @aggregate(fn: "sum", arg: "apy")
+  count: Int8! @aggregate(fn: "count")
+}
+
+"""
+The snapshot of the OsTokenHolder state
+"""
+type OsTokenHolderSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  osTokenHolder: OsTokenHolder!
+  earnedAssets: BigInt!
+  apy: BigDecimal!
+}
+
+"""
+The aggregation of the OsTokenHolder snapshots
+"""
+type OsTokenHolderStats @aggregation(intervals: ["day"], source: "OsTokenHolderSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  osTokenHolder: OsTokenHolder!
+  earnedAssetsSum: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  apySum: BigDecimal! @aggregate(fn: "sum", arg: "apy")
+  count: Int8! @aggregate(fn: "count")
+}
+
+"""
+The snapshot of the Vault state
+"""
+type VaultSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  vault: Vault!
+  totalAssets: BigInt!
+  earnedAssets: BigInt!
+  apy: BigDecimal!
+}
+
+"""
+The aggregation of the Vault snapshots
+"""
+type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  vault: Vault!
+  earnedAssetsSum: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigDecimal! @aggregate(fn: "last", arg: "totalAssets")
+  apySum: BigDecimal! @aggregate(fn: "sum", arg: "apy")
+  count: Int8! @aggregate(fn: "count")
+}
+
+"""
+The snapshot of the ExitRequest state
+"""
+type ExitRequestSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  exitRequest: ExitRequest!
+  earnedAssets: BigInt!
+}
+
+"""
+The aggregation of the ExitRequest snapshots
+"""
+type ExitRequestStats @aggregation(intervals: ["day"], source: "ExitRequestSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  exitRequest: ExitRequest!
+  earnedAssetsSum: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
 }

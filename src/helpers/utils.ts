@@ -7,11 +7,11 @@ export function getAggregateCall(target: Address, data: Bytes): ethereum.Value {
 
 export function calculateAverage(values: Array<BigDecimal>): BigDecimal {
   if (values.length === 0) {
-    return BigDecimal.fromString('0')
+    return BigDecimal.zero()
   }
 
   // Start with a sum of zero.
-  let sum: BigDecimal = BigDecimal.fromString('0')
+  let sum: BigDecimal = BigDecimal.zero()
 
   // Iterate over all values to calculate the sum.
   for (let i = 0; i < values.length; i++) {

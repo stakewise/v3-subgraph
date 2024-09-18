@@ -7,7 +7,7 @@ import {
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
-import { Vault, VaultsStat } from '../../generated/schema'
+import { Vault, VaultSnapshot } from '../../generated/schema'
 import { createOrLoadNetwork, isGnosisNetwork } from './network'
 import { createTransaction } from './transaction'
 import { MULTICALL, WAD } from '../helpers/constants'
@@ -18,12 +18,12 @@ import { calculateAverage, getAggregateCall } from '../helpers/utils'
 const snapshotsPerWeek = 14
 const secondsInYear = '31536000'
 const maxPercent = '100'
-const vaultsStatId = '1'
 const updateStateSelector = '0x1a7ff553'
 const totalAssetsSelector = '0x01e1d114'
 const totalSharesSelector = '0x3a98ef39'
 const convertToAssetsSelector = '0x07a2d13a'
 const swapXdaiToGnoSelector = '0xb0d11302'
+const exitingAssetsSelector = '0xee3bd5df'
 
 export function createVault(
   event: VaultCreated,
@@ -58,7 +58,6 @@ export function createVault(
   vault.capacity = capacity
   vault.feePercent = feePercent
   vault.feeRecipient = admin
-  vault.keysManager = admin // Deprecated
   vault.depositDataManager = admin
   vault.canHarvest = false
   vault.consensusReward = BigInt.zero()
@@ -118,12 +117,8 @@ export function createVault(
   let vaultIds = network.vaultIds
   vaultIds.push(vaultAddressHex)
   network.vaultIds = vaultIds
-  network.vaultsTotal = network.vaultsTotal + 1
+  network.vaultsCount = network.vaultsCount + 1
   network.save()
-
-  const vaultsStat = createOrLoadVaultsStat()
-  vaultsStat.vaultsCount = vaultsStat.vaultsCount.plus(BigInt.fromI32(1))
-  vaultsStat.save()
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -154,11 +149,18 @@ export function updateVaultApy(
     return
   }
   const totalDuration = toTimestamp.minus(fromTimestamp)
-  const currentApy = BigDecimal.fromString(rateChange.toString())
+  if (totalDuration.isZero()) {
+    log.error('[Vault] updateVaultApy totalDuration is zero fromTimestamp={} toTimestamp={}', [
+      fromTimestamp.toString(),
+      toTimestamp.toString(),
+    ])
+    return
+  }
+  const currentApy = new BigDecimal(rateChange)
     .times(BigDecimal.fromString(secondsInYear))
     .times(BigDecimal.fromString(maxPercent))
     .div(BigDecimal.fromString(WAD))
-    .div(BigDecimal.fromString(totalDuration.toString()))
+    .div(new BigDecimal(totalDuration))
 
   let apys = vault.apys
   apys.push(currentApy)
@@ -169,23 +171,19 @@ export function updateVaultApy(
   vault.apy = calculateAverage(apys)
 }
 
+export function getVaultLastApy(vault: Vault): BigDecimal {
+  const vaultApys = vault.apys
+  if (vaultApys.length > 0) {
+    return vaultApys[vaultApys.length - 1]
+  }
+  return BigDecimal.zero()
+}
+
 export function convertSharesToAssets(vault: Vault, shares: BigInt): BigInt {
   if (vault.totalShares.equals(BigInt.zero())) {
     return shares
   }
   return shares.times(vault.totalAssets).div(vault.totalShares)
-}
-
-export function createOrLoadVaultsStat(): VaultsStat {
-  let vaultsStat = VaultsStat.load(vaultsStatId)
-  if (vaultsStat === null) {
-    vaultsStat = new VaultsStat(vaultsStatId)
-    vaultsStat.totalAssets = BigInt.zero()
-    vaultsStat.vaultsCount = BigInt.zero()
-    vaultsStat.save()
-  }
-
-  return vaultsStat
 }
 
 export function getVaultStateUpdate(
@@ -196,11 +194,13 @@ export function getVaultStateUpdate(
   proof: Array<Bytes>,
 ): Array<BigInt> {
   const isGnosis = isGnosisNetwork()
+  const isV2Vault = vault.version.equals(BigInt.fromI32(2))
   const vaultAddr = Address.fromString(vault.id)
   const updateStateCall = getUpdateStateCall(rewardsRoot, reward, unlockedMevReward, proof)
   const convertToAssetsCall = getConvertToAssetsCall(BigInt.fromString(WAD))
   const totalAssetsCall = Bytes.fromHexString(totalAssetsSelector)
   const totalSharesCall = Bytes.fromHexString(totalSharesSelector)
+  const exitingAssetsCall = Bytes.fromHexString(exitingAssetsSelector)
   const swapXdaiToGnoCall = Bytes.fromHexString(swapXdaiToGnoSelector)
 
   const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
@@ -211,12 +211,15 @@ export function getVaultStateUpdate(
   calls.push(getAggregateCall(vaultAddr, convertToAssetsCall))
   calls.push(getAggregateCall(vaultAddr, totalAssetsCall))
   calls.push(getAggregateCall(vaultAddr, totalSharesCall))
+  if (isV2Vault) {
+    calls.push(getAggregateCall(vaultAddr, exitingAssetsCall))
+  }
 
   const result = multicallContract.call('tryAggregate', 'tryAggregate(bool,(address,bytes)[]):((bool,bytes)[])', [
     ethereum.Value.fromBoolean(false),
     ethereum.Value.fromArray(calls),
   ])
-  const resultValue = result[0].toTupleArray<TryAggregateCallReturnDataStruct>()
+  let resultValue = result[0].toTupleArray<TryAggregateCallReturnDataStruct>()
   if (!resultValue[0].success) {
     log.error('[Vault] getVaultStateUpdate failed for vault={} updateStateCall={}', [
       vault.id,
@@ -224,18 +227,13 @@ export function getVaultStateUpdate(
     ])
     assert(false, 'executeVaultUpdateState failed')
   }
+  resultValue = resultValue.slice(isGnosis ? 2 : 1)
 
-  let newRate: BigInt, totalAssets: BigInt, totalShares: BigInt
-  if (isGnosis) {
-    newRate = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
-    totalAssets = ethereum.decode('uint256', resultValue[3].returnData)!.toBigInt()
-    totalShares = ethereum.decode('uint256', resultValue[4].returnData)!.toBigInt()
-  } else {
-    newRate = ethereum.decode('uint256', resultValue[1].returnData)!.toBigInt()
-    totalAssets = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
-    totalShares = ethereum.decode('uint256', resultValue[3].returnData)!.toBigInt()
-  }
-  return [newRate, totalAssets, totalShares]
+  const newRate = ethereum.decode('uint256', resultValue[0].returnData)!.toBigInt()
+  const totalAssets = ethereum.decode('uint256', resultValue[1].returnData)!.toBigInt()
+  const totalShares = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
+  const exitingAssets = isV2Vault ? ethereum.decode('uint128', resultValue[3].returnData)!.toBigInt() : BigInt.zero()
+  return [newRate, totalAssets, totalShares, exitingAssets]
 }
 
 export function getUpdateStateCall(
@@ -258,4 +256,14 @@ export function getUpdateStateCall(
 function getConvertToAssetsCall(shares: BigInt): Bytes {
   const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(shares))
   return Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs as Bytes)
+}
+
+export function snapshotVault(vault: Vault, assetsDiff: BigInt, rewardsTimestamp: BigInt): void {
+  const vaultSnapshot = new VaultSnapshot('1')
+  vaultSnapshot.timestamp = rewardsTimestamp.toI64()
+  vaultSnapshot.totalAssets = vault.totalAssets
+  vaultSnapshot.earnedAssets = assetsDiff
+  vaultSnapshot.apy = getVaultLastApy(vault)
+  vaultSnapshot.vault = vault.id
+  vaultSnapshot.save()
 }
