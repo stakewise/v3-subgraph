@@ -6,7 +6,7 @@ import { GENESIS_VAULT } from '../helpers/constants'
 import { createOrLoadV2Pool } from '../entities/v2pool'
 import { updateRewardSplitters } from '../entities/rewardSplitter'
 
-export function syncExitRequests(block: ethereum.Block): void {
+export function runBlockHandlers(block: ethereum.Block): void {
   const network = createOrLoadNetwork()
   let vaultAddr: string
   for (let i = 0; i < network.vaultIds.length; i++) {
@@ -20,24 +20,7 @@ export function syncExitRequests(block: ethereum.Block): void {
     }
     const vault = Vault.load(vaultAddr) as Vault
     updateExitRequests(vault, block)
-  }
-  log.info('[ExitRequests] Sync exit requests at block={}', [block.number.toString()])
-}
-
-export function syncRewardSplitters(block: ethereum.Block): void {
-  const network = createOrLoadNetwork()
-  let vaultAddr: string
-  for (let i = 0; i < network.vaultIds.length; i++) {
-    vaultAddr = network.vaultIds[i]
-    if (Address.fromString(vaultAddr).equals(GENESIS_VAULT)) {
-      const v2Pool = createOrLoadV2Pool()
-      if (!v2Pool.migrated) {
-        // wait for the migration
-        continue
-      }
-    }
-    const vault = Vault.load(vaultAddr) as Vault
     updateRewardSplitters(vault)
   }
-  log.info('[RewardSplitter] Sync reward splitters at block={}', [block.number.toString()])
+  log.info('[BlockHandlers] Sync block handlers at block={}', [block.number.toString()])
 }

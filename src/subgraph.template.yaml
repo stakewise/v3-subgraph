@@ -32,11 +32,7 @@ dataSources:
         - name: RewardSplitter
           file: ./abis/RewardSplitter.json
       blockHandlers:
-        - handler: syncExitRequests
-          filter:
-            kind: polling
-            every: {{ pollingBlocksInterval }}
-        - handler: syncRewardSplitters
+        - handler: runBlockHandlers
           filter:
             kind: polling
             every: {{ pollingBlocksInterval }}
