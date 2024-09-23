@@ -112,7 +112,7 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
     exitRequest.exitedAssets = exitedAssets
 
     if (!exitedAssets.isZero()) {
-      exitRequest.isClaimable = exitRequest.timestamp.plus(BigInt.fromString(secondsInDay)).gt(block.timestamp)
+      exitRequest.isClaimable = exitRequest.timestamp.plus(BigInt.fromString(secondsInDay)).lt(block.timestamp)
     } else {
       exitRequest.isClaimable = false
     }
