@@ -1,13 +1,26 @@
 import { ExitRequestSnapshot, ExitRequest, Vault } from '../../generated/schema'
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
-import { Vault as VaultContract } from '../../generated/BlockHandlers/Vault'
+import { Vault as VaultContract } from '../../generated/Keeper/Vault'
 import { convertSharesToAssets, getUpdateStateCall } from './vaults'
+import { GENESIS_VAULT } from '../helpers/constants'
+import { createOrLoadV2Pool } from './v2pool'
 
 const secondsInDay = '86400'
 const getExitQueueIndexSelector = '0x60d60e6e'
 const calculateExitedAssetsSelector = '0x76b58b90'
 
 export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
+  if (vault.rewardsTimestamp === null) {
+    return
+  }
+  if (Address.fromString(vault.id).equals(GENESIS_VAULT)) {
+    const v2Pool = createOrLoadV2Pool()
+    if (!v2Pool.migrated) {
+      // wait for the migration
+      return
+    }
+  }
+
   const vaultAddress = Address.fromString(vault.id)
   const vaultContract = VaultContract.bind(vaultAddress)
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
@@ -41,7 +54,6 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
     }
   }
 
-  let exitRequestsWithIndex: Array<ExitRequest> = []
   let result = vaultContract.multicall(calls)
   if (updateStateCall !== null) {
     // remove first call result
@@ -53,11 +65,8 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
     exitRequest = pendingExitRequests[i]
     if (index.lt(BigInt.zero())) {
       exitRequest.exitQueueIndex = null
-      exitRequest.isClaimable = false
-      exitRequest.save()
     } else {
       exitRequest.exitQueueIndex = index
-      exitRequestsWithIndex.push(exitRequest)
     }
   }
 
@@ -65,14 +74,16 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
   if (updateStateCall !== null) {
     calls.push(updateStateCall)
   }
-  for (let i = 0; i < exitRequestsWithIndex.length; i++) {
-    exitRequest = exitRequestsWithIndex[i]
+  const maxUint255 = BigInt.fromI32(2).pow(255).minus(BigInt.fromI32(1))
+  for (let i = 0; i < exitRequests.length; i++) {
+    exitRequest = exitRequests[i]
+    const exitQueueIndex = exitRequest.exitQueueIndex !== null ? (exitRequest.exitQueueIndex as BigInt) : maxUint255
     calls.push(
       getCalculateExitedAssetsCall(
         Address.fromBytes(exitRequest.receiver),
         exitRequest.positionTicket,
         exitRequest.timestamp,
-        exitRequest.exitQueueIndex as BigInt,
+        exitQueueIndex,
       ),
     )
   }
@@ -83,30 +94,32 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
     result = result.slice(1)
   }
 
+  const one = BigInt.fromI32(1)
+  const vaultUpdateTimestamp = vault.rewardsTimestamp as BigInt
   for (let i = 0; i < result.length; i++) {
-    exitRequest = exitRequestsWithIndex[i]
+    exitRequest = exitRequests[i]
     let decodedResult = ethereum.decode('(uint256,uint256,uint256)', result[i])!.toTuple()
     const leftTickets = decodedResult[0].toBigInt()
     const exitedAssets = decodedResult[2].toBigInt()
     const totalAssetsBefore = exitRequest.totalAssets
-    if (!leftTickets.isZero()) {
+    if (leftTickets.gt(one)) {
       exitRequest.totalAssets = exitRequest.isV2Position
         ? leftTickets.times(vault.exitingAssets).div(vault.exitingTickets).plus(exitedAssets)
         : convertSharesToAssets(vault, leftTickets).plus(exitedAssets)
+    } else {
+      exitRequest.totalAssets = exitedAssets
     }
     exitRequest.exitedAssets = exitedAssets
-    exitRequest.isClaimable = exitRequest.timestamp.plus(BigInt.fromString(secondsInDay)).gt(block.timestamp)
 
-    if (
-      vault.rewardsTimestamp !== null &&
-      exitRequest.lastSnapshotTimestamp.notEqual(vault.rewardsTimestamp as BigInt)
-    ) {
-      exitRequest.lastSnapshotTimestamp = vault.rewardsTimestamp as BigInt
-      snapshotExitRequest(
-        exitRequest,
-        exitRequest.totalAssets.minus(totalAssetsBefore),
-        vault.rewardsTimestamp as BigInt,
-      )
+    if (!exitedAssets.isZero()) {
+      exitRequest.isClaimable = exitRequest.timestamp.plus(BigInt.fromString(secondsInDay)).gt(block.timestamp)
+    } else {
+      exitRequest.isClaimable = false
+    }
+
+    if (exitRequest.lastSnapshotTimestamp.notEqual(vaultUpdateTimestamp)) {
+      exitRequest.lastSnapshotTimestamp = vaultUpdateTimestamp
+      snapshotExitRequest(exitRequest, exitRequest.totalAssets.minus(totalAssetsBefore), vaultUpdateTimestamp)
     }
     exitRequest.save()
   }

@@ -7,36 +7,6 @@ features:
   - ipfsOnEthereumContracts
 dataSources:
   - kind: ethereum/contract
-    name: BlockHandlers
-    network: {{ network }}
-    source:
-      address: '{{ genesisVault.address }}'
-      abi: Vault
-      startBlock: {{ genesisVault.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.8
-      language: wasm/assemblyscript
-      file: ./mappings/blockHandlers.ts
-      entities:
-        - Network
-        - Vault
-        - ExitRequest
-        - ExitRequestSnapshot
-        - RewardSplitter
-        - RewardSplitterShareHolder
-        - RewardSplitterShareHolderSnapshot
-      abis:
-        - name: Vault
-          file: ./abis/Vault.json
-        - name: RewardSplitter
-          file: ./abis/RewardSplitter.json
-      blockHandlers:
-        - handler: runBlockHandlers
-          filter:
-            kind: polling
-            every: {{ pollingBlocksInterval }}
-  - kind: ethereum/contract
     name: OsToken
     network: {{ network }}
     source:
@@ -105,6 +75,11 @@ dataSources:
         - V2Pool
         - Allocator
         - AllocatorSnapshot
+        - ExitRequest
+        - ExitRequestSnapshot
+        - RewardSplitter
+        - RewardSplitterShareHolder
+        - RewardSplitterShareHolderSnapshot
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
@@ -114,6 +89,8 @@ dataSources:
           file: ./abis/OsTokenVaultController.json
         - name: Multicall
           file: ./abis/Multicall.json
+        - name: RewardSplitter
+          file: ./abis/RewardSplitter.json
       eventHandlers:
         - event: RewardsUpdated(indexed address,indexed bytes32,uint256,uint64,uint64,string)
           handler: handleRewardsUpdated
@@ -125,6 +102,10 @@ dataSources:
         - handler: initialize
           filter:
             kind: once
+        - handler: handleExitRequests
+          filter:
+            kind: polling
+            every: {{ pollingBlocksInterval }}
   - kind: ethereum/contract
     name: OsTokenVaultController
     network: {{ network }}

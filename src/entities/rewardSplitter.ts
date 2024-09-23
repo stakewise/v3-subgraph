@@ -5,8 +5,10 @@ import {
   RewardSplitterShareHolderSnapshot,
   Vault,
 } from '../../generated/schema'
-import { RewardSplitter as RewardSplitterContract } from '../../generated/BlockHandlers/RewardSplitter'
+import { RewardSplitter as RewardSplitterContract } from '../../generated/Keeper/RewardSplitter'
 import { convertSharesToAssets } from './vaults'
+import { GENESIS_VAULT } from '../helpers/constants'
+import { createOrLoadV2Pool } from './v2pool'
 
 const vaultUpdateStateSelector = '0x79c702ad'
 const syncRewardsCallSelector = '0x72c0c211'
@@ -36,6 +38,13 @@ export function createOrLoadRewardSplitterShareHolder(
 export function updateRewardSplitters(vault: Vault): void {
   if (vault.rewardsTimestamp === null) {
     return
+  }
+  if (Address.fromString(vault.id).equals(GENESIS_VAULT)) {
+    const v2Pool = createOrLoadV2Pool()
+    if (!v2Pool.migrated) {
+      // wait for the migration
+      return
+    }
   }
 
   const lastRewardsTimestamp = vault.rewardsTimestamp as BigInt

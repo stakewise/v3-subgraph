@@ -52,12 +52,15 @@ import {
   snapshotAllocator,
   getAllocatorLtv,
   getAllocatorOsTokenMintApy,
+  getAllocatorLtvStatus,
 } from '../entities/allocator'
 import { createOrLoadNetwork, isGnosisNetwork } from '../entities/network'
 import { Harvested, RewardsUpdated, ValidatorsApproval } from '../../generated/Keeper/Keeper'
 import { convertSharesToAssets, getVaultStateUpdate, snapshotVault, updateVaultApy } from '../entities/vaults'
 import { createOrLoadV2Pool, getPoolStateUpdate, updatePoolApy } from '../entities/v2pool'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
+import { updateExitRequests } from '../entities/exitRequests'
+import { updateRewardSplitters } from '../entities/rewardSplitter'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -356,6 +359,7 @@ export function updateRewards(
       allocatorMintedOsTokenSharesDiff = allocatorNewMintedOsTokenShares.minus(allocator.mintedOsTokenShares)
       allocator.mintedOsTokenShares = allocatorNewMintedOsTokenShares
       allocator.ltv = getAllocatorLtv(allocator, osToken)
+      allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
       allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
       allocator.save()
       snapshotAllocator(
@@ -367,6 +371,12 @@ export function updateRewards(
         updateTimestamp,
       )
     }
+
+    // update exit requests
+    updateExitRequests(vault, block)
+
+    // update reward splitters
+    updateRewardSplitters(vault)
   }
   network.save()
 }
@@ -432,4 +442,14 @@ export function handleValidatorsApproval(event: ValidatorsApproval): void {
   vault.save()
 
   log.info('[Keeper] ValidatorsApproval vault={}', [vaultAddress])
+}
+
+export function handleExitRequests(block: ethereum.Block): void {
+  const network = createOrLoadNetwork()
+  let vault: Vault
+  for (let i = 0; i < network.vaultIds.length; i++) {
+    vault = Vault.load(network.vaultIds[i]) as Vault
+    updateExitRequests(vault, block)
+  }
+  log.info('[ExitRequests] Sync exit requests at block={}', [block.number.toString()])
 }
