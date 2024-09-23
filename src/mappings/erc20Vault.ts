@@ -2,9 +2,11 @@ import { Address, log } from '@graphprotocol/graph-ts'
 import { Transfer } from '../../generated/templates/Erc20Vault/Erc20Vault'
 import { Vault } from '../../generated/schema'
 import {
+  AllocatorActionType,
   createAllocatorAction,
   createOrLoadAllocator,
   getAllocatorLtv,
+  getAllocatorLtvStatus,
   getAllocatorOsTokenMintApy,
 } from '../entities/allocator'
 import { createTransaction } from '../entities/transaction'
@@ -36,12 +38,13 @@ export function handleTransfer(event: Transfer): void {
   allocatorFrom.shares = allocatorFrom.shares.minus(shares)
   allocatorFrom.assets = convertSharesToAssets(vault, allocatorFrom.shares)
   allocatorFrom.ltv = getAllocatorLtv(allocatorFrom, osToken)
+  allocatorFrom.ltvStatus = getAllocatorLtvStatus(allocatorFrom, osTokenConfig)
   allocatorFrom.osTokenMintApy = getAllocatorOsTokenMintApy(allocatorFrom, osToken.apy, osToken, osTokenConfig)
   allocatorFrom.save()
   if (allocatorFrom.shares.isZero()) {
     decreaseUserVaultsCount(allocatorFrom.address)
   }
-  createAllocatorAction(event, vaultAddress, 'TransferOut', from, assets, shares)
+  createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferOut, from, assets, shares)
 
   const allocatorTo = createOrLoadAllocator(to, vaultAddress)
   if (allocatorTo.shares.isZero() && !shares.isZero()) {
@@ -49,10 +52,11 @@ export function handleTransfer(event: Transfer): void {
   }
   allocatorTo.shares = allocatorTo.shares.plus(shares)
   allocatorTo.assets = convertSharesToAssets(vault, allocatorTo.shares)
-  allocatorFrom.ltv = getAllocatorLtv(allocatorFrom, osToken)
-  allocatorFrom.osTokenMintApy = getAllocatorOsTokenMintApy(allocatorFrom, osToken.apy, osToken, osTokenConfig)
+  allocatorTo.ltv = getAllocatorLtv(allocatorTo, osToken)
+  allocatorTo.ltvStatus = getAllocatorLtvStatus(allocatorTo, osTokenConfig)
+  allocatorTo.osTokenMintApy = getAllocatorOsTokenMintApy(allocatorTo, osToken.apy, osToken, osTokenConfig)
   allocatorTo.save()
-  createAllocatorAction(event, vaultAddress, 'TransferIn', to, assets, shares)
+  createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferIn, to, assets, shares)
 
   createTransaction(event.transaction.hash.toHex())
 

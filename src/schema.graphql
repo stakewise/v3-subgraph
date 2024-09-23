@@ -1,3 +1,10 @@
+enum LtvStatus {
+  Healthy
+  Moderate
+  Risky
+  Unhealthy
+}
+
 """
 Vault allocator
 """
@@ -19,6 +26,9 @@ type Allocator @entity {
 
   "The allocator's LTV percent. Will be null if there are no OsTokens minted"
   ltv: BigDecimal!
+
+  "The allocator's LTV descriptive status"
+  ltvStatus: LtvStatus!
 
   "The allocator's OsToken mint APY"
   osTokenMintApy: BigDecimal!
@@ -726,6 +736,7 @@ type RewardSplitterShareHolderSnapshot @entity(timeseries: true) {
   timestamp: Timestamp!
   rewardSpliterShareHolder: RewardSplitterShareHolder!
   earnedAssets: BigInt!
+  totalAssets: BigInt!
 }
 
 """
@@ -736,4 +747,5 @@ type RewardSplitterShareHolderStats @aggregation(intervals: ["day"], source: "Re
   timestamp: Timestamp!
   rewardSpliterShareHolder: RewardSplitterShareHolder!
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
 }

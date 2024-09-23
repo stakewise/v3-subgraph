@@ -132,5 +132,6 @@ export function snapshotRewardSplitterShareHolder(
   snapshot.timestamp = rewardsTimestamp.toI64()
   snapshot.rewardSpliterShareHolder = shareHolder.id
   snapshot.earnedAssets = earnedAssets
+  snapshot.totalAssets = shareHolder.earnedVaultAssets
   snapshot.save()
 }

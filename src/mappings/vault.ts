@@ -26,9 +26,11 @@ import { EthFoxVaultCreated } from '../../generated/templates/FoxVault/FoxVault'
 import { updateMetadata } from '../entities/metadata'
 import { createTransaction } from '../entities/transaction'
 import {
+  AllocatorActionType,
   createAllocatorAction,
   createOrLoadAllocator,
   getAllocatorLtv,
+  getAllocatorLtvStatus,
   getAllocatorOsTokenMintApy,
 } from '../entities/allocator'
 import { createOrLoadNetwork, decreaseUserVaultsCount, increaseUserVaultsCount } from '../entities/network'
@@ -46,6 +48,7 @@ export function handleDeposited(event: Deposited): void {
   const vaultAddress = event.address
 
   const vault = Vault.load(vaultAddress.toHex()) as Vault
+  const isVaultCreation = vault.totalShares.isZero() && vault.totalAssets.isZero()
   vault.totalAssets = vault.totalAssets.plus(assets)
   vault.totalShares = vault.totalShares.plus(shares)
   vault.save()
@@ -64,12 +67,17 @@ export function handleDeposited(event: Deposited): void {
   allocator.shares = allocator.shares.plus(shares)
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
+  allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
   allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
 
-  createAllocatorAction(event, vaultAddress, 'Deposited', receiver, assets, shares)
+  if (isVaultCreation) {
+    createAllocatorAction(event, vaultAddress, AllocatorActionType.VaultCreated, receiver, assets, shares)
+  } else {
+    createAllocatorAction(event, vaultAddress, AllocatorActionType.Deposited, receiver, assets, shares)
+  }
 
   createTransaction(txHash)
 
@@ -105,6 +113,7 @@ export function handleRedeemed(event: Redeemed): void {
   allocator.shares = allocator.shares.minus(shares)
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
+  allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
   allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
   allocator.save()
 
@@ -114,7 +123,7 @@ export function handleRedeemed(event: Redeemed): void {
 
   const txHash = event.transaction.hash.toHex()
 
-  createAllocatorAction(event, vaultAddress, 'Redeemed', owner, assets, shares)
+  createAllocatorAction(event, vaultAddress, AllocatorActionType.Redeemed, owner, assets, shares)
 
   createTransaction(txHash)
 
@@ -284,6 +293,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
     allocator.shares = allocator.shares.minus(shares)
     allocator.assets = convertSharesToAssets(vault, allocator.shares)
     allocator.ltv = getAllocatorLtv(allocator, osToken)
+    allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
     allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
     allocator.save()
 
@@ -294,7 +304,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
 
   const timestamp = event.block.timestamp
 
-  createAllocatorAction(event, event.address, 'ExitQueueEntered', owner, assets, shares)
+  createAllocatorAction(event, event.address, AllocatorActionType.ExitQueueEntered, owner, assets, shares)
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -360,6 +370,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   allocator.shares = allocator.shares.minus(shares)
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
+  allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
   allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
   allocator.save()
 
@@ -369,7 +380,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
 
   const timestamp = event.block.timestamp
 
-  createAllocatorAction(event, event.address, 'ExitQueueEntered', owner, assets, shares)
+  createAllocatorAction(event, event.address, AllocatorActionType.ExitQueueEntered, owner, assets, shares)
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -411,7 +422,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const claimedTickets = prevPositionTicket.minus(newPositionTicket)
   const vaultAddress = event.address.toHex()
 
-  createAllocatorAction(event, event.address, 'ExitedAssetsClaimed', receiver, claimedAssets, null)
+  createAllocatorAction(event, event.address, AllocatorActionType.ExitedAssetsClaimed, receiver, claimedAssets, null)
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -476,6 +487,7 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
   allocator.shares = allocator.shares.plus(shares)
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
+  allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
   allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
   allocator.save()
 
@@ -502,10 +514,11 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   const osTokenConfig = createOrLoadOsTokenConfig(vault.osTokenConfig)
   allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.plus(shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
+  allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
   allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
   allocator.save()
 
-  createAllocatorAction(event, event.address, 'OsTokenMinted', holder, assets, shares)
+  createAllocatorAction(event, event.address, AllocatorActionType.OsTokenMinted, holder, assets, shares)
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
@@ -530,13 +543,14 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
     allocator.mintedOsTokenShares = BigInt.zero()
   }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
+  allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
   allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
-  createAllocatorAction(event, event.address, 'OsTokenBurned', holder, assets, shares)
+  createAllocatorAction(event, event.address, AllocatorActionType.OsTokenBurned, holder, assets, shares)
 
   log.info('[Vault] OsTokenBurned holder={} shares={}', [holder.toHex(), shares.toString()])
 }
@@ -571,6 +585,7 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
     allocator.mintedOsTokenShares = BigInt.zero()
   }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
+  allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
   allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
   allocator.save()
 
@@ -581,7 +596,7 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
-  createAllocatorAction(event, event.address, 'OsTokenLiquidated', holder, null, shares)
+  createAllocatorAction(event, event.address, AllocatorActionType.OsTokenLiquidated, holder, null, shares)
   log.info('[Vault] OsTokenLiquidated holder={} shares={}', [holder.toHex(), shares.toString()])
 }
 
@@ -615,6 +630,7 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
     allocator.mintedOsTokenShares = BigInt.zero()
   }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
+  allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
   allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
   allocator.save()
 
@@ -625,7 +641,7 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
-  createAllocatorAction(event, event.address, 'OsTokenRedeemed', holder, null, shares)
+  createAllocatorAction(event, event.address, AllocatorActionType.OsTokenRedeemed, holder, null, shares)
 
   log.info('[Vault] OsTokenRedeemed holder={} shares={}', [holder.toHex(), shares.toString()])
 }
@@ -795,13 +811,14 @@ export function handleMigrated(event: Migrated): void {
   allocator.shares = allocator.shares.plus(shares)
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
+  allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
   allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
-  createAllocatorAction(event, vaultAddress, 'Migrated', receiver, assets, shares)
+  createAllocatorAction(event, vaultAddress, AllocatorActionType.Migrated, receiver, assets, shares)
 
   log.info('[GenesisVault] Migrated vault={} receiver={} assets={} shares={}', [
     vaultAddress.toHex(),

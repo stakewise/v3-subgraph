@@ -160,8 +160,10 @@ dataSources:
       language: wasm/assemblyscript
       file: ./mappings/osTokenConfig.ts
       entities:
+        - Network
         - Vault
         - OsTokenConfig
+        - Allocator
       abis:
         - name: OsTokenConfigV1
           file: ./abis/OsTokenConfigV1.json
@@ -181,8 +183,10 @@ dataSources:
       language: wasm/assemblyscript
       file: ./mappings/osTokenConfig.ts
       entities:
+        - Network
         - Vault
         - OsTokenConfig
+        - Allocator
       abis:
         - name: OsTokenConfigV2
           file: ./abis/OsTokenConfigV2.json
