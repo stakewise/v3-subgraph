@@ -17,6 +17,7 @@ const rewardsOfSelector = '0x479ba7ae'
 export function createOrLoadRewardSplitterShareHolder(
   shareHolderAddress: Address,
   rewardSplitter: Address,
+  vault: string,
 ): RewardSplitterShareHolder {
   const rewardSplitterShareHolderId = `${rewardSplitter.toHex()}-${shareHolderAddress.toHex()}`
 
@@ -27,6 +28,7 @@ export function createOrLoadRewardSplitterShareHolder(
     rewardSplitterShareHolder.shares = BigInt.zero()
     rewardSplitterShareHolder.address = shareHolderAddress
     rewardSplitterShareHolder.rewardSplitter = rewardSplitter.toHex()
+    rewardSplitterShareHolder.vault = vault
     rewardSplitterShareHolder.earnedVaultShares = BigInt.zero()
     rewardSplitterShareHolder.earnedVaultAssets = BigInt.zero()
     rewardSplitterShareHolder.save()

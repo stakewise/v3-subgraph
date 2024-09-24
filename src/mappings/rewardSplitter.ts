@@ -49,7 +49,7 @@ export function handleSharesIncreased(event: SharesIncreased): void {
   rewardSplitter.totalShares = rewardSplitter.totalShares.plus(shares)
   rewardSplitter.save()
 
-  const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitterAddress)
+  const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitterAddress, rewardSplitter.vault)
   shareHolder.shares = shareHolder.shares.plus(shares)
   shareHolder.save()
 
@@ -75,7 +75,7 @@ export function handleSharesDecreased(event: SharesDecreased): void {
   rewardSplitter.totalShares = rewardSplitter.totalShares.minus(shares)
   rewardSplitter.save()
 
-  const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitterAddress)
+  const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitterAddress, rewardSplitter.vault)
   shareHolder.shares = shareHolder.shares.minus(shares)
   shareHolder.save()
 
@@ -100,7 +100,7 @@ export function handleRewardsWithdrawn(event: RewardsWithdrawn): void {
   const rewardSplitter = RewardSplitter.load(rewardSplitterAddressHex) as RewardSplitter
   const vault = Vault.load(rewardSplitter.vault) as Vault
 
-  const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitterAddress)
+  const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitterAddress, rewardSplitter.vault)
   shareHolder.earnedVaultShares = shareHolder.earnedVaultShares.minus(withdrawnVaultShares)
   if (shareHolder.earnedVaultShares.lt(BigInt.zero())) {
     shareHolder.earnedVaultShares = BigInt.zero()

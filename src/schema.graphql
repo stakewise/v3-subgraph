@@ -497,6 +497,9 @@ type RewardSplitterShareHolder @entity {
   "The reward splitter"
   rewardSplitter: RewardSplitter!
 
+  "The address of the vault"
+  vault: Vault!
+
   "The address of shareholder"
   address: Bytes!
 
