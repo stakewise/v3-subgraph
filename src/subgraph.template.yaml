@@ -32,6 +32,30 @@ dataSources:
             kind: polling
             every: {{ pollingBlocksInterval }}
   - kind: ethereum/contract
+    name: ExchangeRates
+    network: {{ network }}
+    source:
+      address: '{{ genesisVault.address }}'
+      abi: PriceFeed
+      startBlock: {{ genesisVault.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/exchangeRates.ts
+      entities:
+        - Network
+        - ExchangeRateSnapshot
+        - ExchangeRateStats
+      abis:
+        - name: PriceFeed
+          file: ./abis/PriceFeed.json
+      blockHandlers:
+        - handler: handleExchangeRates
+          filter:
+            kind: polling
+            every: {{ pollingBlocksInterval }}
+  - kind: ethereum/contract
     name: OsToken
     network: {{ network }}
     source:

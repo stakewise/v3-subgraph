@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes, store } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, store } from '@graphprotocol/graph-ts'
 import { Network, User, Vault } from '../../generated/schema'
 import { NETWORK, V2_REWARD_TOKEN, V2_STAKED_TOKEN } from '../helpers/constants'
 
@@ -14,6 +14,9 @@ export function createOrLoadNetwork(): Network {
     network.totalAssets = BigInt.zero()
     network.totalEarnedAssets = BigInt.zero()
     network.vaultIds = []
+    network.assetsUsdRate = BigDecimal.zero()
+    network.usdToEurRate = BigDecimal.zero()
+    network.usdToGbpRate = BigDecimal.zero()
     network.save()
   }
 

@@ -412,6 +412,15 @@ type Network @entity {
   "Total number of vaults"
   vaultsCount: Int!
 
+  "The USD rate of the assets (e.g. ETH, GNO)"
+  assetsUsdRate: BigDecimal!
+
+  "The USD to EUR rate"
+  usdToEurRate: BigDecimal!
+
+  "The USD to GBP rate"
+  usdToGbpRate: BigDecimal!
+
   "The non repeated addresses of all the vaults"
   vaultIds: [String!]!
 
@@ -751,4 +760,26 @@ type RewardSplitterShareHolderStats @aggregation(intervals: ["day"], source: "Re
   rewardSpliterShareHolder: RewardSplitterShareHolder!
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+}
+
+"""
+The snapshot of the exchange rates
+"""
+type ExchangeRateSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  assetsUsdRate: BigDecimal!
+  usdToEurRate: BigDecimal!
+  usdToGbpRate: BigDecimal!
+}
+
+"""
+The aggregation of the ExchangeRate snapshots
+"""
+type ExchangeRateStats @aggregation(intervals: ["day"], source: "ExchangeRateSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  assetsUsdRate: BigDecimal! @aggregate(fn: "last", arg: "assetsUsdRate")
+  usdToEurRate: BigDecimal! @aggregate(fn: "last", arg: "usdToEurRate")
+  usdToGbpRate: BigDecimal! @aggregate(fn: "last", arg: "usdToGbpRate")
 }
