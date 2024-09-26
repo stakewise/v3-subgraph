@@ -415,6 +415,9 @@ type Network @entity {
   "The USD rate of the assets (e.g. ETH, GNO)"
   assetsUsdRate: BigDecimal!
 
+  "The USD to DAI rate"
+  usdToDaiRate: BigDecimal!
+
   "The USD to EUR rate"
   usdToEurRate: BigDecimal!
 
@@ -769,6 +772,7 @@ type ExchangeRateSnapshot @entity(timeseries: true) {
   id: Int8!
   timestamp: Timestamp!
   assetsUsdRate: BigDecimal!
+  usdToDaiRate: BigDecimal!
   usdToEurRate: BigDecimal!
   usdToGbpRate: BigDecimal!
 }
@@ -780,6 +784,7 @@ type ExchangeRateStats @aggregation(intervals: ["day"], source: "ExchangeRateSna
   id: Int8!
   timestamp: Timestamp!
   assetsUsdRate: BigDecimal! @aggregate(fn: "last", arg: "assetsUsdRate")
+  usdToDaiRate: BigDecimal! @aggregate(fn: "last", arg: "usdToDaiRate")
   usdToEurRate: BigDecimal! @aggregate(fn: "last", arg: "usdToEurRate")
   usdToGbpRate: BigDecimal! @aggregate(fn: "last", arg: "usdToGbpRate")
 }

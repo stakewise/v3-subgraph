@@ -15,6 +15,7 @@ export function createOrLoadNetwork(): Network {
     network.totalEarnedAssets = BigInt.zero()
     network.vaultIds = []
     network.assetsUsdRate = BigDecimal.zero()
+    network.usdToDaiRate = BigDecimal.zero()
     network.usdToEurRate = BigDecimal.zero()
     network.usdToGbpRate = BigDecimal.zero()
     network.save()
