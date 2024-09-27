@@ -59,13 +59,15 @@ export function handleExchangeRates(block: ethereum.Block): void {
   const exchangeRateSnapshot = new ExchangeRateSnapshot('1')
   exchangeRateSnapshot.timestamp = block.timestamp.toI64()
   exchangeRateSnapshot.assetsUsdRate = assetsUsdRate
+  exchangeRateSnapshot.usdToDaiRate = usdToDaiRate
   exchangeRateSnapshot.usdToEurRate = usdToEurRate
   exchangeRateSnapshot.usdToGbpRate = usdToGbpRate
   exchangeRateSnapshot.save()
 
-  log.info('[ExchangeRates] assetsUsdRate={} usdToEurRate={} usdToGbpRate={}', [
+  log.info('[ExchangeRates] assetsUsdRate={} usdToEurRate={} usdToGbpRate={} usdToDaiRate={}', [
     assetsUsdRate.toString(),
     usdToEurRate.toString(),
     usdToGbpRate.toString(),
+    usdToDaiRate.toString(),
   ])
 }
