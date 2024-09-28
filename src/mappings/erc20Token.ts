@@ -64,8 +64,8 @@ function _handleOsTokenTransfer(event: Transfer): void {
   const osToken = createOrLoadOsToken()
   if (from.notEqual(Address.zero())) {
     const tokenHolderFrom = createOrLoadOsTokenHolder(osToken, from)
-    tokenHolderFrom.assets = convertOsTokenSharesToAssets(osToken, tokenHolderFrom.balance)
     tokenHolderFrom.balance = tokenHolderFrom.balance.minus(amount)
+    tokenHolderFrom.assets = convertOsTokenSharesToAssets(osToken, tokenHolderFrom.balance)
     tokenHolderFrom.transfersCount = tokenHolderFrom.transfersCount.plus(BigInt.fromI32(1))
     tokenHolderFrom.save()
 
@@ -79,8 +79,8 @@ function _handleOsTokenTransfer(event: Transfer): void {
   }
   if (to.notEqual(Address.zero())) {
     const tokenHolderTo = createOrLoadOsTokenHolder(osToken, to)
-    tokenHolderTo.assets = convertOsTokenSharesToAssets(osToken, tokenHolderTo.balance)
     tokenHolderTo.balance = tokenHolderTo.balance.plus(amount)
+    tokenHolderTo.assets = convertOsTokenSharesToAssets(osToken, tokenHolderTo.balance)
     tokenHolderTo.transfersCount = tokenHolderTo.transfersCount.plus(BigInt.fromI32(1))
     tokenHolderTo.save()
 

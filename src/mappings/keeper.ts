@@ -293,10 +293,7 @@ export function updateRewards(
     }
 
     // update vault
-    const rewardsDiff = consensusReward
-      .plus(unlockedMevReward)
-      .plus(lockedMevReward)
-      .minus(vault.consensusReward.plus(vault.lockedExecutionReward).plus(vault.unlockedExecutionReward))
+    const rewardsDiff = vault.totalAssets.times(newRate.minus(vault.rate)).div(BigInt.fromString(WAD))
     network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
     network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
     vault.totalAssets = newTotalAssets
