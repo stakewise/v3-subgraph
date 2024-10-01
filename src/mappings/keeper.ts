@@ -271,18 +271,24 @@ export function updateRewards(
     }
 
     // fetch new principal, total assets and rate
-    let newRate: BigInt, newTotalAssets: BigInt, newTotalShares: BigInt, newExitingAssets: BigInt
+    let newRate: BigInt,
+      newTotalAssets: BigInt,
+      newTotalShares: BigInt,
+      newExitingAssets: BigInt,
+      exitedQueuedShares: BigInt
     if (vault.isGenesis && !v2Pool.migrated) {
       newRate = BigInt.fromString(WAD)
       newTotalAssets = BigInt.zero()
       newTotalShares = BigInt.zero()
       newExitingAssets = BigInt.zero()
+      exitedQueuedShares = BigInt.zero()
     } else {
       const stateUpdate = getVaultStateUpdate(vault, rewardsRoot, proofReward, proofUnlockedMevReward, proof)
       newRate = stateUpdate[0]
       newTotalAssets = stateUpdate[1]
       newTotalShares = stateUpdate[2]
       newExitingAssets = stateUpdate[3]
+      exitedQueuedShares = stateUpdate[4]
       updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, newRate.minus(vault.rate))
     }
 
@@ -293,9 +299,7 @@ export function updateRewards(
     }
 
     // update vault
-    const rewardsDiff = vault.totalAssets.times(newRate.minus(vault.rate)).div(BigInt.fromString(WAD))
-    network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
-    network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
+    const totalAssetsBefore = vault.totalAssets
     vault.totalAssets = newTotalAssets
     vault.totalShares = newTotalShares
     vault.exitingAssets = newExitingAssets
@@ -312,7 +316,16 @@ export function updateRewards(
     vault.rewardsIpfsHash = rewardsIpfsHash
     vault.canHarvest = true
     vault.save()
-    snapshotVault(vault, rewardsDiff, updateTimestamp)
+
+    const rewardsDiff = vault.totalAssets
+      .plus(convertSharesToAssets(vault, exitedQueuedShares))
+      .minus(totalAssetsBefore)
+    network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
+    network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
+
+    if (!vault.isGenesis || v2Pool.migrated) {
+      snapshotVault(vault, rewardsDiff, updateTimestamp)
+    }
 
     // update v2 pool data
     if (vault.isGenesis && v2Pool.migrated) {

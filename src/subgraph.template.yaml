@@ -593,7 +593,13 @@ templates:
       language: wasm/assemblyscript
       file: ./mappings/gnoVault.ts
       entities:
+        - Network
         - Vault
+        - OsToken
+        - OsTokenConfig
+        - VaultSnapshot
+        - Allocator
+        - AllocatorSnapshot
       abis:
         - name: GnoVault
           file: ./abis/GnoVault.json

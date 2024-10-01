@@ -144,7 +144,7 @@ function getCalculateExitedAssetsCall(
 }
 
 export function snapshotExitRequest(exitRequest: ExitRequest, earnedAssets: BigInt, rewardsTimestamp: BigInt): void {
-  const exitRequestSnapshot = new ExitRequestSnapshot('1')
+  const exitRequestSnapshot = new ExitRequestSnapshot(rewardsTimestamp.toString())
   exitRequestSnapshot.timestamp = rewardsTimestamp.toI64()
   exitRequestSnapshot.exitRequest = exitRequest.id
   exitRequestSnapshot.earnedAssets = earnedAssets

@@ -139,7 +139,7 @@ export function snapshotRewardSplitterShareHolder(
   earnedAssets: BigInt,
   rewardsTimestamp: BigInt,
 ): void {
-  const snapshot = new RewardSplitterShareHolderSnapshot('1')
+  const snapshot = new RewardSplitterShareHolderSnapshot(rewardsTimestamp.toString())
   snapshot.timestamp = rewardsTimestamp.toI64()
   snapshot.rewardSpliterShareHolder = shareHolder.id
   snapshot.earnedAssets = earnedAssets

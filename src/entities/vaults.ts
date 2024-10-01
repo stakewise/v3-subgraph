@@ -8,7 +8,7 @@ import {
 } from '../../generated/templates'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
 import { Vault, VaultSnapshot } from '../../generated/schema'
-import { createOrLoadNetwork, isGnosisNetwork } from './network'
+import { createOrLoadNetwork } from './network'
 import { createTransaction } from './transaction'
 import { MULTICALL, WAD } from '../helpers/constants'
 import { createOrLoadOsTokenConfig } from './osTokenConfig'
@@ -22,7 +22,7 @@ const updateStateSelector = '0x1a7ff553'
 const totalAssetsSelector = '0x01e1d114'
 const totalSharesSelector = '0x3a98ef39'
 const convertToAssetsSelector = '0x07a2d13a'
-const swapXdaiToGnoSelector = '0xb0d11302'
+const queuedSharesSelector = '0xd83ad00c'
 const exitingAssetsSelector = '0xee3bd5df'
 
 export function createVault(
@@ -63,7 +63,6 @@ export function createVault(
   vault.consensusReward = BigInt.zero()
   vault.lockedExecutionReward = BigInt.zero()
   vault.unlockedExecutionReward = BigInt.zero()
-  vault.unconvertedExecutionReward = BigInt.zero()
   vault.slashedMevReward = BigInt.zero()
   vault.totalShares = BigInt.zero()
   vault.score = BigDecimal.zero()
@@ -185,7 +184,6 @@ export function getVaultStateUpdate(
   unlockedMevReward: BigInt,
   proof: Array<Bytes>,
 ): Array<BigInt> {
-  const isGnosis = isGnosisNetwork()
   const isV2Vault = vault.version.equals(BigInt.fromI32(2))
   const vaultAddr = Address.fromString(vault.id)
   const updateStateCall = getUpdateStateCall(rewardsRoot, reward, unlockedMevReward, proof)
@@ -193,13 +191,14 @@ export function getVaultStateUpdate(
   const totalAssetsCall = Bytes.fromHexString(totalAssetsSelector)
   const totalSharesCall = Bytes.fromHexString(totalSharesSelector)
   const exitingAssetsCall = Bytes.fromHexString(exitingAssetsSelector)
-  const swapXdaiToGnoCall = Bytes.fromHexString(swapXdaiToGnoSelector)
+  const queuedSharesCall = Bytes.fromHexString(queuedSharesSelector)
 
   const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
-  let calls: Array<ethereum.Value> = [getAggregateCall(vaultAddr, updateStateCall)]
-  if (isGnosis) {
-    calls.push(getAggregateCall(vaultAddr, swapXdaiToGnoCall))
-  }
+  let calls: Array<ethereum.Value> = [
+    getAggregateCall(vaultAddr, queuedSharesCall),
+    getAggregateCall(vaultAddr, updateStateCall),
+    getAggregateCall(vaultAddr, queuedSharesCall),
+  ]
   calls.push(getAggregateCall(vaultAddr, convertToAssetsCall))
   calls.push(getAggregateCall(vaultAddr, totalAssetsCall))
   calls.push(getAggregateCall(vaultAddr, totalSharesCall))
@@ -212,20 +211,24 @@ export function getVaultStateUpdate(
     ethereum.Value.fromArray(calls),
   ])
   let resultValue = result[0].toTupleArray<TryAggregateCallReturnDataStruct>()
-  if (!resultValue[0].success) {
+  const queuedSharesBefore = ethereum.decode('uint256', resultValue[0].returnData)!.toBigInt()
+  if (!resultValue[1].success) {
     log.error('[Vault] getVaultStateUpdate failed for vault={} updateStateCall={}', [
       vault.id,
       updateStateCall.toHexString(),
     ])
     assert(false, 'executeVaultUpdateState failed')
   }
-  resultValue = resultValue.slice(isGnosis ? 2 : 1)
+  const queuedSharesAfter = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
+  resultValue = resultValue.slice(3)
 
   const newRate = ethereum.decode('uint256', resultValue[0].returnData)!.toBigInt()
   const totalAssets = ethereum.decode('uint256', resultValue[1].returnData)!.toBigInt()
   const totalShares = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
-  const exitingAssets = isV2Vault ? ethereum.decode('uint128', resultValue[3].returnData)!.toBigInt() : BigInt.zero()
-  return [newRate, totalAssets, totalShares, exitingAssets]
+  const exitingAssets = isV2Vault
+    ? ethereum.decode('uint128', resultValue[3].returnData)!.toBigInt()
+    : vault.exitingAssets
+  return [newRate, totalAssets, totalShares, exitingAssets, queuedSharesBefore.minus(queuedSharesAfter)]
 }
 
 export function getUpdateStateCall(
@@ -251,7 +254,7 @@ function getConvertToAssetsCall(shares: BigInt): Bytes {
 }
 
 export function snapshotVault(vault: Vault, assetsDiff: BigInt, rewardsTimestamp: BigInt): void {
-  const vaultSnapshot = new VaultSnapshot('1')
+  const vaultSnapshot = new VaultSnapshot(rewardsTimestamp.toString())
   vaultSnapshot.timestamp = rewardsTimestamp.toI64()
   vaultSnapshot.vault = vault.id
   vaultSnapshot.earnedAssets = assetsDiff

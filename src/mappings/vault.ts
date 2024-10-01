@@ -665,7 +665,6 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.consensusReward = BigInt.zero()
   vault.lockedExecutionReward = BigInt.zero()
   vault.unlockedExecutionReward = BigInt.zero()
-  vault.unconvertedExecutionReward = BigInt.zero()
   vault.canHarvest = false
   vault.slashedMevReward = BigInt.zero()
   vault.totalShares = BigInt.zero()
@@ -733,7 +732,6 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.consensusReward = BigInt.zero()
   vault.lockedExecutionReward = BigInt.zero()
   vault.unlockedExecutionReward = BigInt.zero()
-  vault.unconvertedExecutionReward = BigInt.zero()
   vault.canHarvest = false
   vault.slashedMevReward = BigInt.zero()
   vault.totalShares = BigInt.zero()

@@ -205,7 +205,7 @@ export function snapshotAllocator(
       .div(osTokenConfig.ltvPercent)
   }
 
-  const allocatorSnapshot = new AllocatorSnapshot('1')
+  const allocatorSnapshot = new AllocatorSnapshot(rewardsTimestamp.toString())
   allocatorSnapshot.timestamp = rewardsTimestamp.toI64()
   allocatorSnapshot.allocator = allocator.id
   allocatorSnapshot.earnedAssets = assetsDiff.minus(osTokenAssetsDiff)

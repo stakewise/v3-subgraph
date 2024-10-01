@@ -56,7 +56,7 @@ export function handleExchangeRates(block: ethereum.Block): void {
   network.usdToDaiRate = usdToDaiRate
   network.save()
 
-  const exchangeRateSnapshot = new ExchangeRateSnapshot('1')
+  const exchangeRateSnapshot = new ExchangeRateSnapshot(block.timestamp.toString())
   exchangeRateSnapshot.timestamp = block.timestamp.toI64()
   exchangeRateSnapshot.assetsUsdRate = assetsUsdRate
   exchangeRateSnapshot.usdToDaiRate = usdToDaiRate

@@ -107,7 +107,7 @@ export function updateOsTokenTotalAssets(osToken: OsToken, updateTimestamp: BigI
 }
 
 export function snapshotOsToken(osToken: OsToken, assetsDiff: BigInt, rewardsTimestamp: BigInt): void {
-  const osTokenSnapshot = new OsTokenSnapshot('1')
+  const osTokenSnapshot = new OsTokenSnapshot(rewardsTimestamp.toString())
   osTokenSnapshot.timestamp = rewardsTimestamp.toI64()
   osTokenSnapshot.earnedAssets = assetsDiff.plus(
     assetsDiff.times(BigInt.fromI32(osToken.feePercent)).div(BigInt.fromI32(10000 - osToken.feePercent)),
@@ -117,7 +117,7 @@ export function snapshotOsToken(osToken: OsToken, assetsDiff: BigInt, rewardsTim
 }
 
 export function snapshotOsTokenHolder(holder: OsTokenHolder, assetsDiff: BigInt, timestamp: BigInt): void {
-  const snapshot = new OsTokenHolderSnapshot('1')
+  const snapshot = new OsTokenHolderSnapshot(timestamp.toString())
   snapshot.timestamp = timestamp.toI64()
   snapshot.osTokenHolder = holder.id
   snapshot.earnedAssets = assetsDiff

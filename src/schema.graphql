@@ -223,9 +223,6 @@ type Vault @entity {
   "The vault execution reward"
   unlockedExecutionReward: BigInt!
 
-  "The vault execution reward that must be converted (only for Gnosis)"
-  unconvertedExecutionReward: BigInt!
-
   "The vault slashed MEV reward in the smoothing pool"
   slashedMevReward: BigInt!
 
