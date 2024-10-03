@@ -22,7 +22,6 @@ const updateStateSelector = '0x1a7ff553'
 const totalAssetsSelector = '0x01e1d114'
 const totalSharesSelector = '0x3a98ef39'
 const convertToAssetsSelector = '0x07a2d13a'
-const queuedSharesSelector = '0xd83ad00c'
 const exitingAssetsSelector = '0xee3bd5df'
 
 export function createVault(
@@ -191,14 +190,9 @@ export function getVaultStateUpdate(
   const totalAssetsCall = Bytes.fromHexString(totalAssetsSelector)
   const totalSharesCall = Bytes.fromHexString(totalSharesSelector)
   const exitingAssetsCall = Bytes.fromHexString(exitingAssetsSelector)
-  const queuedSharesCall = Bytes.fromHexString(queuedSharesSelector)
 
   const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
-  let calls: Array<ethereum.Value> = [
-    getAggregateCall(vaultAddr, queuedSharesCall),
-    getAggregateCall(vaultAddr, updateStateCall),
-    getAggregateCall(vaultAddr, queuedSharesCall),
-  ]
+  let calls: Array<ethereum.Value> = [getAggregateCall(vaultAddr, updateStateCall)]
   calls.push(getAggregateCall(vaultAddr, convertToAssetsCall))
   calls.push(getAggregateCall(vaultAddr, totalAssetsCall))
   calls.push(getAggregateCall(vaultAddr, totalSharesCall))
@@ -211,16 +205,14 @@ export function getVaultStateUpdate(
     ethereum.Value.fromArray(calls),
   ])
   let resultValue = result[0].toTupleArray<TryAggregateCallReturnDataStruct>()
-  const queuedSharesBefore = ethereum.decode('uint256', resultValue[0].returnData)!.toBigInt()
-  if (!resultValue[1].success) {
+  if (!resultValue[0].success) {
     log.error('[Vault] getVaultStateUpdate failed for vault={} updateStateCall={}', [
       vault.id,
       updateStateCall.toHexString(),
     ])
     assert(false, 'executeVaultUpdateState failed')
   }
-  const queuedSharesAfter = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
-  resultValue = resultValue.slice(3)
+  resultValue = resultValue.slice(1)
 
   const newRate = ethereum.decode('uint256', resultValue[0].returnData)!.toBigInt()
   const totalAssets = ethereum.decode('uint256', resultValue[1].returnData)!.toBigInt()
@@ -228,7 +220,7 @@ export function getVaultStateUpdate(
   const exitingAssets = isV2Vault
     ? ethereum.decode('uint128', resultValue[3].returnData)!.toBigInt()
     : vault.exitingAssets
-  return [newRate, totalAssets, totalShares, exitingAssets, queuedSharesBefore.minus(queuedSharesAfter)]
+  return [newRate, totalAssets, totalShares, exitingAssets]
 }
 
 export function getUpdateStateCall(
