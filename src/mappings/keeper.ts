@@ -9,15 +9,6 @@ import {
   JSONValue,
   log,
 } from '@graphprotocol/graph-ts'
-
-import { Vault } from '../../generated/schema'
-import { Harvested, RewardsUpdated, ValidatorsApproval } from '../../generated/Keeper/Keeper'
-import {
-  FoxVault as FoxVaultTemplate,
-  RewardSplitterFactory as RewardSplitterFactoryTemplate,
-  VaultFactory as VaultFactoryTemplate,
-} from '../../generated/templates'
-import { updatePoolApy, updateVaultApy } from '../entities/apySnapshots'
 import {
   BLOCKLIST_ERC20_VAULT_FACTORY_V2,
   BLOCKLIST_VAULT_FACTORY_V2,
@@ -29,22 +20,47 @@ import {
   PRIV_ERC20_VAULT_FACTORY_V2,
   PRIV_VAULT_FACTORY_V1,
   PRIV_VAULT_FACTORY_V2,
+  RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2,
+  RESTAKE_BLOCKLIST_VAULT_FACTORY_V2,
+  RESTAKE_ERC20_VAULT_FACTORY_V2,
+  RESTAKE_PRIV_ERC20_VAULT_FACTORY_V2,
+  RESTAKE_PRIV_VAULT_FACTORY_V2,
+  RESTAKE_VAULT_FACTORY_V2,
   REWARD_SPLITTER_FACTORY_V1,
   REWARD_SPLITTER_FACTORY_V2,
   VAULT_FACTORY_V1,
   VAULT_FACTORY_V2,
-  RESTAKE_VAULT_FACTORY_V2,
-  RESTAKE_PRIV_VAULT_FACTORY_V2,
-  RESTAKE_BLOCKLIST_VAULT_FACTORY_V2,
-  RESTAKE_ERC20_VAULT_FACTORY_V2,
-  RESTAKE_PRIV_ERC20_VAULT_FACTORY_V2,
-  RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2,
-  ZERO_ADDRESS,
   WAD,
+  ZERO_ADDRESS,
 } from '../helpers/constants'
-import { getPoolStateUpdate, getVaultStateUpdate, getVaultTotalAssets, isGnosisNetwork } from '../helpers/utils'
-import { createOrLoadVaultsStat } from '../entities/vaults'
-import { createOrLoadV2Pool } from '../entities/v2pool'
+import {
+  FoxVault as FoxVaultTemplate,
+  RewardSplitterFactory as RewardSplitterFactoryTemplate,
+  VaultFactory as VaultFactoryTemplate,
+} from '../../generated/templates'
+import { Allocator, OsTokenHolder, Vault } from '../../generated/schema'
+import {
+  convertOsTokenSharesToAssets,
+  createOrLoadOsToken,
+  snapshotOsToken,
+  snapshotOsTokenHolder,
+  updateOsTokenApy,
+  updateOsTokenTotalAssets,
+} from '../entities/osToken'
+import {
+  getAllocatorsMintedShares,
+  snapshotAllocator,
+  getAllocatorLtv,
+  getAllocatorOsTokenMintApy,
+  getAllocatorLtvStatus,
+} from '../entities/allocator'
+import { createOrLoadNetwork, isGnosisNetwork } from '../entities/network'
+import { Harvested, RewardsUpdated, ValidatorsApproval } from '../../generated/Keeper/Keeper'
+import { convertSharesToAssets, getVaultStateUpdate, snapshotVault, updateVaultApy } from '../entities/vaults'
+import { createOrLoadV2Pool, getPoolStateUpdate, updatePoolApy } from '../entities/v2pool'
+import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
+import { updateExitRequests } from '../entities/exitRequests'
+import { updateRewardSplitters } from '../entities/rewardSplitter'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -187,11 +203,37 @@ export function updateRewards(
   rewardsRoot: Bytes,
   updateTimestamp: BigInt,
   rewardsIpfsHash: string,
+  newAvgRewardPerSecond: BigInt,
+  block: ethereum.Block,
 ): void {
   const vaultRewards = value.toObject().mustGet('vaults').toArray()
-  const vaultsStat = createOrLoadVaultsStat()
+  const network = createOrLoadNetwork()
   const isGnosis = isGnosisNetwork()
   const v2Pool = createOrLoadV2Pool()
+
+  // process OsToken rewards update
+  const osToken = createOrLoadOsToken()
+  updateOsTokenApy(osToken, newAvgRewardPerSecond)
+  const osTokenTotalAssetsDiff = updateOsTokenTotalAssets(osToken, updateTimestamp, block)
+  osToken.save()
+  snapshotOsToken(osToken, osTokenTotalAssetsDiff, updateTimestamp)
+
+  // update assets of all the osToken holders
+  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
+  let osTokenHolder: OsTokenHolder
+  let osTokenAssetsBefore: BigInt
+  for (let i = 0; i < osTokenHolders.length; i++) {
+    osTokenHolder = osTokenHolders[i]
+    if (osTokenHolder.balance.isZero()) {
+      continue
+    }
+    osTokenAssetsBefore = osTokenHolder.assets
+    osTokenHolder.assets = convertOsTokenSharesToAssets(osToken, osTokenHolder.balance)
+    osTokenHolder.save()
+    snapshotOsTokenHolder(osTokenHolder, osTokenHolder.assets.minus(osTokenAssetsBefore), updateTimestamp)
+  }
+
+  // process vault rewards
   for (let i = 0; i < vaultRewards.length; i++) {
     // load vault object
     const vaultReward = vaultRewards[i].toObject()
@@ -203,8 +245,7 @@ export function updateRewards(
     }
 
     // extract vault reward data
-    const lockedMevReward =
-      vault.mevEscrow === null ? vaultReward.mustGet('locked_mev_reward').toBigInt() : BigInt.zero()
+    const lockedMevReward = !vault.mevEscrow ? vaultReward.mustGet('locked_mev_reward').toBigInt() : BigInt.zero()
     const unlockedMevReward = vaultReward.mustGet('unlocked_mev_reward').toBigInt()
     const consensusReward = vaultReward.mustGet('consensus_reward').toBigInt()
     const proof = vaultReward
@@ -230,16 +271,18 @@ export function updateRewards(
     }
 
     // fetch new principal, total assets and rate
-    let newRate: BigInt, newTotalAssets: BigInt, newTotalShares: BigInt
+    let newRate: BigInt, newTotalAssets: BigInt, newTotalShares: BigInt, newExitingAssets: BigInt
     if (vault.isGenesis && !v2Pool.migrated) {
       newRate = BigInt.fromString(WAD)
       newTotalAssets = BigInt.zero()
       newTotalShares = BigInt.zero()
+      newExitingAssets = BigInt.zero()
     } else {
       const stateUpdate = getVaultStateUpdate(vault, rewardsRoot, proofReward, proofUnlockedMevReward, proof)
       newRate = stateUpdate[0]
       newTotalAssets = stateUpdate[1]
       newTotalShares = stateUpdate[2]
+      newExitingAssets = stateUpdate[3]
       updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, newRate.minus(vault.rate))
     }
 
@@ -249,9 +292,16 @@ export function updateRewards(
       slashedMevReward = slashedMevReward.plus(vault.lockedExecutionReward.minus(lockedMevReward))
     }
 
-    vaultsStat.totalAssets = vaultsStat.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
+    // update vault
+    const maxPercent = BigInt.fromI32(10000)
+    const rewardsDiff = vault.totalAssets
+      .times(newRate.minus(vault.rate))
+      .times(maxPercent.plus(BigInt.fromI32(vault.feePercent)))
+      .div(BigInt.fromString(WAD))
+      .div(maxPercent)
     vault.totalAssets = newTotalAssets
     vault.totalShares = newTotalShares
+    vault.exitingAssets = newExitingAssets
     vault.rate = newRate
     vault.rewardsRoot = rewardsRoot
     vault.proofReward = proofReward
@@ -266,6 +316,13 @@ export function updateRewards(
     vault.canHarvest = true
     vault.save()
 
+    network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
+    network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
+
+    if (!vault.isGenesis || v2Pool.migrated) {
+      snapshotVault(vault, rewardsDiff, updateTimestamp)
+    }
+
     // update v2 pool data
     if (vault.isGenesis && v2Pool.migrated) {
       const stateUpdate = getPoolStateUpdate(rewardsRoot, proofReward, proofUnlockedMevReward, proof)
@@ -273,26 +330,82 @@ export function updateRewards(
       const newRewardAssets = stateUpdate[1]
       const newPrincipalAssets = stateUpdate[2]
       const newPenaltyAssets = stateUpdate[3]
+      const poolNewTotalAssets = newRewardAssets.plus(newPrincipalAssets).minus(newPenaltyAssets)
+
+      network.totalAssets = network.totalAssets.plus(poolNewTotalAssets).minus(v2Pool.totalAssets)
       updatePoolApy(v2Pool, v2Pool.rewardsTimestamp, updateTimestamp, newRate.minus(v2Pool.rate))
       v2Pool.rate = newRate
       v2Pool.principalAssets = newPrincipalAssets
       v2Pool.rewardAssets = newRewardAssets
       v2Pool.penaltyAssets = newPenaltyAssets
-      v2Pool.totalAssets = newRewardAssets.plus(newPrincipalAssets).minus(newPenaltyAssets)
+      v2Pool.totalAssets = poolNewTotalAssets
       v2Pool.rewardsTimestamp = updateTimestamp
       v2Pool.save()
     }
+
+    // update allocators
+    let allocator: Allocator
+    let allocatorAssetsDiff: BigInt
+    let allocatorNewAssets: BigInt
+    let allocatorNewMintedOsTokenShares: BigInt
+    let allocatorMintedOsTokenSharesDiff: BigInt
+    let allocators: Array<Allocator> = vault.allocators.load()
+    const allocatorsMintedOsTokenShares = getAllocatorsMintedShares(vault, allocators)
+    const osTokenConfig = createOrLoadOsTokenConfig(vault.osTokenConfig)
+    for (let j = 0; j < allocators.length; j++) {
+      allocator = allocators[j]
+      if (allocator.shares.isZero()) {
+        continue
+      }
+      allocatorNewAssets = convertSharesToAssets(vault, allocator.shares)
+      allocatorAssetsDiff = allocatorNewAssets.minus(allocator.assets)
+      allocator.assets = allocatorNewAssets
+
+      allocatorNewMintedOsTokenShares = allocatorsMintedOsTokenShares[j]
+      allocatorMintedOsTokenSharesDiff = allocatorNewMintedOsTokenShares.minus(allocator.mintedOsTokenShares)
+      allocator.mintedOsTokenShares = allocatorNewMintedOsTokenShares
+      allocator.ltv = getAllocatorLtv(allocator, osToken)
+      allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
+      allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+      allocator.save()
+      snapshotAllocator(
+        allocator,
+        osToken,
+        osTokenConfig,
+        allocatorAssetsDiff,
+        allocatorMintedOsTokenSharesDiff,
+        updateTimestamp,
+      )
+    }
+
+    // update exit requests
+    updateExitRequests(vault, block)
+
+    // update reward splitters
+    updateRewardSplitters(vault)
   }
-  vaultsStat.save()
+  network.save()
 }
 
 export function handleRewardsUpdated(event: RewardsUpdated): void {
   const rewardsRoot = event.params.rewardsRoot
   const rewardsIpfsHash = event.params.rewardsIpfsHash
   const updateTimestamp = event.params.updateTimestamp
+  const newAvgRewardPerSecond = event.params.avgRewardPerSecond
 
-  const data = ipfs.cat(rewardsIpfsHash) as Bytes
-  updateRewards(json.fromBytes(data), rewardsRoot, updateTimestamp, rewardsIpfsHash)
+  let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
+  while (data === null) {
+    log.warning('[Keeper] RewardsUpdated ipfs.cat failed, retrying', [])
+    data = ipfs.cat(rewardsIpfsHash)
+  }
+  updateRewards(
+    json.fromBytes(data as Bytes),
+    rewardsRoot,
+    updateTimestamp,
+    rewardsIpfsHash,
+    newAvgRewardPerSecond,
+    event.block,
+  )
   log.info('[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={}', [
     rewardsRoot.toHex(),
     rewardsIpfsHash,
@@ -311,17 +424,14 @@ export function handleHarvested(event: Harvested): void {
     return
   }
   vault.canHarvest = (vault.rewardsRoot as Bytes).notEqual(event.params.rewardsRoot)
+  vault.save()
   if (vault.isGenesis) {
     const v2Pool = createOrLoadV2Pool()
     if (!v2Pool.migrated) {
       v2Pool.migrated = true
       v2Pool.save()
     }
-    vault.principalAssets = getVaultTotalAssets(vault)
-  } else {
-    vault.principalAssets = vault.principalAssets.plus(totalAssetsDelta)
   }
-  vault.save()
   log.info('[Keeper] Harvested vault={} totalAssetsDelta={}', [vaultAddress, totalAssetsDelta.toString()])
 }
 
@@ -338,4 +448,14 @@ export function handleValidatorsApproval(event: ValidatorsApproval): void {
   vault.save()
 
   log.info('[Keeper] ValidatorsApproval vault={}', [vaultAddress])
+}
+
+export function handleExitRequests(block: ethereum.Block): void {
+  const network = createOrLoadNetwork()
+  let vault: Vault
+  for (let i = 0; i < network.vaultIds.length; i++) {
+    vault = Vault.load(network.vaultIds[i]) as Vault
+    updateExitRequests(vault, block)
+  }
+  log.info('[ExitRequests] Sync exit requests at block={}', [block.number.toString()])
 }

@@ -3,30 +3,19 @@ import { Vault } from '../../generated/schema'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 import { OsTokenConfigUpdated as OsTokenConfigV1Updated } from '../../generated/OsTokenConfigV1/OsTokenConfigV1'
 import { OsTokenConfigUpdated as OsTokenConfigV2Updated } from '../../generated/OsTokenConfigV2/OsTokenConfigV2'
-
-export function updateOsTokenConfig(version: string, ltvPercent: BigInt, liqThresholdPercent: BigInt): void {
-  const osTokenConfig = createOrLoadOsTokenConfig(version)
-
-  osTokenConfig.ltvPercent = ltvPercent
-  osTokenConfig.liqThresholdPercent = liqThresholdPercent
-
-  osTokenConfig.save()
-
-  log.info('[OsTokenConfig] OsTokenConfigUpdated version={} ltvPercent={} liqThresholdPercent={}', [
-    version,
-    ltvPercent.toString(),
-    liqThresholdPercent.toString(),
-  ])
-}
+import { updateAllocatorsLtvStatus } from '../entities/allocator'
 
 export function handleOsTokenConfigV1Updated(event: OsTokenConfigV1Updated): void {
   const ltvPercent = event.params.ltvPercent
   const liqThresholdPercent = event.params.liqThresholdPercent
 
   const multiplier = BigInt.fromString('100000000000000')
-  const modifiedLiqThresholdPercent = BigInt.fromI32(liqThresholdPercent).times(multiplier)
-
-  updateOsTokenConfig('1', BigInt.fromI32(ltvPercent), modifiedLiqThresholdPercent)
+  updateOsTokenConfig(
+    '1',
+    BigInt.fromI32(ltvPercent).times(multiplier),
+    BigInt.fromI32(liqThresholdPercent).times(multiplier),
+  )
+  updateAllocatorsLtvStatus()
 }
 
 export function handleOsTokenConfigV2Updated(event: OsTokenConfigV2Updated): void {
@@ -48,9 +37,19 @@ export function handleOsTokenConfigV2Updated(event: OsTokenConfigV2Updated): voi
 
     vault.save()
   }
+  updateAllocatorsLtvStatus()
+}
 
-  log.info('[OsTokenConfig] OsTokenConfigV2Updated vault={} ltvPercent={} liqThresholdPercent={}', [
-    vaultAddress,
+function updateOsTokenConfig(version: string, ltvPercent: BigInt, liqThresholdPercent: BigInt): void {
+  const osTokenConfig = createOrLoadOsTokenConfig(version)
+
+  osTokenConfig.ltvPercent = ltvPercent
+  osTokenConfig.liqThresholdPercent = liqThresholdPercent
+
+  osTokenConfig.save()
+
+  log.info('[OsTokenConfig] OsTokenConfigUpdated version={} ltvPercent={} liqThresholdPercent={}', [
+    version,
     ltvPercent.toString(),
     liqThresholdPercent.toString(),
   ])

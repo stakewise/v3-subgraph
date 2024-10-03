@@ -1,3 +1,10 @@
+enum LtvStatus {
+  Healthy
+  Moderate
+  Risky
+  Unhealthy
+}
+
 """
 Vault allocator
 """
@@ -11,39 +18,23 @@ type Allocator @entity {
   "The allocator's shares amount"
   shares: BigInt!
 
+  "The allocator's assets amount"
+  assets: BigInt!
+
+  "The allocator's minted OsToken shares amount"
+  mintedOsTokenShares: BigInt!
+
+  "The allocator's LTV percent. Will be null if there are no OsTokens minted"
+  ltv: BigDecimal!
+
+  "The allocator's LTV descriptive status"
+  ltvStatus: LtvStatus!
+
+  "The allocator's OsToken mint APY"
+  osTokenMintApy: BigDecimal!
+
   "The vault of the allocator"
   vault: Vault!
-}
-
-"""
-Vault OsToken position
-"""
-type OsTokenPosition @entity {
-  "<Vault ID>-<Holder address>"
-  id: ID!
-
-  "The holder's address"
-  address: Bytes!
-
-  "The holder's shares amount"
-  shares: BigInt!
-
-  "The vault of the holder"
-  vault: Vault!
-}
-
-"""
-OsToken holder
-"""
-type OsTokenHolder @entity {
-  "The address of the OsToken holder"
-  id: ID!
-
-  "The total holder shares"
-  shares: BigInt!
-
-  "The timestamp when the holder was updated"
-  timestamp: BigInt!
 }
 
 """
@@ -70,19 +61,36 @@ type TokenTransfer @entity {
 }
 
 """
-Token holder
+OsToken holder
 """
-type TokenHolder @entity {
-  "<Token symbol>-<Token holder address>"
+type OsTokenHolder @entity {
+  "<OsToken holder address>"
   id: ID!
 
-  "The token symbol"
-  tokenSymbol: String!
+  "The OsToken holder balance (shares)"
+  balance: BigInt!
 
-  "The token holder address"
-  address: Bytes!
+  "The OsToken holder assets"
+  assets: BigInt!
 
-  "The total number of token transfers"
+  "The OsToken instance"
+  osToken: OsToken!
+
+  "The total number of OsToken transfers"
+  transfersCount: BigInt!
+}
+
+"""
+SwiseToken holder
+"""
+type SwiseTokenHolder @entity {
+  "<SwiseToken holder address>"
+  id: ID!
+
+  "The SwiseToken holder balance"
+  balance: BigInt!
+
+  "The total number of SwiseToken transfers"
   transfersCount: BigInt!
 }
 
@@ -105,11 +113,14 @@ type ExitRequest @entity {
   "The address that will receive exited assets"
   receiver: Bytes!
 
-  "The number of shares queued for exit. Will be zero for V2 vaults as shares are burned when user enters exit queue."
-  totalShares: BigInt!
-
   "The total number of assets queued for exit"
   totalAssets: BigInt!
+
+  "The total number of assets that has exited"
+  exitedAssets: BigInt!
+
+  "The exit queue index that must be used to claim the exit. Will be null if the exit is not claimable"
+  exitQueueIndex: BigInt
 
   "The timestamp when the exit request was created"
   timestamp: BigInt!
@@ -119,6 +130,15 @@ type ExitRequest @entity {
 
   "The estimated withdrawal timestamp. Managed by the backend service."
   withdrawalTimestamp: BigInt
+
+  "Defines whether the exit request is claimable"
+  isClaimable: Boolean!
+
+  "Defines whether the exit request is claimed"
+  isClaimed: Boolean!
+
+  "The timestamp of the last exit request snapshot"
+  lastSnapshotTimestamp: BigInt!
 }
 
 """
@@ -161,17 +181,11 @@ type Vault @entity {
   "The address of the vault's validators manager"
   validatorsManager: Bytes
 
-  "The address of the vault's keys manager (deprecated)"
-  keysManager: Bytes!
-
   "The address of the vault's deposit data manager. If it's null, then the vault uses own validators manager."
   depositDataManager: Bytes!
 
   "The MEV and priority fees escrow address. If it's null, then the vault uses shared MEV escrow."
   mevEscrow: Bytes
-
-  "The vault validators merkle tree root (deprecated)"
-  validatorsRoot: Bytes
 
   "The vault deposit data merkle tree root"
   depositDataRoot: Bytes
@@ -209,9 +223,6 @@ type Vault @entity {
   "The vault execution reward"
   unlockedExecutionReward: BigInt!
 
-  "The vault execution reward that must be converted (only for Gnosis)"
-  unconvertedExecutionReward: BigInt!
-
   "The vault slashed MEV reward in the smoothing pool"
   slashedMevReward: BigInt!
 
@@ -224,11 +235,11 @@ type Vault @entity {
   "The vault exit requests"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "vault")
 
-  "The vault apy snapshots"
-  apySnapshots: [VaultApySnapshot!]! @derivedFrom(field: "vault")
-
   "The vault eigen pods (only for vaults with isRestake=true)"
   eigenPods: [EigenPod!]! @derivedFrom(field: "vault")
+
+  "The vault reward splitters"
+  rewardSplitters: [RewardSplitter!]! @derivedFrom(field: "vault")
 
   "The total number of shares"
   totalShares: BigInt!
@@ -239,14 +250,17 @@ type Vault @entity {
   "The total number of assets"
   totalAssets: BigInt!
 
-  "The number of assets used for rewardPerAsset calculation"
-  principalAssets: BigInt!
-
   "The current exchange rate for 10^18 amount"
   rate: BigInt!
 
   "The total number of assets that are exiting (in V2 vaults)"
   exitingAssets: BigInt!
+
+  "The total number of tickets that are exiting (in V2 vaults)"
+  exitingTickets: BigInt!
+
+  "The latest exit ticket number"
+  latestExitTicket: BigInt!
 
   "Indicates whether the Vault is private"
   isPrivate: Boolean!
@@ -296,29 +310,11 @@ type Vault @entity {
   "Whether the vault is a genesis vault (v2 pool migration)"
   isGenesis: Boolean!
 
-  "The total number of APY snapshots"
-  apySnapshotsCount: BigInt!
-
   "The vault average weekly total APY"
   apy: BigDecimal!
 
-  "(deprecated) The vault average weekly total APY"
-  weeklyApy: BigDecimal!
-
-  "The vault average weekly consensus APY"
-  consensusApy: BigDecimal!
-
-  "The vault average weekly execution APY"
-  executionApy: BigDecimal!
-
-  "The vault median weekly total APY"
-  medianApy: BigDecimal!
-
-  "The vault median weekly execution APY"
-  medianExecutionApy: BigDecimal!
-
-  "The vault median weekly consensus APY"
-  medianConsensusApy: BigDecimal!
+  "The list of vault APY snapshot"
+  apys: [BigDecimal!]!
 
   "The total number of vault blocklisted accounts"
   blocklistCount: BigInt!
@@ -368,29 +364,6 @@ type AllocatorAction @entity {
   createdAt: BigInt!
 }
 
-type VaultApySnapshot @entity {
-  "<Vault ID>-<date>"
-  id: ID!
-
-  "The vault APY for the period"
-  apy: BigDecimal!
-
-  "The vault consensus APY for the period"
-  consensusApy: BigDecimal!
-
-  "The vault execution APY for the period"
-  executionApy: BigDecimal!
-
-  "The period start epoch timestamp"
-  fromEpochTimestamp: BigInt!
-
-  "The period end epoch timestamp"
-  toEpochTimestamp: BigInt!
-
-  "The snapshot's vault"
-  vault: Vault
-}
-
 """
 OsToken data
 """
@@ -401,8 +374,8 @@ type OsToken @entity {
   "The OsToken APY"
   apy: BigDecimal!
 
-  "The OsToken borrow APY"
-  borrowApy: BigDecimal!
+  "The list of OsToken APY snapshot"
+  apys: [BigDecimal!]!
 
   "The OsToken fee percent"
   feePercent: Int!
@@ -410,25 +383,14 @@ type OsToken @entity {
   "The OsToken total supply"
   totalSupply: BigInt!
 
-  "The total number of OsToken snapshots"
-  snapshotsCount: BigInt!
-}
+  "The OsToken total assets"
+  totalAssets: BigInt!
 
-"""
-Snapshot of OsToken average reward per second
-"""
-type OsTokenSnapshot @entity {
-  "The counter of the snapshot"
-  id: ID!
+  "The OsToken holders"
+  holders: [OsTokenHolder!]! @derivedFrom(field: "osToken")
 
-  "The OsToken average reward per second"
-  avgRewardPerSecond: BigInt!
-
-  "The OsToken average borrow reward per second"
-  borrowRewardPerSecond: BigInt!
-
-  "The timestamp the snapshot was created at"
-  createdAt: BigInt!
+  "The timestamp of the last rewards update"
+  lastUpdateTimestamp: BigInt!
 }
 
 """
@@ -438,8 +400,43 @@ type Network @entity {
   "Always 0"
   id: ID!
 
-  "Total vaults"
-  vaultsTotal: Int!
+  "The total assets locked in the network"
+  totalAssets: BigInt!
+
+  "The total assets earned in the network"
+  totalEarnedAssets: BigInt!
+
+  "Total number of vaults"
+  vaultsCount: Int!
+
+  "The USD rate of the assets (e.g. ETH, GNO)"
+  assetsUsdRate: BigDecimal!
+
+  "The USD to DAI rate"
+  usdToDaiRate: BigDecimal!
+
+  "The USD to EUR rate"
+  usdToEurRate: BigDecimal!
+
+  "The USD to GBP rate"
+  usdToGbpRate: BigDecimal!
+
+  "The non repeated addresses of all the vaults"
+  vaultIds: [String!]!
+
+  "The total number of non repeated vault allocators and osToken holders"
+  usersCount: Int!
+}
+
+type User @entity {
+  "User address"
+  id: ID!
+
+  "The total number of vaults, where user is an allocator"
+  vaultsCount: Int!
+
+  "Defines whether the user holds any osToken shares"
+  isOsTokenHolder: Boolean!
 }
 
 """
@@ -494,6 +491,9 @@ type RewardSplitter @entity {
 
   "Shareholders of the reward splitter"
   shareHolders: [RewardSplitterShareHolder!]! @derivedFrom(field: "rewardSplitter")
+
+  "Last snapshot timestamp"
+  lastSnapshotTimestamp: BigInt!
 }
 
 """
@@ -506,11 +506,20 @@ type RewardSplitterShareHolder @entity {
   "The reward splitter"
   rewardSplitter: RewardSplitter!
 
+  "The address of the vault"
+  vault: Vault!
+
   "The address of shareholder"
   address: Bytes!
 
   "The amount of shares"
   shares: BigInt!
+
+  "The amount of earned vault shares"
+  earnedVaultShares: BigInt!
+
+  "The amount of earned vault assets"
+  earnedVaultAssets: BigInt!
 }
 
 """
@@ -546,40 +555,28 @@ type V2Pool @entity {
   "Whether V2 Pool has migrated to V3"
   migrated: Boolean!
 
-  "The total number of APY snapshots"
-  apySnapshotsCount: BigInt!
-
   "The current exchange rate for 10^18 staked token"
   rate: BigInt!
 
   "The pool average weekly total APY"
   apy: BigDecimal!
 
-  "(deprecated) The pool average weekly total APY"
-  weeklyApy: BigDecimal!
-
-  "The pool average weekly consensus APY"
-  consensusApy: BigDecimal!
-
-  "The pool average weekly execution APY"
-  executionApy: BigDecimal!
+  "The list of pool APY snapshot"
+  apys: [BigDecimal!]!
 
   "Last rewards update timestamp"
   rewardsTimestamp: BigInt
 }
 
 """
-Vaults statistics
+StakeWise V2 pool user
 """
-type VaultsStat @entity {
-  "1"
+type V2PoolUser @entity {
+  "The address of the user"
   id: ID!
 
-  "The total assets locked in vaults"
-  totalAssets: BigInt!
-
-  "The total number of vaults"
-  vaultsCount: BigInt!
+  "The balance of the user"
+  balance: BigInt!
 }
 
 """
@@ -631,4 +628,160 @@ type OsTokenConfig @entity {
 
   "The vault osToken liquidation threshold percent"
   liqThresholdPercent: BigInt!
+}
+
+"""
+The snapshot of the allocator state
+"""
+type AllocatorSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  allocator: Allocator!
+  earnedAssets: BigInt!
+  totalAssets: BigInt!
+  ltv: BigDecimal!
+}
+
+"""
+The aggregation of the allocator snapshots
+"""
+type AllocatorStats @aggregation(intervals: ["day"], source: "AllocatorSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  allocator: Allocator!
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+  ltv: BigDecimal! @aggregate(fn: "last", arg: "ltv")
+}
+
+"""
+The snapshot of the OsToken state
+"""
+type OsTokenSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  earnedAssets: BigInt!
+  totalAssets: BigInt!
+}
+
+"""
+The aggregation of the OsToken snapshots
+"""
+type OsTokenStats @aggregation(intervals: ["day"], source: "OsTokenSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+}
+
+"""
+The snapshot of the OsTokenHolder state
+"""
+type OsTokenHolderSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  osTokenHolder: OsTokenHolder!
+  earnedAssets: BigInt!
+  totalAssets: BigInt!
+}
+
+"""
+The aggregation of the OsTokenHolder snapshots
+"""
+type OsTokenHolderStats @aggregation(intervals: ["day"], source: "OsTokenHolderSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  osTokenHolder: OsTokenHolder!
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+}
+
+"""
+The snapshot of the Vault state
+"""
+type VaultSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  vault: Vault!
+  earnedAssets: BigInt!
+  totalAssets: BigInt!
+}
+
+"""
+The aggregation of the Vault snapshots
+"""
+type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  vault: Vault!
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+}
+
+"""
+The snapshot of the ExitRequest state
+"""
+type ExitRequestSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  exitRequest: ExitRequest!
+  earnedAssets: BigInt!
+  totalAssets: BigInt!
+}
+
+"""
+The aggregation of the ExitRequest snapshots
+"""
+type ExitRequestStats @aggregation(intervals: ["day"], source: "ExitRequestSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  exitRequest: ExitRequest!
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+}
+
+"""
+The snapshot of the RewardSplitterShareHolder state
+"""
+type RewardSplitterShareHolderSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  rewardSpliterShareHolder: RewardSplitterShareHolder!
+  earnedAssets: BigInt!
+  totalAssets: BigInt!
+}
+
+"""
+The aggregation of the RewardSplitterShareHolder snapshots
+"""
+type RewardSplitterShareHolderStats @aggregation(intervals: ["day"], source: "RewardSplitterShareHolderSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  rewardSpliterShareHolder: RewardSplitterShareHolder!
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+}
+
+"""
+The snapshot of the exchange rates
+"""
+type ExchangeRateSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  assetsUsdRate: BigDecimal!
+  usdToDaiRate: BigDecimal!
+  usdToEurRate: BigDecimal!
+  usdToGbpRate: BigDecimal!
+}
+
+"""
+The aggregation of the ExchangeRate snapshots
+"""
+type ExchangeRateStats @aggregation(intervals: ["day"], source: "ExchangeRateSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  assetsUsdRate: BigDecimal! @aggregate(fn: "last", arg: "assetsUsdRate")
+  usdToDaiRate: BigDecimal! @aggregate(fn: "last", arg: "usdToDaiRate")
+  usdToEurRate: BigDecimal! @aggregate(fn: "last", arg: "usdToEurRate")
+  usdToGbpRate: BigDecimal! @aggregate(fn: "last", arg: "usdToGbpRate")
 }
