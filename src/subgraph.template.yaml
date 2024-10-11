@@ -30,7 +30,7 @@ dataSources:
         - handler: handleExitRequests
           filter:
             kind: polling
-            every: {{ pollingBlocksInterval }}
+            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: ExchangeRates
     network: {{ network }}
@@ -54,7 +54,34 @@ dataSources:
         - handler: handleExchangeRates
           filter:
             kind: polling
-            every: {{ pollingBlocksInterval }}
+            every: {{ blocksInHour }}
+  - kind: ethereum/contract
+    name: Aave
+    network: {{ network }}
+    source:
+      address: '{{ aaveProtocolDataProvider.address }}'
+      abi: AaveProtocolDataProvider
+      startBlock: {{ aaveProtocolDataProvider.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/aave.ts
+      entities:
+        - Network
+        - Vault
+        - OsTokenConfig
+        - OsToken
+      abis:
+        - name: AaveProtocolDataProvider
+          file: ./abis/AaveProtocolDataProvider.json
+        - name: AavePool
+          file: ./abis/AavePool.json
+      blockHandlers:
+        - handler: handleVaultBoostApy
+          filter:
+            kind: polling
+            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: OsToken
     network: {{ network }}
@@ -73,6 +100,7 @@ dataSources:
         - OsToken
         - TokenTransfer
         - OsTokenHolder
+        - OsTokenHolderSnapshot
       abis:
         - name: Erc20Token
           file: ./abis/Erc20Token.json
@@ -240,6 +268,8 @@ dataSources:
         - Transaction
         - OsToken
         - OsTokenConfig
+        - AllocatorSnapshot
+        - VaultSnapshot
       abis:
         - name: GenesisVault
           file: ./abis/GenesisVault.json
@@ -346,6 +376,52 @@ dataSources:
         - event: VestingEscrowCreated(indexed address,indexed address,indexed address,address,address,uint256,uint256,uint256,uint256)
           handler: handleVestingEscrowCreated
   - kind: ethereum/contract
+    name: AaveLeverageStrategy
+    network: {{ network }}
+    source:
+      address: '{{ aaveLeverageStrategy.address }}'
+      abi: AaveLeverageStrategy
+      startBlock: {{ aaveLeverageStrategy.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/leverageStrategy.ts
+      entities:
+        - Transaction
+        - OsToken
+        - ExitRequest
+        - Allocator
+        - LeverageStrategyPosition
+        - LeverageStrategyPositionSnapshot
+      abis:
+        - name: OsTokenVaultEscrow
+          file: ./abis/OsTokenVaultEscrow.json
+        - name: StrategiesRegistry
+          file: ./abis/StrategiesRegistry.json
+        - name: AaveLeverageStrategy
+          file: ./abis/AaveLeverageStrategy.json
+        - name: AavePool
+          file: ./abis/AavePool.json
+        - name: AaveOracle
+          file: ./abis/AaveOracle.json
+        - name: AaveProtocolDataProvider
+          file: ./abis/AaveProtocolDataProvider.json
+      eventHandlers:
+        - event: StrategyProxyCreated(indexed bytes32,indexed address,indexed address,address)
+          handler: handleStrategyProxyCreated
+        - event: Deposited(indexed address,indexed address,uint256,uint256)
+          handler: handleDeposited
+        - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256,uint256,uint256)
+          handler: handleExitQueueEntered
+        - event: ExitedAssetsClaimed(indexed address,indexed address,uint256,uint256)
+          handler: handleExitedAssetsClaimed
+      blockHandlers:
+        - handler: handleLeverageStrategyPositions
+          filter:
+            kind: polling
+            every: {{ blocksInHour }}
+  - kind: ethereum/contract
     name: EigenDelegationManager
     network: {{ network }}
     source:
@@ -446,11 +522,15 @@ templates:
         - Network
         - User
         - OsToken
+        - OsTokenSnapshot
         - OsTokenConfig
         - Vault
+        - VaultSnapshot
         - Allocator
+        - AllocatorSnapshot
         - AllocatorAction
         - ExitRequest
+        - ExitRequestSnapshot
         - Transaction
       abis:
         - name: Vault
@@ -549,6 +629,7 @@ templates:
         - OsToken
         - OsTokenConfig
         - Allocator
+        - AllocatorSnapshot
         - AllocatorAction
         - Transaction
       abis:
