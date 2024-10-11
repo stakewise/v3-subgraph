@@ -10,7 +10,7 @@ import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactor
 import { Vault, VaultSnapshot } from '../../generated/schema'
 import { createOrLoadNetwork } from './network'
 import { createTransaction } from './transaction'
-import { MULTICALL, WAD } from '../helpers/constants'
+import { MAX_VAULT_APY, MULTICALL, WAD } from '../helpers/constants'
 import { createOrLoadOsTokenConfig } from './osTokenConfig'
 import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from '../../generated/Keeper/Multicall'
 import { calculateAverage, getAggregateCall } from '../helpers/utils'
@@ -80,6 +80,8 @@ export function createVault(
   vault.createdAt = block.timestamp
   vault.apy = BigDecimal.zero()
   vault.apys = []
+  vault.maxBoostApy = BigDecimal.zero()
+  vault.maxBoostApys = []
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = false
@@ -154,11 +156,15 @@ export function updateVaultApy(
     ])
     return
   }
-  const currentApy = new BigDecimal(rateChange)
+  let currentApy = new BigDecimal(rateChange)
     .times(BigDecimal.fromString(secondsInYear))
     .times(BigDecimal.fromString(maxPercent))
     .div(BigDecimal.fromString(WAD))
     .div(new BigDecimal(totalDuration))
+  const maxApy = BigDecimal.fromString(MAX_VAULT_APY)
+  if (currentApy.gt(maxApy)) {
+    currentApy = maxApy
+  }
 
   let apys = vault.apys
   apys.push(currentApy)

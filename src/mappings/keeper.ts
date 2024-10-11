@@ -299,6 +299,9 @@ export function updateRewards(
       .times(maxPercent.plus(BigInt.fromI32(vault.feePercent)))
       .div(BigInt.fromString(WAD))
       .div(maxPercent)
+    network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
+    network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
+
     vault.totalAssets = newTotalAssets
     vault.totalShares = newTotalShares
     vault.exitingAssets = newExitingAssets
@@ -315,9 +318,6 @@ export function updateRewards(
     vault.rewardsIpfsHash = rewardsIpfsHash
     vault.canHarvest = true
     vault.save()
-
-    network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
-    network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
 
     if (!vault.isGenesis || v2Pool.migrated) {
       snapshotVault(vault, rewardsDiff, updateTimestamp)

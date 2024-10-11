@@ -241,6 +241,9 @@ type Vault @entity {
   "The vault reward splitters"
   rewardSplitters: [RewardSplitter!]! @derivedFrom(field: "vault")
 
+  "The vault leverage strategy positions"
+  leveragePositions: [LeverageStrategyPosition!]! @derivedFrom(field: "vault")
+
   "The total number of shares"
   totalShares: BigInt!
 
@@ -315,6 +318,12 @@ type Vault @entity {
 
   "The list of vault APY snapshot"
   apys: [BigDecimal!]!
+
+  "The vault average max boost APY"
+  maxBoostApy: BigDecimal!
+
+  "The list of vault max boost APY snapshot"
+  maxBoostApys: [BigDecimal!]!
 
   "The total number of vault blocklisted accounts"
   blocklistCount: BigInt!
@@ -637,6 +646,41 @@ type OsTokenConfig @entity {
 }
 
 """
+The LeverageStrategy position
+"""
+type LeverageStrategyPosition @entity {
+  "Set to `vault ID-user address`"
+  id: ID!
+
+  "The proxy address used for the leverage"
+  proxy: Bytes!
+
+  "The address of the user"
+  user: Bytes!
+
+  "The vault used for the leverage"
+  vault: Vault!
+
+  "The total amount of user osToken shares"
+  osTokenShares: BigInt!
+
+  "The total amount of user assets"
+  assets: BigInt!
+
+  "The percent (in wad) of user's position that is currently exiting"
+  exitingPercent: BigInt!
+
+  "The total amount of user exiting osToken shares"
+  exitingOsTokenShares: BigInt!
+
+  "The total amount of user exiting assets"
+  exitingAssets: BigInt!
+
+  "The unprocessed exit request. Can be null if nothing is exiting."
+  exitRequest: ExitRequest
+}
+
+"""
 The snapshot of the allocator state
 """
 type AllocatorSnapshot @entity(timeseries: true) {
@@ -790,4 +834,28 @@ type ExchangeRateStats @aggregation(intervals: ["day"], source: "ExchangeRateSna
   usdToDaiRate: BigDecimal! @aggregate(fn: "last", arg: "usdToDaiRate")
   usdToEurRate: BigDecimal! @aggregate(fn: "last", arg: "usdToEurRate")
   usdToGbpRate: BigDecimal! @aggregate(fn: "last", arg: "usdToGbpRate")
+}
+
+"""
+The snapshot of the LeverageStrategyPosition state
+"""
+type LeverageStrategyPositionSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  position: LeverageStrategyPosition!
+  earnedAssets: BigInt!
+  earnedBoostAssets: BigInt!
+  totalAssets: BigInt!
+}
+
+"""
+The aggregation of the LeverageStrategyPosition snapshots
+"""
+type LeverageStrategyPositionStats @aggregation(intervals: ["day"], source: "LeverageStrategyPositionSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  position: LeverageStrategyPosition!
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  earnedBoostAssets: BigInt! @aggregate(fn: "sum", arg: "earnedBoostAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
 }
