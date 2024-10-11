@@ -13,6 +13,7 @@ and entities within the StakeWise ecosystem.
     ```shell script
     npm install
     ```
+
 2.  Build the subgraph to check compile errors
     before deploying:
 
@@ -20,10 +21,16 @@ and entities within the StakeWise ecosystem.
     npm run build:mainnet
     ```
 
-3.  Deploy subgraph to your graph node
+3.  Deploy subgraph to your stage environment:
 
     ```shell script
-    IPFS_URL=<your IPFS node> LOCAL_GRAPH_URL=<your graph node> npm run deploy-local:mainnet
+    IPFS_URL=<your IPFS node> GRAPH_URL=<your graph node> npm run deploy-stage:mainnet
+    ```
+
+4.  Deploy subgraph to your prod environment:
+
+    ```shell script
+    IPFS_URL=<your IPFS node> GRAPH_URL=<your graph node> npm run deploy-prod:mainnet
     ```
 
 ## Documentation

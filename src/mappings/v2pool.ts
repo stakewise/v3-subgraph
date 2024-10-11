@@ -1,4 +1,4 @@
-import { Address, BigInt, log } from '@graphprotocol/graph-ts'
+import { Address, BigInt, log, store } from '@graphprotocol/graph-ts'
 import {
   RewardsUpdated as RewardsUpdatedV0,
   RewardsUpdated1 as RewardsUpdatedV1,
@@ -6,43 +6,88 @@ import {
   Transfer as RewardTokenTransfer,
 } from '../../generated/V2RewardToken/V2RewardToken'
 import { Transfer as StakedTokenTransfer } from '../../generated/V2StakedToken/V2StakedToken'
-import { createOrLoadV2Pool } from '../entities/v2pool'
+import { createOrLoadV2Pool, createOrLoadV2PoolUser } from '../entities/v2pool'
 import { WAD } from '../helpers/constants'
+import { createOrLoadNetwork, decreaseUserVaultsCount, increaseUserVaultsCount } from '../entities/network'
 
 export function handleRewardsUpdatedV0(event: RewardsUpdatedV0): void {
-  let pool = createOrLoadV2Pool()
-  pool.rewardAssets = event.params.totalRewards
-  pool.totalAssets = pool.principalAssets.plus(pool.rewardAssets)
+  const newTotalRewards = event.params.totalRewards
+  const pool = createOrLoadV2Pool()
+
+  const rewardsDiff = newTotalRewards.minus(pool.rewardAssets)
+  const network = createOrLoadNetwork()
+  network.totalAssets = network.totalAssets.plus(rewardsDiff)
+  network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
+  network.save()
+
+  pool.rewardAssets = newTotalRewards
+  pool.totalAssets = pool.principalAssets.plus(newTotalRewards)
   pool.rate = BigInt.fromString(WAD).times(pool.totalAssets).div(pool.principalAssets)
   pool.save()
 
-  log.info('[V2 Pool] RewardsUpdated V0 totalRewards={}', [pool.rewardAssets.toString()])
+  log.info('[V2 Pool] RewardsUpdated V0 totalRewards={}', [newTotalRewards.toString()])
 }
 
 export function handleRewardsUpdatedV1(event: RewardsUpdatedV1): void {
-  let pool = createOrLoadV2Pool()
-  pool.rewardAssets = event.params.totalRewards
-  pool.totalAssets = pool.principalAssets.plus(pool.rewardAssets)
+  const newTotalRewards = event.params.totalRewards
+  const pool = createOrLoadV2Pool()
+
+  const rewardsDiff = newTotalRewards.minus(pool.rewardAssets)
+  const network = createOrLoadNetwork()
+  network.totalAssets = network.totalAssets.plus(rewardsDiff)
+  network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
+  network.save()
+
+  pool.rewardAssets = newTotalRewards
+  pool.totalAssets = pool.principalAssets.plus(newTotalRewards)
   pool.rate = BigInt.fromString(WAD).times(pool.totalAssets).div(pool.principalAssets)
   pool.save()
 
-  log.info('[V2 Pool] RewardsUpdated V1 totalRewards={}', [pool.rewardAssets.toString()])
+  log.info('[V2 Pool] RewardsUpdated V1 totalRewards={}', [newTotalRewards.toString()])
 }
 
 export function handleRewardsUpdatedV2(event: RewardsUpdatedV2): void {
   const pool = createOrLoadV2Pool()
   if (!pool.migrated) {
-    pool.rewardAssets = event.params.totalRewards
-    pool.totalAssets = pool.principalAssets.plus(pool.rewardAssets)
+    const newTotalRewards = event.params.totalRewards
+
+    const rewardsDiff = newTotalRewards.minus(pool.rewardAssets)
+    const network = createOrLoadNetwork()
+    network.totalAssets = network.totalAssets.plus(rewardsDiff)
+    network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
+    network.save()
+
+    pool.rewardAssets = newTotalRewards
+    pool.totalAssets = pool.principalAssets.plus(newTotalRewards)
     pool.rate = BigInt.fromString(WAD).times(pool.totalAssets).div(pool.principalAssets)
     pool.save()
+    log.info('[V2 Pool] RewardsUpdated V2 rewardAssets={}', [newTotalRewards.toString()])
   }
-  log.info('[V2 Pool] RewardsUpdated V2 rewardAssets={}', [pool.rewardAssets.toString()])
 }
 
 export function handleRewardTokenTransfer(event: RewardTokenTransfer): void {
-  const isBurn = event.params.to == Address.zero()
-  if (!isBurn) {
+  const from = event.params.from
+  const to = event.params.to
+  const amount = event.params.value
+
+  if (from.notEqual(Address.zero())) {
+    const v2PoolUser = createOrLoadV2PoolUser(from)
+    v2PoolUser.balance = v2PoolUser.balance.minus(amount)
+    if (v2PoolUser.balance.le(BigInt.zero())) {
+      decreaseUserVaultsCount(from)
+    }
+    store.remove('V2PoolUser', v2PoolUser.id)
+  }
+  if (to.notEqual(Address.zero())) {
+    const v2PoolUser = createOrLoadV2PoolUser(to)
+    if (v2PoolUser.balance.isZero() && !amount.isZero()) {
+      increaseUserVaultsCount(to)
+    }
+    v2PoolUser.balance = v2PoolUser.balance.plus(amount)
+    v2PoolUser.save()
+  }
+
+  if (!to.equals(Address.zero())) {
     // handle only burn events
     return
   }
@@ -53,29 +98,47 @@ export function handleRewardTokenTransfer(event: RewardTokenTransfer): void {
   pool.totalAssets = pool.totalAssets.minus(value)
   pool.save()
 
-  log.info('[V2 Pool] StakedToken burn amount={}', [value.toString()])
+  const network = createOrLoadNetwork()
+  network.totalAssets = network.totalAssets.minus(value)
+  network.save()
+
+  log.info('[V2 Pool] RewardToken burn amount={}', [value.toString()])
 }
 
 export function handleStakedTokenTransfer(event: StakedTokenTransfer): void {
-  const isMint = event.params.from == Address.zero()
-  const isBurn = event.params.to == Address.zero()
-  if (!(isMint || isBurn)) {
-    // handle only mint and burn events
-    return
+  const from = event.params.from
+  const to = event.params.to
+  const amount = event.params.value
+  const network = createOrLoadNetwork()
+  const pool = createOrLoadV2Pool()
+
+  if (from.equals(Address.zero())) {
+    pool.principalAssets = pool.principalAssets.plus(amount)
+    pool.totalAssets = pool.totalAssets.plus(amount)
+    network.totalAssets = network.totalAssets.plus(amount)
+    log.info('[V2 Pool] StakedToken mint amount={}', [amount.toString()])
+  } else {
+    const v2PoolUser = createOrLoadV2PoolUser(from)
+    v2PoolUser.balance = v2PoolUser.balance.minus(amount)
+    if (v2PoolUser.balance.le(BigInt.zero())) {
+      decreaseUserVaultsCount(from)
+    }
+    store.remove('V2PoolUser', v2PoolUser.id)
   }
 
-  let pool = createOrLoadV2Pool()
-  let value = event.params.value
-  if (isMint) {
-    pool.principalAssets = pool.principalAssets.plus(value)
-    pool.totalAssets = pool.totalAssets.plus(value)
-    log.info('[V2 Pool] StakedToken mint amount={}', [value.toString()])
-  }
-
-  if (isBurn) {
-    pool.principalAssets = pool.principalAssets.minus(value)
-    pool.totalAssets = pool.totalAssets.minus(value)
-    log.info('[V2 Pool] StakedToken burn amount={}', [value.toString()])
+  if (to.equals(Address.zero())) {
+    pool.principalAssets = pool.principalAssets.minus(amount)
+    pool.totalAssets = pool.totalAssets.minus(amount)
+    network.totalAssets = network.totalAssets.minus(amount)
+    log.info('[V2 Pool] StakedToken burn amount={}', [amount.toString()])
+  } else {
+    const v2PoolUser = createOrLoadV2PoolUser(to)
+    if (v2PoolUser.balance.isZero() && !amount.isZero()) {
+      increaseUserVaultsCount(to)
+    }
+    v2PoolUser.balance = v2PoolUser.balance.plus(amount)
+    v2PoolUser.save()
   }
   pool.save()
+  network.save()
 }

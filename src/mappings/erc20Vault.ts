@@ -1,16 +1,32 @@
-import { Address, store, log } from '@graphprotocol/graph-ts'
+import { Address, log } from '@graphprotocol/graph-ts'
 import { Transfer } from '../../generated/templates/Erc20Vault/Erc20Vault'
-import { createAllocatorAction, createOrLoadAllocator } from '../entities/allocator'
+import { Vault } from '../../generated/schema'
+import {
+  AllocatorActionType,
+  createAllocatorAction,
+  createOrLoadAllocator,
+  getAllocatorLtv,
+  getAllocatorLtvStatus,
+  getAllocatorOsTokenMintApy,
+} from '../entities/allocator'
 import { createTransaction } from '../entities/transaction'
+import { convertSharesToAssets } from '../entities/vaults'
+import { createOrLoadOsToken } from '../entities/osToken'
+import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
+import { decreaseUserVaultsCount, increaseUserVaultsCount } from '../entities/network'
 
 // Event emitted on mint, burn or transfer shares between allocators
 export function handleTransfer(event: Transfer): void {
   const params = event.params
+  const vaultAddress = event.address
+  const vault = Vault.load(vaultAddress.toHex()) as Vault
+  const osToken = createOrLoadOsToken()
+  const osTokenConfig = createOrLoadOsTokenConfig(vault.osTokenConfig)
 
   const from = params.from
   const to = params.to
-  const value = params.value
-  const vaultAddress = event.address
+  const shares = params.value
+  const assets = convertSharesToAssets(vault, shares)
 
   const zeroAddress = Address.zero()
   if (from.equals(zeroAddress) || to.equals(zeroAddress)) {
@@ -19,25 +35,36 @@ export function handleTransfer(event: Transfer): void {
   }
 
   const allocatorFrom = createOrLoadAllocator(from, vaultAddress)
-  allocatorFrom.shares = allocatorFrom.shares.minus(value)
+  allocatorFrom.shares = allocatorFrom.shares.minus(shares)
+  allocatorFrom.assets = convertSharesToAssets(vault, allocatorFrom.shares)
+  allocatorFrom.ltv = getAllocatorLtv(allocatorFrom, osToken)
+  allocatorFrom.ltvStatus = getAllocatorLtvStatus(allocatorFrom, osTokenConfig)
+  allocatorFrom.osTokenMintApy = getAllocatorOsTokenMintApy(allocatorFrom, osToken.apy, osToken, osTokenConfig)
+  allocatorFrom.save()
   if (allocatorFrom.shares.isZero()) {
-    store.remove('Allocator', allocatorFrom.id)
-  } else {
-    allocatorFrom.save()
+    decreaseUserVaultsCount(allocatorFrom.address)
   }
-  createAllocatorAction(event, vaultAddress, 'TransferOut', from, null, value)
+  createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferOut, from, assets, shares)
 
   const allocatorTo = createOrLoadAllocator(to, vaultAddress)
-  allocatorTo.shares = allocatorTo.shares.plus(value)
+  if (allocatorTo.shares.isZero() && !shares.isZero()) {
+    increaseUserVaultsCount(allocatorTo.address)
+  }
+  allocatorTo.shares = allocatorTo.shares.plus(shares)
+  allocatorTo.assets = convertSharesToAssets(vault, allocatorTo.shares)
+  allocatorTo.ltv = getAllocatorLtv(allocatorTo, osToken)
+  allocatorTo.ltvStatus = getAllocatorLtvStatus(allocatorTo, osTokenConfig)
+  allocatorTo.osTokenMintApy = getAllocatorOsTokenMintApy(allocatorTo, osToken.apy, osToken, osTokenConfig)
   allocatorTo.save()
-  createAllocatorAction(event, vaultAddress, 'TransferIn', to, null, value)
+  createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferIn, to, assets, shares)
 
   createTransaction(event.transaction.hash.toHex())
 
-  log.info('[Vault] Transfer vault={} from={} to={} value={}', [
+  log.info('[Vault] Transfer vault={} from={} to={} shares={} assets={}', [
     vaultAddress.toHex(),
-    params.from.toHex(),
-    params.to.toHex(),
-    params.value.toString(),
+    from.toHex(),
+    to.toHex(),
+    shares.toString(),
+    assets.toString(),
   ])
 }

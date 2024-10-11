@@ -14,8 +14,6 @@ export function handleDepositDataManagerUpdated(event: DepositDataManagerUpdated
   // Vault must exist at the time of the event
   const vault = Vault.load(vaultAddress) as Vault
   vault.depositDataManager = depositDataManager
-  // Update deprecated vault keys manager
-  vault.keysManager = depositDataManager
   vault.save()
 
   createTransaction(event.transaction.hash.toHex())
@@ -34,8 +32,6 @@ export function handleDepositDataMigrated(event: DepositDataMigrated): void {
   // Vault must exist at the time of the event
   const vault = Vault.load(vaultAddress) as Vault
   vault.depositDataRoot = depositDataRoot
-  // Update deprecated validators root
-  vault.validatorsRoot = depositDataRoot
 
   // zero address is when the default deposit data manager was used (admin)
   if (depositDataManager.equals(Address.zero())) {
@@ -43,8 +39,6 @@ export function handleDepositDataMigrated(event: DepositDataMigrated): void {
   } else {
     vault.depositDataManager = depositDataManager
   }
-  // Update deprecated vault keys manager
-  vault.keysManager = vault.depositDataManager
   vault.save()
 
   createTransaction(event.transaction.hash.toHex())
@@ -67,8 +61,6 @@ export function handleDepositDataRootUpdated(event: DepositDataRootUpdated): voi
     return
   }
   vault.depositDataRoot = depositDataRoot
-  // Update deprecated validators root
-  vault.validatorsRoot = depositDataRoot
   vault.save()
 
   createTransaction(event.transaction.hash.toHex())

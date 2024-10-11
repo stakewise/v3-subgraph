@@ -1,4 +1,4 @@
-specVersion: 0.0.8
+specVersion: 1.2.0
 description: The liquid staking protocol
 repository: https://github.com/stakewise/v3-subgraph
 schema:
@@ -7,7 +7,56 @@ features:
   - ipfsOnEthereumContracts
 dataSources:
   - kind: ethereum/contract
-    name: Erc20Token
+    name: ExitRequests
+    network: {{ network }}
+    source:
+      address: '{{ genesisVault.address }}'
+      abi: Vault
+      startBlock: {{ genesisVault.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/keeper.ts
+      entities:
+        - Network
+        - Vault
+        - ExitRequest
+        - ExitRequestSnapshot
+      abis:
+        - name: Vault
+          file: ./abis/Vault.json
+      blockHandlers:
+        - handler: handleExitRequests
+          filter:
+            kind: polling
+            every: {{ pollingBlocksInterval }}
+  - kind: ethereum/contract
+    name: ExchangeRates
+    network: {{ network }}
+    source:
+      address: '{{ genesisVault.address }}'
+      abi: PriceFeed
+      startBlock: {{ genesisVault.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/exchangeRates.ts
+      entities:
+        - Network
+        - ExchangeRateSnapshot
+        - ExchangeRateStats
+      abis:
+        - name: PriceFeed
+          file: ./abis/PriceFeed.json
+      blockHandlers:
+        - handler: handleExchangeRates
+          filter:
+            kind: polling
+            every: {{ pollingBlocksInterval }}
+  - kind: ethereum/contract
+    name: OsToken
     network: {{ network }}
     source:
       address: '{{ osToken.address }}'
@@ -17,11 +66,13 @@ dataSources:
       kind: ethereum/events
       apiVersion: 0.0.8
       language: wasm/assemblyscript
-      file: ./mappings/osToken.ts
+      file: ./mappings/erc20Token.ts
       entities:
-        - OsTokenHolder
+        - User
+        - Network
+        - OsToken
         - TokenTransfer
-        - TokenHolder
+        - OsTokenHolder
       abis:
         - name: Erc20Token
           file: ./abis/Erc20Token.json
@@ -39,10 +90,10 @@ dataSources:
       kind: ethereum/events
       apiVersion: 0.0.8
       language: wasm/assemblyscript
-      file: ./mappings/swiseToken.ts
+      file: ./mappings/erc20Token.ts
       entities:
         - TokenTransfer
-        - TokenHolder
+        - SwiseTokenHolder
       abis:
         - name: Erc20Token
           file: ./abis/Erc20Token.json
@@ -62,16 +113,33 @@ dataSources:
       language: wasm/assemblyscript
       file: ./mappings/keeper.ts
       entities:
+        - Network
+        - OsToken
+        - OsTokenConfig
+        - OsTokenSnapshot
+        - OsTokenHolder
+        - OsTokenHolderSnapshot
         - Vault
-        - DaySnapshot
+        - VaultSnapshot
         - V2Pool
+        - Allocator
+        - AllocatorSnapshot
+        - ExitRequest
+        - ExitRequestSnapshot
+        - RewardSplitter
+        - RewardSplitterShareHolder
+        - RewardSplitterShareHolderSnapshot
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
         - name: Vault
           file: ./abis/Vault.json
+        - name: OsTokenVaultController
+          file: ./abis/OsTokenVaultController.json
         - name: Multicall
           file: ./abis/Multicall.json
+        - name: RewardSplitter
+          file: ./abis/RewardSplitter.json
       eventHandlers:
         - event: RewardsUpdated(indexed address,indexed bytes32,uint256,uint64,uint64,string)
           handler: handleRewardsUpdated
@@ -97,13 +165,10 @@ dataSources:
       file: ./mappings/osToken.ts
       entities:
         - OsToken
-        - OsTokenSnapshot
       abis:
         - name: OsTokenVaultController
           file: ./abis/OsTokenVaultController.json
       eventHandlers:
-        - event: AvgRewardPerSecondUpdated(uint256)
-          handler: handleAvgRewardPerSecondUpdated
         - event: StateUpdated(uint256,uint256,uint256)
           handler: handleStateUpdated
         - event: FeePercentUpdated(uint16)
@@ -121,7 +186,10 @@ dataSources:
       language: wasm/assemblyscript
       file: ./mappings/osTokenConfig.ts
       entities:
+        - Network
         - Vault
+        - OsTokenConfig
+        - Allocator
       abis:
         - name: OsTokenConfigV1
           file: ./abis/OsTokenConfigV1.json
@@ -141,7 +209,10 @@ dataSources:
       language: wasm/assemblyscript
       file: ./mappings/osTokenConfig.ts
       entities:
+        - Network
         - Vault
+        - OsTokenConfig
+        - Allocator
       abis:
         - name: OsTokenConfigV2
           file: ./abis/OsTokenConfigV2.json
@@ -161,13 +232,14 @@ dataSources:
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
+        - Network
+        - User
         - Vault
         - Allocator
-        - DaySnapshot
         - AllocatorAction
         - Transaction
-        - Network
-        - VaultsStat
+        - OsToken
+        - OsTokenConfig
       abis:
         - name: GenesisVault
           file: ./abis/GenesisVault.json
@@ -190,6 +262,9 @@ dataSources:
       file: ./mappings/v2pool.ts
       entities:
         - V2Pool
+        - V2PoolUser
+        - Network
+        - User
       abis:
         - name: V2RewardToken
           file: ./abis/V2RewardToken.json
@@ -216,6 +291,9 @@ dataSources:
       file: ./mappings/v2pool.ts
       entities:
         - V2Pool
+        - V2PoolUser
+        - Network
+        - User
       abis:
         - name: V2StakedToken
           file: ./abis/V2StakedToken.json
@@ -328,6 +406,7 @@ templates:
         - Vault
         - Network
         - Transaction
+        - OsTokenConfig
       abis:
         - name: VaultFactory
           file: ./abis/VaultFactory.json
@@ -364,12 +443,14 @@ templates:
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
+        - Network
+        - User
+        - OsToken
+        - OsTokenConfig
         - Vault
         - Allocator
-        - ExitRequest
-        - DaySnapshot
-        - OsToken
         - AllocatorAction
+        - ExitRequest
         - Transaction
       abis:
         - name: Vault
@@ -395,10 +476,6 @@ templates:
           handler: handleKeysManagerUpdated
         - event: ValidatorsManagerUpdated(indexed address,indexed address)
           handler: handleValidatorsManagerUpdated
-        - event: CheckpointCreated(uint256,uint256)
-          handler: handleCheckpointCreated
-        - event: ExitingAssetsPenalized(uint256)
-          handler: handleExitingAssetsPenalized
         - event: FeeSharesMinted(address,uint256,uint256)
           handler: handleFeeSharesMinted
         - event: OsTokenMinted(indexed address,address,uint256,uint256,address)
@@ -466,7 +543,13 @@ templates:
       language: wasm/assemblyscript
       file: ./mappings/erc20Vault.ts
       entities:
+        - Network
+        - User
+        - Vault
+        - OsToken
+        - OsTokenConfig
         - Allocator
+        - AllocatorAction
         - Transaction
       abis:
         - name: Erc20Vault
@@ -485,9 +568,13 @@ templates:
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
-        - Vault
         - Network
-        - VaultsStat
+        - User
+        - Vault
+        - OsToken
+        - OsTokenConfig
+        - Allocator
+        - AllocatorAction
         - Transaction
       abis:
         - name: FoxVault
@@ -506,8 +593,13 @@ templates:
       language: wasm/assemblyscript
       file: ./mappings/gnoVault.ts
       entities:
+        - Network
         - Vault
-        - Transaction
+        - OsToken
+        - OsTokenConfig
+        - VaultSnapshot
+        - Allocator
+        - AllocatorSnapshot
       abis:
         - name: GnoVault
           file: ./abis/GnoVault.json
@@ -539,24 +631,6 @@ templates:
         - event: RestakeWithdrawalsManagerUpdated(address)
           handler: handleRestakeWithdrawalsManagerUpdated
   - kind: ethereum/contract
-    name: OwnMevEscrow
-    network: {{ network }}
-    source:
-      abi: OwnMevEscrow
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.8
-      language: wasm/assemblyscript
-      file: ./mappings/mevEscrow.ts
-      entities:
-        - Vault
-      abis:
-        - name: OwnMevEscrow
-          file: ./abis/OwnMevEscrow.json
-      eventHandlers:
-        - event: Harvested(uint256)
-          handler: handleHarvested
-  - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}
     source:
@@ -578,3 +652,5 @@ templates:
           handler: handleSharesIncreased
         - event: SharesDecreased(indexed address,uint256)
           handler: handleSharesDecreased
+        - event: RewardsWithdrawn(indexed address,uint256)
+          handler: handleRewardsWithdrawn
