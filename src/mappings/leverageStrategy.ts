@@ -1,4 +1,4 @@
-import { BigInt, log } from '@graphprotocol/graph-ts'
+import { BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import {
   Deposited,
   StrategyProxyCreated,
@@ -10,8 +10,11 @@ import {
   createOrLoadLeverageStrategyPosition,
   snapshotLeverageStrategyPosition,
   updateLeverageStrategyPosition,
+  updateLeverageStrategyPositions,
 } from '../entities/leverageStrategy'
 import { convertOsTokenSharesToAssets, createOrLoadOsToken } from '../entities/osToken'
+import { createOrLoadNetwork } from '../entities/network'
+import { Vault } from '../../generated/schema'
 
 export function handleStrategyProxyCreated(event: StrategyProxyCreated): void {
   const vaultAddress = event.params.vault
@@ -164,4 +167,14 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   createTransaction(event.transaction.hash.toHex())
 
   log.info('[LeverageStrategy] ExitedAssetsClaimed vault={} user={}', [vaultAddress.toHex(), userAddress.toHex()])
+}
+
+export function handleLeverageStrategyPositions(block: ethereum.Block): void {
+  const network = createOrLoadNetwork()
+  let vault: Vault
+  for (let i = 0; i < network.vaultIds.length; i++) {
+    vault = Vault.load(network.vaultIds[i]) as Vault
+    updateLeverageStrategyPositions(vault, block.timestamp)
+  }
+  log.info('[LeverageStrategyPositions] Sync leverage strategy positions at block={}', [block.number.toString()])
 }

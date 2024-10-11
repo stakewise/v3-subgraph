@@ -10,14 +10,16 @@ import {
   AAVE_ORACLE,
   AAVE_POOL,
   ASSET_TOKEN,
+  GENESIS_VAULT,
   OS_TOKEN,
   OS_TOKEN_VAULT_ESCROW,
   STRATEGIES_REGISTRY,
   WAD,
 } from '../helpers/constants'
 import { createOrLoadAllocator } from './allocator'
-import { convertAssetsToOsTokenShares, createOrLoadOsToken } from './osToken'
+import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, createOrLoadOsToken } from './osToken'
 import { createOrLoadOsTokenConfig } from './osTokenConfig'
+import { createOrLoadV2Pool } from './v2pool'
 
 export function createOrLoadLeverageStrategyPosition(vault: Address, user: Address): LeverageStrategyPosition {
   const vaultAddressHex = vault.toHex()
@@ -112,6 +114,49 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
   } else {
     position.exitingOsTokenShares = BigInt.zero()
     position.exitingAssets = BigInt.zero()
+  }
+}
+
+export function updateLeverageStrategyPositions(vault: Vault, updateTimestamp: BigInt): void {
+  if (Address.fromString(vault.id).equals(GENESIS_VAULT)) {
+    const v2Pool = createOrLoadV2Pool()
+    if (!v2Pool.migrated) {
+      // wait for the migration
+      return
+    }
+  }
+  const osToken = createOrLoadOsToken()
+
+  let position: LeverageStrategyPosition
+  const leveragePositions: Array<LeverageStrategyPosition> = vault.leveragePositions.load()
+  for (let i = 0; i < leveragePositions.length; i++) {
+    position = leveragePositions[i]
+    const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
+    const assetsBefore = position.assets.plus(position.exitingAssets)
+
+    updateLeverageStrategyPosition(position)
+    position.save()
+
+    const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
+    const osTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, osTokenSharesAfter)
+    const assetsAfter = position.assets.plus(position.exitingAssets)
+
+    const assetsDiff = assetsAfter.minus(assetsBefore)
+    const osTokenSharesDiff = osTokenSharesAfter.minus(osTokenSharesBefore)
+
+    const earnedAssets = assetsAfter
+      .plus(osTokenAssetsAfter)
+      .minus(convertOsTokenSharesToAssets(osToken, osTokenSharesBefore))
+      .minus(assetsBefore)
+    const earnedBoostAssets = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
+
+    snapshotLeverageStrategyPosition(
+      position,
+      earnedAssets,
+      earnedBoostAssets,
+      osTokenAssetsAfter.plus(assetsAfter),
+      updateTimestamp,
+    )
   }
 }
 

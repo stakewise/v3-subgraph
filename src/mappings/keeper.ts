@@ -61,6 +61,7 @@ import { createOrLoadV2Pool, getPoolStateUpdate, updatePoolApy } from '../entiti
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 import { updateExitRequests } from '../entities/exitRequests'
 import { updateRewardSplitters } from '../entities/rewardSplitter'
+import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -383,6 +384,9 @@ export function updateRewards(
 
     // update reward splitters
     updateRewardSplitters(vault)
+
+    // update leverage strategy positions
+    updateLeverageStrategyPositions(vault, vault.rewardsTimestamp as BigInt)
   }
   network.save()
 }
