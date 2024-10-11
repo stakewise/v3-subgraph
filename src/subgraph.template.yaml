@@ -157,6 +157,8 @@ dataSources:
         - RewardSplitter
         - RewardSplitterShareHolder
         - RewardSplitterShareHolderSnapshot
+        - LeverageStrategyPosition
+        - LeverageStrategyPositionSnapshot
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
