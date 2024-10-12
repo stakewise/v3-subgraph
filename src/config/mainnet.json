@@ -37,7 +37,7 @@
   "aaveOracle": "0x54586bE62E3c3580375aE3723C145253060Ca0C2",
   "aaveProtocolDataProvider": {
     "address": "0x41393e5e337606dc3821075Af65AeE84D7688CBD",
-    "startBlock": "20827147"
+    "startBlock": "20921000"
   },
   "vestingEscrowFactory": {
     "address": "0x7B910cc3D4B42FEFF056218bD56d7700E4ea7dD5",
