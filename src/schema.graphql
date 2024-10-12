@@ -409,6 +409,9 @@ type Network @entity {
   "Always 0"
   id: ID!
 
+  "Defines whether the factories are initialized"
+  factoriesInitialized: Boolean!
+
   "The total assets locked in the network"
   totalAssets: BigInt!
 
