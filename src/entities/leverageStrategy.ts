@@ -34,6 +34,7 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
     leverageStrategyPosition.vault = vaultAddressHex
     leverageStrategyPosition.osTokenShares = BigInt.zero()
     leverageStrategyPosition.assets = BigInt.zero()
+    leverageStrategyPosition.totalEarnedBoostAssets = BigInt.zero()
     leverageStrategyPosition.exitingPercent = BigInt.zero()
     leverageStrategyPosition.exitingOsTokenShares = BigInt.zero()
     leverageStrategyPosition.exitingAssets = BigInt.zero()
@@ -46,16 +47,18 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
 export function snapshotLeverageStrategyPosition(
   position: LeverageStrategyPosition,
   earnedAssets: BigInt,
-  earnedBoostAssets: BigInt,
   totalAssets: BigInt,
+  earnedBoostAssets: BigInt,
+  totalEarnedBoostAssets: BigInt,
   timestamp: BigInt,
 ): void {
   const positionSnapshot = new LeverageStrategyPositionSnapshot(timestamp.toString())
   positionSnapshot.timestamp = timestamp.toI64()
   positionSnapshot.position = position.id
   positionSnapshot.earnedAssets = earnedAssets
-  positionSnapshot.earnedBoostAssets = earnedBoostAssets
   positionSnapshot.totalAssets = totalAssets
+  positionSnapshot.earnedBoostAssets = earnedBoostAssets
+  positionSnapshot.totalEarnedBoostAssets = totalEarnedBoostAssets
   positionSnapshot.save()
 }
 
@@ -135,7 +138,6 @@ export function updateLeverageStrategyPositions(vault: Vault, updateTimestamp: B
     const assetsBefore = position.assets.plus(position.exitingAssets)
 
     updateLeverageStrategyPosition(position)
-    position.save()
 
     const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
     const osTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, osTokenSharesAfter)
@@ -149,12 +151,15 @@ export function updateLeverageStrategyPositions(vault: Vault, updateTimestamp: B
       .minus(convertOsTokenSharesToAssets(osToken, osTokenSharesBefore))
       .minus(assetsBefore)
     const earnedBoostAssets = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
+    position.totalEarnedBoostAssets = position.totalEarnedBoostAssets.plus(earnedBoostAssets)
+    position.save()
 
     snapshotLeverageStrategyPosition(
       position,
       earnedAssets,
-      earnedBoostAssets,
       osTokenAssetsAfter.plus(assetsAfter),
+      earnedBoostAssets,
+      position.totalEarnedBoostAssets,
       updateTimestamp,
     )
   }

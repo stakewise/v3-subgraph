@@ -726,6 +726,7 @@ templates:
       entities:
         - RewardSplitter
         - RewardSplitterShareHolder
+        - RewardSplitterShareHolderSnapshot
         - Transaction
       abis:
         - name: RewardSplitter

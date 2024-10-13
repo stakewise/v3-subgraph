@@ -8,7 +8,7 @@ import {
 import { RewardSplitterCreated } from '../../generated/templates/RewardSplitterFactory/RewardSplitterFactory'
 import { RewardSplitter, Vault } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
-import { createOrLoadRewardSplitterShareHolder } from '../entities/rewardSplitter'
+import { createOrLoadRewardSplitterShareHolder, snapshotRewardSplitterShareHolder } from '../entities/rewardSplitter'
 import { convertSharesToAssets } from '../entities/vaults'
 
 // Event emitted on RewardSplitter contract creation
@@ -107,6 +107,7 @@ export function handleRewardsWithdrawn(event: RewardsWithdrawn): void {
   }
   shareHolder.earnedVaultAssets = convertSharesToAssets(vault, shareHolder.earnedVaultShares)
   shareHolder.save()
+  snapshotRewardSplitterShareHolder(shareHolder, BigInt.zero(), event.block.timestamp)
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
