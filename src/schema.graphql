@@ -664,6 +664,9 @@ type LeverageStrategyPosition @entity {
   "The total amount of user assets"
   assets: BigInt!
 
+  "The total amount of user earned boost assets"
+  totalEarnedBoostAssets: BigInt!
+
   "The percent (in wad) of user's position that is currently exiting"
   exitingPercent: BigInt!
 
@@ -842,6 +845,7 @@ type LeverageStrategyPositionSnapshot @entity(timeseries: true) {
   position: LeverageStrategyPosition!
   earnedAssets: BigInt!
   earnedBoostAssets: BigInt!
+  totalEarnedBoostAssets: BigInt!
   totalAssets: BigInt!
 }
 
@@ -854,5 +858,6 @@ type LeverageStrategyPositionStats @aggregation(intervals: ["day"], source: "Lev
   position: LeverageStrategyPosition!
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   earnedBoostAssets: BigInt! @aggregate(fn: "sum", arg: "earnedBoostAssets")
+  totalEarnedBoostAssets: BigInt! @aggregate(fn: "last", arg: "totalEarnedBoostAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
 }
