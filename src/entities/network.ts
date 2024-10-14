@@ -9,6 +9,7 @@ export function createOrLoadNetwork(): Network {
 
   if (network === null) {
     network = new Network(id)
+    network.factoriesInitialized = false
     network.vaultsCount = 0
     network.usersCount = 0
     network.totalAssets = BigInt.zero()
