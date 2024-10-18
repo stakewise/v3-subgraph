@@ -5,8 +5,8 @@ import { AAVE_PROTOCOL_DATA_PROVIDER, ASSET_TOKEN, OS_TOKEN, WAD } from '../help
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, createOrLoadOsToken } from '../entities/osToken'
 import { createOrLoadNetwork } from '../entities/network'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
-import { calculateMedian } from '../helpers/utils'
 import { getAaveLeverageLtv, getVaultLeverageLtv } from '../entities/leverageStrategy'
+import { calculateAverage } from '../helpers/utils'
 
 const rayToWad = '1000000000'
 const hoursInWeek = 168
@@ -101,7 +101,7 @@ export function handleVaultBoostApy(block: ethereum.Block): void {
       apys = apys.slice(apys.length - hoursInWeek)
     }
     vault.maxBoostApys = apys
-    vault.maxBoostApy = calculateMedian(apys)
+    vault.maxBoostApy = calculateAverage(apys)
     vault.save()
   }
   log.info('[Aave] Sync vault boost apys at block={}', [block.number.toString()])
