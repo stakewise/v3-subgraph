@@ -43,10 +43,18 @@ export function createOrLoadOsTokenHolder(osToken: OsToken, holderAddress: Addre
 }
 
 export function convertOsTokenSharesToAssets(osToken: OsToken, shares: BigInt): BigInt {
-  if (osToken.totalAssets.isZero()) {
+  if (osToken.totalSupply.isZero()) {
     return shares
   } else {
     return shares.times(osToken.totalAssets).div(osToken.totalSupply)
+  }
+}
+
+export function convertAssetsToOsTokenShares(osToken: OsToken, assets: BigInt): BigInt {
+  if (osToken.totalAssets.isZero()) {
+    return assets
+  } else {
+    return assets.times(osToken.totalSupply).div(osToken.totalAssets)
   }
 }
 

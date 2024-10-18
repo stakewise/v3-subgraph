@@ -1,4 +1,4 @@
-import { Address, log } from '@graphprotocol/graph-ts'
+import { BigInt, Address, log } from '@graphprotocol/graph-ts'
 import { Transfer } from '../../generated/templates/Erc20Vault/Erc20Vault'
 import { Vault } from '../../generated/schema'
 import {
@@ -8,6 +8,7 @@ import {
   getAllocatorLtv,
   getAllocatorLtvStatus,
   getAllocatorOsTokenMintApy,
+  snapshotAllocator,
 } from '../entities/allocator'
 import { createTransaction } from '../entities/transaction'
 import { convertSharesToAssets } from '../entities/vaults'
@@ -19,6 +20,7 @@ import { decreaseUserVaultsCount, increaseUserVaultsCount } from '../entities/ne
 export function handleTransfer(event: Transfer): void {
   const params = event.params
   const vaultAddress = event.address
+  const timestamp = event.block.timestamp
   const vault = Vault.load(vaultAddress.toHex()) as Vault
   const osToken = createOrLoadOsToken()
   const osTokenConfig = createOrLoadOsTokenConfig(vault.osTokenConfig)
@@ -45,6 +47,7 @@ export function handleTransfer(event: Transfer): void {
     decreaseUserVaultsCount(allocatorFrom.address)
   }
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferOut, from, assets, shares)
+  snapshotAllocator(allocatorFrom, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
   const allocatorTo = createOrLoadAllocator(to, vaultAddress)
   if (allocatorTo.shares.isZero() && !shares.isZero()) {
@@ -57,6 +60,7 @@ export function handleTransfer(event: Transfer): void {
   allocatorTo.osTokenMintApy = getAllocatorOsTokenMintApy(allocatorTo, osToken.apy, osToken, osTokenConfig)
   allocatorTo.save()
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferIn, to, assets, shares)
+  snapshotAllocator(allocatorTo, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
   createTransaction(event.transaction.hash.toHex())
 

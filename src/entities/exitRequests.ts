@@ -75,8 +75,8 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
     calls.push(updateStateCall)
   }
   const maxUint255 = BigInt.fromI32(2).pow(255).minus(BigInt.fromI32(1))
-  for (let i = 0; i < exitRequests.length; i++) {
-    exitRequest = exitRequests[i]
+  for (let i = 0; i < pendingExitRequests.length; i++) {
+    exitRequest = pendingExitRequests[i]
     const exitQueueIndex = exitRequest.exitQueueIndex !== null ? (exitRequest.exitQueueIndex as BigInt) : maxUint255
     calls.push(
       getCalculateExitedAssetsCall(
@@ -97,7 +97,7 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
   const one = BigInt.fromI32(1)
   const vaultUpdateTimestamp = vault.rewardsTimestamp as BigInt
   for (let i = 0; i < result.length; i++) {
-    exitRequest = exitRequests[i]
+    exitRequest = pendingExitRequests[i]
     let decodedResult = ethereum.decode('(uint256,uint256,uint256)', result[i])!.toTuple()
     const leftTickets = decodedResult[0].toBigInt()
     const exitedAssets = decodedResult[2].toBigInt()
@@ -147,7 +147,7 @@ export function snapshotExitRequest(exitRequest: ExitRequest, earnedAssets: BigI
   const exitRequestSnapshot = new ExitRequestSnapshot(rewardsTimestamp.toString())
   exitRequestSnapshot.timestamp = rewardsTimestamp.toI64()
   exitRequestSnapshot.exitRequest = exitRequest.id
-  exitRequestSnapshot.earnedAssets = earnedAssets
-  exitRequestSnapshot.totalAssets = exitRequest.totalAssets
+  exitRequestSnapshot.earnedAssets = exitRequest.isClaimed ? BigInt.zero() : earnedAssets
+  exitRequestSnapshot.totalAssets = exitRequest.isClaimed ? BigInt.zero() : exitRequest.totalAssets
   exitRequestSnapshot.save()
 }

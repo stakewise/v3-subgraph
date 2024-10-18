@@ -1,9 +1,10 @@
 {
   "network": "gnosis",
-  "pollingBlocksInterval": "700",
+  "blocksInHour": "700",
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
   "v2PoolFeePercent": "1500",
+  "maxVaultApy": "20",
   "vaultFactoryV1": "0x0000000000000000000000000000000000000000",
   "vaultFactoryV2": "0xC2ecc7620416bd65bfab7010B0db955a0e49579a",
   "privVaultFactoryV1": "0x0000000000000000000000000000000000000000",
@@ -24,14 +25,23 @@
   "rewardSplitterFactoryV2": "0x4c6306BA1821D88803e27A115433520F2d6276Fb",
   "foxVault1": "0x0000000000000000000000000000000000000000",
   "foxVault2": "0x0000000000000000000000000000000000000000",
+  "osTokenVaultEscrow": "0x0000000000000000000000000000000000000000",
   "multicall": "0xcA11bde05977b3631167028862bE2a173976CA11",
   "assetsUsdPriceFeed": "0x22441d81416430A54336aB28765abd31a792Ad37",
   "daiUsdPriceFeed": "0x678df3415fc31947dA4324eC63212874be5a82f8",
   "eurUsdPriceFeed": "0xab70BCB260073d036d1660201e9d5405F5829b7a",
   "gbpUsdPriceFeed": "0x0000000000000000000000000000000000000000",
+  "strategiesRegistry": "0x0000000000000000000000000000000000000000",
+  "assetToken": "0x0000000000000000000000000000000000000000",
+  "aavePool": "0x0000000000000000000000000000000000000000",
+  "aaveOracle": "0x0000000000000000000000000000000000000000",
+  "aaveProtocolDataProvider": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "startBlock": "34778552"
+  },
   "vestingEscrowFactory": {
     "address": "0x0000000000000000000000000000000000000000",
-    "startBlock": "10627588"
+    "startBlock": "34778552"
   },
   "keeper": {
     "address": "0xcAC0e3E35d3BA271cd2aaBE688ac9DB1898C26aa",
@@ -63,6 +73,10 @@
   },
   "depositDataRegistry": {
     "address": "0x58e16621B5c0786D6667D2d54E28A20940269E16",
+    "startBlock": "34778574"
+  },
+  "aaveLeverageStrategy": {
+    "address": "0x0000000000000000000000000000000000000000",
     "startBlock": "34778574"
   },
   "v2RewardToken": {
