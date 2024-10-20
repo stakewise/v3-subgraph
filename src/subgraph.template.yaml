@@ -77,6 +77,8 @@ dataSources:
           file: ./abis/AaveProtocolDataProvider.json
         - name: AavePool
           file: ./abis/AavePool.json
+        - name: AaveLeverageStrategy
+          file: ./abis/AaveLeverageStrategy.json
       blockHandlers:
         - handler: handleVaultBoostApy
           filter:
