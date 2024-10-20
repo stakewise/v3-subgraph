@@ -3,7 +3,7 @@ import { ExitRequest, LeverageStrategyPosition, LeverageStrategyPositionSnapshot
 import { AavePool } from '../../generated/AaveLeverageStrategy/AavePool'
 import { AaveOracle } from '../../generated/AaveLeverageStrategy/AaveOracle'
 import { StrategiesRegistry } from '../../generated/AaveLeverageStrategy/StrategiesRegistry'
-import { AaveLeverageStrategy } from '../../generated/AaveLeverageStrategy/AaveLeverageStrategy'
+import { AaveLeverageStrategy } from '../../generated/Aave/AaveLeverageStrategy'
 import { OsTokenVaultEscrow } from '../../generated/AaveLeverageStrategy/OsTokenVaultEscrow'
 import {
   AAVE_LEVERAGE_STRATEGY,
