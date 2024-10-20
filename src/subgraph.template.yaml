@@ -1,10 +1,14 @@
 specVersion: 1.2.0
 description: The liquid staking protocol
 repository: https://github.com/stakewise/v3-subgraph
+graft:
+  base: Qmdir7K3VLzRYfiai9PYjaEend2yEEe9YRAEBWYFcHDVoB
+  block: 20994640
 schema:
   file: ./schema.graphql
 features:
   - ipfsOnEthereumContracts
+  - grafting
 dataSources:
   - kind: ethereum/contract
     name: ExitRequests
