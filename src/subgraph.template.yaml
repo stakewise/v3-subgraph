@@ -3,7 +3,7 @@ description: The liquid staking protocol
 repository: https://github.com/stakewise/v3-subgraph
 graft:
   base: Qmdir7K3VLzRYfiai9PYjaEend2yEEe9YRAEBWYFcHDVoB
-  block: 20994640
+  block: 20920999
 schema:
   file: ./schema.graphql
 features:
