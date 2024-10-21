@@ -11,15 +11,20 @@ import {
 } from '@graphprotocol/graph-ts'
 import {
   BLOCKLIST_ERC20_VAULT_FACTORY_V2,
+  BLOCKLIST_ERC20_VAULT_FACTORY_V3,
   BLOCKLIST_VAULT_FACTORY_V2,
+  BLOCKLIST_VAULT_FACTORY_V3,
   ERC20_VAULT_FACTORY_V1,
   ERC20_VAULT_FACTORY_V2,
+  ERC20_VAULT_FACTORY_V3,
   FOX_VAULT1,
   FOX_VAULT2,
   PRIV_ERC20_VAULT_FACTORY_V1,
   PRIV_ERC20_VAULT_FACTORY_V2,
+  PRIV_ERC20_VAULT_FACTORY_V3,
   PRIV_VAULT_FACTORY_V1,
   PRIV_VAULT_FACTORY_V2,
+  PRIV_VAULT_FACTORY_V3,
   RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2,
   RESTAKE_BLOCKLIST_VAULT_FACTORY_V2,
   RESTAKE_ERC20_VAULT_FACTORY_V2,
@@ -30,6 +35,7 @@ import {
   REWARD_SPLITTER_FACTORY_V2,
   VAULT_FACTORY_V1,
   VAULT_FACTORY_V2,
+  VAULT_FACTORY_V3,
   WAD,
 } from '../helpers/constants'
 import {
@@ -78,14 +84,20 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
 
   const vaultFactoryV1 = Address.fromString(VAULT_FACTORY_V1)
   const vaultFactoryV2 = Address.fromString(VAULT_FACTORY_V2)
+  const vaultFactoryV3 = Address.fromString(VAULT_FACTORY_V3)
   const privVaultFactoryV1 = Address.fromString(PRIV_VAULT_FACTORY_V1)
   const privVaultFactoryV2 = Address.fromString(PRIV_VAULT_FACTORY_V2)
+  const privVaultFactoryV3 = Address.fromString(PRIV_VAULT_FACTORY_V3)
   const blocklistVaultFactoryV2 = Address.fromString(BLOCKLIST_VAULT_FACTORY_V2)
+  const blocklistVaultFactoryV3 = Address.fromString(BLOCKLIST_VAULT_FACTORY_V3)
   const erc20VaultFactoryV1 = Address.fromString(ERC20_VAULT_FACTORY_V1)
   const erc20VaultFactoryV2 = Address.fromString(ERC20_VAULT_FACTORY_V2)
+  const erc20VaultFactoryV3 = Address.fromString(ERC20_VAULT_FACTORY_V3)
   const privErc20VaultFactoryV1 = Address.fromString(PRIV_ERC20_VAULT_FACTORY_V1)
   const privErc20VaultFactoryV2 = Address.fromString(PRIV_ERC20_VAULT_FACTORY_V2)
+  const privErc20VaultFactoryV3 = Address.fromString(PRIV_ERC20_VAULT_FACTORY_V3)
   const blocklistErc20VaultFactoryV2 = Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V2)
+  const blocklistErc20VaultFactoryV3 = Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V3)
   const restakeVaultFactoryV2 = Address.fromString(RESTAKE_VAULT_FACTORY_V2)
   const restakePrivVaultFactoryV2 = Address.fromString(RESTAKE_PRIV_VAULT_FACTORY_V2)
   const restakeBlocklistVaultFactoryV2 = Address.fromString(RESTAKE_BLOCKLIST_VAULT_FACTORY_V2)
@@ -114,6 +126,10 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
     VaultFactoryTemplate.createWithContext(vaultFactoryV2, context)
     log.info('[Keeper] Initialize VaultFactory V2 at block={}', [blockNumber])
   }
+  if (vaultFactoryV3.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(vaultFactoryV3, context)
+    log.info('[Keeper] Initialize VaultFactory V3 at block={}', [blockNumber])
+  }
 
   context.setBoolean(IS_PRIVATE_KEY, true)
   if (privVaultFactoryV1.notEqual(zeroAddress)) {
@@ -124,12 +140,20 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
     VaultFactoryTemplate.createWithContext(privVaultFactoryV2, context)
     log.info('[Keeper] Initialize PrivateVaultFactory V2 at block={}', [blockNumber])
   }
+  if (privVaultFactoryV3.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(privVaultFactoryV3, context)
+    log.info('[Keeper] Initialize PrivateVaultFactory V3 at block={}', [blockNumber])
+  }
 
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, true)
   if (blocklistVaultFactoryV2.notEqual(zeroAddress)) {
     VaultFactoryTemplate.createWithContext(blocklistVaultFactoryV2, context)
     log.info('[Keeper] Initialize BlocklistVaultFactory V2 at block={}', [blockNumber])
+  }
+  if (blocklistVaultFactoryV3.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(blocklistVaultFactoryV3, context)
+    log.info('[Keeper] Initialize BlocklistVaultFactory V3 at block={}', [blockNumber])
   }
 
   // create erc20 vault factories
@@ -144,6 +168,10 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
     VaultFactoryTemplate.createWithContext(erc20VaultFactoryV2, context)
     log.info('[Keeper] Initialize ERC20VaultFactory V2 at block={}', [blockNumber])
   }
+  if (erc20VaultFactoryV3.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(erc20VaultFactoryV3, context)
+    log.info('[Keeper] Initialize ERC20VaultFactory V3 at block={}', [blockNumber])
+  }
 
   context.setBoolean(IS_PRIVATE_KEY, true)
   if (privErc20VaultFactoryV1.notEqual(zeroAddress)) {
@@ -154,12 +182,20 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
     VaultFactoryTemplate.createWithContext(privErc20VaultFactoryV2, context)
     log.info('[Keeper] Initialize PrivateERC20VaultFactory V2 at block={}', [blockNumber])
   }
+  if (privErc20VaultFactoryV3.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(privErc20VaultFactoryV3, context)
+    log.info('[Keeper] Initialize PrivateERC20VaultFactory V3 at block={}', [blockNumber])
+  }
 
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, true)
   if (blocklistErc20VaultFactoryV2.notEqual(zeroAddress)) {
     VaultFactoryTemplate.createWithContext(blocklistErc20VaultFactoryV2, context)
     log.info('[Keeper] Initialize BlocklistERC20VaultFactory V2 at block={}', [blockNumber])
+  }
+  if (blocklistErc20VaultFactoryV3.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(blocklistErc20VaultFactoryV3, context)
+    log.info('[Keeper] Initialize BlocklistERC20VaultFactory V3 at block={}', [blockNumber])
   }
 
   // create restake vault factories
