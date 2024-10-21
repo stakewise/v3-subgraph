@@ -79,6 +79,8 @@ dataSources:
           file: ./abis/AavePool.json
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
+        - name: StrategiesRegistry
+          file: ./abis/StrategiesRegistry.json
       blockHandlers:
         - handler: handleVaultBoostApy
           filter:
