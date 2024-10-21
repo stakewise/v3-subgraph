@@ -8,7 +8,7 @@ import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 import { getAaveLeverageLtv, getVaultLeverageLtv } from '../entities/leverageStrategy'
 import { calculateAverage } from '../helpers/utils'
 
-const rayToWad = '1000000000'
+const wadToRay = '1000000000'
 const hoursInWeek = 168
 
 export function handleVaultBoostApy(block: ethereum.Block): void {
@@ -18,17 +18,17 @@ export function handleVaultBoostApy(block: ethereum.Block): void {
   const network = createOrLoadNetwork()
   const osToken = createOrLoadOsToken()
   const wad = BigInt.fromString(WAD)
-  const rayToWadBigInt = BigInt.fromString(rayToWad)
+  const wadToRayBigInt = BigInt.fromString(wadToRay)
   const initialDepositAssets = wad
   const aaveDataProviderContract = AaveProtocolDataProviderContract.bind(AAVE_PROTOCOL_DATA_PROVIDER)
 
   // fetch osToken supply rate
   let response = aaveDataProviderContract.getReserveData(OS_TOKEN)
-  const osTokenSupplyRate = response.getLiquidityRate().div(rayToWadBigInt)
+  const osTokenSupplyRate = response.getLiquidityRate().div(wadToRayBigInt)
 
   // fetch asset token (e.g. WETH, GNO) borrow rate
   response = aaveDataProviderContract.getReserveData(Address.fromString(ASSET_TOKEN))
-  const variableBorrowRate = response.getVariableBorrowRate().div(rayToWadBigInt)
+  const variableBorrowRate = response.getVariableBorrowRate().div(wadToRayBigInt)
 
   // fetch osToken LTV
   const aaveLeverageLtv = getAaveLeverageLtv()

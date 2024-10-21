@@ -168,7 +168,7 @@ export function updateLeverageStrategyPositions(vault: Vault, updateTimestamp: B
 export function getAaveLeverageLtv(): BigInt {
   const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
   const strategiesRegistry = StrategiesRegistry.bind(Address.fromString(STRATEGIES_REGISTRY))
-  const aavePool = AavePool.bind(Address.fromString(AAVE_POOL))
+  const aavePoolContract = AavePool.bind(Address.fromString(AAVE_POOL))
   const wad = BigInt.fromString(WAD)
 
   let aaveLeverageLtv = BigInt.fromI32(0)
@@ -176,7 +176,7 @@ export function getAaveLeverageLtv(): BigInt {
     const response = strategiesRegistry.getStrategyConfig(aaveLeverageStrategy.strategyId(), 'maxBorrowLtvPercent')
     aaveLeverageLtv = ethereum.decode('uint256', response)!.toBigInt()
   }
-  const aaveLtv = BigInt.fromI32(aavePool.getEModeCategoryCollateralConfig(1).ltv)
+  const aaveLtv = BigInt.fromI32(aavePoolContract.getEModeCategoryCollateralConfig(1).ltv)
   if (aaveLeverageLtv.isZero() || aaveLtv.lt(aaveLeverageLtv)) {
     aaveLeverageLtv = aaveLtv.times(wad).div(BigInt.fromI32(10000))
   }
