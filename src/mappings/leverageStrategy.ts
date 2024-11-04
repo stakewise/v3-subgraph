@@ -82,6 +82,7 @@ export function handleDeposited(event: Deposited): void {
 
 export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const vaultAddress = event.params.vault
+  const vaultAddressHex = vaultAddress.toHex()
   const userAddress = event.params.user
   const positionTicket = event.params.positionTicket
   const exitingPercent = event.params.positionPercent
@@ -91,7 +92,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
 
   const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
   const assetsBefore = position.assets.plus(position.exitingAssets)
-  position.exitRequest = `${vaultAddress}-${positionTicket}`
+  position.exitRequest = `${vaultAddressHex}-${positionTicket}`
   position.exitingPercent = exitingPercent
 
   updateLeverageStrategyPosition(position)
@@ -123,7 +124,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   createTransaction(event.transaction.hash.toHex())
 
   log.info('[LeverageStrategy] ExitQueueEntered vault={} user={} positionTicket={}', [
-    vaultAddress.toHex(),
+    vaultAddressHex,
     userAddress.toHex(),
     positionTicket.toString(),
   ])

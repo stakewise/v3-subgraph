@@ -340,18 +340,24 @@ export function updateRewards(
     }
 
     // fetch new principal, total assets and rate
-    let newRate: BigInt, newTotalAssets: BigInt, newTotalShares: BigInt, newExitingAssets: BigInt
+    let newRate: BigInt,
+      newTotalAssets: BigInt,
+      newTotalShares: BigInt,
+      newQueuedShares: BigInt,
+      newExitingAssets: BigInt
     if (vault.isGenesis && !v2Pool.migrated) {
       newRate = BigInt.fromString(WAD)
       newTotalAssets = BigInt.zero()
       newTotalShares = BigInt.zero()
+      newQueuedShares = BigInt.zero()
       newExitingAssets = BigInt.zero()
     } else {
       const stateUpdate = getVaultStateUpdate(vault, rewardsRoot, proofReward, proofUnlockedMevReward, proof)
       newRate = stateUpdate[0]
       newTotalAssets = stateUpdate[1]
       newTotalShares = stateUpdate[2]
-      newExitingAssets = stateUpdate[3]
+      newQueuedShares = stateUpdate[3]
+      newExitingAssets = stateUpdate[4]
       updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, newRate.minus(vault.rate))
     }
 
@@ -373,6 +379,7 @@ export function updateRewards(
 
     vault.totalAssets = newTotalAssets
     vault.totalShares = newTotalShares
+    vault.queuedShares = newQueuedShares
     vault.exitingAssets = newExitingAssets
     vault.rate = newRate
     vault.rewardsRoot = rewardsRoot

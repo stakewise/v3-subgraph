@@ -23,6 +23,7 @@ const totalAssetsSelector = '0x01e1d114'
 const totalSharesSelector = '0x3a98ef39'
 const convertToAssetsSelector = '0x07a2d13a'
 const exitingAssetsSelector = '0xee3bd5df'
+const queuedSharesSelector = '0xd83ad00c'
 
 export function createVault(
   event: VaultCreated,
@@ -64,6 +65,7 @@ export function createVault(
   vault.unlockedExecutionReward = BigInt.zero()
   vault.slashedMevReward = BigInt.zero()
   vault.totalShares = BigInt.zero()
+  vault.queuedShares = BigInt.zero()
   vault.score = BigDecimal.zero()
   vault.totalAssets = BigInt.zero()
   vault.rate = BigInt.fromString(WAD)
@@ -196,12 +198,14 @@ export function getVaultStateUpdate(
   const totalAssetsCall = Bytes.fromHexString(totalAssetsSelector)
   const totalSharesCall = Bytes.fromHexString(totalSharesSelector)
   const exitingAssetsCall = Bytes.fromHexString(exitingAssetsSelector)
+  const queuedSharesCall = Bytes.fromHexString(queuedSharesSelector)
 
   const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
   let calls: Array<ethereum.Value> = [getAggregateCall(vaultAddr, updateStateCall)]
   calls.push(getAggregateCall(vaultAddr, convertToAssetsCall))
   calls.push(getAggregateCall(vaultAddr, totalAssetsCall))
   calls.push(getAggregateCall(vaultAddr, totalSharesCall))
+  calls.push(getAggregateCall(vaultAddr, queuedSharesCall))
   if (isV2Vault) {
     calls.push(getAggregateCall(vaultAddr, exitingAssetsCall))
   }
@@ -223,10 +227,11 @@ export function getVaultStateUpdate(
   const newRate = ethereum.decode('uint256', resultValue[0].returnData)!.toBigInt()
   const totalAssets = ethereum.decode('uint256', resultValue[1].returnData)!.toBigInt()
   const totalShares = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
+  const queuedShares = ethereum.decode('uint128', resultValue[3].returnData)!.toBigInt()
   const exitingAssets = isV2Vault
-    ? ethereum.decode('uint128', resultValue[3].returnData)!.toBigInt()
+    ? ethereum.decode('uint128', resultValue[4].returnData)!.toBigInt()
     : vault.exitingAssets
-  return [newRate, totalAssets, totalShares, exitingAssets]
+  return [newRate, totalAssets, totalShares, queuedShares, exitingAssets]
 }
 
 export function getUpdateStateCall(

@@ -39,7 +39,7 @@ import { convertSharesToAssets, snapshotVault } from '../entities/vaults'
 import { convertOsTokenSharesToAssets, createOrLoadOsToken, snapshotOsToken } from '../entities/osToken'
 import { DEPOSIT_DATA_REGISTRY, WAD } from '../helpers/constants'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
-import { snapshotExitRequest } from '../entities/exitRequests' // Event emitted on assets transfer from allocator to vault
+import { snapshotExitRequest, updateExitRequests } from '../entities/exitRequests'
 
 // Event emitted on assets transfer from allocator to vault
 export function handleDeposited(event: Deposited): void {
@@ -199,6 +199,11 @@ export function handleInitialized(event: Initialized): void {
 
   vault.save()
 
+  if (newVersion.equals(BigInt.fromI32(3))) {
+    // update exit requests
+    updateExitRequests(vault, event.block)
+  }
+
   createTransaction(event.transaction.hash.toHex())
 
   log.info('[Vault] Initialized vault={} version={}', [vaultAddress, newVersion.toString()])
@@ -318,6 +323,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   createTransaction(event.transaction.hash.toHex())
 
   vault.latestExitTicket = positionTicket.plus(shares)
+  vault.queuedShares = vault.queuedShares.plus(shares)
   vault.save()
 
   // Create exit request
@@ -327,6 +333,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   exitRequest.vault = vaultAddress
   exitRequest.owner = owner
   exitRequest.receiver = receiver
+  exitRequest.totalTickets = shares
   exitRequest.totalAssets = assets
   exitRequest.exitedAssets = BigInt.zero()
   exitRequest.positionTicket = positionTicket
@@ -401,6 +408,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   exitRequest.vault = vaultAddress
   exitRequest.owner = owner
   exitRequest.receiver = receiver
+  exitRequest.totalTickets = exitingTickets
   exitRequest.totalAssets = assets
   exitRequest.exitedAssets = BigInt.zero()
   exitRequest.positionTicket = positionTicket
@@ -430,7 +438,6 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const prevPositionTicket = params.prevPositionTicket
   const newPositionTicket = params.newPositionTicket
   const claimedAssets = params.withdrawnAssets
-  const claimedTickets = prevPositionTicket.minus(newPositionTicket)
   const vaultAddress = event.address.toHex()
   const timestamp = event.block.timestamp
 
@@ -441,7 +448,14 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const prevExitRequestId = `${vaultAddress}-${prevPositionTicket}`
   const prevExitRequest = ExitRequest.load(prevExitRequestId) as ExitRequest
 
+  let claimedTickets: BigInt
   const isExitQueueRequestResolved = newPositionTicket.equals(BigInt.zero())
+  if (isExitQueueRequestResolved) {
+    claimedTickets = prevExitRequest.totalTickets
+  } else {
+    claimedTickets = newPositionTicket.minus(prevPositionTicket)
+  }
+
   if (prevExitRequest.isV2Position) {
     // Update vault shares and assets
     const vault = Vault.load(vaultAddress) as Vault
@@ -459,6 +473,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     nextExitRequest.receiver = receiver
     nextExitRequest.positionTicket = newPositionTicket
     nextExitRequest.isV2Position = prevExitRequest.isV2Position
+    nextExitRequest.totalTickets = prevExitRequest.totalTickets.minus(claimedTickets)
     nextExitRequest.totalAssets = prevExitRequest.totalAssets.minus(claimedAssets)
     nextExitRequest.exitedAssets = BigInt.zero()
     nextExitRequest.exitQueueIndex = null
@@ -694,6 +709,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.canHarvest = false
   vault.slashedMevReward = BigInt.zero()
   vault.totalShares = BigInt.zero()
+  vault.queuedShares = BigInt.zero()
   vault.score = BigDecimal.zero()
   vault.rate = BigInt.fromString(WAD)
   vault.totalAssets = BigInt.zero()
@@ -763,6 +779,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.canHarvest = false
   vault.slashedMevReward = BigInt.zero()
   vault.totalShares = BigInt.zero()
+  vault.queuedShares = BigInt.zero()
   vault.score = BigDecimal.zero()
   vault.rate = BigInt.fromString(WAD)
   vault.totalAssets = BigInt.zero()

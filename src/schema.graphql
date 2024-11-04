@@ -113,6 +113,9 @@ type ExitRequest @entity {
   "The address that will receive exited assets"
   receiver: Bytes!
 
+  "The total number of tickets in the exit queue"
+  totalTickets: BigInt!
+
   "The total number of assets queued for exit"
   totalAssets: BigInt!
 
@@ -246,6 +249,9 @@ type Vault @entity {
 
   "The total number of shares"
   totalShares: BigInt!
+
+  "The total number of queued shares"
+  queuedShares: BigInt!
 
   "The vault score. Managed by the backend service."
   score: BigDecimal!
