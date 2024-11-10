@@ -85,7 +85,7 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
 
   if (position.exitRequest !== null) {
     const exitRequest = ExitRequest.load(position.exitRequest as string) as ExitRequest
-    const osTokenVaultEscrow = OsTokenVaultEscrow.bind(Address.fromString(OS_TOKEN_VAULT_ESCROW))
+    const osTokenVaultEscrow = OsTokenVaultEscrow.bind(OS_TOKEN_VAULT_ESCROW)
     const response = osTokenVaultEscrow.getPosition(vaultAddress, exitRequest.positionTicket)
     stakedAssets = stakedAssets.plus(exitRequest.totalAssets)
     mintedOsTokenShares = mintedOsTokenShares.plus(response.getValue2())

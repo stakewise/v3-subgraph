@@ -394,6 +394,34 @@ dataSources:
         - event: VestingEscrowCreated(indexed address,indexed address,indexed address,address,address,uint256,uint256,uint256,uint256)
           handler: handleVestingEscrowCreated
   - kind: ethereum/contract
+    name: OsTokenVaultEscrow
+    network: {{ network }}
+    source:
+      address: '{{ osTokenVaultEscrow.address }}'
+      abi: OsTokenVaultEscrow
+      startBlock: {{ osTokenVaultEscrow.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/osTokenVaultEscrow.ts
+      entities:
+        - Vault
+        - OsToken
+        - OsTokenConfig
+        - Allocator
+        - OsTokenSnapshot
+        - Transaction
+        - AllocatorAction
+      abis:
+        - name: OsTokenVaultEscrow
+          file: ./abis/OsTokenVaultEscrow.json
+      eventHandlers:
+        - event: PositionCreated(indexed address,indexed uint256,address,uint256,uint256)
+          handler: handlePositionCreated
+        - event: ExitedAssetsClaimed(indexed address,indexed address,indexed uint256,uint256,uint256)
+          handler: handleExitedAssetsClaimed
+  - kind: ethereum/contract
     name: AaveLeverageStrategy
     network: {{ network }}
     source:
@@ -485,6 +513,53 @@ dataSources:
       eventHandlers:
         - event: PodSharesUpdated(indexed address,int256)
           handler: handlePodSharesUpdated
+  - kind: ethereum/contract
+    name: UniswapFactory
+    network: {{ network }}
+    source:
+      address: '{{ uniswapFactory.address }}'
+      abi: UniswapFactory
+      startBlock: {{ uniswapFactory.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/uniswap.ts
+      entities:
+        - UniswapPool
+      abis:
+        - name: UniswapFactory
+          file: ./abis/UniswapFactory.json
+      eventHandlers:
+        - event: PoolCreated(indexed address,indexed address,indexed uint24,int24,address)
+          handler: handlePoolCreated
+  - kind: ethereum/contract
+    name: UniswapPositionManager
+    network: {{ network }}
+    source:
+      address: '{{ uniswapPositionManager.address }}'
+      abi: UniswapPositionManager
+      startBlock: {{ uniswapPositionManager.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/uniswap.ts
+      entities:
+        - UniswapPool
+        - UniswapPosition
+      abis:
+        - name: UniswapPositionManager
+          file: ./abis/UniswapPositionManager.json
+        - name: UniswapFactory
+          file: ./abis/UniswapFactory.json
+      eventHandlers:
+        - event: IncreaseLiquidity(indexed uint256,uint128,uint256,uint256)
+          handler: handleIncreaseLiquidity
+        - event: DecreaseLiquidity(indexed uint256,uint128,uint256,uint256)
+          handler: handleDecreaseLiquidity
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleTransfer
 templates:
   - kind: ethereum/contract
     name: VaultFactory
@@ -754,3 +829,27 @@ templates:
           handler: handleSharesDecreased
         - event: RewardsWithdrawn(indexed address,uint256)
           handler: handleRewardsWithdrawn
+  - kind: ethereum/contract
+    name: UniswapPool
+    network: {{ network }}
+    source:
+      abi: UniswapPool
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/uniswap.ts
+      entities:
+        - UniswapPool
+      abis:
+        - name: UniswapPool
+          file: ./abis/UniswapPool.json
+      eventHandlers:
+        - event: Initialize(uint160,int24)
+          handler: handleInitialize
+        - event: Swap(indexed address,indexed address,int256,int256,uint160,uint128,int24)
+          handler: handleSwap
+        - event: Mint(address,indexed address,indexed int24,indexed int24,uint128,uint256,uint256)
+          handler: handleMint
+        - event: Burn(indexed address,indexed int24,indexed int24,uint128,uint256,uint256)
+          handler: handleBurn

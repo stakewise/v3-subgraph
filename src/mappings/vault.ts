@@ -187,7 +187,7 @@ export function handleInitialized(event: Initialized): void {
 
   const isSecondOrHigher = newVersion.ge(BigInt.fromI32(2))
 
-  if (isSecondOrHigher) {
+  if (isSecondOrHigher && vault.osTokenConfig == null) {
     const newOsTokenConfigVersion = '2'
 
     createOrLoadOsTokenConfig(newOsTokenConfigVersion)

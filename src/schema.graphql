@@ -430,8 +430,14 @@ type Network @entity {
   "The USD rate of the assets (e.g. ETH, GNO)"
   assetsUsdRate: BigDecimal!
 
-  "The USD to DAI rate"
-  usdToDaiRate: BigDecimal!
+  "The USD rate of the SWISE"
+  swiseUsdRate: BigDecimal!
+
+  "The USD rate of DAI"
+  daiUsdRate: BigDecimal!
+
+  "The USD rate of USDC"
+  usdcUsdRate: BigDecimal!
 
   "The USD to EUR rate"
   usdToEurRate: BigDecimal!
@@ -831,7 +837,9 @@ type ExchangeRateSnapshot @entity(timeseries: true) {
   id: Int8!
   timestamp: Timestamp!
   assetsUsdRate: BigDecimal!
-  usdToDaiRate: BigDecimal!
+  swiseUsdRate: BigDecimal!
+  daiUsdRate: BigDecimal!
+  usdcUsdRate: BigDecimal!
   usdToEurRate: BigDecimal!
   usdToGbpRate: BigDecimal!
 }
@@ -843,7 +851,9 @@ type ExchangeRateStats @aggregation(intervals: ["day"], source: "ExchangeRateSna
   id: Int8!
   timestamp: Timestamp!
   assetsUsdRate: BigDecimal! @aggregate(fn: "last", arg: "assetsUsdRate")
-  usdToDaiRate: BigDecimal! @aggregate(fn: "last", arg: "usdToDaiRate")
+  swiseUsdRate: BigDecimal! @aggregate(fn: "last", arg: "swiseUsdRate")
+  daiUsdRate: BigDecimal! @aggregate(fn: "last", arg: "daiUsdRate")
+  usdcUsdRate: BigDecimal! @aggregate(fn: "last", arg: "usdcUsdRate")
   usdToEurRate: BigDecimal! @aggregate(fn: "last", arg: "usdToEurRate")
   usdToGbpRate: BigDecimal! @aggregate(fn: "last", arg: "usdToGbpRate")
 }
@@ -872,4 +882,115 @@ type LeverageStrategyPositionStats @aggregation(intervals: ["day"], source: "Lev
   earnedBoostAssets: BigInt! @aggregate(fn: "sum", arg: "earnedBoostAssets")
   totalEarnedBoostAssets: BigInt! @aggregate(fn: "last", arg: "totalEarnedBoostAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+}
+
+"Uniswap V3 pool data"
+type UniswapPool @entity {
+  "The address of the pool"
+  id: ID!
+
+  "The address of token0"
+  token0: Bytes!
+
+  "The address of token1"
+  token1: Bytes!
+
+  "Fee tier"
+  feeTier: BigInt!
+
+  "The in range liquidity"
+  liquidity: BigInt!
+
+  "The current price tracked"
+  sqrtPrice: BigInt!
+
+  "The tracker of the accumulated token0 fees"
+  feesToken0: BigInt!
+
+  "The tracker of the accumulated token1 fees"
+  feesToken1: BigInt!
+
+  "The current tick"
+  tick: Int
+
+  "All time token0 swapped"
+  volumeToken0: BigInt!
+
+  "All time token1 swapped"
+  volumeToken1: BigInt!
+
+  "The pool positions"
+  positions: [UniswapPosition!]! @derivedFrom(field: "pool")
+}
+
+"Positions created through UniswapPositionManager"
+type UniswapPosition @entity {
+  "NFT Token ID"
+  id: ID!
+
+  "The address of the position owner"
+  owner: Bytes!
+
+  "The address of the pool"
+  pool: UniswapPool!
+
+  "The amount of token0"
+  amount0: BigInt!
+
+  "The amount of token1"
+  amount1: BigInt!
+
+  "Lower tick of the position"
+  tickLower: Int!
+
+  "Upper tick of the position"
+  tickUpper: Int!
+
+  "Total liquidity of the position"
+  liquidity: BigInt!
+}
+
+"Stores current active distributions"
+type Distributor @entity {
+  "Set to 1"
+  id: ID!
+
+  "The list of active distributions IDs"
+  activeDistributionIds: [String!]!
+}
+
+"The distribution of additional incentives"
+type Distribution @entity {
+  "Set to `transaction hash-log index`"
+  id: ID!
+
+  "The target of the distribution for calculation rewards"
+  target: String!
+
+  "The address of the token that is distributed"
+  token: Bytes!
+
+  "The amount of tokens that is distributed"
+  amount: BigInt!
+
+  "The timestamp when the distribution starts"
+  startTimestamp: BigInt!
+
+  "The timestamp when the distribution ends"
+  endTimestamp: BigInt!
+}
+
+"The distributor reward"
+type DistributorReward @entity {
+  "Set to `token address-user address`"
+  id: ID!
+
+  "The address of the user"
+  user: Bytes!
+
+  "The address of the token"
+  token: Bytes!
+
+  "The cumulative reward accumulated by user"
+  amount: BigInt!
 }

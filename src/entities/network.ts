@@ -18,7 +18,9 @@ export function createOrLoadNetwork(): Network {
     network.osTokenVaultIds = []
     network.oraclesConfigIpfsHash = ''
     network.assetsUsdRate = BigDecimal.zero()
-    network.usdToDaiRate = BigDecimal.zero()
+    network.swiseUsdRate = BigDecimal.zero()
+    network.daiUsdRate = BigDecimal.zero()
+    network.usdcUsdRate = BigDecimal.zero()
     network.usdToEurRate = BigDecimal.zero()
     network.usdToGbpRate = BigDecimal.zero()
     network.save()
