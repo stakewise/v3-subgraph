@@ -746,6 +746,29 @@ type OsTokenHolderStats @aggregation(intervals: ["day"], source: "OsTokenHolderS
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
 }
 
+type OsTokenExitRequest @entity {
+  "<Vault ID>-<Exit queue id>"
+  id: ID!
+
+  "The address that can claim the exit"
+  owner: Bytes!
+
+  "The vault where assets are exiting"
+  vault: Vault!
+
+  "The exit request"
+  exitRequest: ExitRequest!
+
+  "The processed assets from the exit request. Will be null if the exit request is not processed."
+  exitedAssets: BigInt
+
+  "The total amount of osToken shares exiting"
+  osTokenShares: BigInt!
+
+  "The position's LTV percent"
+  ltv: BigDecimal!
+}
+
 """
 The snapshot of the Vault state
 """

@@ -426,6 +426,36 @@ dataSources:
             kind: polling
             every: {{ blocksInHour }}
   - kind: ethereum/contract
+    name: OsTokenExitRequest
+    network: {{ network }}
+    source:
+      address: '{{ osTokenVaultEscrow.address }}'
+      abi: OsTokenVaultEscrow
+      startBlock: {{ osTokenVaultEscrow.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/leverageStrategy.ts
+      entities:
+        - OsToken
+        - OsTokenExitRequest
+        - ExitRequest
+      abis:
+        - name: OsTokenVaultEscrow
+          file: ./abis/OsTokenVaultEscrow.json
+      eventHandlers:
+        - event: PositionCreated(indexed address,indexed uint256,address,uint256,uint256)
+          handler: handlePositionCreated
+        - event: ExitedAssetsProcessed(indexed address,indexed address,indexed uint256,uint256)
+          handler: handleExitedAssetsProcessed
+        - event: ExitedAssetsClaimed(indexed address,indexed address,indexed uint256,uint256,uint256)
+          handler: handleOsTokenExitedAssetsClaimed
+        - event: OsTokenLiquidated(indexed address,indexed address,indexed uint256,address,uint256,uint256)
+          handler: handleOsTokenLiquidated
+        - event: OsTokenRedeemed(indexed address,indexed address,indexed uint256,address,uint256,uint256)
+          handler: handleOsTokenRedeemed
+  - kind: ethereum/contract
     name: EigenDelegationManager
     network: {{ network }}
     source:
