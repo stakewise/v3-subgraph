@@ -424,6 +424,9 @@ type Network @entity {
   "The non repeated addresses of all the vaults"
   vaultIds: [String!]!
 
+  "The non repeated addresses of all the vaults used for osToken rate calculation"
+  osTokenVaultIds: [String!]!
+
   "The total number of non repeated vault allocators and osToken holders"
   usersCount: Int!
 }

@@ -147,6 +147,8 @@ dataSources:
           handler: handleHarvested
         - event: ValidatorsApproval(indexed address,string)
           handler: handleValidatorsApproval
+        - event: ConfigUpdated(string)
+          handler: handleConfigUpdated
       blockHandlers:
         - handler: initialize
           filter:
