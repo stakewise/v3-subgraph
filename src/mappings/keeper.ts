@@ -477,6 +477,7 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
   }
 
   network.osTokenVaultIds = osTokenVaultIds
+  network.oraclesConfigIpfsHash = configIpfsHash
   network.save()
   log.info('[Keeper] ConfigUpdated configIpfsHash={}', [configIpfsHash])
 }
