@@ -5,13 +5,6 @@ import {
   ExitQueueEntered,
   ExitedAssetsClaimed,
 } from '../../generated/AaveLeverageStrategy/AaveLeverageStrategy'
-import {
-  PositionCreated,
-  ExitedAssetsProcessed,
-  ExitedAssetsClaimed as OsTokenExitedAssetsClaimed,
-  OsTokenLiquidated,
-  OsTokenRedeemed,
-} from '../../generated/AaveLeverageStrategy/OsTokenVaultEscrow'
 import { createTransaction } from '../entities/transaction'
 import {
   createOrLoadLeverageStrategyPosition,
@@ -19,9 +12,9 @@ import {
   updateLeverageStrategyPosition,
   updateLeverageStrategyPositions,
 } from '../entities/leverageStrategy'
-import { convertOsTokenSharesToAssets, createOrLoadOsToken, createOsTokenExitRequest } from '../entities/osToken'
+import { convertOsTokenSharesToAssets, createOrLoadOsToken } from '../entities/osToken'
 import { createOrLoadNetwork } from '../entities/network'
-import { ExitRequest, OsToken, OsTokenExitRequest, Vault } from '../../generated/schema'
+import { OsToken, Vault } from '../../generated/schema'
 import { WAD } from '../helpers/constants'
 
 export function handleStrategyProxyCreated(event: StrategyProxyCreated): void {
@@ -212,145 +205,4 @@ export function getExitRequestLtv(
     assets = exitedAssets
   }
   return new BigDecimal(mintedOsTokenAssets).div(new BigDecimal(assets))
-}
-
-export function handlePositionCreated(event: PositionCreated): void {
-  const vaultAddress = event.params.vault
-  const owner = event.params.owner
-  const osTokenShares = event.params.osTokenShares
-  const exitPositionTicket = event.params.exitPositionTicket
-  const osTokenExitRequestId = `${vaultAddress}-${exitPositionTicket}`
-
-  const osTokenExitRequest = createOsTokenExitRequest(osTokenExitRequestId, vaultAddress, owner)
-  const exitRequest = ExitRequest.load(osTokenExitRequestId as string) as ExitRequest
-  const osToken = createOrLoadOsToken()
-  osTokenExitRequest.ltv = getExitRequestLtv(osTokenShares, exitRequest.exitedAssets, exitRequest.totalAssets, osToken)
-  osTokenExitRequest.osTokenShares = osTokenShares
-  osTokenExitRequest.save()
-
-  log.info('[LeverageStrategy] osTokenExitRequestCreated vault={} owner={} exitPositionTicket={}', [
-    vaultAddress.toHex(),
-    owner.toHex(),
-    exitPositionTicket.toHex(),
-  ])
-}
-
-export function handleExitedAssetsProcessed(event: ExitedAssetsProcessed): void {
-  const vaultAddress = event.params.vault
-  const exitPositionTicket = event.params.exitPositionTicket
-  const exitedAssets = event.params.exitedAssets
-  const osTokenExitRequestId = `${vaultAddress}-${exitPositionTicket}`
-
-  const osTokenExitRequest = OsTokenExitRequest.load(osTokenExitRequestId)
-  if (osTokenExitRequest == null) {
-    log.error('[Keeper] Harvested vault={} not found', [osTokenExitRequestId])
-    return
-  }
-  let ass = osTokenExitRequest.exitedAssets
-  if (ass === null) {
-    ass = BigInt.zero()
-  }
-  osTokenExitRequest.exitedAssets = ass.plus(exitedAssets)
-  const osToken = createOrLoadOsToken()
-  const exitRequest = ExitRequest.load(osTokenExitRequestId as string) as ExitRequest
-  osTokenExitRequest.ltv = getExitRequestLtv(
-    osTokenExitRequest.osTokenShares,
-    exitRequest.exitedAssets,
-    exitRequest.totalAssets,
-    osToken,
-  )
-
-  osTokenExitRequest.save()
-
-  log.info('[LeverageStrategy] ExitedAssetsProcessed vault={} exitPositionTicket={} exitedAssets={}', [
-    vaultAddress.toHex(),
-    exitedAssets.toHex(),
-  ])
-}
-
-export function handleOsTokenExitedAssetsClaimed(event: OsTokenExitedAssetsClaimed): void {
-  const vaultAddress = event.params.vault
-  const exitPositionTicket = event.params.exitPositionTicket
-  const osTokenShares = event.params.osTokenShares
-  const osTokenExitRequestId = `${vaultAddress}-${exitPositionTicket}`
-
-  const osTokenExitRequest = OsTokenExitRequest.load(osTokenExitRequestId)
-  if (osTokenExitRequest == null) {
-    log.error('[Keeper] Harvested vault={} not found', [osTokenExitRequestId])
-    return
-  }
-  osTokenExitRequest.osTokenShares = osTokenExitRequest.osTokenShares.minus(osTokenShares)
-  const osToken = createOrLoadOsToken()
-  const exitRequest = ExitRequest.load(osTokenExitRequestId as string) as ExitRequest
-  osTokenExitRequest.ltv = getExitRequestLtv(
-    osTokenExitRequest.osTokenShares,
-    exitRequest.exitedAssets,
-    exitRequest.totalAssets,
-    osToken,
-  )
-  osTokenExitRequest.save()
-
-  log.info('[LeverageStrategy] OsTokenExitedAssetsClaimed vault={} exitPositionTicket={} osTokenShares={}', [
-    vaultAddress.toHex(),
-    exitPositionTicket.toHex(),
-    osTokenShares.toHex(),
-  ])
-}
-
-export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
-  const vaultAddress = event.params.vault
-  const exitPositionTicket = event.params.exitPositionTicket
-  const osTokenShares = event.params.osTokenShares
-  const osTokenExitRequestId = `${vaultAddress}-${exitPositionTicket}`
-
-  const osTokenExitRequest = OsTokenExitRequest.load(osTokenExitRequestId)
-  if (osTokenExitRequest == null) {
-    log.error('[Keeper] Harvested vault={} not found', [osTokenExitRequestId])
-    return
-  }
-  osTokenExitRequest.osTokenShares = osTokenExitRequest.osTokenShares.minus(osTokenShares)
-  const osToken = createOrLoadOsToken()
-  const exitRequest = ExitRequest.load(osTokenExitRequestId as string) as ExitRequest
-  osTokenExitRequest.ltv = getExitRequestLtv(
-    osTokenExitRequest.osTokenShares,
-    exitRequest.exitedAssets,
-    exitRequest.totalAssets,
-    osToken,
-  )
-  osTokenExitRequest.save()
-
-  log.info('[LeverageStrategy] OsTokenLiquidated vault={} exitPositionTicket={} osTokenShares={}', [
-    vaultAddress.toHex(),
-    exitPositionTicket.toHex(),
-    osTokenShares.toHex(),
-  ])
-}
-
-export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
-  const vaultAddress = event.params.vault
-  const exitPositionTicket = event.params.exitPositionTicket
-  const osTokenShares = event.params.osTokenShares
-  const osTokenExitRequestId = `${vaultAddress}-${exitPositionTicket}`
-
-  const osTokenExitRequest = OsTokenExitRequest.load(osTokenExitRequestId)
-  if (osTokenExitRequest == null) {
-    log.error('[Keeper] Harvested vault={} not found', [osTokenExitRequestId])
-    return
-  }
-  osTokenExitRequest.osTokenShares = osTokenExitRequest.osTokenShares.minus(osTokenShares)
-  const osToken = createOrLoadOsToken()
-  const exitRequest = ExitRequest.load(osTokenExitRequestId as string) as ExitRequest
-  osTokenExitRequest.ltv = getExitRequestLtv(
-    osTokenExitRequest.osTokenShares,
-    exitRequest.exitedAssets,
-    exitRequest.totalAssets,
-    osToken,
-  )
-  osTokenExitRequest.save()
-
-  log.info('[LeverageStrategy] OsTokenRedeemed vault={} exitPositionTicket={} osTokenShares={}', [
-    vaultAddress.toHex(),
-    exitPositionTicket.toHex(),
-    osTokenShares.toHex(),
-  ])
 }

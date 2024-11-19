@@ -1,5 +1,11 @@
-import { Address, BigInt, ethereum } from '@graphprotocol/graph-ts'
-import { ExitRequest, LeverageStrategyPosition, LeverageStrategyPositionSnapshot, Vault } from '../../generated/schema'
+import {Address, BigDecimal, BigInt, ethereum, log} from '@graphprotocol/graph-ts'
+import {
+  ExitRequest,
+  LeverageStrategyPosition,
+  LeverageStrategyPositionSnapshot,
+  OsTokenExitRequest,
+  Vault
+} from '../../generated/schema'
 import { AavePool } from '../../generated/AaveLeverageStrategy/AavePool'
 import { AaveOracle } from '../../generated/AaveLeverageStrategy/AaveOracle'
 import { StrategiesRegistry } from '../../generated/AaveLeverageStrategy/StrategiesRegistry'
@@ -17,7 +23,7 @@ import {
   WAD,
 } from '../helpers/constants'
 import { createOrLoadAllocator } from './allocator'
-import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, createOrLoadOsToken } from './osToken'
+import {convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, createOrLoadOsToken, osTokenId} from './osToken'
 import { createOrLoadOsTokenConfig } from './osTokenConfig'
 import { createOrLoadV2Pool } from './v2pool'
 
@@ -85,10 +91,11 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
 
   if (position.exitRequest !== null) {
     const exitRequest = ExitRequest.load(position.exitRequest as string) as ExitRequest
-    const osTokenVaultEscrow = OsTokenVaultEscrow.bind(OS_TOKEN_VAULT_ESCROW)
-    const response = osTokenVaultEscrow.getPosition(vaultAddress, exitRequest.positionTicket)
+    let osTokenExitRequest = OsTokenExitRequest.load(position.exitRequest as string)
+    if (osTokenExitRequest !== null) {
+        mintedOsTokenShares = osTokenExitRequest.osTokenShares
+    }
     stakedAssets = stakedAssets.plus(exitRequest.totalAssets)
-    mintedOsTokenShares = mintedOsTokenShares.plus(response.getValue2())
   }
 
   const aaveLtv = getAaveLeverageLtv()

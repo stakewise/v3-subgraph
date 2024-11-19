@@ -455,6 +455,11 @@ dataSources:
           handler: handleOsTokenLiquidated
         - event: OsTokenRedeemed(indexed address,indexed address,indexed uint256,address,uint256,uint256)
           handler: handleOsTokenRedeemed
+      blockHandlers:
+        - handler: handleOsTokenExitRequests
+          filter:
+            kind: polling
+            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: EigenDelegationManager
     network: {{ network }}

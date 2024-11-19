@@ -4,13 +4,12 @@ import {
   OsTokenHolder,
   OsTokenHolderSnapshot,
   OsTokenSnapshot,
-  OsTokenExitRequest,
 } from '../../generated/schema'
 import { OsTokenVaultController as OsTokenVaultControllerContact } from '../../generated/Keeper/OsTokenVaultController'
 import { OS_TOKEN_VAULT_CONTROLLER, WAD } from '../helpers/constants'
 import { calculateAverage } from '../helpers/utils'
 
-const osTokenId = '1'
+export const osTokenId = '1'
 const snapshotsPerWeek = 14
 const secondsInYear = '31536000'
 const maxPercent = '100'
@@ -137,20 +136,4 @@ export function snapshotOsTokenHolder(holder: OsTokenHolder, assetsDiff: BigInt,
   snapshot.earnedAssets = assetsDiff
   snapshot.totalAssets = holder.assets
   snapshot.save()
-}
-
-export function createOsTokenExitRequest(exitRequestId: string, vault: Address, owner: Address): OsTokenExitRequest {
-  let osTokenExitRequest = OsTokenExitRequest.load(exitRequestId)
-  if (osTokenExitRequest === null) {
-    osTokenExitRequest = new OsTokenExitRequest(osTokenId)
-    osTokenExitRequest.owner = owner
-    osTokenExitRequest.vault = vault.toHex()
-    osTokenExitRequest.exitRequest = exitRequestId
-    osTokenExitRequest.exitedAssets = BigInt.zero()
-    osTokenExitRequest.osTokenShares = BigInt.zero()
-    osTokenExitRequest.ltv = BigDecimal.zero()
-    osTokenExitRequest.save()
-  }
-
-  return osTokenExitRequest
 }

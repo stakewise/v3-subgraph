@@ -244,6 +244,9 @@ type Vault @entity {
   "The vault leverage strategy positions"
   leveragePositions: [LeverageStrategyPosition!]! @derivedFrom(field: "vault")
 
+  "The vault exit requests"
+  osTokenExitRequests: [OsTokenExitRequest!]! @derivedFrom(field: "vault")
+
   "The total number of shares"
   totalShares: BigInt!
 
@@ -680,6 +683,29 @@ type LeverageStrategyPosition @entity {
   exitRequest: ExitRequest
 }
 
+type OsTokenExitRequest @entity {
+  "<Vault ID>-<Exit queue id>"
+  id: ID!
+
+  "The address that can claim the exit"
+  owner: Bytes!
+
+  "The vault where assets are exiting"
+  vault: Vault!
+
+  "The exit request"
+  exitRequest: ExitRequest!
+
+  "The processed assets from the exit request. Will be null if the exit request is not processed."
+  exitedAssets: BigInt
+
+  "The total amount of osToken shares exiting"
+  osTokenShares: BigInt!
+
+  "The position's LTV percent"
+  ltv: BigDecimal!
+}
+
 """
 The snapshot of the allocator state
 """
@@ -744,29 +770,6 @@ type OsTokenHolderStats @aggregation(intervals: ["day"], source: "OsTokenHolderS
   osTokenHolder: OsTokenHolder!
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
-}
-
-type OsTokenExitRequest @entity {
-  "<Vault ID>-<Exit queue id>"
-  id: ID!
-
-  "The address that can claim the exit"
-  owner: Bytes!
-
-  "The vault where assets are exiting"
-  vault: Vault!
-
-  "The exit request"
-  exitRequest: ExitRequest!
-
-  "The processed assets from the exit request. Will be null if the exit request is not processed."
-  exitedAssets: BigInt
-
-  "The total amount of osToken shares exiting"
-  osTokenShares: BigInt!
-
-  "The position's LTV percent"
-  ltv: BigDecimal!
 }
 
 """
