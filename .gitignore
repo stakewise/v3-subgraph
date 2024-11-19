@@ -35,5 +35,8 @@ tests/.bin
 tests/*.json
 matchstick.yaml
 
+# Local history vscode extension
+.history
+
 # Other
 src/helpers/constants.ts

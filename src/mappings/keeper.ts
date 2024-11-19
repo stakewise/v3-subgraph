@@ -55,7 +55,7 @@ import {
   getAllocatorLtvStatus,
 } from '../entities/allocator'
 import { createOrLoadNetwork, isGnosisNetwork } from '../entities/network'
-import { Harvested, RewardsUpdated, ValidatorsApproval } from '../../generated/Keeper/Keeper'
+import { ConfigUpdated, Harvested, RewardsUpdated, ValidatorsApproval } from '../../generated/Keeper/Keeper'
 import { convertSharesToAssets, getVaultStateUpdate, snapshotVault, updateVaultApy } from '../entities/vaults'
 import { createOrLoadV2Pool, getPoolStateUpdate, updatePoolApy } from '../entities/v2pool'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
@@ -458,4 +458,26 @@ export function handleExitRequests(block: ethereum.Block): void {
     updateExitRequests(vault, block)
   }
   log.info('[ExitRequests] Sync exit requests at block={}', [block.number.toString()])
+}
+
+export function handleConfigUpdated(event: ConfigUpdated): void {
+  const configIpfsHash = event.params.configIpfsHash
+  const network = createOrLoadNetwork()
+
+  let data: Bytes | null = ipfs.cat(configIpfsHash)
+  while (data === null) {
+    log.warning('[Keeper] ConfigUpdated ipfs.cat failed, retrying', [])
+    data = ipfs.cat(configIpfsHash)
+  }
+  const config = json.fromBytes(data as Bytes)
+  let osTokenVaultIds: Array<string> = []
+  let osTokenVaultsValue = config.toObject().get('os_token_vaults')
+  if (osTokenVaultsValue !== null) {
+    osTokenVaultIds = osTokenVaultsValue.toArray().map<string>((id: JSONValue): string => id.toString().toLowerCase())
+  }
+
+  network.osTokenVaultIds = osTokenVaultIds
+  network.oraclesConfigIpfsHash = configIpfsHash
+  network.save()
+  log.info('[Keeper] ConfigUpdated configIpfsHash={}', [configIpfsHash])
 }
