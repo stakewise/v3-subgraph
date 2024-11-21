@@ -41,7 +41,7 @@ export function handleTransfer(event: Transfer): void {
   allocatorFrom.assets = convertSharesToAssets(vault, allocatorFrom.shares)
   allocatorFrom.ltv = getAllocatorLtv(allocatorFrom, osToken)
   allocatorFrom.ltvStatus = getAllocatorLtvStatus(allocatorFrom, osTokenConfig)
-  allocatorFrom.osTokenMintApy = getAllocatorOsTokenMintApy(allocatorFrom, osToken.apy, osToken, osTokenConfig)
+  allocatorFrom.osTokenMintApy = getAllocatorOsTokenMintApy(allocatorFrom, osToken, osTokenConfig)
   allocatorFrom.save()
   if (allocatorFrom.shares.isZero()) {
     decreaseUserVaultsCount(allocatorFrom.address)
@@ -57,7 +57,7 @@ export function handleTransfer(event: Transfer): void {
   allocatorTo.assets = convertSharesToAssets(vault, allocatorTo.shares)
   allocatorTo.ltv = getAllocatorLtv(allocatorTo, osToken)
   allocatorTo.ltvStatus = getAllocatorLtvStatus(allocatorTo, osTokenConfig)
-  allocatorTo.osTokenMintApy = getAllocatorOsTokenMintApy(allocatorTo, osToken.apy, osToken, osTokenConfig)
+  allocatorTo.osTokenMintApy = getAllocatorOsTokenMintApy(allocatorTo, osToken, osTokenConfig)
   allocatorTo.save()
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferIn, to, assets, shares)
   snapshotAllocator(allocatorTo, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)

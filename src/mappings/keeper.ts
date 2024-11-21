@@ -449,7 +449,7 @@ export function updateRewards(
       allocator.mintedOsTokenShares = allocatorNewMintedOsTokenShares
       allocator.ltv = getAllocatorLtv(allocator, osToken)
       allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-      allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+      allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
       allocator.save()
       snapshotAllocator(
         allocator,

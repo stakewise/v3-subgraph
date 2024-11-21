@@ -72,7 +72,7 @@ export function handleDeposited(event: Deposited): void {
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
@@ -121,7 +121,7 @@ export function handleRedeemed(event: Redeemed): void {
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
@@ -308,7 +308,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
     allocator.assets = convertSharesToAssets(vault, allocator.shares)
     allocator.ltv = getAllocatorLtv(allocator, osToken)
     allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-    allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+    allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
     allocator.save()
 
     snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
@@ -389,7 +389,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
@@ -518,7 +518,7 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
@@ -547,7 +547,7 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.plus(shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
   allocator.save()
 
   createAllocatorAction(event, event.address, AllocatorActionType.OsTokenMinted, holder, assets, shares)
@@ -577,7 +577,7 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
   }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
@@ -622,7 +622,7 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
@@ -671,7 +671,7 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
@@ -859,7 +859,7 @@ export function handleMigrated(event: Migrated): void {
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
