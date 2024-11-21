@@ -149,6 +149,7 @@ dataSources:
         - OsToken
         - OsTokenConfig
         - OsTokenSnapshot
+        - OsTokenExitRequest
         - OsTokenHolder
         - OsTokenHolderSnapshot
         - Vault
@@ -409,18 +410,29 @@ dataSources:
         - Vault
         - OsToken
         - OsTokenConfig
-        - Allocator
+        - OsTokenExitRequest
         - OsTokenSnapshot
-        - Transaction
-        - AllocatorAction
+        - Allocator
+        - ExitRequest
       abis:
         - name: OsTokenVaultEscrow
           file: ./abis/OsTokenVaultEscrow.json
       eventHandlers:
         - event: PositionCreated(indexed address,indexed uint256,address,uint256,uint256)
           handler: handlePositionCreated
+        - event: ExitedAssetsProcessed(indexed address,indexed address,indexed uint256,uint256)
+          handler: handleExitedAssetsProcessed
         - event: ExitedAssetsClaimed(indexed address,indexed address,indexed uint256,uint256,uint256)
           handler: handleExitedAssetsClaimed
+        - event: OsTokenLiquidated(indexed address,indexed address,indexed uint256,address,uint256,uint256)
+          handler: handleOsTokenLiquidated
+        - event: OsTokenRedeemed(indexed address,indexed address,indexed uint256,address,uint256,uint256)
+          handler: handleOsTokenRedeemed
+      blockHandlers:
+        - handler: handleOsTokenExitRequests
+          filter:
+            kind: polling
+            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: AaveLeverageStrategy
     network: {{ network }}
@@ -441,8 +453,6 @@ dataSources:
         - LeverageStrategyPosition
         - LeverageStrategyPositionSnapshot
       abis:
-        - name: OsTokenVaultEscrow
-          file: ./abis/OsTokenVaultEscrow.json
         - name: StrategiesRegistry
           file: ./abis/StrategiesRegistry.json
         - name: AaveLeverageStrategy

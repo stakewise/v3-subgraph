@@ -60,13 +60,20 @@ import {
   getAllocatorLtvStatus,
 } from '../entities/allocator'
 import { createOrLoadNetwork, isGnosisNetwork } from '../entities/network'
-import { ConfigUpdated, Harvested, RewardsUpdated, ValidatorsApproval, OwnershipTransferred } from '../../generated/Keeper/Keeper'
+import {
+  ConfigUpdated,
+  Harvested,
+  RewardsUpdated,
+  ValidatorsApproval,
+  OwnershipTransferred,
+} from '../../generated/Keeper/Keeper'
 import { convertSharesToAssets, getVaultStateUpdate, snapshotVault, updateVaultApy } from '../entities/vaults'
 import { createOrLoadV2Pool, getPoolStateUpdate, updatePoolApy } from '../entities/v2pool'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 import { updateExitRequests } from '../entities/exitRequests'
 import { updateRewardSplitters } from '../entities/rewardSplitter'
 import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
+import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -459,6 +466,9 @@ export function updateRewards(
 
     // update reward splitters
     updateRewardSplitters(vault)
+
+    // update osToken exit requests
+    updateOsTokenExitRequests(vault)
 
     // update leverage strategy positions
     updateLeverageStrategyPositions(vault, vault.rewardsTimestamp as BigInt)

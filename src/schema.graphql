@@ -247,6 +247,9 @@ type Vault @entity {
   "The vault leverage strategy positions"
   leveragePositions: [LeverageStrategyPosition!]! @derivedFrom(field: "vault")
 
+  "The vault OsToken exit request positions"
+  osTokenExitRequests: [OsTokenExitRequest!]! @derivedFrom(field: "vault")
+
   "The total number of shares"
   totalShares: BigInt!
 
@@ -660,6 +663,29 @@ type OsTokenConfig @entity {
   liqThresholdPercent: BigInt!
 }
 
+type OsTokenExitRequest @entity {
+  "<Vault ID>-<Exit queue id>"
+  id: ID!
+
+  "The address that can claim the exit"
+  owner: Bytes!
+
+  "The vault where assets are exiting"
+  vault: Vault!
+
+  "The exit request position ticket"
+  positionTicket: BigInt!
+
+  "The processed assets from the exit request. Will be null if the exit request is not processed."
+  exitedAssets: BigInt
+
+  "The total amount of osToken shares exiting"
+  osTokenShares: BigInt!
+
+  "The position's LTV percent"
+  ltv: BigDecimal!
+}
+
 """
 The LeverageStrategy position
 """
@@ -773,6 +799,7 @@ type VaultSnapshot @entity(timeseries: true) {
   vault: Vault!
   earnedAssets: BigInt!
   totalAssets: BigInt!
+  totalShares: BigInt!
 }
 
 """
@@ -784,6 +811,7 @@ type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
   vault: Vault!
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+  totalShares: BigInt! @aggregate(fn: "last", arg: "totalShares")
 }
 
 """

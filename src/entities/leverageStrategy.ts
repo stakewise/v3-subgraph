@@ -1,10 +1,15 @@
 import { Address, BigInt, ethereum } from '@graphprotocol/graph-ts'
-import { ExitRequest, LeverageStrategyPosition, LeverageStrategyPositionSnapshot, Vault } from '../../generated/schema'
+import {
+  ExitRequest,
+  LeverageStrategyPosition,
+  LeverageStrategyPositionSnapshot,
+  OsTokenExitRequest,
+  Vault,
+} from '../../generated/schema'
 import { AavePool } from '../../generated/AaveLeverageStrategy/AavePool'
 import { AaveOracle } from '../../generated/AaveLeverageStrategy/AaveOracle'
 import { StrategiesRegistry } from '../../generated/AaveLeverageStrategy/StrategiesRegistry'
 import { AaveLeverageStrategy } from '../../generated/Aave/AaveLeverageStrategy'
-import { OsTokenVaultEscrow } from '../../generated/AaveLeverageStrategy/OsTokenVaultEscrow'
 import {
   AAVE_LEVERAGE_STRATEGY,
   AAVE_ORACLE,
@@ -12,7 +17,6 @@ import {
   ASSET_TOKEN,
   GENESIS_VAULT,
   OS_TOKEN,
-  OS_TOKEN_VAULT_ESCROW,
   STRATEGIES_REGISTRY,
   WAD,
 } from '../helpers/constants'
@@ -84,11 +88,15 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
   let stakedAssets = proxyAllocator.assets
 
   if (position.exitRequest !== null) {
-    const exitRequest = ExitRequest.load(position.exitRequest as string) as ExitRequest
-    const osTokenVaultEscrow = OsTokenVaultEscrow.bind(OS_TOKEN_VAULT_ESCROW)
-    const response = osTokenVaultEscrow.getPosition(vaultAddress, exitRequest.positionTicket)
-    stakedAssets = stakedAssets.plus(exitRequest.totalAssets)
-    mintedOsTokenShares = mintedOsTokenShares.plus(response.getValue2())
+    const osTokenExitRequest = OsTokenExitRequest.load(position.exitRequest as string) as OsTokenExitRequest
+    if (osTokenExitRequest.exitedAssets !== null) {
+      stakedAssets = stakedAssets.plus(osTokenExitRequest.exitedAssets as BigInt)
+    } else {
+      // exit request and osToken exit request have the same id format
+      const exitRequest = ExitRequest.load(position.exitRequest as string) as ExitRequest
+      stakedAssets = stakedAssets.plus(exitRequest.totalAssets)
+    }
+    mintedOsTokenShares = mintedOsTokenShares.plus(osTokenExitRequest.osTokenShares)
   }
 
   const aaveLtv = getAaveLeverageLtv()

@@ -262,5 +262,6 @@ export function snapshotVault(vault: Vault, assetsDiff: BigInt, rewardsTimestamp
   vaultSnapshot.vault = vault.id
   vaultSnapshot.earnedAssets = assetsDiff
   vaultSnapshot.totalAssets = vault.totalAssets
+  vaultSnapshot.totalShares = vault.totalShares
   vaultSnapshot.save()
 }
