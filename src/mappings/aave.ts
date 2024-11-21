@@ -59,7 +59,7 @@ export function handleVaultBoostApy(block: ethereum.Block): void {
       .times(osTokenFeePercent)
       .times(wad)
       .div(BigInt.fromI32(10000).minus(osTokenFeePercent))
-      .div(osTokenConfig.ltvPercent)
+      .div(vaultLeverageLtv)
 
     // calculate assets and shares
     const initialMintedOsTokenAssets = initialDepositAssets.times(osTokenConfig.ltvPercent).div(wad)
@@ -84,9 +84,7 @@ export function handleVaultBoostApy(block: ethereum.Block): void {
       .plus(leverageMintedOsTokenShares)
       .times(osTokenSupplyRate)
       .div(wad)
-    totalEarnedAssets = totalEarnedAssets.plus(
-      convertOsTokenSharesToAssets(osToken, earnedOsTokenShares).times(osTokenRate).div(wad),
-    )
+    totalEarnedAssets = totalEarnedAssets.plus(convertOsTokenSharesToAssets(osToken, earnedOsTokenShares))
 
     // all borrowed assets lose borrow apy
     totalEarnedAssets = totalEarnedAssets.minus(leverageDepositedAssets.times(variableBorrowRate).div(wad))
