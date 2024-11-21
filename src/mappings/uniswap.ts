@@ -154,10 +154,12 @@ export function handleIncreaseLiquidity(event: IncreaseLiquidity): void {
 
   // position could not be fetched or is not supported
   if (position == null) {
+    log.error('[UniswapPositionManager] IncreaseLiquidity position={} not found', [event.params.tokenId.toString()])
     return
   }
-  let pool = UniswapPool.load(event.address.toHexString())
+  let pool = UniswapPool.load(position.pool)
   if (pool == null) {
+    log.error('[UniswapPositionManager] IncreaseLiquidity pool={} not found', [position.pool])
     return
   }
 
@@ -177,10 +179,12 @@ export function handleDecreaseLiquidity(event: DecreaseLiquidity): void {
 
   // position could not be fetched or is not supported
   if (position == null) {
+    log.error('[UniswapPositionManager] IncreaseLiquidity position={} not found', [event.params.tokenId.toString()])
     return
   }
-  let pool = UniswapPool.load(event.address.toHexString())
+  let pool = UniswapPool.load(position.pool)
   if (pool == null) {
+    log.error('[UniswapPositionManager] IncreaseLiquidity pool={} not found', [position.pool])
     return
   }
 

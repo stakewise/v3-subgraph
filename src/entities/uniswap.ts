@@ -132,7 +132,7 @@ function getSqrtRatioAtTick(tick: i32): BigInt {
   let absTick = tick < 0 ? -tick : tick
 
   let ratio: BigInt
-  if ((absTick & 0x1) != 0) {
+  if ((absTick & 1) != 0) {
     ratio = BigInt.fromString('340265354078544963557816517032075149313')
   } else {
     ratio = BigInt.fromString('340282366920938463463374607431768211456')
