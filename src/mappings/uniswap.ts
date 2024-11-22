@@ -154,7 +154,7 @@ export function handleIncreaseLiquidity(event: IncreaseLiquidity): void {
 
   // position could not be fetched or is not supported
   if (position == null) {
-    log.error('[UniswapPositionManager] IncreaseLiquidity position={} not found', [event.params.tokenId.toString()])
+    log.debug('[UniswapPositionManager] IncreaseLiquidity position={} not found', [event.params.tokenId.toString()])
     return
   }
   let pool = UniswapPool.load(position.pool)
@@ -164,8 +164,8 @@ export function handleIncreaseLiquidity(event: IncreaseLiquidity): void {
   }
 
   position.liquidity = position.liquidity.plus(event.params.liquidity)
-  position.amount0 = getAmount0(pool.tick, pool.sqrtPrice, position.tickLower, position.tickUpper, position.liquidity)
-  position.amount1 = getAmount1(pool.tick, pool.sqrtPrice, position.tickLower, position.tickUpper, position.liquidity)
+  position.amount0 = position.amount0.plus(event.params.amount0)
+  position.amount1 = position.amount1.plus(event.params.amount1)
   position.save()
 
   log.info('[UniswapPositionManager] IncreaseLiquidity position={} liquidity={}', [
@@ -175,22 +175,21 @@ export function handleIncreaseLiquidity(event: IncreaseLiquidity): void {
 }
 
 export function handleDecreaseLiquidity(event: DecreaseLiquidity): void {
-  let position = createOrLoadPosition(event.params.tokenId)
-
-  // position could not be fetched or is not supported
+  // position is not supported
+  const position = UniswapPosition.load(event.params.tokenId.toString())
   if (position == null) {
-    log.error('[UniswapPositionManager] IncreaseLiquidity position={} not found', [event.params.tokenId.toString()])
+    log.debug('[UniswapPositionManager] DecreaseLiquidity position={} not found', [event.params.tokenId.toString()])
     return
   }
   let pool = UniswapPool.load(position.pool)
   if (pool == null) {
-    log.error('[UniswapPositionManager] IncreaseLiquidity pool={} not found', [position.pool])
+    log.error('[UniswapPositionManager] DecreaseLiquidity pool={} not found', [position.pool])
     return
   }
 
   position.liquidity = position.liquidity.minus(event.params.liquidity)
-  position.amount0 = getAmount0(pool.tick, pool.sqrtPrice, position.tickLower, position.tickUpper, position.liquidity)
-  position.amount1 = getAmount1(pool.tick, pool.sqrtPrice, position.tickLower, position.tickUpper, position.liquidity)
+  position.amount0 = position.amount0.minus(event.params.amount0)
+  position.amount1 = position.amount1.minus(event.params.amount1)
   position.save()
 
   log.info('[UniswapPositionManager] DecreaseLiquidity position={} liquidity={}', [

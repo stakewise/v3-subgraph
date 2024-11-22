@@ -112,8 +112,8 @@ function getAmount1Delta(sqrtRatioAX96: BigInt, sqrtRatioBX96: BigInt, liquidity
   }
 }
 
-function mulShift(val: BigInt, mul_by_hex: string): BigInt {
-  return val.times(BigInt.fromString(mul_by_hex)).rightShift(128)
+function mulShift(val: BigInt, mulBy: string): BigInt {
+  return val.times(BigInt.fromString(mulBy)).rightShift(128)
 }
 
 function _ceilDivide(a: BigInt, b: BigInt): BigInt {
@@ -125,8 +125,8 @@ function _ceilDivide(a: BigInt, b: BigInt): BigInt {
 }
 
 function getSqrtRatioAtTick(tick: i32): BigInt {
-  if (tick < MIN_TICK || tick > MAX_TICK) {
-    assert(false, 'Received invalid tick')
+  if (!(MIN_TICK <= tick && tick <= MAX_TICK)) {
+    assert(false, `Received invalid tick: ${tick.toString()}`)
   }
 
   let absTick = tick < 0 ? -tick : tick
@@ -162,7 +162,8 @@ function getSqrtRatioAtTick(tick: i32): BigInt {
     ratio = MAX_UINT_256.div(ratio)
   }
 
-  if (ratio.mod(Q32).gt(BigInt.fromI32(0))) {
+  // back to Q96
+  if (ratio.mod(Q32).gt(BigInt.zero())) {
     return ratio.div(Q32).plus(BigInt.fromI32(1))
   } else {
     return ratio.div(Q32)
