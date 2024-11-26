@@ -425,7 +425,7 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
 
   let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
   while (data === null) {
-    log.warning('[Keeper] RewardsUpdated ipfs.cat failed, retrying', [])
+    log.warning('[Keeper] RewardsUpdated ipfs.cat failed for hash={} retrying', [rewardsIpfsHash])
     data = ipfs.cat(rewardsIpfsHash)
   }
   updateRewards(
@@ -496,7 +496,7 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
 
   let data: Bytes | null = ipfs.cat(configIpfsHash)
   while (data === null) {
-    log.warning('[Keeper] ConfigUpdated ipfs.cat failed, retrying', [])
+    log.warning('[Keeper] ConfigUpdated ipfs.cat failed for hash={}, retrying', [configIpfsHash])
     data = ipfs.cat(configIpfsHash)
   }
   const config = json.fromBytes(data as Bytes)

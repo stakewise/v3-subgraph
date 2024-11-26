@@ -1,5 +1,5 @@
 import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
-import { Distributor, DistributorReward, UniswapPool, UniswapPosition } from '../../generated/schema'
+import { Distributor, DistributorReward, UniswapPool, UniswapPosition, DistributorClaim } from '../../generated/schema'
 import { MAX_TICK, MIN_TICK } from './uniswap'
 import { createOrLoadNetwork } from './network'
 import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
@@ -24,11 +24,26 @@ export function createOrLoadDistributorReward(token: Address, user: Address): Di
     distributorReward = new DistributorReward(distributorId)
     distributorReward.user = user
     distributorReward.token = token
-    distributorReward.amount = BigInt.zero()
+    distributorReward.cumulativeAmount = BigInt.zero()
     distributorReward.save()
   }
 
   return distributorReward
+}
+
+export function createOrLoadDistributorClaim(user: Address): DistributorClaim {
+  let claim = DistributorClaim.load(user.toHex())
+  if (claim === null) {
+    claim = new DistributorClaim(distributorId)
+    claim.user = user
+    claim.tokens = []
+    claim.cumulativeAmounts = []
+    claim.unclaimedAmounts = []
+    claim.proof = []
+    claim.save()
+  }
+
+  return claim
 }
 
 export function distributeToSwiseAssetUniPoolUsers(pool: UniswapPool, token: Address, totalReward: BigInt): void {
@@ -54,7 +69,7 @@ export function distributeToSwiseAssetUniPoolUsers(pool: UniswapPool, token: Add
       continue
     }
     points.push(uniPosition.liquidity)
-    users.push(uniPosition.owner)
+    users.push(Address.fromBytes(uniPosition.owner))
     totalPoints = totalPoints.plus(uniPosition.liquidity)
   }
 
@@ -101,7 +116,7 @@ export function distributeToOsTokenUsdcUniPoolUsers(pool: UniswapPool, token: Ad
     }
 
     points.push(userPoints.digits)
-    users.push(uniPosition.owner)
+    users.push(Address.fromBytes(uniPosition.owner))
     totalPoints = totalPoints.plus(userPoints.digits)
   }
 
@@ -126,7 +141,7 @@ function _distributeReward(
     }
     distributedAmount = distributedAmount.plus(userReward)
     const distributorReward = createOrLoadDistributorReward(token, users[i])
-    distributorReward.amount = distributorReward.amount.plus(userReward)
+    distributorReward.cumulativeAmount = distributorReward.cumulativeAmount.plus(userReward)
     distributorReward.save()
   }
 }

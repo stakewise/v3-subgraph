@@ -434,6 +434,39 @@ dataSources:
             kind: polling
             every: {{ blocksInHour }}
   - kind: ethereum/contract
+    name: MerkleDistributor
+    network: {{ network }}
+    source:
+      address: '{{ merkleDistributor.address }}'
+      abi: MerkleDistributor
+      startBlock: {{ merkleDistributor.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/merkleDistributor.ts
+      entities:
+        - Distributor
+        - Distribution
+        - DistributorReward
+      abis:
+        - name: MerkleDistributor
+          file: ./abis/merkleDistributor.json
+      eventHandlers:
+        - event: PeriodicDistributionAdded(indexed address,indexed address,uint256,uint256,uint256,bytes)
+          handler: handlePeriodicDistributionAdded
+        - event: OneTimeDistributionAdded(indexed address,indexed address,uint256,string)
+          handler: handleOneTimeDistributionAdded
+        - event: RewardsRootUpdated(indexed address,indexed bytes32,string)
+          handler: handleRewardsRootUpdated
+        - event: RewardsClaimed(indexed address,indexed address,address[],uint256[])
+          handler: handleRewardsClaimed
+      blockHandlers:
+        - handler: handleDistributions
+          filter:
+            kind: polling
+            every: {{ blocksInHour }}
+  - kind: ethereum/contract
     name: AaveLeverageStrategy
     network: {{ network }}
     source:

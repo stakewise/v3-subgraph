@@ -183,20 +183,11 @@ export function handleInitialized(event: Initialized): void {
   if (newVersion.equals(BigInt.fromI32(2))) {
     // migration to deposit manager
     vault.validatorsManager = DEPOSIT_DATA_REGISTRY
+    // update OsTokenConfig version
+    createOrLoadOsTokenConfig('2')
+    vault.osTokenConfig = '2'
   }
-
-  const isSecondOrHigher = newVersion.ge(BigInt.fromI32(2))
-
-  if (isSecondOrHigher && vault.osTokenConfig == null) {
-    const newOsTokenConfigVersion = '2'
-
-    createOrLoadOsTokenConfig(newOsTokenConfigVersion)
-
-    vault.osTokenConfig = newOsTokenConfigVersion
-  }
-
   vault.version = newVersion
-
   vault.save()
 
   if (newVersion.equals(BigInt.fromI32(3))) {
