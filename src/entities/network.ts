@@ -9,6 +9,7 @@ export function createOrLoadNetwork(): Network {
 
   if (network === null) {
     network = new Network(id)
+    network.factoriesInitialized = false
     network.vaultsCount = 0
     network.usersCount = 0
     network.totalAssets = BigInt.zero()
@@ -17,7 +18,9 @@ export function createOrLoadNetwork(): Network {
     network.osTokenVaultIds = []
     network.oraclesConfigIpfsHash = ''
     network.assetsUsdRate = BigDecimal.zero()
-    network.usdToDaiRate = BigDecimal.zero()
+    network.swiseUsdRate = BigDecimal.zero()
+    network.daiUsdRate = BigDecimal.zero()
+    network.usdcUsdRate = BigDecimal.zero()
     network.usdToEurRate = BigDecimal.zero()
     network.usdToGbpRate = BigDecimal.zero()
     network.save()

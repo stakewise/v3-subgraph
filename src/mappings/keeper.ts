@@ -11,15 +11,20 @@ import {
 } from '@graphprotocol/graph-ts'
 import {
   BLOCKLIST_ERC20_VAULT_FACTORY_V2,
+  BLOCKLIST_ERC20_VAULT_FACTORY_V3,
   BLOCKLIST_VAULT_FACTORY_V2,
+  BLOCKLIST_VAULT_FACTORY_V3,
   ERC20_VAULT_FACTORY_V1,
   ERC20_VAULT_FACTORY_V2,
+  ERC20_VAULT_FACTORY_V3,
   FOX_VAULT1,
   FOX_VAULT2,
   PRIV_ERC20_VAULT_FACTORY_V1,
   PRIV_ERC20_VAULT_FACTORY_V2,
+  PRIV_ERC20_VAULT_FACTORY_V3,
   PRIV_VAULT_FACTORY_V1,
   PRIV_VAULT_FACTORY_V2,
+  PRIV_VAULT_FACTORY_V3,
   RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2,
   RESTAKE_BLOCKLIST_VAULT_FACTORY_V2,
   RESTAKE_ERC20_VAULT_FACTORY_V2,
@@ -30,8 +35,8 @@ import {
   REWARD_SPLITTER_FACTORY_V2,
   VAULT_FACTORY_V1,
   VAULT_FACTORY_V2,
+  VAULT_FACTORY_V3,
   WAD,
-  ZERO_ADDRESS,
 } from '../helpers/constants'
 import {
   FoxVault as FoxVaultTemplate,
@@ -55,19 +60,64 @@ import {
   getAllocatorLtvStatus,
 } from '../entities/allocator'
 import { createOrLoadNetwork, isGnosisNetwork } from '../entities/network'
-import { ConfigUpdated, Harvested, RewardsUpdated, ValidatorsApproval } from '../../generated/Keeper/Keeper'
+import {
+  ConfigUpdated,
+  Harvested,
+  RewardsUpdated,
+  ValidatorsApproval,
+  OwnershipTransferred,
+} from '../../generated/Keeper/Keeper'
 import { convertSharesToAssets, getVaultStateUpdate, snapshotVault, updateVaultApy } from '../entities/vaults'
 import { createOrLoadV2Pool, getPoolStateUpdate, updatePoolApy } from '../entities/v2pool'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 import { updateExitRequests } from '../entities/exitRequests'
 import { updateRewardSplitters } from '../entities/rewardSplitter'
+import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
+import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
 const IS_BLOCKLIST_KEY = 'isBlocklist'
 const IS_RESTAKE_KEY = 'isRestake'
 
-export function initialize(block: ethereum.Block): void {
+export function handleOwnershipTransferred(event: OwnershipTransferred): void {
+  const network = createOrLoadNetwork()
+  if (network.factoriesInitialized) {
+    return
+  } else {
+    network.factoriesInitialized = true
+    network.save()
+  }
+
+  const vaultFactoryV1 = Address.fromString(VAULT_FACTORY_V1)
+  const vaultFactoryV2 = Address.fromString(VAULT_FACTORY_V2)
+  const vaultFactoryV3 = Address.fromString(VAULT_FACTORY_V3)
+  const privVaultFactoryV1 = Address.fromString(PRIV_VAULT_FACTORY_V1)
+  const privVaultFactoryV2 = Address.fromString(PRIV_VAULT_FACTORY_V2)
+  const privVaultFactoryV3 = Address.fromString(PRIV_VAULT_FACTORY_V3)
+  const blocklistVaultFactoryV2 = Address.fromString(BLOCKLIST_VAULT_FACTORY_V2)
+  const blocklistVaultFactoryV3 = Address.fromString(BLOCKLIST_VAULT_FACTORY_V3)
+  const erc20VaultFactoryV1 = Address.fromString(ERC20_VAULT_FACTORY_V1)
+  const erc20VaultFactoryV2 = Address.fromString(ERC20_VAULT_FACTORY_V2)
+  const erc20VaultFactoryV3 = Address.fromString(ERC20_VAULT_FACTORY_V3)
+  const privErc20VaultFactoryV1 = Address.fromString(PRIV_ERC20_VAULT_FACTORY_V1)
+  const privErc20VaultFactoryV2 = Address.fromString(PRIV_ERC20_VAULT_FACTORY_V2)
+  const privErc20VaultFactoryV3 = Address.fromString(PRIV_ERC20_VAULT_FACTORY_V3)
+  const blocklistErc20VaultFactoryV2 = Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V2)
+  const blocklistErc20VaultFactoryV3 = Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V3)
+  const restakeVaultFactoryV2 = Address.fromString(RESTAKE_VAULT_FACTORY_V2)
+  const restakePrivVaultFactoryV2 = Address.fromString(RESTAKE_PRIV_VAULT_FACTORY_V2)
+  const restakeBlocklistVaultFactoryV2 = Address.fromString(RESTAKE_BLOCKLIST_VAULT_FACTORY_V2)
+  const restakeErc20VaultFactoryV2 = Address.fromString(RESTAKE_ERC20_VAULT_FACTORY_V2)
+  const restakePrivErc20VaultFactoryV2 = Address.fromString(RESTAKE_PRIV_ERC20_VAULT_FACTORY_V2)
+  const restakeBlocklistErc20VaultFactoryV2 = Address.fromString(RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2)
+  const rewardSplitterFactoryV1 = Address.fromString(REWARD_SPLITTER_FACTORY_V1)
+  const rewardSplitterFactoryV2 = Address.fromString(REWARD_SPLITTER_FACTORY_V2)
+  const foxVault1 = Address.fromString(FOX_VAULT1)
+  const foxVault2 = Address.fromString(FOX_VAULT2)
+  const zeroAddress = Address.zero()
+  const blockNumber = event.block.number.toString()
+
   let context = new DataSourceContext()
 
   // create non-erc20 vault factories
@@ -75,60 +125,84 @@ export function initialize(block: ethereum.Block): void {
   context.setBoolean(IS_ERC20_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, false)
   context.setBoolean(IS_RESTAKE_KEY, false)
-  if (VAULT_FACTORY_V1 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(VAULT_FACTORY_V1), context)
-    log.info('[Keeper] Initialize VaultFactory V1 at block={}', [block.number.toString()])
+  if (vaultFactoryV1.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(vaultFactoryV1, context)
+    log.info('[Keeper] Initialize VaultFactory V1 at block={}', [blockNumber])
   }
-  if (VAULT_FACTORY_V2 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(VAULT_FACTORY_V2), context)
-    log.info('[Keeper] Initialize VaultFactory V2 at block={}', [block.number.toString()])
+  if (vaultFactoryV2.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(vaultFactoryV2, context)
+    log.info('[Keeper] Initialize VaultFactory V2 at block={}', [blockNumber])
+  }
+  if (vaultFactoryV3.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(vaultFactoryV3, context)
+    log.info('[Keeper] Initialize VaultFactory V3 at block={}', [blockNumber])
   }
 
   context.setBoolean(IS_PRIVATE_KEY, true)
-  if (PRIV_VAULT_FACTORY_V1 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(PRIV_VAULT_FACTORY_V1), context)
-    log.info('[Keeper] Initialize PrivateVaultFactory V1 at block={}', [block.number.toString()])
+  if (privVaultFactoryV1.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(privVaultFactoryV1, context)
+    log.info('[Keeper] Initialize PrivateVaultFactory V1 at block={}', [blockNumber])
   }
-  if (PRIV_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(PRIV_VAULT_FACTORY_V2), context)
-    log.info('[Keeper] Initialize PrivateVaultFactory V2 at block={}', [block.number.toString()])
+  if (privVaultFactoryV2.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(privVaultFactoryV2, context)
+    log.info('[Keeper] Initialize PrivateVaultFactory V2 at block={}', [blockNumber])
+  }
+  if (privVaultFactoryV3.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(privVaultFactoryV3, context)
+    log.info('[Keeper] Initialize PrivateVaultFactory V3 at block={}', [blockNumber])
   }
 
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, true)
-  if (BLOCKLIST_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(BLOCKLIST_VAULT_FACTORY_V2), context)
-    log.info('[Keeper] Initialize BlocklistVaultFactory V2 at block={}', [block.number.toString()])
+  if (blocklistVaultFactoryV2.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(blocklistVaultFactoryV2, context)
+    log.info('[Keeper] Initialize BlocklistVaultFactory V2 at block={}', [blockNumber])
+  }
+  if (blocklistVaultFactoryV3.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(blocklistVaultFactoryV3, context)
+    log.info('[Keeper] Initialize BlocklistVaultFactory V3 at block={}', [blockNumber])
   }
 
   // create erc20 vault factories
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_ERC20_KEY, true)
   context.setBoolean(IS_BLOCKLIST_KEY, false)
-  if (ERC20_VAULT_FACTORY_V1 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(ERC20_VAULT_FACTORY_V1), context)
-    log.info('[Keeper] Initialize ERC20VaultFactory V1 at block={}', [block.number.toString()])
+  if (erc20VaultFactoryV1.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(erc20VaultFactoryV1, context)
+    log.info('[Keeper] Initialize ERC20VaultFactory V1 at block={}', [blockNumber])
   }
-  if (ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(ERC20_VAULT_FACTORY_V2), context)
-    log.info('[Keeper] Initialize ERC20VaultFactory V2 at block={}', [block.number.toString()])
+  if (erc20VaultFactoryV2.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(erc20VaultFactoryV2, context)
+    log.info('[Keeper] Initialize ERC20VaultFactory V2 at block={}', [blockNumber])
+  }
+  if (erc20VaultFactoryV3.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(erc20VaultFactoryV3, context)
+    log.info('[Keeper] Initialize ERC20VaultFactory V3 at block={}', [blockNumber])
   }
 
   context.setBoolean(IS_PRIVATE_KEY, true)
-  if (PRIV_ERC20_VAULT_FACTORY_V1 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(PRIV_ERC20_VAULT_FACTORY_V1), context)
-    log.info('[Keeper] Initialize PrivateERC20VaultFactory V1 at block={}', [block.number.toString()])
+  if (privErc20VaultFactoryV1.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(privErc20VaultFactoryV1, context)
+    log.info('[Keeper] Initialize PrivateERC20VaultFactory V1 at block={}', [blockNumber])
   }
-  if (PRIV_ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(PRIV_ERC20_VAULT_FACTORY_V2), context)
-    log.info('[Keeper] Initialize PrivateERC20VaultFactory V2 at block={}', [block.number.toString()])
+  if (privErc20VaultFactoryV2.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(privErc20VaultFactoryV2, context)
+    log.info('[Keeper] Initialize PrivateERC20VaultFactory V2 at block={}', [blockNumber])
+  }
+  if (privErc20VaultFactoryV3.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(privErc20VaultFactoryV3, context)
+    log.info('[Keeper] Initialize PrivateERC20VaultFactory V3 at block={}', [blockNumber])
   }
 
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, true)
-  if (BLOCKLIST_ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V2), context)
-    log.info('[Keeper] Initialize BlocklistERC20VaultFactory V2 at block={}', [block.number.toString()])
+  if (blocklistErc20VaultFactoryV2.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(blocklistErc20VaultFactoryV2, context)
+    log.info('[Keeper] Initialize BlocklistERC20VaultFactory V2 at block={}', [blockNumber])
+  }
+  if (blocklistErc20VaultFactoryV3.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(blocklistErc20VaultFactoryV3, context)
+    log.info('[Keeper] Initialize BlocklistERC20VaultFactory V3 at block={}', [blockNumber])
   }
 
   // create restake vault factories
@@ -136,66 +210,68 @@ export function initialize(block: ethereum.Block): void {
   context.setBoolean(IS_ERC20_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, false)
   context.setBoolean(IS_RESTAKE_KEY, true)
-  if (RESTAKE_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(RESTAKE_VAULT_FACTORY_V2), context)
-    log.info('[Keeper] Initialize RestakeVaultFactory V2 at block={}', [block.number.toString()])
+  if (restakeVaultFactoryV2.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(restakeVaultFactoryV2, context)
+    log.info('[Keeper] Initialize RestakeVaultFactory V2 at block={}', [blockNumber])
   }
 
   context.setBoolean(IS_PRIVATE_KEY, true)
-  if (RESTAKE_PRIV_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(RESTAKE_PRIV_VAULT_FACTORY_V2), context)
-    log.info('[Keeper] Initialize RestakePrivateVaultFactory V2 at block={}', [block.number.toString()])
+  if (restakePrivVaultFactoryV2.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(restakePrivVaultFactoryV2, context)
+    log.info('[Keeper] Initialize RestakePrivateVaultFactory V2 at block={}', [blockNumber])
   }
 
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, true)
-  if (RESTAKE_BLOCKLIST_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(RESTAKE_BLOCKLIST_VAULT_FACTORY_V2), context)
-    log.info('[Keeper] Initialize RestakeBlocklistVaultFactory V2 at block={}', [block.number.toString()])
+  if (restakeBlocklistVaultFactoryV2.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(restakeBlocklistVaultFactoryV2, context)
+    log.info('[Keeper] Initialize RestakeBlocklistVaultFactory V2 at block={}', [blockNumber])
   }
 
   // create restake erc20 vault factories
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_ERC20_KEY, true)
   context.setBoolean(IS_BLOCKLIST_KEY, false)
-  if (RESTAKE_ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(RESTAKE_ERC20_VAULT_FACTORY_V2), context)
-    log.info('[Keeper] Initialize RestakeERC20VaultFactory V2 at block={}', [block.number.toString()])
+  if (restakeErc20VaultFactoryV2.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(restakeErc20VaultFactoryV2, context)
+    log.info('[Keeper] Initialize RestakeERC20VaultFactory V2 at block={}', [blockNumber])
   }
 
   context.setBoolean(IS_PRIVATE_KEY, true)
-  if (RESTAKE_PRIV_ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(RESTAKE_PRIV_ERC20_VAULT_FACTORY_V2), context)
-    log.info('[Keeper] Initialize RestakePrivateERC20VaultFactory V2 at block={}', [block.number.toString()])
+  if (restakePrivErc20VaultFactoryV2.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(restakePrivErc20VaultFactoryV2, context)
+    log.info('[Keeper] Initialize RestakePrivateERC20VaultFactory V2 at block={}', [blockNumber])
   }
 
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, true)
-  if (RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2 != ZERO_ADDRESS) {
-    VaultFactoryTemplate.createWithContext(Address.fromString(RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2), context)
-    log.info('[Keeper] Initialize RestakeBlocklistERC20VaultFactory V2 at block={}', [block.number.toString()])
+  if (restakeBlocklistErc20VaultFactoryV2.notEqual(zeroAddress)) {
+    VaultFactoryTemplate.createWithContext(restakeBlocklistErc20VaultFactoryV2, context)
+    log.info('[Keeper] Initialize RestakeBlocklistERC20VaultFactory V2 at block={}', [blockNumber])
   }
 
   // create reward splitter factories
-  if (REWARD_SPLITTER_FACTORY_V1 != ZERO_ADDRESS) {
-    RewardSplitterFactoryTemplate.create(Address.fromString(REWARD_SPLITTER_FACTORY_V1))
-    log.info('[Keeper] Initialize RewardSplitterFactory V1 at block={}', [block.number.toString()])
+  if (rewardSplitterFactoryV1.notEqual(zeroAddress)) {
+    RewardSplitterFactoryTemplate.create(rewardSplitterFactoryV1)
+    log.info('[Keeper] Initialize RewardSplitterFactory V1 at block={}', [blockNumber])
   }
 
-  if (REWARD_SPLITTER_FACTORY_V2 != ZERO_ADDRESS) {
-    RewardSplitterFactoryTemplate.create(Address.fromString(REWARD_SPLITTER_FACTORY_V2))
-    log.info('[Keeper] Initialize RewardSplitterFactory V2 at block={}', [block.number.toString()])
+  if (rewardSplitterFactoryV2.notEqual(zeroAddress)) {
+    RewardSplitterFactoryTemplate.create(rewardSplitterFactoryV2)
+    log.info('[Keeper] Initialize RewardSplitterFactory V2 at block={}', [blockNumber])
   }
 
-  if (FOX_VAULT1 != ZERO_ADDRESS) {
-    FoxVaultTemplate.create(Address.fromString(FOX_VAULT1))
-    log.info('[Keeper] Initialize FoxVault1 at block={}', [block.number.toString()])
+  if (foxVault1.notEqual(zeroAddress)) {
+    FoxVaultTemplate.create(foxVault1)
+    log.info('[Keeper] Initialize FoxVault1 at block={}', [blockNumber])
   }
 
-  if (FOX_VAULT2 != ZERO_ADDRESS) {
-    FoxVaultTemplate.create(Address.fromString(FOX_VAULT2))
-    log.info('[Keeper] Initialize FoxVault2 at block={}', [block.number.toString()])
+  if (foxVault2.notEqual(zeroAddress)) {
+    FoxVaultTemplate.create(foxVault2)
+    log.info('[Keeper] Initialize FoxVault2 at block={}', [blockNumber])
   }
+
+  log.info('[Keeper] Initialize hook complete at block={}', [blockNumber])
 }
 
 export function updateRewards(
@@ -271,18 +347,24 @@ export function updateRewards(
     }
 
     // fetch new principal, total assets and rate
-    let newRate: BigInt, newTotalAssets: BigInt, newTotalShares: BigInt, newExitingAssets: BigInt
+    let newRate: BigInt,
+      newTotalAssets: BigInt,
+      newTotalShares: BigInt,
+      newQueuedShares: BigInt,
+      newExitingAssets: BigInt
     if (vault.isGenesis && !v2Pool.migrated) {
       newRate = BigInt.fromString(WAD)
       newTotalAssets = BigInt.zero()
       newTotalShares = BigInt.zero()
+      newQueuedShares = BigInt.zero()
       newExitingAssets = BigInt.zero()
     } else {
       const stateUpdate = getVaultStateUpdate(vault, rewardsRoot, proofReward, proofUnlockedMevReward, proof)
       newRate = stateUpdate[0]
       newTotalAssets = stateUpdate[1]
       newTotalShares = stateUpdate[2]
-      newExitingAssets = stateUpdate[3]
+      newQueuedShares = stateUpdate[3]
+      newExitingAssets = stateUpdate[4]
       updateVaultApy(vault, vault.rewardsTimestamp, updateTimestamp, newRate.minus(vault.rate))
     }
 
@@ -299,8 +381,12 @@ export function updateRewards(
       .times(maxPercent.plus(BigInt.fromI32(vault.feePercent)))
       .div(BigInt.fromString(WAD))
       .div(maxPercent)
+    network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
+    network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
+
     vault.totalAssets = newTotalAssets
     vault.totalShares = newTotalShares
+    vault.queuedShares = newQueuedShares
     vault.exitingAssets = newExitingAssets
     vault.rate = newRate
     vault.rewardsRoot = rewardsRoot
@@ -315,9 +401,6 @@ export function updateRewards(
     vault.rewardsIpfsHash = rewardsIpfsHash
     vault.canHarvest = true
     vault.save()
-
-    network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
-    network.totalEarnedAssets = network.totalEarnedAssets.plus(rewardsDiff)
 
     if (!vault.isGenesis || v2Pool.migrated) {
       snapshotVault(vault, rewardsDiff, updateTimestamp)
@@ -366,7 +449,7 @@ export function updateRewards(
       allocator.mintedOsTokenShares = allocatorNewMintedOsTokenShares
       allocator.ltv = getAllocatorLtv(allocator, osToken)
       allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-      allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+      allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
       allocator.save()
       snapshotAllocator(
         allocator,
@@ -383,6 +466,12 @@ export function updateRewards(
 
     // update reward splitters
     updateRewardSplitters(vault)
+
+    // update osToken exit requests
+    updateOsTokenExitRequests(vault)
+
+    // update leverage strategy positions
+    updateLeverageStrategyPositions(vault, vault.rewardsTimestamp as BigInt)
   }
   network.save()
 }

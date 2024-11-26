@@ -48,7 +48,7 @@ export function handleXdaiSwapped(event: XdaiSwapped): void {
     allocator.assets = allocatorNewAssets
     allocator.ltv = getAllocatorLtv(allocator, osToken)
     allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-    allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken.apy, osToken, osTokenConfig)
+    allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
     allocator.save()
     snapshotAllocator(allocator, osToken, osTokenConfig, allocatorAssetsDiff, BigInt.zero(), timestamp)
   }

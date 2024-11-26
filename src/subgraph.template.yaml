@@ -30,7 +30,7 @@ dataSources:
         - handler: handleExitRequests
           filter:
             kind: polling
-            every: {{ pollingBlocksInterval }}
+            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: ExchangeRates
     network: {{ network }}
@@ -54,7 +54,38 @@ dataSources:
         - handler: handleExchangeRates
           filter:
             kind: polling
-            every: {{ pollingBlocksInterval }}
+            every: {{ blocksInHour }}
+  - kind: ethereum/contract
+    name: Aave
+    network: {{ network }}
+    source:
+      address: '{{ aaveProtocolDataProvider.address }}'
+      abi: AaveProtocolDataProvider
+      startBlock: {{ aaveProtocolDataProvider.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/aave.ts
+      entities:
+        - Network
+        - Vault
+        - OsTokenConfig
+        - OsToken
+      abis:
+        - name: AaveProtocolDataProvider
+          file: ./abis/AaveProtocolDataProvider.json
+        - name: AavePool
+          file: ./abis/AavePool.json
+        - name: AaveLeverageStrategy
+          file: ./abis/AaveLeverageStrategy.json
+        - name: StrategiesRegistry
+          file: ./abis/StrategiesRegistry.json
+      blockHandlers:
+        - handler: handleVaultBoostApy
+          filter:
+            kind: polling
+            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: OsToken
     network: {{ network }}
@@ -73,6 +104,7 @@ dataSources:
         - OsToken
         - TokenTransfer
         - OsTokenHolder
+        - OsTokenHolderSnapshot
       abis:
         - name: Erc20Token
           file: ./abis/Erc20Token.json
@@ -117,6 +149,7 @@ dataSources:
         - OsToken
         - OsTokenConfig
         - OsTokenSnapshot
+        - OsTokenExitRequest
         - OsTokenHolder
         - OsTokenHolderSnapshot
         - Vault
@@ -129,6 +162,8 @@ dataSources:
         - RewardSplitter
         - RewardSplitterShareHolder
         - RewardSplitterShareHolderSnapshot
+        - LeverageStrategyPosition
+        - LeverageStrategyPositionSnapshot
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
@@ -140,7 +175,21 @@ dataSources:
           file: ./abis/Multicall.json
         - name: RewardSplitter
           file: ./abis/RewardSplitter.json
+        - name: StrategiesRegistry
+          file: ./abis/StrategiesRegistry.json
+        - name: AaveLeverageStrategy
+          file: ./abis/AaveLeverageStrategy.json
+        - name: AavePool
+          file: ./abis/AavePool.json
+        - name: AaveOracle
+          file: ./abis/AaveOracle.json
+        - name: AaveProtocolDataProvider
+          file: ./abis/AaveProtocolDataProvider.json
+        - name: OsTokenVaultEscrow
+          file: ./abis/OsTokenVaultEscrow.json
       eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
         - event: RewardsUpdated(indexed address,indexed bytes32,uint256,uint64,uint64,string)
           handler: handleRewardsUpdated
         - event: Harvested(indexed address,indexed bytes32,int256,uint256)
@@ -149,10 +198,6 @@ dataSources:
           handler: handleValidatorsApproval
         - event: ConfigUpdated(string)
           handler: handleConfigUpdated
-      blockHandlers:
-        - handler: initialize
-          filter:
-            kind: once
   - kind: ethereum/contract
     name: OsTokenVaultController
     network: {{ network }}
@@ -242,6 +287,8 @@ dataSources:
         - Transaction
         - OsToken
         - OsTokenConfig
+        - AllocatorSnapshot
+        - VaultSnapshot
       abis:
         - name: GenesisVault
           file: ./abis/GenesisVault.json
@@ -348,6 +395,89 @@ dataSources:
         - event: VestingEscrowCreated(indexed address,indexed address,indexed address,address,address,uint256,uint256,uint256,uint256)
           handler: handleVestingEscrowCreated
   - kind: ethereum/contract
+    name: OsTokenVaultEscrow
+    network: {{ network }}
+    source:
+      address: '{{ osTokenVaultEscrow.address }}'
+      abi: OsTokenVaultEscrow
+      startBlock: {{ osTokenVaultEscrow.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/osTokenVaultEscrow.ts
+      entities:
+        - Vault
+        - OsToken
+        - OsTokenConfig
+        - OsTokenExitRequest
+        - OsTokenSnapshot
+        - Allocator
+        - ExitRequest
+      abis:
+        - name: OsTokenVaultEscrow
+          file: ./abis/OsTokenVaultEscrow.json
+      eventHandlers:
+        - event: PositionCreated(indexed address,indexed uint256,address,uint256,uint256)
+          handler: handlePositionCreated
+        - event: ExitedAssetsProcessed(indexed address,indexed address,indexed uint256,uint256)
+          handler: handleExitedAssetsProcessed
+        - event: ExitedAssetsClaimed(indexed address,indexed address,indexed uint256,uint256,uint256)
+          handler: handleExitedAssetsClaimed
+        - event: OsTokenLiquidated(indexed address,indexed address,indexed uint256,address,uint256,uint256)
+          handler: handleOsTokenLiquidated
+        - event: OsTokenRedeemed(indexed address,indexed address,indexed uint256,address,uint256,uint256)
+          handler: handleOsTokenRedeemed
+      blockHandlers:
+        - handler: handleOsTokenExitRequests
+          filter:
+            kind: polling
+            every: {{ blocksInHour }}
+  - kind: ethereum/contract
+    name: AaveLeverageStrategy
+    network: {{ network }}
+    source:
+      address: '{{ aaveLeverageStrategy.address }}'
+      abi: AaveLeverageStrategy
+      startBlock: {{ aaveLeverageStrategy.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/leverageStrategy.ts
+      entities:
+        - Transaction
+        - OsToken
+        - ExitRequest
+        - Allocator
+        - LeverageStrategyPosition
+        - LeverageStrategyPositionSnapshot
+      abis:
+        - name: StrategiesRegistry
+          file: ./abis/StrategiesRegistry.json
+        - name: AaveLeverageStrategy
+          file: ./abis/AaveLeverageStrategy.json
+        - name: AavePool
+          file: ./abis/AavePool.json
+        - name: AaveOracle
+          file: ./abis/AaveOracle.json
+        - name: AaveProtocolDataProvider
+          file: ./abis/AaveProtocolDataProvider.json
+      eventHandlers:
+        - event: StrategyProxyCreated(indexed bytes32,indexed address,indexed address,address)
+          handler: handleStrategyProxyCreated
+        - event: Deposited(indexed address,indexed address,uint256,uint256)
+          handler: handleDeposited
+        - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256,uint256,uint256)
+          handler: handleExitQueueEntered
+        - event: ExitedAssetsClaimed(indexed address,indexed address,uint256,uint256)
+          handler: handleExitedAssetsClaimed
+      blockHandlers:
+        - handler: handleLeverageStrategyPositions
+          filter:
+            kind: polling
+            every: {{ blocksInHour }}
+  - kind: ethereum/contract
     name: EigenDelegationManager
     network: {{ network }}
     source:
@@ -393,6 +523,53 @@ dataSources:
       eventHandlers:
         - event: PodSharesUpdated(indexed address,int256)
           handler: handlePodSharesUpdated
+  - kind: ethereum/contract
+    name: UniswapFactory
+    network: {{ network }}
+    source:
+      address: '{{ uniswapFactory.address }}'
+      abi: UniswapFactory
+      startBlock: {{ uniswapFactory.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/uniswap.ts
+      entities:
+        - UniswapPool
+      abis:
+        - name: UniswapFactory
+          file: ./abis/UniswapFactory.json
+      eventHandlers:
+        - event: PoolCreated(indexed address,indexed address,indexed uint24,int24,address)
+          handler: handlePoolCreated
+  - kind: ethereum/contract
+    name: UniswapPositionManager
+    network: {{ network }}
+    source:
+      address: '{{ uniswapPositionManager.address }}'
+      abi: UniswapPositionManager
+      startBlock: {{ uniswapPositionManager.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/uniswap.ts
+      entities:
+        - UniswapPool
+        - UniswapPosition
+      abis:
+        - name: UniswapPositionManager
+          file: ./abis/UniswapPositionManager.json
+        - name: UniswapFactory
+          file: ./abis/UniswapFactory.json
+      eventHandlers:
+        - event: IncreaseLiquidity(indexed uint256,uint128,uint256,uint256)
+          handler: handleIncreaseLiquidity
+        - event: DecreaseLiquidity(indexed uint256,uint128,uint256,uint256)
+          handler: handleDecreaseLiquidity
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleTransfer
 templates:
   - kind: ethereum/contract
     name: VaultFactory
@@ -448,11 +625,15 @@ templates:
         - Network
         - User
         - OsToken
+        - OsTokenSnapshot
         - OsTokenConfig
         - Vault
+        - VaultSnapshot
         - Allocator
+        - AllocatorSnapshot
         - AllocatorAction
         - ExitRequest
+        - ExitRequestSnapshot
         - Transaction
       abis:
         - name: Vault
@@ -551,6 +732,7 @@ templates:
         - OsToken
         - OsTokenConfig
         - Allocator
+        - AllocatorSnapshot
         - AllocatorAction
         - Transaction
       abis:
@@ -645,6 +827,7 @@ templates:
       entities:
         - RewardSplitter
         - RewardSplitterShareHolder
+        - RewardSplitterShareHolderSnapshot
         - Transaction
       abis:
         - name: RewardSplitter
@@ -656,3 +839,27 @@ templates:
           handler: handleSharesDecreased
         - event: RewardsWithdrawn(indexed address,uint256)
           handler: handleRewardsWithdrawn
+  - kind: ethereum/contract
+    name: UniswapPool
+    network: {{ network }}
+    source:
+      abi: UniswapPool
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      file: ./mappings/uniswap.ts
+      entities:
+        - UniswapPool
+      abis:
+        - name: UniswapPool
+          file: ./abis/UniswapPool.json
+      eventHandlers:
+        - event: Initialize(uint160,int24)
+          handler: handleInitialize
+        - event: Swap(indexed address,indexed address,int256,int256,uint160,uint128,int24)
+          handler: handleSwap
+        - event: Mint(address,indexed address,indexed int24,indexed int24,uint128,uint256,uint256)
+          handler: handleMint
+        - event: Burn(indexed address,indexed int24,indexed int24,uint128,uint256,uint256)
+          handler: handleBurn

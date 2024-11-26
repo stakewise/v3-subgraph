@@ -149,7 +149,6 @@ export function getAllocatorLtv(allocator: Allocator, osToken: OsToken): BigDeci
 
 export function getAllocatorOsTokenMintApy(
   allocator: Allocator,
-  osTokenApy: BigDecimal,
   osToken: OsToken,
   osTokenConfig: OsTokenConfig,
 ): BigDecimal {
@@ -163,12 +162,16 @@ export function getAllocatorOsTokenMintApy(
 
   const feePercent = new BigDecimal(BigInt.fromI32(osToken.feePercent))
   const maxPercent = new BigDecimal(BigInt.fromI32(10000))
-  const maxOsTokenMintApy = osTokenApy
+  const maxOsTokenMintApy = osToken.apy
     .times(feePercent)
     .times(BigDecimal.fromString(WAD))
     .div(maxPercent.minus(feePercent))
     .div(new BigDecimal(osTokenConfig.ltvPercent))
-  return maxOsTokenMintApy.times(new BigDecimal(mintedOsTokenAssets)).div(new BigDecimal(allocator.assets))
+  const maxMintedOsTokenAssets = allocator.assets.times(osTokenConfig.ltvPercent).div(BigInt.fromString(WAD))
+  if (mintedOsTokenAssets.ge(maxMintedOsTokenAssets)) {
+    return maxOsTokenMintApy
+  }
+  return maxOsTokenMintApy.times(new BigDecimal(mintedOsTokenAssets)).div(new BigDecimal(maxMintedOsTokenAssets))
 }
 
 export function updateAllocatorsLtvStatus(): void {

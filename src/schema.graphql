@@ -113,6 +113,9 @@ type ExitRequest @entity {
   "The address that will receive exited assets"
   receiver: Bytes!
 
+  "The total number of tickets in the exit queue"
+  totalTickets: BigInt!
+
   "The total number of assets queued for exit"
   totalAssets: BigInt!
 
@@ -241,8 +244,17 @@ type Vault @entity {
   "The vault reward splitters"
   rewardSplitters: [RewardSplitter!]! @derivedFrom(field: "vault")
 
+  "The vault leverage strategy positions"
+  leveragePositions: [LeverageStrategyPosition!]! @derivedFrom(field: "vault")
+
+  "The vault OsToken exit request positions"
+  osTokenExitRequests: [OsTokenExitRequest!]! @derivedFrom(field: "vault")
+
   "The total number of shares"
   totalShares: BigInt!
+
+  "The total number of queued shares"
+  queuedShares: BigInt!
 
   "The vault score. Managed by the backend service."
   score: BigDecimal!
@@ -315,6 +327,12 @@ type Vault @entity {
 
   "The list of vault APY snapshot"
   apys: [BigDecimal!]!
+
+  "The vault average max boost APY"
+  maxBoostApy: BigDecimal!
+
+  "The list of vault max boost APY snapshot"
+  maxBoostApys: [BigDecimal!]!
 
   "The total number of vault blocklisted accounts"
   blocklistCount: BigInt!
@@ -400,6 +418,9 @@ type Network @entity {
   "Always 0"
   id: ID!
 
+  "Defines whether the factories are initialized"
+  factoriesInitialized: Boolean!
+
   "The total assets locked in the network"
   totalAssets: BigInt!
 
@@ -412,8 +433,14 @@ type Network @entity {
   "The USD rate of the assets (e.g. ETH, GNO)"
   assetsUsdRate: BigDecimal!
 
-  "The USD to DAI rate"
-  usdToDaiRate: BigDecimal!
+  "The USD rate of the SWISE"
+  swiseUsdRate: BigDecimal!
+
+  "The USD rate of DAI"
+  daiUsdRate: BigDecimal!
+
+  "The USD rate of USDC"
+  usdcUsdRate: BigDecimal!
 
   "The USD to EUR rate"
   usdToEurRate: BigDecimal!
@@ -636,6 +663,67 @@ type OsTokenConfig @entity {
   liqThresholdPercent: BigInt!
 }
 
+type OsTokenExitRequest @entity {
+  "<Vault ID>-<Exit queue id>"
+  id: ID!
+
+  "The address that can claim the exit"
+  owner: Bytes!
+
+  "The vault where assets are exiting"
+  vault: Vault!
+
+  "The exit request position ticket"
+  positionTicket: BigInt!
+
+  "The processed assets from the exit request. Will be null if the exit request is not processed."
+  exitedAssets: BigInt
+
+  "The total amount of osToken shares exiting"
+  osTokenShares: BigInt!
+
+  "The position's LTV percent"
+  ltv: BigDecimal!
+}
+
+"""
+The LeverageStrategy position
+"""
+type LeverageStrategyPosition @entity {
+  "Set to `vault ID-user address`"
+  id: ID!
+
+  "The proxy address used for the leverage"
+  proxy: Bytes!
+
+  "The address of the user"
+  user: Bytes!
+
+  "The vault used for the leverage"
+  vault: Vault!
+
+  "The total amount of user osToken shares"
+  osTokenShares: BigInt!
+
+  "The total amount of user assets"
+  assets: BigInt!
+
+  "The total amount of user earned boost assets"
+  totalEarnedBoostAssets: BigInt!
+
+  "The percent (in wad) of user's position that is currently exiting"
+  exitingPercent: BigInt!
+
+  "The total amount of user exiting osToken shares"
+  exitingOsTokenShares: BigInt!
+
+  "The total amount of user exiting assets"
+  exitingAssets: BigInt!
+
+  "The unprocessed exit request. Can be null if nothing is exiting."
+  exitRequest: ExitRequest
+}
+
 """
 The snapshot of the allocator state
 """
@@ -711,6 +799,7 @@ type VaultSnapshot @entity(timeseries: true) {
   vault: Vault!
   earnedAssets: BigInt!
   totalAssets: BigInt!
+  totalShares: BigInt!
 }
 
 """
@@ -722,6 +811,7 @@ type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
   vault: Vault!
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+  totalShares: BigInt! @aggregate(fn: "last", arg: "totalShares")
 }
 
 """
@@ -775,7 +865,9 @@ type ExchangeRateSnapshot @entity(timeseries: true) {
   id: Int8!
   timestamp: Timestamp!
   assetsUsdRate: BigDecimal!
-  usdToDaiRate: BigDecimal!
+  swiseUsdRate: BigDecimal!
+  daiUsdRate: BigDecimal!
+  usdcUsdRate: BigDecimal!
   usdToEurRate: BigDecimal!
   usdToGbpRate: BigDecimal!
 }
@@ -787,7 +879,146 @@ type ExchangeRateStats @aggregation(intervals: ["day"], source: "ExchangeRateSna
   id: Int8!
   timestamp: Timestamp!
   assetsUsdRate: BigDecimal! @aggregate(fn: "last", arg: "assetsUsdRate")
-  usdToDaiRate: BigDecimal! @aggregate(fn: "last", arg: "usdToDaiRate")
+  swiseUsdRate: BigDecimal! @aggregate(fn: "last", arg: "swiseUsdRate")
+  daiUsdRate: BigDecimal! @aggregate(fn: "last", arg: "daiUsdRate")
+  usdcUsdRate: BigDecimal! @aggregate(fn: "last", arg: "usdcUsdRate")
   usdToEurRate: BigDecimal! @aggregate(fn: "last", arg: "usdToEurRate")
   usdToGbpRate: BigDecimal! @aggregate(fn: "last", arg: "usdToGbpRate")
+}
+
+"""
+The snapshot of the LeverageStrategyPosition state
+"""
+type LeverageStrategyPositionSnapshot @entity(timeseries: true) {
+  id: Int8!
+  timestamp: Timestamp!
+  position: LeverageStrategyPosition!
+  earnedAssets: BigInt!
+  earnedBoostAssets: BigInt!
+  totalEarnedBoostAssets: BigInt!
+  totalAssets: BigInt!
+}
+
+"""
+The aggregation of the LeverageStrategyPosition snapshots
+"""
+type LeverageStrategyPositionStats @aggregation(intervals: ["day"], source: "LeverageStrategyPositionSnapshot") {
+  id: Int8!
+  timestamp: Timestamp!
+  position: LeverageStrategyPosition!
+  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
+  earnedBoostAssets: BigInt! @aggregate(fn: "sum", arg: "earnedBoostAssets")
+  totalEarnedBoostAssets: BigInt! @aggregate(fn: "last", arg: "totalEarnedBoostAssets")
+  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+}
+
+"Uniswap V3 pool data"
+type UniswapPool @entity {
+  "The address of the pool"
+  id: ID!
+
+  "The address of token0"
+  token0: Bytes!
+
+  "The address of token1"
+  token1: Bytes!
+
+  "Fee tier"
+  feeTier: BigInt!
+
+  "The in range liquidity"
+  liquidity: BigInt!
+
+  "The current price tracked"
+  sqrtPrice: BigInt!
+
+  "The tracker of the accumulated token0 fees"
+  feesToken0: BigInt!
+
+  "The tracker of the accumulated token1 fees"
+  feesToken1: BigInt!
+
+  "The current tick"
+  tick: Int
+
+  "All time token0 swapped"
+  volumeToken0: BigInt!
+
+  "All time token1 swapped"
+  volumeToken1: BigInt!
+
+  "The pool positions"
+  positions: [UniswapPosition!]! @derivedFrom(field: "pool")
+}
+
+"Positions created through UniswapPositionManager"
+type UniswapPosition @entity {
+  "NFT Token ID"
+  id: ID!
+
+  "The address of the position owner"
+  owner: Bytes!
+
+  "The address of the pool"
+  pool: UniswapPool!
+
+  "The amount of token0"
+  amount0: BigInt!
+
+  "The amount of token1"
+  amount1: BigInt!
+
+  "Lower tick of the position"
+  tickLower: Int!
+
+  "Upper tick of the position"
+  tickUpper: Int!
+
+  "Total liquidity of the position"
+  liquidity: BigInt!
+}
+
+"Stores current active distributions"
+type Distributor @entity {
+  "Set to 1"
+  id: ID!
+
+  "The list of active distributions IDs"
+  activeDistributionIds: [String!]!
+}
+
+"The distribution of additional incentives"
+type Distribution @entity {
+  "Set to `transaction hash-log index`"
+  id: ID!
+
+  "The target of the distribution for calculation rewards"
+  target: String!
+
+  "The address of the token that is distributed"
+  token: Bytes!
+
+  "The amount of tokens that is distributed"
+  amount: BigInt!
+
+  "The timestamp when the distribution starts"
+  startTimestamp: BigInt!
+
+  "The timestamp when the distribution ends"
+  endTimestamp: BigInt!
+}
+
+"The distributor reward"
+type DistributorReward @entity {
+  "Set to `token address-user address`"
+  id: ID!
+
+  "The address of the user"
+  user: Bytes!
+
+  "The address of the token"
+  token: Bytes!
+
+  "The cumulative reward accumulated by user"
+  amount: BigInt!
 }
