@@ -7,6 +7,5 @@ export function handleVaultCreated(event: VaultCreated): void {
   let isPrivate = context.getBoolean('isPrivate')
   let isErc20 = context.getBoolean('isErc20')
   let isBlocklist = context.getBoolean('isBlocklist')
-  let isRestake = context.getBoolean('isRestake')
-  createVault(event, isPrivate, isErc20, isBlocklist, isRestake)
+  createVault(event, isPrivate, isErc20, isBlocklist)
 }

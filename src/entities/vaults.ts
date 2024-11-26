@@ -3,7 +3,6 @@ import {
   BlocklistVault as BlocklistVaultTemplate,
   Erc20Vault as Erc20VaultTemplate,
   PrivateVault as PrivateVaultTemplate,
-  RestakeVault as RestakeVaultTemplate,
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
@@ -25,13 +24,7 @@ const convertToAssetsSelector = '0x07a2d13a'
 const exitingAssetsSelector = '0xee3bd5df'
 const queuedSharesSelector = '0xd83ad00c'
 
-export function createVault(
-  event: VaultCreated,
-  isPrivate: boolean,
-  isErc20: boolean,
-  isBlocklist: boolean,
-  isRestake: boolean,
-): void {
+export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: boolean, isBlocklist: boolean): void {
   const block = event.block
   const vaultAddress = event.params.vault
   const vaultAddressHex = vaultAddress.toHex()
@@ -74,9 +67,8 @@ export function createVault(
   vault.latestExitTicket = BigInt.zero()
   vault.isPrivate = isPrivate
   vault.isBlocklist = isBlocklist
-  vault.isRestake = isRestake
   vault.isErc20 = isErc20
-  vault.isOsTokenEnabled = !isRestake
+  vault.isOsTokenEnabled = true
   vault.isCollateralized = false
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
@@ -106,12 +98,6 @@ export function createVault(
     vault.blocklistManager = admin
   }
 
-  if (isRestake) {
-    RestakeVaultTemplate.create(vaultAddress)
-    vault.restakeOperatorsManager = admin
-    vault.restakeWithdrawalsManager = admin
-  }
-
   vault.save()
   VaultTemplate.create(vaultAddress)
 
@@ -125,7 +111,7 @@ export function createVault(
   createTransaction(event.transaction.hash.toHex())
 
   log.info(
-    '[VaultFactory] VaultCreated address={} admin={} mevEscrow={} feePercent={} capacity={} isPrivate={} isErc20={} isBlocklist={} isRestake={}',
+    '[VaultFactory] VaultCreated address={} admin={} mevEscrow={} feePercent={} capacity={} isPrivate={} isErc20={} isBlocklist={}',
     [
       vaultAddressHex,
       admin.toHex(),
@@ -135,7 +121,6 @@ export function createVault(
       isPrivate.toString(),
       isErc20.toString(),
       isBlocklist.toString(),
-      isRestake.toString(),
     ],
   )
 }

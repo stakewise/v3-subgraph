@@ -25,12 +25,6 @@ import {
   PRIV_VAULT_FACTORY_V1,
   PRIV_VAULT_FACTORY_V2,
   PRIV_VAULT_FACTORY_V3,
-  RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2,
-  RESTAKE_BLOCKLIST_VAULT_FACTORY_V2,
-  RESTAKE_ERC20_VAULT_FACTORY_V2,
-  RESTAKE_PRIV_ERC20_VAULT_FACTORY_V2,
-  RESTAKE_PRIV_VAULT_FACTORY_V2,
-  RESTAKE_VAULT_FACTORY_V2,
   REWARD_SPLITTER_FACTORY_V1,
   REWARD_SPLITTER_FACTORY_V2,
   VAULT_FACTORY_V1,
@@ -78,7 +72,6 @@ import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
 const IS_BLOCKLIST_KEY = 'isBlocklist'
-const IS_RESTAKE_KEY = 'isRestake'
 
 export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   const network = createOrLoadNetwork()
@@ -105,12 +98,6 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   const privErc20VaultFactoryV3 = Address.fromString(PRIV_ERC20_VAULT_FACTORY_V3)
   const blocklistErc20VaultFactoryV2 = Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V2)
   const blocklistErc20VaultFactoryV3 = Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V3)
-  const restakeVaultFactoryV2 = Address.fromString(RESTAKE_VAULT_FACTORY_V2)
-  const restakePrivVaultFactoryV2 = Address.fromString(RESTAKE_PRIV_VAULT_FACTORY_V2)
-  const restakeBlocklistVaultFactoryV2 = Address.fromString(RESTAKE_BLOCKLIST_VAULT_FACTORY_V2)
-  const restakeErc20VaultFactoryV2 = Address.fromString(RESTAKE_ERC20_VAULT_FACTORY_V2)
-  const restakePrivErc20VaultFactoryV2 = Address.fromString(RESTAKE_PRIV_ERC20_VAULT_FACTORY_V2)
-  const restakeBlocklistErc20VaultFactoryV2 = Address.fromString(RESTAKE_BLOCKLIST_ERC20_VAULT_FACTORY_V2)
   const rewardSplitterFactoryV1 = Address.fromString(REWARD_SPLITTER_FACTORY_V1)
   const rewardSplitterFactoryV2 = Address.fromString(REWARD_SPLITTER_FACTORY_V2)
   const foxVault1 = Address.fromString(FOX_VAULT1)
@@ -124,7 +111,6 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_ERC20_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, false)
-  context.setBoolean(IS_RESTAKE_KEY, false)
   if (vaultFactoryV1.notEqual(zeroAddress)) {
     VaultFactoryTemplate.createWithContext(vaultFactoryV1, context)
     log.info('[Keeper] Initialize VaultFactory V1 at block={}', [blockNumber])
@@ -203,51 +189,6 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   if (blocklistErc20VaultFactoryV3.notEqual(zeroAddress)) {
     VaultFactoryTemplate.createWithContext(blocklistErc20VaultFactoryV3, context)
     log.info('[Keeper] Initialize BlocklistERC20VaultFactory V3 at block={}', [blockNumber])
-  }
-
-  // create restake vault factories
-  context.setBoolean(IS_PRIVATE_KEY, false)
-  context.setBoolean(IS_ERC20_KEY, false)
-  context.setBoolean(IS_BLOCKLIST_KEY, false)
-  context.setBoolean(IS_RESTAKE_KEY, true)
-  if (restakeVaultFactoryV2.notEqual(zeroAddress)) {
-    VaultFactoryTemplate.createWithContext(restakeVaultFactoryV2, context)
-    log.info('[Keeper] Initialize RestakeVaultFactory V2 at block={}', [blockNumber])
-  }
-
-  context.setBoolean(IS_PRIVATE_KEY, true)
-  if (restakePrivVaultFactoryV2.notEqual(zeroAddress)) {
-    VaultFactoryTemplate.createWithContext(restakePrivVaultFactoryV2, context)
-    log.info('[Keeper] Initialize RestakePrivateVaultFactory V2 at block={}', [blockNumber])
-  }
-
-  context.setBoolean(IS_PRIVATE_KEY, false)
-  context.setBoolean(IS_BLOCKLIST_KEY, true)
-  if (restakeBlocklistVaultFactoryV2.notEqual(zeroAddress)) {
-    VaultFactoryTemplate.createWithContext(restakeBlocklistVaultFactoryV2, context)
-    log.info('[Keeper] Initialize RestakeBlocklistVaultFactory V2 at block={}', [blockNumber])
-  }
-
-  // create restake erc20 vault factories
-  context.setBoolean(IS_PRIVATE_KEY, false)
-  context.setBoolean(IS_ERC20_KEY, true)
-  context.setBoolean(IS_BLOCKLIST_KEY, false)
-  if (restakeErc20VaultFactoryV2.notEqual(zeroAddress)) {
-    VaultFactoryTemplate.createWithContext(restakeErc20VaultFactoryV2, context)
-    log.info('[Keeper] Initialize RestakeERC20VaultFactory V2 at block={}', [blockNumber])
-  }
-
-  context.setBoolean(IS_PRIVATE_KEY, true)
-  if (restakePrivErc20VaultFactoryV2.notEqual(zeroAddress)) {
-    VaultFactoryTemplate.createWithContext(restakePrivErc20VaultFactoryV2, context)
-    log.info('[Keeper] Initialize RestakePrivateERC20VaultFactory V2 at block={}', [blockNumber])
-  }
-
-  context.setBoolean(IS_PRIVATE_KEY, false)
-  context.setBoolean(IS_BLOCKLIST_KEY, true)
-  if (restakeBlocklistErc20VaultFactoryV2.notEqual(zeroAddress)) {
-    VaultFactoryTemplate.createWithContext(restakeBlocklistErc20VaultFactoryV2, context)
-    log.info('[Keeper] Initialize RestakeBlocklistERC20VaultFactory V2 at block={}', [blockNumber])
   }
 
   // create reward splitter factories

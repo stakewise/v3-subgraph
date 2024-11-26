@@ -478,52 +478,6 @@ dataSources:
             kind: polling
             every: {{ blocksInHour }}
   - kind: ethereum/contract
-    name: EigenDelegationManager
-    network: {{ network }}
-    source:
-      address: '{{ eigenDelegationManager.address }}'
-      abi: EigenDelegationManager
-      startBlock: {{ eigenDelegationManager.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.8
-      language: wasm/assemblyscript
-      file: ./mappings/restakeVault.ts
-      entities:
-        - EigenPod
-        - Transaction
-      abis:
-        - name: EigenDelegationManager
-          file: ./abis/EigenDelegationManager.json
-      eventHandlers:
-        - event: StakerDelegated(indexed address,indexed address)
-          handler: handleStakerDelegated
-        - event: StakerForceUndelegated(indexed address,indexed address)
-          handler: handleStakerForceUndelegated
-        - event: StakerUndelegated(indexed address,indexed address)
-          handler: handleStakerUndelegated
-  - kind: ethereum/contract
-    name: EigenPodManager
-    network: {{ network }}
-    source:
-      address: '{{ eigenPodManager.address }}'
-      abi: EigenPodManager
-      startBlock: {{ eigenPodManager.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.8
-      language: wasm/assemblyscript
-      file: ./mappings/restakeVault.ts
-      entities:
-        - EigenPod
-        - Transaction
-      abis:
-        - name: EigenPodManager
-          file: ./abis/EigenPodManager.json
-      eventHandlers:
-        - event: PodSharesUpdated(indexed address,int256)
-          handler: handlePodSharesUpdated
-  - kind: ethereum/contract
     name: UniswapFactory
     network: {{ network }}
     source:
@@ -790,30 +744,6 @@ templates:
       eventHandlers:
         - event: XdaiSwapped(uint256,uint256)
           handler: handleXdaiSwapped
-  - kind: ethereum/contract
-    name: RestakeVault
-    network: {{ network }}
-    source:
-      abi: RestakeVault
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.8
-      language: wasm/assemblyscript
-      file: ./mappings/restakeVault.ts
-      entities:
-        - Vault
-        - EigenPod
-        - Transaction
-      abis:
-        - name: RestakeVault
-          file: ./abis/RestakeVault.json
-      eventHandlers:
-        - event: EigenPodCreated(address,address)
-          handler: handleEigenPodCreated
-        - event: RestakeOperatorsManagerUpdated(address)
-          handler: handleRestakeOperatorsManagerUpdated
-        - event: RestakeWithdrawalsManagerUpdated(address)
-          handler: handleRestakeWithdrawalsManagerUpdated
   - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}
