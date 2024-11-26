@@ -21,12 +21,6 @@
   "erc20VaultFactoryV3": "0x978302cAcAdEDE5d503390E176e86F3889Df6Ce6",
   "privErc20VaultFactoryV3": "0x291Fa5849215847081B475450cBE5De46CfD4fAE",
   "blocklistErc20VaultFactoryV3": "0xe487EDDB7C5802e416385544f0A6a4426AF4AE87",
-  "restakeVaultFactoryV2": "0x32634dEc69D4523D2f980Be92494dC03bD4C9fce",
-  "restakePrivVaultFactoryV2": "0x807305c086A99cbDBff07cB4256cE556d9d6F0af",
-  "restakeBlocklistVaultFactoryV2": "0xF63666399aA1af203BfC9171147EDcB21A6Bf3A2",
-  "restakeErc20VaultFactoryV2": "0x44ECC30Bcc64b832A2cB5d1ff44260B1fCC565e1",
-  "restakePrivErc20VaultFactoryV2": "0x026dF36Ec050E7f473cbfc30aA42946D3Ed11b2c",
-  "restakeBlocklistErc20VaultFactoryV2": "0x6a2835087C6809902a2f39b86fe64Ef5daCc31e1",
   "rewardSplitterFactoryV1": "0x90a9428b8c58cA80B28aAF46B936D42e87797449",
   "rewardSplitterFactoryV2": "0x256aF27ce81282A0491A5361172c1Db08f6cC5F8",
   "foxVault1": "0x4FEF9D741011476750A243aC70b9789a63dd47Df",
@@ -98,14 +92,6 @@
   "v2StakedToken": {
     "address": "0xFe2e637202056d30016725477c5da089Ab0A043A",
     "startBlock": "11726303"
-  },
-  "eigenDelegationManager": {
-    "address": "0x39053D51B77DC0d36036Fc1fCc8Cb819df8Ef37A",
-    "startBlock": "21117000"
-  },
-  "eigenPodManager": {
-    "address": "0x91E677b07F7AF907ec9a428aafA9fc14a0d3A338",
-    "startBlock": "21117000"
   },
   "uniswapFactory": {
     "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
