@@ -14,6 +14,7 @@ import {
   distributeToSwiseAssetUniPoolUsers,
 } from '../entities/merkleDistributor'
 import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
+import { createTransaction } from '../entities/transaction'
 
 export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded): void {
   const distribution = new PeriodicDistribution(
@@ -185,6 +186,7 @@ export function handleDistributions(block: ethereum.Block): void {
 
 export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
   const rewardsIpfsHash = event.params.newRewardsIpfsHash
+  const rewardsRoot = event.params.newRewardsRoot
   let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
   while (data === null) {
     log.warning('[MerkleDistributor] RewardsRootUpdated ipfs.cat failed for hash={}, retrying', [rewardsIpfsHash])
@@ -264,6 +266,10 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
     claim.proof = proof
     claim.save()
   }
+  log.info('[MerkleDistributor] RewardsRootUpdated rewardsRoot={} rewardsIpfsHash={}', [
+    rewardsRoot.toHex(),
+    rewardsIpfsHash,
+  ])
 }
 
 export function handleRewardsClaimed(event: RewardsClaimed): void {
@@ -280,4 +286,6 @@ export function handleRewardsClaimed(event: RewardsClaimed): void {
     claimedAmount.cumulativeClaimedAmount = claimedAmount.cumulativeClaimedAmount.plus(amounts[i])
     claimedAmount.save()
   }
+  createTransaction(event.transaction.hash.toHex())
+  log.info('[MerkleDistributor] RewardsClaimed user={}', [user.toHex()])
 }
