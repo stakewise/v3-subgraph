@@ -75,12 +75,8 @@ dataSources:
       abis:
         - name: AaveProtocolDataProvider
           file: ./abis/AaveProtocolDataProvider.json
-        - name: AavePool
-          file: ./abis/AavePool.json
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
-        - name: StrategiesRegistry
-          file: ./abis/StrategiesRegistry.json
       blockHandlers:
         - handler: handleVaultBoostApy
           filter:
@@ -175,16 +171,8 @@ dataSources:
           file: ./abis/Multicall.json
         - name: RewardSplitter
           file: ./abis/RewardSplitter.json
-        - name: StrategiesRegistry
-          file: ./abis/StrategiesRegistry.json
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
-        - name: AavePool
-          file: ./abis/AavePool.json
-        - name: AaveOracle
-          file: ./abis/AaveOracle.json
-        - name: AaveProtocolDataProvider
-          file: ./abis/AaveProtocolDataProvider.json
         - name: OsTokenVaultEscrow
           file: ./abis/OsTokenVaultEscrow.json
       eventHandlers:
@@ -490,16 +478,10 @@ dataSources:
           file: ./abis/StrategiesRegistry.json
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
-        - name: AavePool
-          file: ./abis/AavePool.json
-        - name: AaveOracle
-          file: ./abis/AaveOracle.json
-        - name: AaveProtocolDataProvider
-          file: ./abis/AaveProtocolDataProvider.json
       eventHandlers:
         - event: StrategyProxyCreated(indexed bytes32,indexed address,indexed address,address)
           handler: handleStrategyProxyCreated
-        - event: Deposited(indexed address,indexed address,uint256,uint256)
+        - event: Deposited(indexed address,indexed address,uint256,uint256,address)
           handler: handleDeposited
         - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256,uint256,uint256)
           handler: handleExitQueueEntered

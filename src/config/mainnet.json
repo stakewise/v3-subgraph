@@ -33,8 +33,6 @@
   "gbpUsdPriceFeed": "0x5c0Ab2d9b5a7ed9f470386e82BB36A3613cDd4b5",
   "strategiesRegistry": "0x90b82E4b3aa385B4A02B7EBc1892a4BeD6B5c465",
   "assetToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-  "aavePool": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
-  "aaveOracle": "0x54586bE62E3c3580375aE3723C145253060Ca0C2",
   "swiseAssetUniPool": "0x2aF41D838763E3c5cad6AdC111af9c5dA19B9AFa",
   "usdcToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   "aaveProtocolDataProvider": {
@@ -86,8 +84,8 @@
     "startBlock": "2592222"
   },
   "aaveLeverageStrategy": {
-    "address": "0xc57E59764f398831C1444c14d296Af868d533196",
-    "startBlock": "21034974"
+    "address": "0x48cD14FDB8e72A03C8D952af081DBB127D6281fc",
+    "startBlock": "21288812"
   },
   "v2RewardToken": {
     "address": "0x20BC832ca081b91433ff6c17f85701B6e92486c5",

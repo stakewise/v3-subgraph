@@ -716,8 +716,10 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.createdAt = event.block.timestamp
   vault.apy = BigDecimal.zero()
   vault.apys = []
-  vault.maxBoostApy = BigDecimal.zero()
-  vault.maxBoostApys = []
+  vault.allocatorMaxBoostApy = BigDecimal.zero()
+  vault.allocatorMaxBoostApys = []
+  vault.osTokenHolderMaxBoostApy = BigDecimal.zero()
+  vault.osTokenHolderMaxBoostApys = []
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = true
@@ -786,8 +788,10 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.createdAt = event.block.timestamp
   vault.apy = BigDecimal.zero()
   vault.apys = []
-  vault.maxBoostApy = BigDecimal.zero()
-  vault.maxBoostApys = []
+  vault.allocatorMaxBoostApy = BigDecimal.zero()
+  vault.allocatorMaxBoostApys = []
+  vault.osTokenHolderMaxBoostApy = BigDecimal.zero()
+  vault.osTokenHolderMaxBoostApys = []
   vault.isGenesis = false
   vault.blocklistManager = admin
   vault.blocklistCount = BigInt.zero()

@@ -74,8 +74,10 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.createdAt = block.timestamp
   vault.apy = BigDecimal.zero()
   vault.apys = []
-  vault.maxBoostApy = BigDecimal.zero()
-  vault.maxBoostApys = []
+  vault.allocatorMaxBoostApy = BigDecimal.zero()
+  vault.allocatorMaxBoostApys = []
+  vault.osTokenHolderMaxBoostApy = BigDecimal.zero()
+  vault.osTokenHolderMaxBoostApys = []
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = false

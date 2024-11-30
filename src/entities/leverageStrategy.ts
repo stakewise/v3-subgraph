@@ -1,4 +1,4 @@
-import { Address, BigInt, ethereum } from '@graphprotocol/graph-ts'
+import { Address, BigInt } from '@graphprotocol/graph-ts'
 import {
   ExitRequest,
   LeverageStrategyPosition,
@@ -6,23 +6,10 @@ import {
   OsTokenExitRequest,
   Vault,
 } from '../../generated/schema'
-import { AavePool } from '../../generated/AaveLeverageStrategy/AavePool'
-import { AaveOracle } from '../../generated/AaveLeverageStrategy/AaveOracle'
-import { StrategiesRegistry } from '../../generated/AaveLeverageStrategy/StrategiesRegistry'
 import { AaveLeverageStrategy } from '../../generated/Aave/AaveLeverageStrategy'
-import {
-  AAVE_LEVERAGE_STRATEGY,
-  AAVE_ORACLE,
-  AAVE_POOL,
-  ASSET_TOKEN,
-  GENESIS_VAULT,
-  OS_TOKEN,
-  STRATEGIES_REGISTRY,
-  WAD,
-} from '../helpers/constants'
+import { AAVE_LEVERAGE_STRATEGY, GENESIS_VAULT, WAD } from '../helpers/constants'
 import { createOrLoadAllocator } from './allocator'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, createOrLoadOsToken } from './osToken'
-import { createOrLoadOsTokenConfig } from './osTokenConfig'
 import { createOrLoadV2Pool } from './v2pool'
 
 export function createOrLoadLeverageStrategyPosition(vault: Address, user: Address): LeverageStrategyPosition {
@@ -67,21 +54,15 @@ export function snapshotLeverageStrategyPosition(
 }
 
 export function updateLeverageStrategyPosition(position: LeverageStrategyPosition): void {
-  const aavePoolContract = AavePool.bind(Address.fromString(AAVE_POOL))
-  const aaveOracleContract = AaveOracle.bind(Address.fromString(AAVE_ORACLE))
-  const wad = BigInt.fromString(WAD)
+  const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
 
-  // get prices for osToken and assetToken
-  const response = aaveOracleContract.getAssetsPrices([OS_TOKEN, Address.fromString(ASSET_TOKEN)])
-  const osTokenPrice = response[0]
-  const assetTokenPrice = response[1]
+  // get borrow position state
+  const proxy = Address.fromBytes(position.proxy)
+  const borrowState = aaveLeverageStrategy.getBorrowState(proxy)
+  const suppliedOsTokenShares = borrowState.getSuppliedOsTokenShares()
+  const borrowedAssets = borrowState.getBorrowedAssets()
 
-  // get user Aave position state
-  const userData = aavePoolContract.getUserAccountData(Address.fromBytes(position.proxy))
-  let suppliedOsTokenShares = userData.getTotalCollateralBase().times(wad).div(osTokenPrice)
-  let borrowedAssets = userData.getTotalDebtBase().times(wad).div(assetTokenPrice)
-
-  // get user vault position state
+  // get vault position state
   const vaultAddress = Address.fromString(position.vault)
   const proxyAllocator = createOrLoadAllocator(Address.fromBytes(position.proxy), vaultAddress)
   let mintedOsTokenShares = proxyAllocator.mintedOsTokenShares
@@ -99,13 +80,13 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
     mintedOsTokenShares = mintedOsTokenShares.plus(osTokenExitRequest.osTokenShares)
   }
 
-  const aaveLtv = getAaveLeverageLtv()
   const osToken = createOrLoadOsToken()
   if (borrowedAssets.ge(stakedAssets)) {
+    const borrowLtv = aaveLeverageStrategy.getBorrowLtv()
     position.assets = BigInt.zero()
     position.osTokenShares = suppliedOsTokenShares
       .minus(mintedOsTokenShares)
-      .minus(convertAssetsToOsTokenShares(osToken, borrowedAssets.minus(stakedAssets).div(aaveLtv)))
+      .minus(convertAssetsToOsTokenShares(osToken, borrowedAssets.minus(stakedAssets).div(borrowLtv)))
     if (position.osTokenShares.lt(BigInt.zero())) {
       position.osTokenShares = BigInt.zero()
     }
@@ -118,6 +99,7 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
   }
 
   if (position.exitingPercent.gt(BigInt.zero())) {
+    const wad = BigInt.fromString(WAD)
     position.exitingOsTokenShares = position.osTokenShares.times(position.exitingPercent).div(wad)
     position.osTokenShares = position.osTokenShares.minus(position.exitingOsTokenShares)
     position.exitingAssets = position.assets.times(position.exitingPercent).div(wad)
@@ -171,37 +153,4 @@ export function updateLeverageStrategyPositions(vault: Vault, updateTimestamp: B
       updateTimestamp,
     )
   }
-}
-
-export function getAaveLeverageLtv(): BigInt {
-  const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
-  const strategiesRegistry = StrategiesRegistry.bind(Address.fromString(STRATEGIES_REGISTRY))
-  const aavePoolContract = AavePool.bind(Address.fromString(AAVE_POOL))
-  const wad = BigInt.fromString(WAD)
-
-  let aaveLeverageLtv = BigInt.fromI32(0)
-  if (aaveLeverageStrategy._address.notEqual(Address.zero()) && strategiesRegistry._address.notEqual(Address.zero())) {
-    const response = strategiesRegistry.getStrategyConfig(aaveLeverageStrategy.strategyId(), 'maxBorrowLtvPercent')
-    aaveLeverageLtv = ethereum.decode('uint256', response)!.toBigInt()
-  }
-  const aaveLtv = BigInt.fromI32(aavePoolContract.getEModeCategoryCollateralConfig(1).ltv)
-  if (aaveLeverageLtv.isZero() || aaveLtv.lt(aaveLeverageLtv)) {
-    aaveLeverageLtv = aaveLtv.times(wad).div(BigInt.fromI32(10000))
-  }
-  return aaveLeverageLtv
-}
-
-export function getVaultLeverageLtv(vault: Vault): BigInt {
-  const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
-  const strategiesRegistry = StrategiesRegistry.bind(Address.fromString(STRATEGIES_REGISTRY))
-  const osTokenConfig = createOrLoadOsTokenConfig(vault.osTokenConfig)
-  let vaultLtv = BigInt.zero()
-  if (aaveLeverageStrategy._address.notEqual(Address.zero()) && strategiesRegistry._address.notEqual(Address.zero())) {
-    const response = strategiesRegistry.getStrategyConfig(aaveLeverageStrategy.strategyId(), 'maxVaultLtvPercent')
-    vaultLtv = ethereum.decode('uint256', response)!.toBigInt()
-  }
-  if (vaultLtv.isZero() || osTokenConfig.ltvPercent.lt(vaultLtv)) {
-    vaultLtv = osTokenConfig.ltvPercent
-  }
-  return vaultLtv
 }

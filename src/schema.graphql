@@ -316,11 +316,17 @@ type Vault @entity {
   "The list of vault APY snapshot"
   apys: [BigDecimal!]!
 
-  "The vault average max boost APY"
-  maxBoostApy: BigDecimal!
+  "The average max boost APY earned in this vault by the allocator"
+  allocatorMaxBoostApy: BigDecimal!
 
-  "The list of vault max boost APY snapshot"
-  maxBoostApys: [BigDecimal!]!
+  "The list of vault max boost APY snapshots for the allocator"
+  allocatorMaxBoostApys: [BigDecimal!]!
+
+  "The average max boost APY earned in this vault by the osToken holder"
+  osTokenHolderMaxBoostApy: BigDecimal!
+
+  "The list of vault max boost APY snapshots for the osToken holder"
+  osTokenHolderMaxBoostApys: [BigDecimal!]!
 
   "The total number of vault blocklisted accounts"
   blocklistCount: BigInt!
