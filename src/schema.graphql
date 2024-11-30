@@ -952,13 +952,13 @@ type Distributor @entity {
   activeDistributionIds: [String!]!
 }
 
-"The distribution of additional incentives"
-type Distribution @entity {
+"The periodic distribution of additional incentives"
+type PeriodicDistribution @entity {
   "Set to `transaction hash-log index`"
   id: ID!
 
-  "The target of the distribution for calculation rewards"
-  target: String!
+  "The extra data used to identify the distribution"
+  data: Bytes!
 
   "The address of the token that is distributed"
   token: Bytes!
@@ -985,5 +985,35 @@ type DistributorReward @entity {
   token: Bytes!
 
   "The cumulative reward accumulated by user"
-  amount: BigInt!
+  cumulativeAmount: BigInt!
+}
+
+"The distributor claim"
+type DistributorClaim @entity {
+  "Set to `user address`"
+  id: ID!
+
+  "The address of the user"
+  user: Bytes!
+
+  "An array of addresses of the tokens"
+  tokens: [Bytes!]!
+
+  "An array of cumulative amounts of the tokens"
+  cumulativeAmounts: [BigInt!]!
+
+  "An array of unclaimed amounts of the tokens"
+  unclaimedAmounts: [BigInt!]!
+
+  "The Merkle tree proof"
+  proof: [String!]!
+}
+
+"The distributor claimed amounts"
+type DistributorClaimedAmount @entity {
+  "Set to `token-address-user address`"
+  id: ID!
+
+  "The total amount of the token claimed by the user"
+  cumulativeClaimedAmount: BigInt!
 }
