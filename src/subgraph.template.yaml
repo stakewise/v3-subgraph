@@ -474,8 +474,6 @@ dataSources:
         - LeverageStrategyPosition
         - LeverageStrategyPositionSnapshot
       abis:
-        - name: StrategiesRegistry
-          file: ./abis/StrategiesRegistry.json
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
       eventHandlers:
@@ -640,6 +638,8 @@ templates:
           handler: handleOsTokenRedeemed
         - event: Initialized(uint64)
           handler: handleInitialized
+        - event: CheckpointCreated(uint256,uint256)
+          handler: handleCheckpointCreated
   - kind: ethereum/contract
     name: PrivateVault
     network: {{ network }}

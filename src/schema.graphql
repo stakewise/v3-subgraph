@@ -268,9 +268,6 @@ type Vault @entity {
   "The total number of tickets that are exiting (in V2 vaults)"
   exitingTickets: BigInt!
 
-  "The latest exit ticket number"
-  latestExitTicket: BigInt!
-
   "Indicates whether the Vault is private"
   isPrivate: Boolean!
 
@@ -679,8 +676,14 @@ type LeverageStrategyPosition @entity {
   "The total amount of user assets"
   assets: BigInt!
 
-  "The total amount of user earned boost assets"
-  totalEarnedBoostAssets: BigInt!
+  "The total amount of user earned assets in strategy"
+  totalEarnedAssets: BigInt!
+
+  "The total amount of user assets"
+  totalAssets: BigInt!
+
+  "The current borrow LTV percent"
+  borrowLtv: BigDecimal!
 
   "The percent (in wad) of user's position that is currently exiting"
   exitingPercent: BigInt!
@@ -696,6 +699,16 @@ type LeverageStrategyPosition @entity {
 }
 
 """
+The earned assets of the snapshot per day used for APY calculation
+"""
+type SnapshotEarnedAssets @entity {
+  "Set to `<entity>-dayCount`"
+  id: ID!
+  timestamp: Timestamp!
+  earnedAssets: BigInt!
+}
+
+"""
 The snapshot of the allocator state
 """
 type AllocatorSnapshot @entity(timeseries: true) {
@@ -704,6 +717,7 @@ type AllocatorSnapshot @entity(timeseries: true) {
   allocator: Allocator!
   earnedAssets: BigInt!
   totalAssets: BigInt!
+  apy: BigDecimal!
   ltv: BigDecimal!
 }
 
@@ -716,6 +730,7 @@ type AllocatorStats @aggregation(intervals: ["day"], source: "AllocatorSnapshot"
   allocator: Allocator!
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+  apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
   ltv: BigDecimal! @aggregate(fn: "last", arg: "ltv")
 }
 
@@ -727,6 +742,7 @@ type OsTokenSnapshot @entity(timeseries: true) {
   timestamp: Timestamp!
   earnedAssets: BigInt!
   totalAssets: BigInt!
+  apy: BigDecimal!
 }
 
 """
@@ -737,6 +753,7 @@ type OsTokenStats @aggregation(intervals: ["day"], source: "OsTokenSnapshot") {
   timestamp: Timestamp!
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+  apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
 }
 
 """
@@ -748,6 +765,7 @@ type OsTokenHolderSnapshot @entity(timeseries: true) {
   osTokenHolder: OsTokenHolder!
   earnedAssets: BigInt!
   totalAssets: BigInt!
+  apy: BigDecimal!
 }
 
 """
@@ -759,6 +777,7 @@ type OsTokenHolderStats @aggregation(intervals: ["day"], source: "OsTokenHolderS
   osTokenHolder: OsTokenHolder!
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+  apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
 }
 
 """
@@ -771,6 +790,7 @@ type VaultSnapshot @entity(timeseries: true) {
   earnedAssets: BigInt!
   totalAssets: BigInt!
   totalShares: BigInt!
+  apy: BigDecimal!
 }
 
 """
@@ -783,6 +803,7 @@ type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
   totalShares: BigInt! @aggregate(fn: "last", arg: "totalShares")
+  apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
 }
 
 """
@@ -794,6 +815,7 @@ type ExitRequestSnapshot @entity(timeseries: true) {
   exitRequest: ExitRequest!
   earnedAssets: BigInt!
   totalAssets: BigInt!
+  apy: BigDecimal!
 }
 
 """
@@ -805,6 +827,7 @@ type ExitRequestStats @aggregation(intervals: ["day"], source: "ExitRequestSnaps
   exitRequest: ExitRequest!
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+  apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
 }
 
 """
@@ -864,10 +887,11 @@ type LeverageStrategyPositionSnapshot @entity(timeseries: true) {
   id: Int8!
   timestamp: Timestamp!
   position: LeverageStrategyPosition!
-  earnedAssets: BigInt!
-  earnedBoostAssets: BigInt!
-  totalEarnedBoostAssets: BigInt!
-  totalAssets: BigInt!
+  allocatorEarnedAssets: BigInt!
+  allocatorTotalEarnedAssets: BigInt!
+  osTokenHolderEarnedAssets: BigInt!
+  osTokenHolderTotalAssets: BigInt!
+  strategyApy: BigDecimal!
 }
 
 """
@@ -877,10 +901,11 @@ type LeverageStrategyPositionStats @aggregation(intervals: ["day"], source: "Lev
   id: Int8!
   timestamp: Timestamp!
   position: LeverageStrategyPosition!
-  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
-  earnedBoostAssets: BigInt! @aggregate(fn: "sum", arg: "earnedBoostAssets")
-  totalEarnedBoostAssets: BigInt! @aggregate(fn: "last", arg: "totalEarnedBoostAssets")
-  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+  allocatorEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "allocatorEarnedAssets")
+  allocatorTotalEarnedAssets: BigInt! @aggregate(fn: "last", arg: "allocatorTotalEarnedAssets")
+  osTokenHolderEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "osTokenHolderEarnedAssets")
+  osTokenHolderTotalAssets: BigInt! @aggregate(fn: "last", arg: "osTokenHolderTotalAssets")
+  strategyApy: BigDecimal! @aggregate(fn: "last", arg: "strategyApy")
 }
 
 "Uniswap V3 pool data"

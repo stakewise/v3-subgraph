@@ -3,6 +3,7 @@ import { OsToken, OsTokenHolder, OsTokenHolderSnapshot, OsTokenSnapshot } from '
 import { OsTokenVaultController as OsTokenVaultControllerContact } from '../../generated/Keeper/OsTokenVaultController'
 import { OS_TOKEN_VAULT_CONTROLLER, WAD } from '../helpers/constants'
 import { calculateAverage } from '../helpers/utils'
+import { createOrLoadSnapshotEarnedAssets } from './snapshot'
 
 const osTokenId = '1'
 const snapshotsPerWeek = 14
@@ -115,20 +116,48 @@ export function updateOsTokenTotalAssets(osToken: OsToken, updateTimestamp: BigI
 }
 
 export function snapshotOsToken(osToken: OsToken, assetsDiff: BigInt, rewardsTimestamp: BigInt): void {
+  const snapshotEarnedAssets = createOrLoadSnapshotEarnedAssets('osToken', osToken.id, rewardsTimestamp)
+  snapshotEarnedAssets.earnedAssets = snapshotEarnedAssets.earnedAssets.plus(assetsDiff)
+  snapshotEarnedAssets.save()
+
+  let apy = BigDecimal.zero()
+  const principalAssets = osToken.totalAssets
+    .minus(snapshotEarnedAssets.earnedAssets)
+    .minus(snapshotEarnedAssets.earnedAssets.times(BigInt.fromI32(osToken.feePercent)).div(BigInt.fromI32(10000)))
+  if (principalAssets.gt(BigInt.zero())) {
+    apy = new BigDecimal(snapshotEarnedAssets.earnedAssets)
+      .times(BigDecimal.fromString('365'))
+      .times(BigDecimal.fromString('100'))
+      .div(new BigDecimal(principalAssets))
+  }
+
   const osTokenSnapshot = new OsTokenSnapshot(rewardsTimestamp.toString())
   osTokenSnapshot.timestamp = rewardsTimestamp.toI64()
-  osTokenSnapshot.earnedAssets = assetsDiff.plus(
-    assetsDiff.times(BigInt.fromI32(osToken.feePercent)).div(BigInt.fromI32(10000 - osToken.feePercent)),
-  )
+  osTokenSnapshot.earnedAssets = assetsDiff
   osTokenSnapshot.totalAssets = osToken.totalAssets
+  osTokenSnapshot.apy = apy
   osTokenSnapshot.save()
 }
 
 export function snapshotOsTokenHolder(holder: OsTokenHolder, assetsDiff: BigInt, timestamp: BigInt): void {
+  const snapshotEarnedAssets = createOrLoadSnapshotEarnedAssets('osTokenHolder', holder.id, timestamp)
+  snapshotEarnedAssets.earnedAssets = snapshotEarnedAssets.earnedAssets.plus(assetsDiff)
+  snapshotEarnedAssets.save()
+
+  let apy = BigDecimal.zero()
+  const principalAssets = holder.assets.minus(snapshotEarnedAssets.earnedAssets)
+  if (principalAssets.gt(BigInt.zero())) {
+    apy = new BigDecimal(snapshotEarnedAssets.earnedAssets)
+      .times(BigDecimal.fromString('365'))
+      .times(BigDecimal.fromString('100'))
+      .div(new BigDecimal(principalAssets))
+  }
+
   const snapshot = new OsTokenHolderSnapshot(timestamp.toString())
   snapshot.timestamp = timestamp.toI64()
   snapshot.osTokenHolder = holder.id
   snapshot.earnedAssets = assetsDiff
   snapshot.totalAssets = holder.assets
+  snapshot.apy = apy
   snapshot.save()
 }

@@ -43,33 +43,24 @@ export function handleDeposited(event: Deposited): void {
 
   const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
   const assetsBefore = position.assets.plus(position.exitingAssets)
+  const totalAssetsBefore = position.totalAssets
 
   updateLeverageStrategyPosition(position)
 
   const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const osTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, osTokenSharesAfter)
   const assetsAfter = position.assets.plus(position.exitingAssets)
+  const totalAssetsAfter = position.totalAssets
 
   const assetsDiff = assetsAfter.minus(assetsBefore)
   const osTokenSharesDiff = osTokenSharesAfter.minus(osTokenSharesBefore).minus(depositedOsTokenShares)
 
-  const earnedAssets = assetsAfter
-    .plus(osTokenAssetsAfter)
-    .minus(convertOsTokenSharesToAssets(osToken, depositedOsTokenShares))
-    .minus(convertOsTokenSharesToAssets(osToken, osTokenSharesBefore))
-    .minus(assetsBefore)
-  const earnedBoostAssets = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
-  position.totalEarnedBoostAssets = position.totalEarnedBoostAssets.plus(earnedBoostAssets)
+  const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
+  const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
+
+  position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
   position.save()
 
-  snapshotLeverageStrategyPosition(
-    position,
-    earnedAssets,
-    osTokenAssetsAfter.plus(assetsAfter),
-    earnedBoostAssets,
-    position.totalEarnedBoostAssets,
-    event.block.timestamp,
-  )
+  snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, event.block.timestamp)
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -92,36 +83,26 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
 
   const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
   const assetsBefore = position.assets.plus(position.exitingAssets)
+  const totalAssetsBefore = position.totalAssets
   position.exitRequest = `${vaultAddressHex}-${positionTicket}`
   position.exitingPercent = exitingPercent
 
   updateLeverageStrategyPosition(position)
 
   const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const osTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, osTokenSharesAfter)
   const assetsAfter = position.assets.plus(position.exitingAssets)
+  const totalAssetsAfter = position.totalAssets
 
   const assetsDiff = assetsAfter.minus(assetsBefore)
   const osTokenSharesDiff = osTokenSharesAfter.minus(osTokenSharesBefore)
 
-  const earnedAssets = assetsAfter
-    .plus(osTokenAssetsAfter)
-    .minus(convertOsTokenSharesToAssets(osToken, osTokenSharesBefore))
-    .minus(assetsBefore)
-  const earnedBoostAssets = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
-  position.totalEarnedBoostAssets = position.totalEarnedBoostAssets.plus(earnedBoostAssets)
+  const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
+  const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
+
+  position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
   position.save()
 
-  snapshotLeverageStrategyPosition(
-    position,
-    earnedAssets,
-    osTokenAssetsAfter.plus(assetsAfter),
-    earnedBoostAssets,
-    position.totalEarnedBoostAssets,
-    event.block.timestamp,
-  )
-
-  createTransaction(event.transaction.hash.toHex())
+  snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, event.block.timestamp)
 
   log.info('[LeverageStrategy] ExitQueueEntered vault={} user={} positionTicket={}', [
     vaultAddressHex,
@@ -144,37 +125,27 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
   const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
   const assetsBefore = position.assets.plus(position.exitingAssets)
+  const totalAssetsBefore = position.totalAssets
 
   updateLeverageStrategyPosition(position)
 
   const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const osTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, osTokenSharesAfter)
   const assetsAfter = position.assets.plus(position.exitingAssets)
+  const totalAssetsAfter = position.totalAssets
 
   const assetsDiff = assetsAfter.plus(claimedAssets).minus(assetsBefore)
   const osTokenSharesDiff = osTokenSharesAfter.plus(claimedOsTokenShares).minus(osTokenSharesBefore)
 
-  const earnedAssets = assetsAfter
-    .plus(osTokenAssetsAfter)
-    .plus(claimedAssets)
-    .plus(convertOsTokenSharesToAssets(osToken, claimedOsTokenShares))
-    .minus(convertOsTokenSharesToAssets(osToken, osTokenSharesBefore))
-    .minus(assetsBefore)
-  const earnedBoostAssets = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
-  position.totalEarnedBoostAssets = position.totalEarnedBoostAssets
+  const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
+  const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
+
+  position.totalEarnedAssets = position.totalEarnedAssets
+    .plus(earnedAssetsDiff)
     .times(positionExitPercent)
     .div(BigInt.fromString(WAD))
-  position.totalEarnedBoostAssets = position.totalEarnedBoostAssets.plus(earnedBoostAssets)
   position.save()
 
-  snapshotLeverageStrategyPosition(
-    position,
-    earnedAssets,
-    osTokenAssetsAfter.plus(assetsAfter),
-    earnedBoostAssets,
-    position.totalEarnedBoostAssets,
-    event.block.timestamp,
-  )
+  snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, event.block.timestamp)
 
   createTransaction(event.transaction.hash.toHex())
 

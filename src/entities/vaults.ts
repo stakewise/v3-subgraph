@@ -13,6 +13,7 @@ import { MAX_VAULT_APY, MULTICALL, WAD } from '../helpers/constants'
 import { createOrLoadOsTokenConfig } from './osTokenConfig'
 import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from '../../generated/Keeper/Multicall'
 import { calculateAverage, getAggregateCall } from '../helpers/utils'
+import { createOrLoadSnapshotEarnedAssets } from './snapshot'
 
 const snapshotsPerWeek = 14
 const secondsInYear = '31536000'
@@ -64,7 +65,6 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.rate = BigInt.fromString(WAD)
   vault.exitingAssets = BigInt.zero()
   vault.exitingTickets = BigInt.zero()
-  vault.latestExitTicket = BigInt.zero()
   vault.isPrivate = isPrivate
   vault.isBlocklist = isBlocklist
   vault.isErc20 = isErc20
@@ -244,11 +244,25 @@ function getConvertToAssetsCall(shares: BigInt): Bytes {
 }
 
 export function snapshotVault(vault: Vault, assetsDiff: BigInt, rewardsTimestamp: BigInt): void {
+  const snapshotEarnedAssets = createOrLoadSnapshotEarnedAssets('vault', vault.id, rewardsTimestamp)
+  snapshotEarnedAssets.earnedAssets = snapshotEarnedAssets.earnedAssets.plus(assetsDiff)
+  snapshotEarnedAssets.save()
+
+  let apy = BigDecimal.zero()
+  const principalAssets = vault.totalAssets.minus(snapshotEarnedAssets.earnedAssets)
+  if (principalAssets.gt(BigInt.zero())) {
+    apy = new BigDecimal(snapshotEarnedAssets.earnedAssets)
+      .times(BigDecimal.fromString('365'))
+      .times(BigDecimal.fromString('100'))
+      .div(new BigDecimal(principalAssets))
+  }
+
   const vaultSnapshot = new VaultSnapshot(rewardsTimestamp.toString())
   vaultSnapshot.timestamp = rewardsTimestamp.toI64()
   vaultSnapshot.vault = vault.id
   vaultSnapshot.earnedAssets = assetsDiff
   vaultSnapshot.totalAssets = vault.totalAssets
   vaultSnapshot.totalShares = vault.totalShares
+  vaultSnapshot.apy = apy
   vaultSnapshot.save()
 }

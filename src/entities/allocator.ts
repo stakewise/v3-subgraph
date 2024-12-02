@@ -5,6 +5,7 @@ import { WAD } from '../helpers/constants'
 import { convertOsTokenSharesToAssets } from './osToken'
 import { createOrLoadNetwork } from './network'
 import { createOrLoadOsTokenConfig } from './osTokenConfig'
+import { createOrLoadSnapshotEarnedAssets } from './snapshot'
 
 const osTokenPositionsSelector = '0x4ec96b22'
 
@@ -199,20 +200,32 @@ export function snapshotAllocator(
   osTokenMintedSharesDiff: BigInt,
   rewardsTimestamp: BigInt,
 ): void {
-  let osTokenAssetsDiff: BigInt
-  if (osTokenConfig.ltvPercent.isZero()) {
-    osTokenAssetsDiff = BigInt.zero()
-  } else {
-    osTokenAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenMintedSharesDiff)
+  if (osTokenConfig.ltvPercent.gt(BigInt.zero())) {
+    let osTokenAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenMintedSharesDiff)
       .times(BigInt.fromString(WAD))
       .div(osTokenConfig.ltvPercent)
+    assetsDiff = assetsDiff.minus(osTokenAssetsDiff)
+  }
+
+  const snapshotEarnedAssets = createOrLoadSnapshotEarnedAssets('allocator', allocator.id, rewardsTimestamp)
+  snapshotEarnedAssets.earnedAssets = snapshotEarnedAssets.earnedAssets.plus(assetsDiff)
+  snapshotEarnedAssets.save()
+
+  let apy = BigDecimal.zero()
+  const principalAssets = allocator.assets.minus(snapshotEarnedAssets.earnedAssets)
+  if (principalAssets.gt(BigInt.zero())) {
+    apy = new BigDecimal(snapshotEarnedAssets.earnedAssets)
+      .times(BigDecimal.fromString('365'))
+      .times(BigDecimal.fromString('100'))
+      .div(new BigDecimal(principalAssets))
   }
 
   const allocatorSnapshot = new AllocatorSnapshot(rewardsTimestamp.toString())
   allocatorSnapshot.timestamp = rewardsTimestamp.toI64()
   allocatorSnapshot.allocator = allocator.id
-  allocatorSnapshot.earnedAssets = assetsDiff.minus(osTokenAssetsDiff)
+  allocatorSnapshot.earnedAssets = assetsDiff
   allocatorSnapshot.totalAssets = allocator.assets
+  allocatorSnapshot.apy = apy
   allocatorSnapshot.ltv = allocator.ltv
   allocatorSnapshot.save()
 }

@@ -1,4 +1,4 @@
-import { Address, BigInt } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 import {
   ExitRequest,
   LeverageStrategyPosition,
@@ -7,10 +7,10 @@ import {
   Vault,
 } from '../../generated/schema'
 import { AaveLeverageStrategy } from '../../generated/Aave/AaveLeverageStrategy'
-import { AAVE_LEVERAGE_STRATEGY, GENESIS_VAULT, WAD } from '../helpers/constants'
+import { AAVE_LEVERAGE_STRATEGY, WAD } from '../helpers/constants'
 import { createOrLoadAllocator } from './allocator'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, createOrLoadOsToken } from './osToken'
-import { createOrLoadV2Pool } from './v2pool'
+import { createOrLoadSnapshotEarnedAssets } from './snapshot'
 
 export function createOrLoadLeverageStrategyPosition(vault: Address, user: Address): LeverageStrategyPosition {
   const vaultAddressHex = vault.toHex()
@@ -19,13 +19,16 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
   let leverageStrategyPosition = LeverageStrategyPosition.load(leverageStrategyPositionId)
 
   if (leverageStrategyPosition === null) {
+    const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
     leverageStrategyPosition = new LeverageStrategyPosition(leverageStrategyPositionId)
-    leverageStrategyPosition.proxy = Address.zero()
+    leverageStrategyPosition.proxy = aaveLeverageStrategy.getStrategyProxy(vault, user)
     leverageStrategyPosition.user = user
     leverageStrategyPosition.vault = vaultAddressHex
     leverageStrategyPosition.osTokenShares = BigInt.zero()
     leverageStrategyPosition.assets = BigInt.zero()
-    leverageStrategyPosition.totalEarnedBoostAssets = BigInt.zero()
+    leverageStrategyPosition.totalEarnedAssets = BigInt.zero()
+    leverageStrategyPosition.totalAssets = BigInt.zero()
+    leverageStrategyPosition.borrowLtv = BigDecimal.zero()
     leverageStrategyPosition.exitingPercent = BigInt.zero()
     leverageStrategyPosition.exitingOsTokenShares = BigInt.zero()
     leverageStrategyPosition.exitingAssets = BigInt.zero()
@@ -37,19 +40,31 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
 
 export function snapshotLeverageStrategyPosition(
   position: LeverageStrategyPosition,
-  earnedAssets: BigInt,
-  totalAssets: BigInt,
-  earnedBoostAssets: BigInt,
-  totalEarnedBoostAssets: BigInt,
+  totalAssetsDiff: BigInt,
+  earnedAssetsDiff: BigInt,
   timestamp: BigInt,
 ): void {
+  const snapshotEarnedAssets = createOrLoadSnapshotEarnedAssets('leverageStrategyPosition', position.id, timestamp)
+  snapshotEarnedAssets.earnedAssets = snapshotEarnedAssets.earnedAssets.plus(earnedAssetsDiff)
+  snapshotEarnedAssets.save()
+
+  let apy = BigDecimal.zero()
+  const principalAssets = position.totalAssets.minus(snapshotEarnedAssets.earnedAssets)
+  if (principalAssets.gt(BigInt.zero())) {
+    apy = new BigDecimal(snapshotEarnedAssets.earnedAssets)
+      .times(BigDecimal.fromString('365'))
+      .times(BigDecimal.fromString('100'))
+      .div(new BigDecimal(principalAssets))
+  }
+
   const positionSnapshot = new LeverageStrategyPositionSnapshot(timestamp.toString())
   positionSnapshot.timestamp = timestamp.toI64()
   positionSnapshot.position = position.id
-  positionSnapshot.earnedAssets = earnedAssets
-  positionSnapshot.totalAssets = totalAssets
-  positionSnapshot.earnedBoostAssets = earnedBoostAssets
-  positionSnapshot.totalEarnedBoostAssets = totalEarnedBoostAssets
+  positionSnapshot.allocatorEarnedAssets = earnedAssetsDiff
+  positionSnapshot.allocatorTotalEarnedAssets = position.totalEarnedAssets
+  positionSnapshot.osTokenHolderEarnedAssets = totalAssetsDiff
+  positionSnapshot.osTokenHolderTotalAssets = position.totalAssets
+  positionSnapshot.strategyApy = apy
   positionSnapshot.save()
 }
 
@@ -64,7 +79,7 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
 
   // get vault position state
   const vaultAddress = Address.fromString(position.vault)
-  const proxyAllocator = createOrLoadAllocator(Address.fromBytes(position.proxy), vaultAddress)
+  const proxyAllocator = createOrLoadAllocator(proxy, vaultAddress)
   let mintedOsTokenShares = proxyAllocator.mintedOsTokenShares
   let stakedAssets = proxyAllocator.assets
 
@@ -81,12 +96,13 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
   }
 
   const osToken = createOrLoadOsToken()
+  const wad = BigInt.fromString(WAD)
   if (borrowedAssets.ge(stakedAssets)) {
     const borrowLtv = aaveLeverageStrategy.getBorrowLtv()
     position.assets = BigInt.zero()
     position.osTokenShares = suppliedOsTokenShares
       .minus(mintedOsTokenShares)
-      .minus(convertAssetsToOsTokenShares(osToken, borrowedAssets.minus(stakedAssets).div(borrowLtv)))
+      .minus(convertAssetsToOsTokenShares(osToken, borrowedAssets.minus(stakedAssets).times(wad).div(borrowLtv)))
     if (position.osTokenShares.lt(BigInt.zero())) {
       position.osTokenShares = BigInt.zero()
     }
@@ -98,8 +114,16 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
     }
   }
 
+  if (borrowedAssets.gt(BigInt.zero())) {
+    position.borrowLtv = convertOsTokenSharesToAssets(osToken, suppliedOsTokenShares).divDecimal(
+      new BigDecimal(borrowedAssets),
+    )
+  } else {
+    position.borrowLtv = BigDecimal.zero()
+  }
+
+  position.totalAssets = convertOsTokenSharesToAssets(osToken, position.osTokenShares).plus(position.assets)
   if (position.exitingPercent.gt(BigInt.zero())) {
-    const wad = BigInt.fromString(WAD)
     position.exitingOsTokenShares = position.osTokenShares.times(position.exitingPercent).div(wad)
     position.osTokenShares = position.osTokenShares.minus(position.exitingOsTokenShares)
     position.exitingAssets = position.assets.times(position.exitingPercent).div(wad)
@@ -111,13 +135,6 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
 }
 
 export function updateLeverageStrategyPositions(vault: Vault, updateTimestamp: BigInt): void {
-  if (Address.fromString(vault.id).equals(GENESIS_VAULT)) {
-    const v2Pool = createOrLoadV2Pool()
-    if (!v2Pool.migrated) {
-      // wait for the migration
-      return
-    }
-  }
   const osToken = createOrLoadOsToken()
 
   let position: LeverageStrategyPosition
@@ -126,31 +143,23 @@ export function updateLeverageStrategyPositions(vault: Vault, updateTimestamp: B
     position = leveragePositions[i]
     const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
     const assetsBefore = position.assets.plus(position.exitingAssets)
+    const totalAssetsBefore = position.totalAssets
 
     updateLeverageStrategyPosition(position)
 
     const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-    const osTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, osTokenSharesAfter)
     const assetsAfter = position.assets.plus(position.exitingAssets)
+    const totalAssetsAfter = position.totalAssets
 
     const assetsDiff = assetsAfter.minus(assetsBefore)
     const osTokenSharesDiff = osTokenSharesAfter.minus(osTokenSharesBefore)
 
-    const earnedAssets = assetsAfter
-      .plus(osTokenAssetsAfter)
-      .minus(convertOsTokenSharesToAssets(osToken, osTokenSharesBefore))
-      .minus(assetsBefore)
-    const earnedBoostAssets = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
-    position.totalEarnedBoostAssets = position.totalEarnedBoostAssets.plus(earnedBoostAssets)
+    const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
+    const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
+
+    position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
     position.save()
 
-    snapshotLeverageStrategyPosition(
-      position,
-      earnedAssets,
-      osTokenAssetsAfter.plus(assetsAfter),
-      earnedBoostAssets,
-      position.totalEarnedBoostAssets,
-      updateTimestamp,
-    )
+    snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, updateTimestamp)
   }
 }

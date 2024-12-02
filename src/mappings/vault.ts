@@ -3,6 +3,7 @@ import { Address, BigDecimal, BigInt, ipfs, json, log } from '@graphprotocol/gra
 import { ExitRequest, Vault } from '../../generated/schema'
 import { BlocklistVault as BlocklistVaultTemplate, Vault as VaultTemplate } from '../../generated/templates'
 import {
+  CheckpointCreated,
   Deposited,
   ExitedAssetsClaimed,
   ExitQueueEntered as V1ExitQueueEntered,
@@ -200,6 +201,21 @@ export function handleInitialized(event: Initialized): void {
   log.info('[Vault] Initialized vault={} version={}', [vaultAddress, newVersion.toString()])
 }
 
+// Event emitted on CheckpointCreated event
+export function handleCheckpointCreated(event: CheckpointCreated): void {
+  const vaultAddress = event.address.toHex()
+  const vault = Vault.load(vaultAddress) as Vault
+  if (vault.exitingAssets.equals(BigInt.zero()) || vault.version.lt(BigInt.fromI32(3))) {
+    return
+  }
+  // the first checkpoint in version 3 processes all the v2 exit requests
+  vault.exitingAssets = BigInt.zero()
+  vault.exitingTickets = BigInt.zero()
+  vault.save()
+
+  log.info('[Vault] CheckpointCreated vault={}', [vaultAddress])
+}
+
 // Event emitted on validators root and IPFS hash update (deprecated)
 export function handleValidatorsRootUpdated(event: ValidatorsRootUpdated): void {
   const params = event.params
@@ -313,7 +329,6 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
 
   createTransaction(event.transaction.hash.toHex())
 
-  vault.latestExitTicket = positionTicket.plus(shares)
   vault.queuedShares = vault.queuedShares.plus(shares)
   vault.save()
 
@@ -364,7 +379,6 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   }
   vault.exitingAssets = vault.exitingAssets.plus(assets)
   vault.exitingTickets = vault.exitingTickets.plus(exitingTickets)
-  vault.latestExitTicket = positionTicket.plus(exitingTickets)
   vault.save()
   snapshotVault(vault, BigInt.zero(), timestamp)
 
@@ -706,7 +720,6 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.totalAssets = BigInt.zero()
   vault.exitingAssets = BigInt.zero()
   vault.exitingTickets = BigInt.zero()
-  vault.latestExitTicket = BigInt.zero()
   vault.isPrivate = false
   vault.isBlocklist = false
   vault.isErc20 = false
@@ -777,7 +790,6 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.totalAssets = BigInt.zero()
   vault.exitingAssets = BigInt.zero()
   vault.exitingTickets = BigInt.zero()
-  vault.latestExitTicket = BigInt.zero()
   vault.isPrivate = false
   vault.isBlocklist = true
   vault.isErc20 = false
