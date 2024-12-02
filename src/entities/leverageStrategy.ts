@@ -114,9 +114,9 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
     }
   }
 
-  if (borrowedAssets.gt(BigInt.zero())) {
-    position.borrowLtv = convertOsTokenSharesToAssets(osToken, suppliedOsTokenShares).divDecimal(
-      new BigDecimal(borrowedAssets),
+  if (suppliedOsTokenShares.gt(BigInt.zero())) {
+    position.borrowLtv = borrowedAssets.divDecimal(
+      new BigDecimal(convertOsTokenSharesToAssets(osToken, suppliedOsTokenShares)),
     )
   } else {
     position.borrowLtv = BigDecimal.zero()
