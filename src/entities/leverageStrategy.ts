@@ -64,7 +64,7 @@ export function snapshotLeverageStrategyPosition(
   positionSnapshot.allocatorTotalEarnedAssets = position.totalEarnedAssets
   positionSnapshot.osTokenHolderEarnedAssets = totalAssetsDiff
   positionSnapshot.osTokenHolderTotalAssets = position.totalAssets
-  positionSnapshot.strategyApy = apy
+  positionSnapshot.apy = apy
   positionSnapshot.save()
 }
 

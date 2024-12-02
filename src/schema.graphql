@@ -891,7 +891,7 @@ type LeverageStrategyPositionSnapshot @entity(timeseries: true) {
   allocatorTotalEarnedAssets: BigInt!
   osTokenHolderEarnedAssets: BigInt!
   osTokenHolderTotalAssets: BigInt!
-  strategyApy: BigDecimal!
+  apy: BigDecimal!
 }
 
 """
@@ -905,7 +905,7 @@ type LeverageStrategyPositionStats @aggregation(intervals: ["day"], source: "Lev
   allocatorTotalEarnedAssets: BigInt! @aggregate(fn: "last", arg: "allocatorTotalEarnedAssets")
   osTokenHolderEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "osTokenHolderEarnedAssets")
   osTokenHolderTotalAssets: BigInt! @aggregate(fn: "last", arg: "osTokenHolderTotalAssets")
-  strategyApy: BigDecimal! @aggregate(fn: "last", arg: "strategyApy")
+  apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
 }
 
 "Uniswap V3 pool data"
