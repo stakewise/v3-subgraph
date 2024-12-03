@@ -30,8 +30,8 @@ type Allocator @entity {
   "The allocator's LTV descriptive status"
   ltvStatus: LtvStatus!
 
-  "The allocator's OsToken mint APY"
-  osTokenMintApy: BigDecimal!
+  "The allocator's APY"
+  apy: BigDecimal!
 
   "The vault of the allocator"
   vault: Vault!
@@ -75,6 +75,9 @@ type OsTokenHolder @entity {
 
   "The OsToken instance"
   osToken: OsToken!
+
+  "The osToken holder's APY"
+  apy: BigDecimal!
 
   "The total number of OsToken transfers"
   transfersCount: BigInt!

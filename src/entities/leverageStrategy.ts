@@ -99,10 +99,11 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
   const wad = BigInt.fromString(WAD)
   if (borrowedAssets.ge(stakedAssets)) {
     const borrowLtv = aaveLeverageStrategy.getBorrowLtv()
+    const leftOsTokenAssets = borrowedAssets.minus(stakedAssets).times(wad).div(borrowLtv)
     position.assets = BigInt.zero()
     position.osTokenShares = suppliedOsTokenShares
       .minus(mintedOsTokenShares)
-      .minus(convertAssetsToOsTokenShares(osToken, borrowedAssets.minus(stakedAssets).times(wad).div(borrowLtv)))
+      .minus(convertAssetsToOsTokenShares(osToken, leftOsTokenAssets))
     if (position.osTokenShares.lt(BigInt.zero())) {
       position.osTokenShares = BigInt.zero()
     }

@@ -3,10 +3,16 @@ import { OsTokenConfig, Vault } from '../../generated/schema'
 import { AaveProtocolDataProvider as AaveProtocolDataProviderContract } from '../../generated/Aave/AaveProtocolDataProvider'
 import { AaveLeverageStrategy as AaveLeverageStrategyContract } from '../../generated/Aave/AaveLeverageStrategy'
 import { AAVE_LEVERAGE_STRATEGY, AAVE_PROTOCOL_DATA_PROVIDER, ASSET_TOKEN, OS_TOKEN, WAD } from '../helpers/constants'
-import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, createOrLoadOsToken } from '../entities/osToken'
+import {
+  convertAssetsToOsTokenShares,
+  convertOsTokenSharesToAssets,
+  createOrLoadOsToken,
+  updateOsTokenHoldersApy,
+} from '../entities/osToken'
 import { createOrLoadNetwork } from '../entities/network'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 import { calculateAverage } from '../helpers/utils'
+import { updateVaultAllocatorsApy } from '../entities/allocator'
 
 const wadToRay = '1000000000'
 const hoursInWeek = 168
@@ -144,6 +150,8 @@ export function handleVaultBoostApy(block: ethereum.Block): void {
     vault.osTokenHolderMaxBoostApys = apys
     vault.osTokenHolderMaxBoostApy = calculateAverage(apys)
     vault.save()
+    updateVaultAllocatorsApy(vault, osToken, osTokenConfig)
   }
+  updateOsTokenHoldersApy(network, osToken)
   log.info('[Aave] Sync vault boost apys at block={}', [block.number.toString()])
 }

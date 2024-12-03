@@ -6,6 +6,7 @@ import {
   convertOsTokenSharesToAssets,
   createOrLoadOsToken,
   createOrLoadOsTokenHolder,
+  getOsTokenHolderApy,
   snapshotOsTokenHolder,
 } from '../entities/osToken'
 import { createOrLoadNetwork, createOrLoadUser } from '../entities/network'
@@ -68,11 +69,13 @@ function _handleOsTokenTransfer(event: Transfer): void {
   const timestamp = event.block.timestamp
 
   const osToken = createOrLoadOsToken()
+  const network = createOrLoadNetwork()
   if (from.notEqual(Address.zero())) {
     const tokenHolderFrom = createOrLoadOsTokenHolder(osToken, from)
     tokenHolderFrom.balance = tokenHolderFrom.balance.minus(amount)
     tokenHolderFrom.assets = convertOsTokenSharesToAssets(osToken, tokenHolderFrom.balance)
     tokenHolderFrom.transfersCount = tokenHolderFrom.transfersCount.plus(BigInt.fromI32(1))
+    tokenHolderFrom.apy = getOsTokenHolderApy(network, osToken, tokenHolderFrom)
     tokenHolderFrom.save()
     snapshotOsTokenHolder(tokenHolderFrom, BigInt.zero(), timestamp)
 
@@ -89,6 +92,7 @@ function _handleOsTokenTransfer(event: Transfer): void {
     tokenHolderTo.balance = tokenHolderTo.balance.plus(amount)
     tokenHolderTo.assets = convertOsTokenSharesToAssets(osToken, tokenHolderTo.balance)
     tokenHolderTo.transfersCount = tokenHolderTo.transfersCount.plus(BigInt.fromI32(1))
+    tokenHolderTo.apy = getOsTokenHolderApy(network, osToken, tokenHolderTo)
     tokenHolderTo.save()
     snapshotOsTokenHolder(tokenHolderTo, BigInt.zero(), timestamp)
 

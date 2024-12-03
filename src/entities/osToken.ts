@@ -1,5 +1,13 @@
 import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
-import { OsToken, OsTokenHolder, OsTokenHolderSnapshot, OsTokenSnapshot } from '../../generated/schema'
+import {
+  LeverageStrategyPosition,
+  Network,
+  OsToken,
+  OsTokenHolder,
+  OsTokenHolderSnapshot,
+  OsTokenSnapshot,
+  Vault,
+} from '../../generated/schema'
 import { OsTokenVaultController as OsTokenVaultControllerContact } from '../../generated/Keeper/OsTokenVaultController'
 import { OS_TOKEN_VAULT_CONTROLLER, WAD } from '../helpers/constants'
 import { calculateAverage } from '../helpers/utils'
@@ -37,6 +45,7 @@ export function createOrLoadOsTokenHolder(osToken: OsToken, holderAddress: Addre
     holder.assets = BigInt.zero()
     holder.osToken = osToken.id
     holder.transfersCount = BigInt.zero()
+    holder.apy = BigDecimal.zero()
     holder.save()
   }
 
@@ -76,6 +85,48 @@ export function updateOsTokenApy(osToken: OsToken, newAvgRewardPerSecond: BigInt
   }
   osToken.apys = apys
   osToken.apy = calculateAverage(apys)
+}
+
+export function getOsTokenHolderApy(network: Network, osToken: OsToken, osTokenHolder: OsTokenHolder): BigDecimal {
+  const osTokenVaultIds = network.osTokenVaultIds
+
+  // add osToken shares from all strategy positions
+  let totalOsTokenShares = osTokenHolder.balance
+  let strategyPositions: Array<LeverageStrategyPosition> = []
+  for (let i = 0; i < osTokenVaultIds.length; i++) {
+    const leverageStrategyPosition = LeverageStrategyPosition.load(`${osTokenVaultIds[i]}-${osTokenHolder.id}`)
+    if (leverageStrategyPosition !== null) {
+      strategyPositions.push(leverageStrategyPosition as LeverageStrategyPosition)
+      totalOsTokenShares = totalOsTokenShares.plus(leverageStrategyPosition.osTokenShares)
+    }
+  }
+
+  if (totalOsTokenShares.le(BigInt.zero())) {
+    return BigDecimal.zero()
+  }
+
+  // calculate apy based on the max osToken assets
+  let apy = osToken.apy
+  for (let i = 0; i < strategyPositions.length; i++) {
+    const strategyPosition = strategyPositions[i]
+    const vault = Vault.load(strategyPosition.vault) as Vault
+    const boostApy = vault.osTokenHolderMaxBoostApy
+      .minus(osToken.apy)
+      .times(strategyPosition.osTokenShares.toBigDecimal())
+      .div(totalOsTokenShares.toBigDecimal())
+    apy = apy.plus(boostApy)
+  }
+
+  return apy
+}
+
+export function updateOsTokenHoldersApy(network: Network, osToken: OsToken): void {
+  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
+  for (let i = 0; i < osTokenHolders.length; i++) {
+    const osTokenHolder = osTokenHolders[i]
+    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, osTokenHolder)
+    osTokenHolder.save()
+  }
 }
 
 export function updateOsTokenTotalAssets(osToken: OsToken, updateTimestamp: BigInt, block: ethereum.Block): BigInt {

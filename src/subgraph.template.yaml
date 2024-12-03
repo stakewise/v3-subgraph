@@ -72,6 +72,9 @@ dataSources:
         - Vault
         - OsTokenConfig
         - OsToken
+        - Allocator
+        - OsTokenHolder
+        - LeverageStrategyPosition
       abis:
         - name: AaveProtocolDataProvider
           file: ./abis/AaveProtocolDataProvider.json
@@ -101,6 +104,7 @@ dataSources:
         - TokenTransfer
         - OsTokenHolder
         - OsTokenHolderSnapshot
+        - LeverageStrategyPosition
       abis:
         - name: Erc20Token
           file: ./abis/Erc20Token.json
@@ -473,6 +477,7 @@ dataSources:
         - Allocator
         - LeverageStrategyPosition
         - LeverageStrategyPositionSnapshot
+        - OsTokenHolder
       abis:
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
@@ -602,6 +607,7 @@ templates:
         - ExitRequest
         - ExitRequestSnapshot
         - Transaction
+        - LeverageStrategyPosition
       abis:
         - name: Vault
           file: ./abis/Vault.json
@@ -704,6 +710,7 @@ templates:
         - AllocatorSnapshot
         - AllocatorAction
         - Transaction
+        - LeverageStrategyPosition
       abis:
         - name: Erc20Vault
           file: ./abis/Erc20Vault.json
@@ -753,6 +760,7 @@ templates:
         - VaultSnapshot
         - Allocator
         - AllocatorSnapshot
+        - LeverageStrategyPosition
       abis:
         - name: GnoVault
           file: ./abis/GnoVault.json

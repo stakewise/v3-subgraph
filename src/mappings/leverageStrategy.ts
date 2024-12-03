@@ -1,9 +1,9 @@
-import { BigInt, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import {
   Deposited,
-  StrategyProxyCreated,
-  ExitQueueEntered,
   ExitedAssetsClaimed,
+  ExitQueueEntered,
+  StrategyProxyCreated,
 } from '../../generated/AaveLeverageStrategy/AaveLeverageStrategy'
 import { createTransaction } from '../entities/transaction'
 import {
@@ -12,10 +12,31 @@ import {
   updateLeverageStrategyPosition,
   updateLeverageStrategyPositions,
 } from '../entities/leverageStrategy'
-import { convertOsTokenSharesToAssets, createOrLoadOsToken } from '../entities/osToken'
+import {
+  convertOsTokenSharesToAssets,
+  createOrLoadOsToken,
+  createOrLoadOsTokenHolder,
+  getOsTokenHolderApy,
+  updateOsTokenHoldersApy,
+} from '../entities/osToken'
 import { createOrLoadNetwork } from '../entities/network'
-import { Vault } from '../../generated/schema'
+import { OsToken, Vault } from '../../generated/schema'
 import { WAD } from '../helpers/constants'
+import { createOrLoadAllocator, getAllocatorApy, updateVaultAllocatorsApy } from '../entities/allocator'
+import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
+
+function _updateAllocatorAndOsTokenHolderApys(userAddress: Address, vaultAddress: Address, osToken: OsToken): void {
+  const allocator = createOrLoadAllocator(userAddress, vaultAddress)
+  const vault = Vault.load(vaultAddress.toHex()) as Vault
+  const osTokenConfig = createOrLoadOsTokenConfig(vault.osTokenConfig)
+  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
+  allocator.save()
+
+  const network = createOrLoadNetwork()
+  const osTokenHolder = createOrLoadOsTokenHolder(osToken, userAddress)
+  osTokenHolder.apy = getOsTokenHolderApy(network, osToken, osTokenHolder)
+  osTokenHolder.save()
+}
 
 export function handleStrategyProxyCreated(event: StrategyProxyCreated): void {
   const vaultAddress = event.params.vault
@@ -60,6 +81,8 @@ export function handleDeposited(event: Deposited): void {
   position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
   position.save()
 
+  _updateAllocatorAndOsTokenHolderApys(userAddress, vaultAddress, osToken)
+
   snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, event.block.timestamp)
 
   createTransaction(event.transaction.hash.toHex())
@@ -101,6 +124,8 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
 
   position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
   position.save()
+
+  _updateAllocatorAndOsTokenHolderApys(userAddress, vaultAddress, osToken)
 
   snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, event.block.timestamp)
 
@@ -145,6 +170,8 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     .div(BigInt.fromString(WAD))
   position.save()
 
+  _updateAllocatorAndOsTokenHolderApys(userAddress, vaultAddress, osToken)
+
   snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, event.block.timestamp)
 
   createTransaction(event.transaction.hash.toHex())
@@ -154,10 +181,13 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
 export function handleLeverageStrategyPositions(block: ethereum.Block): void {
   const network = createOrLoadNetwork()
+  const osToken = createOrLoadOsToken()
   let vault: Vault
   for (let i = 0; i < network.vaultIds.length; i++) {
     vault = Vault.load(network.vaultIds[i]) as Vault
     updateLeverageStrategyPositions(vault, block.timestamp)
+    updateVaultAllocatorsApy(vault, osToken, createOrLoadOsTokenConfig(vault.osTokenConfig))
   }
+  updateOsTokenHoldersApy(network, osToken)
   log.info('[LeverageStrategyPositions] Sync leverage strategy positions at block={}', [block.number.toString()])
 }
