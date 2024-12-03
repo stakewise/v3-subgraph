@@ -1,10 +1,19 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
-import { Allocator, AllocatorAction, AllocatorSnapshot, OsToken, OsTokenConfig, Vault } from '../../generated/schema'
+import {
+  Allocator,
+  AllocatorAction,
+  AllocatorSnapshot,
+  LeverageStrategyPosition,
+  OsToken,
+  OsTokenConfig,
+  Vault,
+} from '../../generated/schema'
 import { Vault as VaultContract } from '../../generated/Keeper/Vault'
 import { WAD } from '../helpers/constants'
 import { convertOsTokenSharesToAssets } from './osToken'
 import { createOrLoadNetwork } from './network'
 import { createOrLoadOsTokenConfig } from './osTokenConfig'
+import { createOrLoadSnapshotEarnedAssets } from './snapshot'
 
 const osTokenPositionsSelector = '0x4ec96b22'
 
@@ -61,7 +70,7 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.ltvStatus = LtvStatusStrings[LtvStatus.Healthy]
     vaultAllocator.address = allocatorAddress
     vaultAllocator.vault = vaultAddress.toHex()
-    vaultAllocator.osTokenMintApy = BigDecimal.zero()
+    vaultAllocator.apy = BigDecimal.zero()
     vaultAllocator.save()
   }
 
@@ -147,31 +156,64 @@ export function getAllocatorLtv(allocator: Allocator, osToken: OsToken): BigDeci
   return new BigDecimal(mintedOsTokenAssets).div(new BigDecimal(allocator.assets))
 }
 
-export function getAllocatorOsTokenMintApy(
+export function getAllocatorApy(
   allocator: Allocator,
+  vault: Vault,
   osToken: OsToken,
   osTokenConfig: OsTokenConfig,
 ): BigDecimal {
-  if (allocator.assets.isZero() || osTokenConfig.ltvPercent.isZero()) {
-    return BigDecimal.zero()
-  }
-  const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, allocator.mintedOsTokenShares)
-  if (mintedOsTokenAssets.isZero()) {
+  if (allocator.assets.isZero()) {
+    // no assets, zero apy
     return BigDecimal.zero()
   }
 
-  const feePercent = new BigDecimal(BigInt.fromI32(osToken.feePercent))
-  const maxPercent = new BigDecimal(BigInt.fromI32(10000))
-  const maxOsTokenMintApy = osToken.apy
-    .times(feePercent)
-    .times(BigDecimal.fromString(WAD))
-    .div(maxPercent.minus(feePercent))
-    .div(new BigDecimal(osTokenConfig.ltvPercent))
-  const maxMintedOsTokenAssets = allocator.assets.times(osTokenConfig.ltvPercent).div(BigInt.fromString(WAD))
-  if (mintedOsTokenAssets.ge(maxMintedOsTokenAssets)) {
-    return maxOsTokenMintApy
+  if (osTokenConfig.ltvPercent.isZero()) {
+    // no osToken can be minted, return base APY
+    return vault.apy
   }
-  return maxOsTokenMintApy.times(new BigDecimal(mintedOsTokenAssets)).div(new BigDecimal(maxMintedOsTokenAssets))
+
+  // calculate max APY that user can pay for minting osToken
+  const feePercentBigDecimal = BigDecimal.fromString(osToken.feePercent.toString())
+  const osTokenMaxMintApy = osToken.apy
+    .times(feePercentBigDecimal)
+    .times(BigDecimal.fromString(WAD))
+    .div(BigDecimal.fromString('10000').minus(feePercentBigDecimal))
+    .div(osTokenConfig.ltvPercent.toBigDecimal())
+
+  // calculate max minted osToken assets based on the ltv percent
+  const maxMintedOsTokenAssets = allocator.assets.times(osTokenConfig.ltvPercent).div(BigInt.fromString(WAD))
+
+  let boostApy = BigDecimal.zero()
+  const leverageStrategyPosition = LeverageStrategyPosition.load(`${vault.id}-${allocator.address.toHex()}`)
+  if (leverageStrategyPosition !== null && maxMintedOsTokenAssets.gt(BigInt.zero())) {
+    // calculate how much of the max minted osToken assets the user has boosted
+    let stratOsTokenAssets = convertOsTokenSharesToAssets(osToken, leverageStrategyPosition.osTokenShares)
+    if (stratOsTokenAssets.gt(maxMintedOsTokenAssets)) {
+      stratOsTokenAssets = maxMintedOsTokenAssets
+    }
+    // calculate the boost apy based on the boosted osToken assets amount
+    boostApy = vault.allocatorMaxBoostApy
+      .minus(vault.apy)
+      .plus(osTokenMaxMintApy)
+      .times(new BigDecimal(stratOsTokenAssets))
+      .div(new BigDecimal(maxMintedOsTokenAssets))
+  }
+
+  // convert minted osToken shares to assets
+  let mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, allocator.mintedOsTokenShares)
+  if (mintedOsTokenAssets.ge(maxMintedOsTokenAssets)) {
+    mintedOsTokenAssets = maxMintedOsTokenAssets
+  }
+
+  let osTokenMintApy = BigDecimal.zero()
+  if (mintedOsTokenAssets.gt(BigInt.zero()) && maxMintedOsTokenAssets.gt(BigInt.zero())) {
+    // calculate the APY user is paying based on the minted osToken assets amount
+    osTokenMintApy = osTokenMaxMintApy
+      .times(mintedOsTokenAssets.toBigDecimal())
+      .div(maxMintedOsTokenAssets.toBigDecimal())
+  }
+
+  return vault.apy.plus(boostApy).minus(osTokenMintApy)
 }
 
 export function updateAllocatorsLtvStatus(): void {
@@ -191,6 +233,15 @@ export function updateAllocatorsLtvStatus(): void {
   }
 }
 
+export function updateVaultAllocatorsApy(vault: Vault, osToken: OsToken, osTokenConfig: OsTokenConfig): void {
+  const allocators: Array<Allocator> = vault.allocators.load()
+  for (let i = 0; i < allocators.length; i++) {
+    const allocator = allocators[i]
+    allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
+    allocator.save()
+  }
+}
+
 export function snapshotAllocator(
   allocator: Allocator,
   osToken: OsToken,
@@ -199,20 +250,32 @@ export function snapshotAllocator(
   osTokenMintedSharesDiff: BigInt,
   rewardsTimestamp: BigInt,
 ): void {
-  let osTokenAssetsDiff: BigInt
-  if (osTokenConfig.ltvPercent.isZero()) {
-    osTokenAssetsDiff = BigInt.zero()
-  } else {
-    osTokenAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenMintedSharesDiff)
+  if (osTokenConfig.ltvPercent.gt(BigInt.zero())) {
+    let osTokenAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenMintedSharesDiff)
       .times(BigInt.fromString(WAD))
       .div(osTokenConfig.ltvPercent)
+    assetsDiff = assetsDiff.minus(osTokenAssetsDiff)
+  }
+
+  const snapshotEarnedAssets = createOrLoadSnapshotEarnedAssets('allocator', allocator.id, rewardsTimestamp)
+  snapshotEarnedAssets.earnedAssets = snapshotEarnedAssets.earnedAssets.plus(assetsDiff)
+  snapshotEarnedAssets.save()
+
+  let apy = BigDecimal.zero()
+  const principalAssets = allocator.assets.minus(snapshotEarnedAssets.earnedAssets)
+  if (principalAssets.gt(BigInt.zero())) {
+    apy = new BigDecimal(snapshotEarnedAssets.earnedAssets)
+      .times(BigDecimal.fromString('365'))
+      .times(BigDecimal.fromString('100'))
+      .div(new BigDecimal(principalAssets))
   }
 
   const allocatorSnapshot = new AllocatorSnapshot(rewardsTimestamp.toString())
   allocatorSnapshot.timestamp = rewardsTimestamp.toI64()
   allocatorSnapshot.allocator = allocator.id
-  allocatorSnapshot.earnedAssets = assetsDiff.minus(osTokenAssetsDiff)
+  allocatorSnapshot.earnedAssets = assetsDiff
   allocatorSnapshot.totalAssets = allocator.assets
+  allocatorSnapshot.apy = apy
   allocatorSnapshot.ltv = allocator.ltv
   allocatorSnapshot.save()
 }

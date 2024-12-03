@@ -1,9 +1,10 @@
 import { ExitRequestSnapshot, ExitRequest, Vault } from '../../generated/schema'
-import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import { Vault as VaultContract } from '../../generated/Keeper/Vault'
 import { convertSharesToAssets, getUpdateStateCall } from './vaults'
 import { GENESIS_VAULT } from '../helpers/constants'
 import { createOrLoadV2Pool } from './v2pool'
+import { createOrLoadSnapshotEarnedAssets } from './snapshot'
 
 const secondsInDay = '86400'
 const getExitQueueIndexSelector = '0x60d60e6e'
@@ -144,10 +145,24 @@ function getCalculateExitedAssetsCall(
 }
 
 export function snapshotExitRequest(exitRequest: ExitRequest, earnedAssets: BigInt, rewardsTimestamp: BigInt): void {
+  const snapshotEarnedAssets = createOrLoadSnapshotEarnedAssets('exitRequest', exitRequest.id, rewardsTimestamp)
+  snapshotEarnedAssets.earnedAssets = snapshotEarnedAssets.earnedAssets.plus(earnedAssets)
+  snapshotEarnedAssets.save()
+
+  let apy = BigDecimal.zero()
+  const principalAssets = exitRequest.totalAssets.minus(snapshotEarnedAssets.earnedAssets)
+  if (principalAssets.gt(BigInt.zero())) {
+    apy = new BigDecimal(snapshotEarnedAssets.earnedAssets)
+      .times(BigDecimal.fromString('365'))
+      .times(BigDecimal.fromString('100'))
+      .div(new BigDecimal(principalAssets))
+  }
+
   const exitRequestSnapshot = new ExitRequestSnapshot(rewardsTimestamp.toString())
   exitRequestSnapshot.timestamp = rewardsTimestamp.toI64()
   exitRequestSnapshot.exitRequest = exitRequest.id
   exitRequestSnapshot.earnedAssets = exitRequest.isClaimed ? BigInt.zero() : earnedAssets
   exitRequestSnapshot.totalAssets = exitRequest.isClaimed ? BigInt.zero() : exitRequest.totalAssets
+  exitRequestSnapshot.apy = apy
   exitRequestSnapshot.save()
 }

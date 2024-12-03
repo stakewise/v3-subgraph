@@ -72,15 +72,14 @@ dataSources:
         - Vault
         - OsTokenConfig
         - OsToken
+        - Allocator
+        - OsTokenHolder
+        - LeverageStrategyPosition
       abis:
         - name: AaveProtocolDataProvider
           file: ./abis/AaveProtocolDataProvider.json
-        - name: AavePool
-          file: ./abis/AavePool.json
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
-        - name: StrategiesRegistry
-          file: ./abis/StrategiesRegistry.json
       blockHandlers:
         - handler: handleVaultBoostApy
           filter:
@@ -105,6 +104,7 @@ dataSources:
         - TokenTransfer
         - OsTokenHolder
         - OsTokenHolderSnapshot
+        - LeverageStrategyPosition
       abis:
         - name: Erc20Token
           file: ./abis/Erc20Token.json
@@ -175,16 +175,8 @@ dataSources:
           file: ./abis/Multicall.json
         - name: RewardSplitter
           file: ./abis/RewardSplitter.json
-        - name: StrategiesRegistry
-          file: ./abis/StrategiesRegistry.json
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
-        - name: AavePool
-          file: ./abis/AavePool.json
-        - name: AaveOracle
-          file: ./abis/AaveOracle.json
-        - name: AaveProtocolDataProvider
-          file: ./abis/AaveProtocolDataProvider.json
         - name: OsTokenVaultEscrow
           file: ./abis/OsTokenVaultEscrow.json
       eventHandlers:
@@ -485,21 +477,14 @@ dataSources:
         - Allocator
         - LeverageStrategyPosition
         - LeverageStrategyPositionSnapshot
+        - OsTokenHolder
       abis:
-        - name: StrategiesRegistry
-          file: ./abis/StrategiesRegistry.json
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
-        - name: AavePool
-          file: ./abis/AavePool.json
-        - name: AaveOracle
-          file: ./abis/AaveOracle.json
-        - name: AaveProtocolDataProvider
-          file: ./abis/AaveProtocolDataProvider.json
       eventHandlers:
         - event: StrategyProxyCreated(indexed bytes32,indexed address,indexed address,address)
           handler: handleStrategyProxyCreated
-        - event: Deposited(indexed address,indexed address,uint256,uint256)
+        - event: Deposited(indexed address,indexed address,uint256,uint256,address)
           handler: handleDeposited
         - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256,uint256,uint256)
           handler: handleExitQueueEntered
@@ -622,6 +607,7 @@ templates:
         - ExitRequest
         - ExitRequestSnapshot
         - Transaction
+        - LeverageStrategyPosition
       abis:
         - name: Vault
           file: ./abis/Vault.json
@@ -658,6 +644,8 @@ templates:
           handler: handleOsTokenRedeemed
         - event: Initialized(uint64)
           handler: handleInitialized
+        - event: CheckpointCreated(uint256,uint256)
+          handler: handleCheckpointCreated
   - kind: ethereum/contract
     name: PrivateVault
     network: {{ network }}
@@ -722,6 +710,7 @@ templates:
         - AllocatorSnapshot
         - AllocatorAction
         - Transaction
+        - LeverageStrategyPosition
       abis:
         - name: Erc20Vault
           file: ./abis/Erc20Vault.json
@@ -771,6 +760,7 @@ templates:
         - VaultSnapshot
         - Allocator
         - AllocatorSnapshot
+        - LeverageStrategyPosition
       abis:
         - name: GnoVault
           file: ./abis/GnoVault.json
