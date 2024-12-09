@@ -21,7 +21,7 @@ export function createOrLoadDistributorReward(token: Address, user: Address): Di
   const distRewardId = `${token.toHex()}-${user.toHex()}`
   let distributorReward = DistributorReward.load(distRewardId)
   if (distributorReward === null) {
-    distributorReward = new DistributorReward(distributorId)
+    distributorReward = new DistributorReward(distRewardId)
     distributorReward.user = user
     distributorReward.token = token
     distributorReward.cumulativeAmount = BigInt.zero()
@@ -34,7 +34,7 @@ export function createOrLoadDistributorReward(token: Address, user: Address): Di
 export function createOrLoadDistributorClaim(user: Address): DistributorClaim {
   let claim = DistributorClaim.load(user.toHex())
   if (claim === null) {
-    claim = new DistributorClaim(distributorId)
+    claim = new DistributorClaim(user.toHex())
     claim.user = user
     claim.tokens = []
     claim.cumulativeAmounts = []
