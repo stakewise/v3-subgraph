@@ -1,37 +1,44 @@
 import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import { OsTokenConfig, Vault } from '../../generated/schema'
 import { AaveProtocolDataProvider as AaveProtocolDataProviderContract } from '../../generated/Aave/AaveProtocolDataProvider'
-import { AAVE_PROTOCOL_DATA_PROVIDER, ASSET_TOKEN, OS_TOKEN, WAD } from '../helpers/constants'
-import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, createOrLoadOsToken } from '../entities/osToken'
+import { AaveLeverageStrategy as AaveLeverageStrategyContract } from '../../generated/Aave/AaveLeverageStrategy'
+import { AAVE_LEVERAGE_STRATEGY, AAVE_PROTOCOL_DATA_PROVIDER, ASSET_TOKEN, OS_TOKEN, WAD } from '../helpers/constants'
+import {
+  convertAssetsToOsTokenShares,
+  convertOsTokenSharesToAssets,
+  createOrLoadOsToken,
+  updateOsTokenHoldersApy,
+} from '../entities/osToken'
 import { createOrLoadNetwork } from '../entities/network'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
-import { getAaveLeverageLtv, getVaultLeverageLtv } from '../entities/leverageStrategy'
 import { calculateAverage } from '../helpers/utils'
+import { updateVaultAllocatorsApy } from '../entities/allocator'
 
 const wadToRay = '1000000000'
 const hoursInWeek = 168
 
 export function handleVaultBoostApy(block: ethereum.Block): void {
-  if (AAVE_PROTOCOL_DATA_PROVIDER.equals(Address.zero())) {
+  if (AAVE_PROTOCOL_DATA_PROVIDER.equals(Address.zero()) || AAVE_LEVERAGE_STRATEGY.equals(Address.zero())) {
     return
   }
+  const aaveDataProviderContract = AaveProtocolDataProviderContract.bind(AAVE_PROTOCOL_DATA_PROVIDER)
+  const aaveLeverageStrategyContract = AaveLeverageStrategyContract.bind(AAVE_LEVERAGE_STRATEGY)
+
   const network = createOrLoadNetwork()
   const osToken = createOrLoadOsToken()
   const wad = BigInt.fromString(WAD)
   const wadToRayBigInt = BigInt.fromString(wadToRay)
-  const initialDepositAssets = wad
-  const aaveDataProviderContract = AaveProtocolDataProviderContract.bind(AAVE_PROTOCOL_DATA_PROVIDER)
 
   // fetch osToken supply rate
-  let response = aaveDataProviderContract.getReserveData(OS_TOKEN)
-  const osTokenSupplyRate = response.getLiquidityRate().div(wadToRayBigInt)
+  let reserveData = aaveDataProviderContract.getReserveData(OS_TOKEN)
+  const osTokenSupplyRate = reserveData.getLiquidityRate().div(wadToRayBigInt)
 
   // fetch asset token (e.g. WETH, GNO) borrow rate
-  response = aaveDataProviderContract.getReserveData(Address.fromString(ASSET_TOKEN))
-  const variableBorrowRate = response.getVariableBorrowRate().div(wadToRayBigInt)
+  reserveData = aaveDataProviderContract.getReserveData(Address.fromString(ASSET_TOKEN))
+  const variableBorrowRate = reserveData.getVariableBorrowRate().div(wadToRayBigInt)
 
-  // fetch osToken LTV
-  const aaveLeverageLtv = getAaveLeverageLtv()
+  // fetch borrow LTV
+  const aaveLeverageLtv = aaveLeverageStrategyContract.getBorrowLtv()
   log.info('[Aave] Fetched Aave parameters osTokenSupplyRate={}, variableBorrowRate={}, aaveLtv={} at block={}', [
     osTokenSupplyRate.toString(),
     variableBorrowRate.toString(),
@@ -44,16 +51,19 @@ export function handleVaultBoostApy(block: ethereum.Block): void {
   const osTokenRate = osToken.apy.times(new BigDecimal(wad)).div(BigDecimal.fromString('100')).truncate(0).digits
 
   let vault: Vault
+  let vaultAddress: Address
   let osTokenConfig: OsTokenConfig
-  let vaultLeverageLtv: BigInt, totalLtv: BigInt, vaultRate: BigInt, osTokenMintRate: BigInt
+  let vaultLeverageLtv: BigInt, vaultRate: BigInt, osTokenMintRate: BigInt
   for (let i = 0; i < network.vaultIds.length; i++) {
     vault = Vault.load(network.vaultIds[i]) as Vault
     if (!vault.isOsTokenEnabled) {
       continue
     }
-    vaultLeverageLtv = getVaultLeverageLtv(vault)
+    vaultAddress = Address.fromString(vault.id)
+    vaultLeverageLtv = aaveLeverageStrategyContract.getVaultLtv(vaultAddress)
     osTokenConfig = createOrLoadOsTokenConfig(vault.osTokenConfig)
-    totalLtv = vaultLeverageLtv.times(aaveLeverageLtv).div(wad)
+
+    // calculate vault staking rate and the rate paid for minting osToken
     vaultRate = vault.apy.times(new BigDecimal(wad)).div(BigDecimal.fromString('100')).truncate(0).digits
     osTokenMintRate = osTokenRate
       .times(osTokenFeePercent)
@@ -61,46 +71,87 @@ export function handleVaultBoostApy(block: ethereum.Block): void {
       .div(BigInt.fromI32(10000).minus(osTokenFeePercent))
       .div(vaultLeverageLtv)
 
-    // calculate assets and shares
-    const initialMintedOsTokenAssets = initialDepositAssets.times(osTokenConfig.ltvPercent).div(wad)
-    const initialMintedOsTokenShares = convertAssetsToOsTokenShares(osToken, initialMintedOsTokenAssets)
-    const leverageMintedOsTokenShares = initialMintedOsTokenShares
-      .times(wad)
-      .div(wad.minus(totalLtv))
-      .minus(initialMintedOsTokenShares)
-    const leverageMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, leverageMintedOsTokenShares)
-    const leverageDepositedAssets = leverageMintedOsTokenAssets.times(wad).div(vaultLeverageLtv)
+    // calculate max boost apy for vault allocator
+    const allocatorDepositedAssets = wad
 
-    // all deposited assets earn vault apy
-    let totalEarnedAssets = initialDepositAssets.plus(leverageDepositedAssets).times(vaultRate).div(wad)
+    // allocator mints max osToken shares
+    const allocatorMintedOsTokenAssets = allocatorDepositedAssets.times(osTokenConfig.ltvPercent).div(wad)
+    const allocatorMintedOsTokenShares = convertAssetsToOsTokenShares(osToken, allocatorMintedOsTokenAssets)
 
-    // all minted osToken assets lose mint apy
-    totalEarnedAssets = totalEarnedAssets.minus(
-      initialMintedOsTokenAssets.plus(leverageMintedOsTokenAssets).times(osTokenMintRate).div(wad),
+    // osTokenHolder deposits all osToken shares
+    const osTokenHolderOsTokenAssets = allocatorMintedOsTokenAssets
+    const osTokenHolderOsTokenShares = allocatorMintedOsTokenShares
+
+    // calculate assets/shares boosted from the strategy
+    const strategyMintedOsTokenShares = aaveLeverageStrategyContract.getFlashloanOsTokenShares(
+      vaultAddress,
+      osTokenHolderOsTokenShares,
+    )
+    const strategyMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, strategyMintedOsTokenShares)
+    const strategyDepositedAssets = strategyMintedOsTokenAssets.times(wad).div(vaultLeverageLtv)
+
+    // calculate earned assets from staking
+    let allocatorEarnedAssets = allocatorDepositedAssets.plus(strategyDepositedAssets).times(vaultRate).div(wad)
+    let osTokenHolderEarnedAssets = osTokenHolderOsTokenAssets
+      .times(osTokenRate)
+      .div(wad)
+      .plus(strategyDepositedAssets.times(vaultRate).div(wad))
+
+    // subtract apy lost on minting osToken
+    allocatorEarnedAssets = allocatorEarnedAssets.minus(
+      allocatorMintedOsTokenAssets.plus(strategyMintedOsTokenAssets).times(osTokenMintRate).div(wad),
+    )
+    osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.minus(
+      strategyMintedOsTokenAssets.times(osTokenMintRate).div(wad),
     )
 
     // all supplied osToken shares earn supply apy
-    const earnedOsTokenShares = initialMintedOsTokenShares
-      .plus(leverageMintedOsTokenShares)
+    const allocatorEarnedOsTokenShares = allocatorMintedOsTokenShares
+      .plus(strategyMintedOsTokenShares)
       .times(osTokenSupplyRate)
       .div(wad)
-    totalEarnedAssets = totalEarnedAssets.plus(convertOsTokenSharesToAssets(osToken, earnedOsTokenShares))
+    allocatorEarnedAssets = allocatorEarnedAssets.plus(
+      convertOsTokenSharesToAssets(osToken, allocatorEarnedOsTokenShares),
+    )
+    const osTokenHolderEarnedOsTokenShares = osTokenHolderOsTokenShares
+      .plus(strategyMintedOsTokenShares)
+      .times(osTokenSupplyRate)
+      .div(wad)
+    osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.plus(
+      convertOsTokenSharesToAssets(osToken, osTokenHolderEarnedOsTokenShares),
+    )
 
     // all borrowed assets lose borrow apy
-    totalEarnedAssets = totalEarnedAssets.minus(leverageDepositedAssets.times(variableBorrowRate).div(wad))
+    const borrowInterestAssets = strategyDepositedAssets.times(variableBorrowRate).div(wad)
+    allocatorEarnedAssets = allocatorEarnedAssets.minus(borrowInterestAssets)
+    osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.minus(borrowInterestAssets)
 
-    // calculate and update max boost apy
-    const currentApy = new BigDecimal(totalEarnedAssets)
+    // update average allocator max boost APY
+    const allocatorMaxBoostApy = new BigDecimal(allocatorEarnedAssets)
       .times(BigDecimal.fromString('100'))
-      .div(new BigDecimal(initialDepositAssets))
-    let apys = vault.maxBoostApys
-    apys.push(currentApy)
+      .div(new BigDecimal(allocatorDepositedAssets))
+    let apys = vault.allocatorMaxBoostApys
+    apys.push(allocatorMaxBoostApy)
     if (apys.length > hoursInWeek) {
       apys = apys.slice(apys.length - hoursInWeek)
     }
-    vault.maxBoostApys = apys
-    vault.maxBoostApy = calculateAverage(apys)
+    vault.allocatorMaxBoostApys = apys
+    vault.allocatorMaxBoostApy = calculateAverage(apys)
+
+    // update average osToken holder APY
+    const osTokenHolderCurrentApy = new BigDecimal(osTokenHolderEarnedAssets)
+      .times(BigDecimal.fromString('100'))
+      .div(new BigDecimal(osTokenHolderOsTokenAssets))
+    apys = vault.osTokenHolderMaxBoostApys
+    apys.push(osTokenHolderCurrentApy)
+    if (apys.length > hoursInWeek) {
+      apys = apys.slice(apys.length - hoursInWeek)
+    }
+    vault.osTokenHolderMaxBoostApys = apys
+    vault.osTokenHolderMaxBoostApy = calculateAverage(apys)
     vault.save()
+    updateVaultAllocatorsApy(vault, osToken, osTokenConfig)
   }
+  updateOsTokenHoldersApy(network, osToken)
   log.info('[Aave] Sync vault boost apys at block={}', [block.number.toString()])
 }

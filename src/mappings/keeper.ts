@@ -44,14 +44,15 @@ import {
   snapshotOsToken,
   snapshotOsTokenHolder,
   updateOsTokenApy,
+  updateOsTokenHoldersApy,
   updateOsTokenTotalAssets,
 } from '../entities/osToken'
 import {
   getAllocatorsMintedShares,
   snapshotAllocator,
   getAllocatorLtv,
-  getAllocatorOsTokenMintApy,
   getAllocatorLtvStatus,
+  updateVaultAllocatorsApy,
 } from '../entities/allocator'
 import { createOrLoadNetwork, isGnosisNetwork } from '../entities/network'
 import {
@@ -390,7 +391,6 @@ export function updateRewards(
       allocator.mintedOsTokenShares = allocatorNewMintedOsTokenShares
       allocator.ltv = getAllocatorLtv(allocator, osToken)
       allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-      allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
       allocator.save()
       snapshotAllocator(
         allocator,
@@ -413,7 +413,13 @@ export function updateRewards(
 
     // update leverage strategy positions
     updateLeverageStrategyPositions(vault, vault.rewardsTimestamp as BigInt)
+
+    // update apy of all allocators
+    updateVaultAllocatorsApy(vault, osToken, osTokenConfig)
   }
+
+  // update apy of all osToken holders
+  updateOsTokenHoldersApy(network, osToken)
   network.save()
 }
 

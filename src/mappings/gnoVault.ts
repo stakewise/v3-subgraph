@@ -4,12 +4,7 @@ import { Allocator, Vault } from '../../generated/schema'
 import { XdaiSwapped } from '../../generated/templates/GnoVault/GnoVault'
 import { convertSharesToAssets, snapshotVault } from '../entities/vaults'
 import { createOrLoadNetwork } from '../entities/network'
-import {
-  getAllocatorLtv,
-  getAllocatorLtvStatus,
-  getAllocatorOsTokenMintApy,
-  snapshotAllocator,
-} from '../entities/allocator'
+import { getAllocatorApy, getAllocatorLtv, getAllocatorLtvStatus, snapshotAllocator } from '../entities/allocator'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 import { createOrLoadOsToken } from '../entities/osToken'
 
@@ -48,7 +43,7 @@ export function handleXdaiSwapped(event: XdaiSwapped): void {
     allocator.assets = allocatorNewAssets
     allocator.ltv = getAllocatorLtv(allocator, osToken)
     allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-    allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
+    allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
     allocator.save()
     snapshotAllocator(allocator, osToken, osTokenConfig, allocatorAssetsDiff, BigInt.zero(), timestamp)
   }
