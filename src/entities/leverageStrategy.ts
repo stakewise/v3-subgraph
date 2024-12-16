@@ -1,4 +1,4 @@
-import { Address, BigInt, ethereum } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 import {
   ExitRequest,
   LeverageStrategyPosition,
@@ -6,24 +6,11 @@ import {
   OsTokenExitRequest,
   Vault,
 } from '../../generated/schema'
-import { AavePool } from '../../generated/AaveLeverageStrategy/AavePool'
-import { AaveOracle } from '../../generated/AaveLeverageStrategy/AaveOracle'
-import { StrategiesRegistry } from '../../generated/AaveLeverageStrategy/StrategiesRegistry'
 import { AaveLeverageStrategy } from '../../generated/Aave/AaveLeverageStrategy'
-import {
-  AAVE_LEVERAGE_STRATEGY,
-  AAVE_ORACLE,
-  AAVE_POOL,
-  ASSET_TOKEN,
-  GENESIS_VAULT,
-  OS_TOKEN,
-  STRATEGIES_REGISTRY,
-  WAD,
-} from '../helpers/constants'
+import { AAVE_LEVERAGE_STRATEGY, WAD } from '../helpers/constants'
 import { createOrLoadAllocator } from './allocator'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, createOrLoadOsToken } from './osToken'
-import { createOrLoadOsTokenConfig } from './osTokenConfig'
-import { createOrLoadV2Pool } from './v2pool'
+import { createOrLoadSnapshotEarnedAssets } from './snapshot'
 
 export function createOrLoadLeverageStrategyPosition(vault: Address, user: Address): LeverageStrategyPosition {
   const vaultAddressHex = vault.toHex()
@@ -32,13 +19,16 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
   let leverageStrategyPosition = LeverageStrategyPosition.load(leverageStrategyPositionId)
 
   if (leverageStrategyPosition === null) {
+    const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
     leverageStrategyPosition = new LeverageStrategyPosition(leverageStrategyPositionId)
-    leverageStrategyPosition.proxy = Address.zero()
+    leverageStrategyPosition.proxy = aaveLeverageStrategy.getStrategyProxy(vault, user)
     leverageStrategyPosition.user = user
     leverageStrategyPosition.vault = vaultAddressHex
     leverageStrategyPosition.osTokenShares = BigInt.zero()
     leverageStrategyPosition.assets = BigInt.zero()
-    leverageStrategyPosition.totalEarnedBoostAssets = BigInt.zero()
+    leverageStrategyPosition.totalEarnedAssets = BigInt.zero()
+    leverageStrategyPosition.totalAssets = BigInt.zero()
+    leverageStrategyPosition.borrowLtv = BigDecimal.zero()
     leverageStrategyPosition.exitingPercent = BigInt.zero()
     leverageStrategyPosition.exitingOsTokenShares = BigInt.zero()
     leverageStrategyPosition.exitingAssets = BigInt.zero()
@@ -50,40 +40,46 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
 
 export function snapshotLeverageStrategyPosition(
   position: LeverageStrategyPosition,
-  earnedAssets: BigInt,
-  totalAssets: BigInt,
-  earnedBoostAssets: BigInt,
-  totalEarnedBoostAssets: BigInt,
+  totalAssetsDiff: BigInt,
+  earnedAssetsDiff: BigInt,
   timestamp: BigInt,
 ): void {
+  const snapshotEarnedAssets = createOrLoadSnapshotEarnedAssets('leverageStrategyPosition', position.id, timestamp)
+  snapshotEarnedAssets.earnedAssets = snapshotEarnedAssets.earnedAssets.plus(earnedAssetsDiff)
+  snapshotEarnedAssets.save()
+
+  let apy = BigDecimal.zero()
+  const principalAssets = position.totalAssets.minus(snapshotEarnedAssets.earnedAssets)
+  if (principalAssets.gt(BigInt.zero())) {
+    apy = new BigDecimal(snapshotEarnedAssets.earnedAssets)
+      .times(BigDecimal.fromString('365'))
+      .times(BigDecimal.fromString('100'))
+      .div(new BigDecimal(principalAssets))
+  }
+
   const positionSnapshot = new LeverageStrategyPositionSnapshot(timestamp.toString())
   positionSnapshot.timestamp = timestamp.toI64()
   positionSnapshot.position = position.id
-  positionSnapshot.earnedAssets = earnedAssets
-  positionSnapshot.totalAssets = totalAssets
-  positionSnapshot.earnedBoostAssets = earnedBoostAssets
-  positionSnapshot.totalEarnedBoostAssets = totalEarnedBoostAssets
+  positionSnapshot.allocatorEarnedAssets = earnedAssetsDiff
+  positionSnapshot.allocatorTotalEarnedAssets = position.totalEarnedAssets
+  positionSnapshot.osTokenHolderEarnedAssets = totalAssetsDiff
+  positionSnapshot.osTokenHolderTotalAssets = position.totalAssets
+  positionSnapshot.apy = apy
   positionSnapshot.save()
 }
 
 export function updateLeverageStrategyPosition(position: LeverageStrategyPosition): void {
-  const aavePoolContract = AavePool.bind(Address.fromString(AAVE_POOL))
-  const aaveOracleContract = AaveOracle.bind(Address.fromString(AAVE_ORACLE))
-  const wad = BigInt.fromString(WAD)
+  const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
 
-  // get prices for osToken and assetToken
-  const response = aaveOracleContract.getAssetsPrices([OS_TOKEN, Address.fromString(ASSET_TOKEN)])
-  const osTokenPrice = response[0]
-  const assetTokenPrice = response[1]
+  // get borrow position state
+  const proxy = Address.fromBytes(position.proxy)
+  const borrowState = aaveLeverageStrategy.getBorrowState(proxy)
+  const suppliedOsTokenShares = borrowState.getSuppliedOsTokenShares()
+  const borrowedAssets = borrowState.getBorrowedAssets()
 
-  // get user Aave position state
-  const userData = aavePoolContract.getUserAccountData(Address.fromBytes(position.proxy))
-  let suppliedOsTokenShares = userData.getTotalCollateralBase().times(wad).div(osTokenPrice)
-  let borrowedAssets = userData.getTotalDebtBase().times(wad).div(assetTokenPrice)
-
-  // get user vault position state
+  // get vault position state
   const vaultAddress = Address.fromString(position.vault)
-  const proxyAllocator = createOrLoadAllocator(Address.fromBytes(position.proxy), vaultAddress)
+  const proxyAllocator = createOrLoadAllocator(proxy, vaultAddress)
   let mintedOsTokenShares = proxyAllocator.mintedOsTokenShares
   let stakedAssets = proxyAllocator.assets
 
@@ -99,13 +95,15 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
     mintedOsTokenShares = mintedOsTokenShares.plus(osTokenExitRequest.osTokenShares)
   }
 
-  const aaveLtv = getAaveLeverageLtv()
   const osToken = createOrLoadOsToken()
+  const wad = BigInt.fromString(WAD)
   if (borrowedAssets.ge(stakedAssets)) {
+    const borrowLtv = aaveLeverageStrategy.getBorrowLtv()
+    const leftOsTokenAssets = borrowedAssets.minus(stakedAssets).times(wad).div(borrowLtv)
     position.assets = BigInt.zero()
     position.osTokenShares = suppliedOsTokenShares
       .minus(mintedOsTokenShares)
-      .minus(convertAssetsToOsTokenShares(osToken, borrowedAssets.minus(stakedAssets).div(aaveLtv)))
+      .minus(convertAssetsToOsTokenShares(osToken, leftOsTokenAssets))
     if (position.osTokenShares.lt(BigInt.zero())) {
       position.osTokenShares = BigInt.zero()
     }
@@ -117,6 +115,15 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
     }
   }
 
+  if (suppliedOsTokenShares.gt(BigInt.zero())) {
+    position.borrowLtv = borrowedAssets.divDecimal(
+      new BigDecimal(convertOsTokenSharesToAssets(osToken, suppliedOsTokenShares)),
+    )
+  } else {
+    position.borrowLtv = BigDecimal.zero()
+  }
+
+  position.totalAssets = convertOsTokenSharesToAssets(osToken, position.osTokenShares).plus(position.assets)
   if (position.exitingPercent.gt(BigInt.zero())) {
     position.exitingOsTokenShares = position.osTokenShares.times(position.exitingPercent).div(wad)
     position.osTokenShares = position.osTokenShares.minus(position.exitingOsTokenShares)
@@ -129,13 +136,6 @@ export function updateLeverageStrategyPosition(position: LeverageStrategyPositio
 }
 
 export function updateLeverageStrategyPositions(vault: Vault, updateTimestamp: BigInt): void {
-  if (Address.fromString(vault.id).equals(GENESIS_VAULT)) {
-    const v2Pool = createOrLoadV2Pool()
-    if (!v2Pool.migrated) {
-      // wait for the migration
-      return
-    }
-  }
   const osToken = createOrLoadOsToken()
 
   let position: LeverageStrategyPosition
@@ -144,64 +144,23 @@ export function updateLeverageStrategyPositions(vault: Vault, updateTimestamp: B
     position = leveragePositions[i]
     const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
     const assetsBefore = position.assets.plus(position.exitingAssets)
+    const totalAssetsBefore = position.totalAssets
 
     updateLeverageStrategyPosition(position)
 
     const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-    const osTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, osTokenSharesAfter)
     const assetsAfter = position.assets.plus(position.exitingAssets)
+    const totalAssetsAfter = position.totalAssets
 
     const assetsDiff = assetsAfter.minus(assetsBefore)
     const osTokenSharesDiff = osTokenSharesAfter.minus(osTokenSharesBefore)
 
-    const earnedAssets = assetsAfter
-      .plus(osTokenAssetsAfter)
-      .minus(convertOsTokenSharesToAssets(osToken, osTokenSharesBefore))
-      .minus(assetsBefore)
-    const earnedBoostAssets = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
-    position.totalEarnedBoostAssets = position.totalEarnedBoostAssets.plus(earnedBoostAssets)
+    const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
+    const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
+
+    position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
     position.save()
 
-    snapshotLeverageStrategyPosition(
-      position,
-      earnedAssets,
-      osTokenAssetsAfter.plus(assetsAfter),
-      earnedBoostAssets,
-      position.totalEarnedBoostAssets,
-      updateTimestamp,
-    )
+    snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, updateTimestamp)
   }
-}
-
-export function getAaveLeverageLtv(): BigInt {
-  const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
-  const strategiesRegistry = StrategiesRegistry.bind(Address.fromString(STRATEGIES_REGISTRY))
-  const aavePoolContract = AavePool.bind(Address.fromString(AAVE_POOL))
-  const wad = BigInt.fromString(WAD)
-
-  let aaveLeverageLtv = BigInt.fromI32(0)
-  if (aaveLeverageStrategy._address.notEqual(Address.zero()) && strategiesRegistry._address.notEqual(Address.zero())) {
-    const response = strategiesRegistry.getStrategyConfig(aaveLeverageStrategy.strategyId(), 'maxBorrowLtvPercent')
-    aaveLeverageLtv = ethereum.decode('uint256', response)!.toBigInt()
-  }
-  const aaveLtv = BigInt.fromI32(aavePoolContract.getEModeCategoryCollateralConfig(1).ltv)
-  if (aaveLeverageLtv.isZero() || aaveLtv.lt(aaveLeverageLtv)) {
-    aaveLeverageLtv = aaveLtv.times(wad).div(BigInt.fromI32(10000))
-  }
-  return aaveLeverageLtv
-}
-
-export function getVaultLeverageLtv(vault: Vault): BigInt {
-  const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
-  const strategiesRegistry = StrategiesRegistry.bind(Address.fromString(STRATEGIES_REGISTRY))
-  const osTokenConfig = createOrLoadOsTokenConfig(vault.osTokenConfig)
-  let vaultLtv = BigInt.zero()
-  if (aaveLeverageStrategy._address.notEqual(Address.zero()) && strategiesRegistry._address.notEqual(Address.zero())) {
-    const response = strategiesRegistry.getStrategyConfig(aaveLeverageStrategy.strategyId(), 'maxVaultLtvPercent')
-    vaultLtv = ethereum.decode('uint256', response)!.toBigInt()
-  }
-  if (vaultLtv.isZero() || osTokenConfig.ltvPercent.lt(vaultLtv)) {
-    vaultLtv = osTokenConfig.ltvPercent
-  }
-  return vaultLtv
 }

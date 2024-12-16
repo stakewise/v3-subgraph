@@ -3,6 +3,7 @@ import { Address, BigDecimal, BigInt, ipfs, json, log } from '@graphprotocol/gra
 import { ExitRequest, Vault } from '../../generated/schema'
 import { BlocklistVault as BlocklistVaultTemplate, Vault as VaultTemplate } from '../../generated/templates'
 import {
+  CheckpointCreated,
   Deposited,
   ExitedAssetsClaimed,
   ExitQueueEntered as V1ExitQueueEntered,
@@ -29,9 +30,9 @@ import {
   AllocatorActionType,
   createAllocatorAction,
   createOrLoadAllocator,
+  getAllocatorApy,
   getAllocatorLtv,
   getAllocatorLtvStatus,
-  getAllocatorOsTokenMintApy,
   snapshotAllocator,
 } from '../entities/allocator'
 import { createOrLoadNetwork, decreaseUserVaultsCount, increaseUserVaultsCount } from '../entities/network'
@@ -72,7 +73,7 @@ export function handleDeposited(event: Deposited): void {
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
+  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
@@ -121,7 +122,7 @@ export function handleRedeemed(event: Redeemed): void {
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
+  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
@@ -198,6 +199,21 @@ export function handleInitialized(event: Initialized): void {
   createTransaction(event.transaction.hash.toHex())
 
   log.info('[Vault] Initialized vault={} version={}', [vaultAddress, newVersion.toString()])
+}
+
+// Event emitted on CheckpointCreated event
+export function handleCheckpointCreated(event: CheckpointCreated): void {
+  const vaultAddress = event.address.toHex()
+  const vault = Vault.load(vaultAddress) as Vault
+  if (vault.exitingAssets.equals(BigInt.zero()) || vault.version.lt(BigInt.fromI32(3))) {
+    return
+  }
+  // the first checkpoint in version 3 processes all the v2 exit requests
+  vault.exitingAssets = BigInt.zero()
+  vault.exitingTickets = BigInt.zero()
+  vault.save()
+
+  log.info('[Vault] CheckpointCreated vault={}', [vaultAddress])
 }
 
 // Event emitted on validators root and IPFS hash update (deprecated)
@@ -299,7 +315,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
     allocator.assets = convertSharesToAssets(vault, allocator.shares)
     allocator.ltv = getAllocatorLtv(allocator, osToken)
     allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-    allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
+    allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
     allocator.save()
 
     snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
@@ -313,7 +329,6 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
 
   createTransaction(event.transaction.hash.toHex())
 
-  vault.latestExitTicket = positionTicket.plus(shares)
   vault.queuedShares = vault.queuedShares.plus(shares)
   vault.save()
 
@@ -364,7 +379,6 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   }
   vault.exitingAssets = vault.exitingAssets.plus(assets)
   vault.exitingTickets = vault.exitingTickets.plus(exitingTickets)
-  vault.latestExitTicket = positionTicket.plus(exitingTickets)
   vault.save()
   snapshotVault(vault, BigInt.zero(), timestamp)
 
@@ -380,7 +394,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
+  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
@@ -509,7 +523,7 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
+  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
@@ -538,7 +552,7 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.plus(shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
+  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
   allocator.save()
 
   createAllocatorAction(event, event.address, AllocatorActionType.OsTokenMinted, holder, assets, shares)
@@ -568,7 +582,7 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
   }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
+  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
@@ -613,7 +627,7 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
+  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
@@ -662,7 +676,7 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
+  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 
@@ -706,7 +720,6 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.totalAssets = BigInt.zero()
   vault.exitingAssets = BigInt.zero()
   vault.exitingTickets = BigInt.zero()
-  vault.latestExitTicket = BigInt.zero()
   vault.isPrivate = false
   vault.isBlocklist = false
   vault.isErc20 = false
@@ -716,8 +729,10 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.createdAt = event.block.timestamp
   vault.apy = BigDecimal.zero()
   vault.apys = []
-  vault.maxBoostApy = BigDecimal.zero()
-  vault.maxBoostApys = []
+  vault.allocatorMaxBoostApy = BigDecimal.zero()
+  vault.allocatorMaxBoostApys = []
+  vault.osTokenHolderMaxBoostApy = BigDecimal.zero()
+  vault.osTokenHolderMaxBoostApys = []
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = true
@@ -775,7 +790,6 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.totalAssets = BigInt.zero()
   vault.exitingAssets = BigInt.zero()
   vault.exitingTickets = BigInt.zero()
-  vault.latestExitTicket = BigInt.zero()
   vault.isPrivate = false
   vault.isBlocklist = true
   vault.isErc20 = false
@@ -786,8 +800,10 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.createdAt = event.block.timestamp
   vault.apy = BigDecimal.zero()
   vault.apys = []
-  vault.maxBoostApy = BigDecimal.zero()
-  vault.maxBoostApys = []
+  vault.allocatorMaxBoostApy = BigDecimal.zero()
+  vault.allocatorMaxBoostApys = []
+  vault.osTokenHolderMaxBoostApy = BigDecimal.zero()
+  vault.osTokenHolderMaxBoostApys = []
   vault.isGenesis = false
   vault.blocklistManager = admin
   vault.blocklistCount = BigInt.zero()
@@ -848,7 +864,7 @@ export function handleMigrated(event: Migrated): void {
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
+  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
   allocator.save()
   snapshotAllocator(allocator, osToken, osTokenConfig, BigInt.zero(), BigInt.zero(), timestamp)
 

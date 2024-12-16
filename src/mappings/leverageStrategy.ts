@@ -1,9 +1,9 @@
-import { BigInt, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import {
   Deposited,
-  StrategyProxyCreated,
-  ExitQueueEntered,
   ExitedAssetsClaimed,
+  ExitQueueEntered,
+  StrategyProxyCreated,
 } from '../../generated/AaveLeverageStrategy/AaveLeverageStrategy'
 import { createTransaction } from '../entities/transaction'
 import {
@@ -12,10 +12,31 @@ import {
   updateLeverageStrategyPosition,
   updateLeverageStrategyPositions,
 } from '../entities/leverageStrategy'
-import { convertOsTokenSharesToAssets, createOrLoadOsToken } from '../entities/osToken'
+import {
+  convertOsTokenSharesToAssets,
+  createOrLoadOsToken,
+  createOrLoadOsTokenHolder,
+  getOsTokenHolderApy,
+  updateOsTokenHoldersApy,
+} from '../entities/osToken'
 import { createOrLoadNetwork } from '../entities/network'
-import { Vault } from '../../generated/schema'
+import { OsToken, Vault } from '../../generated/schema'
 import { WAD } from '../helpers/constants'
+import { createOrLoadAllocator, getAllocatorApy, updateVaultAllocatorsApy } from '../entities/allocator'
+import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
+
+function _updateAllocatorAndOsTokenHolderApys(userAddress: Address, vaultAddress: Address, osToken: OsToken): void {
+  const allocator = createOrLoadAllocator(userAddress, vaultAddress)
+  const vault = Vault.load(vaultAddress.toHex()) as Vault
+  const osTokenConfig = createOrLoadOsTokenConfig(vault.osTokenConfig)
+  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
+  allocator.save()
+
+  const network = createOrLoadNetwork()
+  const osTokenHolder = createOrLoadOsTokenHolder(osToken, userAddress)
+  osTokenHolder.apy = getOsTokenHolderApy(network, osToken, osTokenHolder)
+  osTokenHolder.save()
+}
 
 export function handleStrategyProxyCreated(event: StrategyProxyCreated): void {
   const vaultAddress = event.params.vault
@@ -43,33 +64,26 @@ export function handleDeposited(event: Deposited): void {
 
   const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
   const assetsBefore = position.assets.plus(position.exitingAssets)
+  const totalAssetsBefore = position.totalAssets
 
   updateLeverageStrategyPosition(position)
 
   const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const osTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, osTokenSharesAfter)
   const assetsAfter = position.assets.plus(position.exitingAssets)
+  const totalAssetsAfter = position.totalAssets
 
   const assetsDiff = assetsAfter.minus(assetsBefore)
   const osTokenSharesDiff = osTokenSharesAfter.minus(osTokenSharesBefore).minus(depositedOsTokenShares)
 
-  const earnedAssets = assetsAfter
-    .plus(osTokenAssetsAfter)
-    .minus(convertOsTokenSharesToAssets(osToken, depositedOsTokenShares))
-    .minus(convertOsTokenSharesToAssets(osToken, osTokenSharesBefore))
-    .minus(assetsBefore)
-  const earnedBoostAssets = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
-  position.totalEarnedBoostAssets = position.totalEarnedBoostAssets.plus(earnedBoostAssets)
+  const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
+  const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
+
+  position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
   position.save()
 
-  snapshotLeverageStrategyPosition(
-    position,
-    earnedAssets,
-    osTokenAssetsAfter.plus(assetsAfter),
-    earnedBoostAssets,
-    position.totalEarnedBoostAssets,
-    event.block.timestamp,
-  )
+  _updateAllocatorAndOsTokenHolderApys(userAddress, vaultAddress, osToken)
+
+  snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, event.block.timestamp)
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -92,36 +106,28 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
 
   const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
   const assetsBefore = position.assets.plus(position.exitingAssets)
+  const totalAssetsBefore = position.totalAssets
   position.exitRequest = `${vaultAddressHex}-${positionTicket}`
   position.exitingPercent = exitingPercent
 
   updateLeverageStrategyPosition(position)
 
   const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const osTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, osTokenSharesAfter)
   const assetsAfter = position.assets.plus(position.exitingAssets)
+  const totalAssetsAfter = position.totalAssets
 
   const assetsDiff = assetsAfter.minus(assetsBefore)
   const osTokenSharesDiff = osTokenSharesAfter.minus(osTokenSharesBefore)
 
-  const earnedAssets = assetsAfter
-    .plus(osTokenAssetsAfter)
-    .minus(convertOsTokenSharesToAssets(osToken, osTokenSharesBefore))
-    .minus(assetsBefore)
-  const earnedBoostAssets = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
-  position.totalEarnedBoostAssets = position.totalEarnedBoostAssets.plus(earnedBoostAssets)
+  const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
+  const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
+
+  position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
   position.save()
 
-  snapshotLeverageStrategyPosition(
-    position,
-    earnedAssets,
-    osTokenAssetsAfter.plus(assetsAfter),
-    earnedBoostAssets,
-    position.totalEarnedBoostAssets,
-    event.block.timestamp,
-  )
+  _updateAllocatorAndOsTokenHolderApys(userAddress, vaultAddress, osToken)
 
-  createTransaction(event.transaction.hash.toHex())
+  snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, event.block.timestamp)
 
   log.info('[LeverageStrategy] ExitQueueEntered vault={} user={} positionTicket={}', [
     vaultAddressHex,
@@ -144,37 +150,29 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
   const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
   const assetsBefore = position.assets.plus(position.exitingAssets)
+  const totalAssetsBefore = position.totalAssets
 
   updateLeverageStrategyPosition(position)
 
   const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const osTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, osTokenSharesAfter)
   const assetsAfter = position.assets.plus(position.exitingAssets)
+  const totalAssetsAfter = position.totalAssets
 
   const assetsDiff = assetsAfter.plus(claimedAssets).minus(assetsBefore)
   const osTokenSharesDiff = osTokenSharesAfter.plus(claimedOsTokenShares).minus(osTokenSharesBefore)
 
-  const earnedAssets = assetsAfter
-    .plus(osTokenAssetsAfter)
-    .plus(claimedAssets)
-    .plus(convertOsTokenSharesToAssets(osToken, claimedOsTokenShares))
-    .minus(convertOsTokenSharesToAssets(osToken, osTokenSharesBefore))
-    .minus(assetsBefore)
-  const earnedBoostAssets = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
-  position.totalEarnedBoostAssets = position.totalEarnedBoostAssets
+  const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
+  const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
+
+  position.totalEarnedAssets = position.totalEarnedAssets
+    .plus(earnedAssetsDiff)
     .times(positionExitPercent)
     .div(BigInt.fromString(WAD))
-  position.totalEarnedBoostAssets = position.totalEarnedBoostAssets.plus(earnedBoostAssets)
   position.save()
 
-  snapshotLeverageStrategyPosition(
-    position,
-    earnedAssets,
-    osTokenAssetsAfter.plus(assetsAfter),
-    earnedBoostAssets,
-    position.totalEarnedBoostAssets,
-    event.block.timestamp,
-  )
+  _updateAllocatorAndOsTokenHolderApys(userAddress, vaultAddress, osToken)
+
+  snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, event.block.timestamp)
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -183,10 +181,13 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
 export function handleLeverageStrategyPositions(block: ethereum.Block): void {
   const network = createOrLoadNetwork()
+  const osToken = createOrLoadOsToken()
   let vault: Vault
   for (let i = 0; i < network.vaultIds.length; i++) {
     vault = Vault.load(network.vaultIds[i]) as Vault
     updateLeverageStrategyPositions(vault, block.timestamp)
+    updateVaultAllocatorsApy(vault, osToken, createOrLoadOsTokenConfig(vault.osTokenConfig))
   }
+  updateOsTokenHoldersApy(network, osToken)
   log.info('[LeverageStrategyPositions] Sync leverage strategy positions at block={}', [block.number.toString()])
 }

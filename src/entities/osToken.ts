@@ -1,8 +1,17 @@
 import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
-import { OsToken, OsTokenHolder, OsTokenHolderSnapshot, OsTokenSnapshot } from '../../generated/schema'
+import {
+  LeverageStrategyPosition,
+  Network,
+  OsToken,
+  OsTokenHolder,
+  OsTokenHolderSnapshot,
+  OsTokenSnapshot,
+  Vault,
+} from '../../generated/schema'
 import { OsTokenVaultController as OsTokenVaultControllerContact } from '../../generated/Keeper/OsTokenVaultController'
 import { OS_TOKEN_VAULT_CONTROLLER, WAD } from '../helpers/constants'
 import { calculateAverage } from '../helpers/utils'
+import { createOrLoadSnapshotEarnedAssets } from './snapshot'
 
 const osTokenId = '1'
 const snapshotsPerWeek = 14
@@ -36,6 +45,7 @@ export function createOrLoadOsTokenHolder(osToken: OsToken, holderAddress: Addre
     holder.assets = BigInt.zero()
     holder.osToken = osToken.id
     holder.transfersCount = BigInt.zero()
+    holder.apy = BigDecimal.zero()
     holder.save()
   }
 
@@ -77,6 +87,48 @@ export function updateOsTokenApy(osToken: OsToken, newAvgRewardPerSecond: BigInt
   osToken.apy = calculateAverage(apys)
 }
 
+export function getOsTokenHolderApy(network: Network, osToken: OsToken, osTokenHolder: OsTokenHolder): BigDecimal {
+  const osTokenVaultIds = network.osTokenVaultIds
+
+  // add osToken shares from all strategy positions
+  let totalOsTokenShares = osTokenHolder.balance
+  let strategyPositions: Array<LeverageStrategyPosition> = []
+  for (let i = 0; i < osTokenVaultIds.length; i++) {
+    const leverageStrategyPosition = LeverageStrategyPosition.load(`${osTokenVaultIds[i]}-${osTokenHolder.id}`)
+    if (leverageStrategyPosition !== null) {
+      strategyPositions.push(leverageStrategyPosition as LeverageStrategyPosition)
+      totalOsTokenShares = totalOsTokenShares.plus(leverageStrategyPosition.osTokenShares)
+    }
+  }
+
+  if (totalOsTokenShares.le(BigInt.zero())) {
+    return BigDecimal.zero()
+  }
+
+  // calculate apy based on the max osToken assets
+  let apy = osToken.apy
+  for (let i = 0; i < strategyPositions.length; i++) {
+    const strategyPosition = strategyPositions[i]
+    const vault = Vault.load(strategyPosition.vault) as Vault
+    const boostApy = vault.osTokenHolderMaxBoostApy
+      .minus(osToken.apy)
+      .times(strategyPosition.osTokenShares.toBigDecimal())
+      .div(totalOsTokenShares.toBigDecimal())
+    apy = apy.plus(boostApy)
+  }
+
+  return apy
+}
+
+export function updateOsTokenHoldersApy(network: Network, osToken: OsToken): void {
+  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
+  for (let i = 0; i < osTokenHolders.length; i++) {
+    const osTokenHolder = osTokenHolders[i]
+    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, osTokenHolder)
+    osTokenHolder.save()
+  }
+}
+
 export function updateOsTokenTotalAssets(osToken: OsToken, updateTimestamp: BigInt, block: ethereum.Block): BigInt {
   if (osToken.lastUpdateTimestamp.isZero()) {
     osToken.lastUpdateTimestamp = updateTimestamp
@@ -115,20 +167,48 @@ export function updateOsTokenTotalAssets(osToken: OsToken, updateTimestamp: BigI
 }
 
 export function snapshotOsToken(osToken: OsToken, assetsDiff: BigInt, rewardsTimestamp: BigInt): void {
+  const snapshotEarnedAssets = createOrLoadSnapshotEarnedAssets('osToken', osToken.id, rewardsTimestamp)
+  snapshotEarnedAssets.earnedAssets = snapshotEarnedAssets.earnedAssets.plus(assetsDiff)
+  snapshotEarnedAssets.save()
+
+  let apy = BigDecimal.zero()
+  const principalAssets = osToken.totalAssets
+    .minus(snapshotEarnedAssets.earnedAssets)
+    .minus(snapshotEarnedAssets.earnedAssets.times(BigInt.fromI32(osToken.feePercent)).div(BigInt.fromI32(10000)))
+  if (principalAssets.gt(BigInt.zero())) {
+    apy = new BigDecimal(snapshotEarnedAssets.earnedAssets)
+      .times(BigDecimal.fromString('365'))
+      .times(BigDecimal.fromString('100'))
+      .div(new BigDecimal(principalAssets))
+  }
+
   const osTokenSnapshot = new OsTokenSnapshot(rewardsTimestamp.toString())
   osTokenSnapshot.timestamp = rewardsTimestamp.toI64()
-  osTokenSnapshot.earnedAssets = assetsDiff.plus(
-    assetsDiff.times(BigInt.fromI32(osToken.feePercent)).div(BigInt.fromI32(10000 - osToken.feePercent)),
-  )
+  osTokenSnapshot.earnedAssets = assetsDiff
   osTokenSnapshot.totalAssets = osToken.totalAssets
+  osTokenSnapshot.apy = apy
   osTokenSnapshot.save()
 }
 
 export function snapshotOsTokenHolder(holder: OsTokenHolder, assetsDiff: BigInt, timestamp: BigInt): void {
+  const snapshotEarnedAssets = createOrLoadSnapshotEarnedAssets('osTokenHolder', holder.id, timestamp)
+  snapshotEarnedAssets.earnedAssets = snapshotEarnedAssets.earnedAssets.plus(assetsDiff)
+  snapshotEarnedAssets.save()
+
+  let apy = BigDecimal.zero()
+  const principalAssets = holder.assets.minus(snapshotEarnedAssets.earnedAssets)
+  if (principalAssets.gt(BigInt.zero())) {
+    apy = new BigDecimal(snapshotEarnedAssets.earnedAssets)
+      .times(BigDecimal.fromString('365'))
+      .times(BigDecimal.fromString('100'))
+      .div(new BigDecimal(principalAssets))
+  }
+
   const snapshot = new OsTokenHolderSnapshot(timestamp.toString())
   snapshot.timestamp = timestamp.toI64()
   snapshot.osTokenHolder = holder.id
   snapshot.earnedAssets = assetsDiff
   snapshot.totalAssets = holder.assets
+  snapshot.apy = apy
   snapshot.save()
 }

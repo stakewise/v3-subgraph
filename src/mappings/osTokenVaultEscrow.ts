@@ -7,12 +7,7 @@ import {
   PositionCreated,
 } from '../../generated/OsTokenVaultEscrow/OsTokenVaultEscrow'
 import { Vault } from '../../generated/schema'
-import {
-  createOrLoadAllocator,
-  getAllocatorLtv,
-  getAllocatorLtvStatus,
-  getAllocatorOsTokenMintApy,
-} from '../entities/allocator'
+import { createOrLoadAllocator, getAllocatorApy, getAllocatorLtv, getAllocatorLtvStatus } from '../entities/allocator'
 import { convertOsTokenSharesToAssets, createOrLoadOsToken, snapshotOsToken } from '../entities/osToken'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 import {
@@ -38,7 +33,7 @@ export function handlePositionCreated(event: PositionCreated): void {
   }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.osTokenMintApy = getAllocatorOsTokenMintApy(allocator, osToken, osTokenConfig)
+  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
   allocator.save()
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
