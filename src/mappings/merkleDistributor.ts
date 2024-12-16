@@ -1,5 +1,16 @@
-import { Address, BigInt, Bytes, ethereum, ipfs, json, JSONValue, JSONValueKind, log } from '@graphprotocol/graph-ts'
-import { DistributorClaimedAmount, PeriodicDistribution, UniswapPool } from '../../generated/schema'
+import {
+  Address,
+  BigInt,
+  Bytes,
+  ethereum,
+  ipfs,
+  json,
+  JSONValue,
+  JSONValueKind,
+  log,
+  store,
+} from '@graphprotocol/graph-ts'
+import { DistributorClaimedAmount, PeriodicDistribution } from '../../generated/schema'
 import {
   OneTimeDistributionAdded,
   PeriodicDistributionAdded,
@@ -10,11 +21,15 @@ import {
   createOrLoadDistributor,
   createOrLoadDistributorClaim,
   createOrLoadDistributorReward,
+  distributeLeverageStrategy,
   distributeToOsTokenUsdcUniPoolUsers,
   distributeToSwiseAssetUniPoolUsers,
+  DistributionType,
+  getDistributionType,
+  loadDistributor,
 } from '../entities/merkleDistributor'
-import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
 import { createTransaction } from '../entities/transaction'
+import { loadUniswapPool } from '../entities/uniswap'
 
 export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded): void {
   const distribution = new PeriodicDistribution(
@@ -27,7 +42,7 @@ export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded
   distribution.endTimestamp = distribution.startTimestamp.plus(event.params.durationInSeconds)
   distribution.save()
 
-  const distributor = createOrLoadDistributor()
+  const distributor = loadDistributor()!
   const activeDistributionIds = distributor.activeDistributionIds
   activeDistributionIds.push(distribution.id)
   distributor.activeDistributionIds = activeDistributionIds
@@ -116,7 +131,7 @@ export function handleDistributions(block: ethereum.Block): void {
     return
   }
   const currentTimestamp = block.timestamp
-  const newActiveDistIds: Array<String> = []
+  const newActiveDistIds: Array<string> = []
 
   let dist: PeriodicDistribution
   for (let i = 0; i < activeDistIds.length; i++) {
@@ -126,9 +141,11 @@ export function handleDistributions(block: ethereum.Block): void {
       newActiveDistIds.push(dist.id)
       continue
     }
-    // check whether distribution is supported
-    if (dist.data.length != 20) {
-      log.error('[MerkleDistributor] Distribution data is not 20 bytes for distributionId={}', [dist.id])
+
+    // get the distribution type
+    const distType = getDistributionType(dist.data)
+    if (distType == DistributionType.UNKNOWN) {
+      log.error('[MerkleDistributor] Unknown periodic distribution data={}', [dist.data.toHex()])
       continue
     }
 
@@ -149,29 +166,16 @@ export function handleDistributions(block: ethereum.Block): void {
     }
 
     // distribute tokens
-    const poolAddr = Address.fromBytes(dist.data).toString()
-    const uniPool = UniswapPool.load(poolAddr)
-    if (uniPool == null) {
-      log.error('[MerkleDistributor] Uniswap pool not found address={}', [poolAddr])
-      continue
-    }
-
-    const usdcToken = Address.fromString(USDC_TOKEN)
-    const assetToken = Address.fromString(ASSET_TOKEN)
-    if (
-      uniPool &&
-      (uniPool.token0.equals(SWISE_TOKEN) || uniPool.token1.equals(SWISE_TOKEN)) &&
-      (uniPool.token0.equals(assetToken) || uniPool.token1.equals(assetToken))
-    ) {
+    if (distType == DistributionType.SWISE_ASSET_UNI_POOL) {
+      // dist data is the pool address
+      const uniPool = loadUniswapPool(Address.fromBytes(dist.data))!
       distributeToSwiseAssetUniPoolUsers(uniPool, Address.fromBytes(dist.token), amountToDistribute)
-    } else if (
-      uniPool &&
-      (uniPool.token0.equals(OS_TOKEN) || uniPool.token1.equals(OS_TOKEN)) &&
-      (uniPool.token0.equals(usdcToken) || uniPool.token1.equals(usdcToken))
-    ) {
+    } else if (distType == DistributionType.OS_TOKEN_USDC_UNI_POOL) {
+      // dist data is the pool address
+      const uniPool = loadUniswapPool(Address.fromBytes(dist.data))!
       distributeToOsTokenUsdcUniPoolUsers(uniPool, Address.fromBytes(dist.token), amountToDistribute)
     } else {
-      log.error('[MerkleDistributor] Cannot distribute to Uniswap pool with address={}', [poolAddr])
+      distributeLeverageStrategy(Address.fromBytes(dist.token), amountToDistribute)
     }
   }
 
@@ -286,6 +290,8 @@ export function handleRewardsClaimed(event: RewardsClaimed): void {
     claimedAmount.cumulativeClaimedAmount = claimedAmount.cumulativeClaimedAmount.plus(amounts[i])
     claimedAmount.save()
   }
+  store.remove('DistributorClaim', user.toHex())
+
   createTransaction(event.transaction.hash.toHex())
   log.info('[MerkleDistributor] RewardsClaimed user={}', [user.toHex()])
 }

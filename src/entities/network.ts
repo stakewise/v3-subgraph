@@ -1,14 +1,17 @@
 import { Address, BigDecimal, BigInt, Bytes, store } from '@graphprotocol/graph-ts'
-import { Network, User, Vault } from '../../generated/schema'
+import { Network, RewardSplitter, User, Vault } from '../../generated/schema'
 import { NETWORK, V2_REWARD_TOKEN, V2_STAKED_TOKEN } from '../helpers/constants'
 
-export function createOrLoadNetwork(): Network {
-  const id = '0'
+const networkId = '0'
+export function loadNetwork(): Network | null {
+  return Network.load(networkId)
+}
 
-  let network = Network.load(id)
+export function createOrLoadNetwork(): Network {
+  let network = loadNetwork()
 
   if (network === null) {
-    network = new Network(id)
+    network = new Network(networkId)
     network.factoriesInitialized = false
     network.vaultsCount = 0
     network.usersCount = 0
@@ -58,7 +61,7 @@ export function decreaseUserVaultsCount(userAddress: Bytes): void {
   }
   const user = createOrLoadUser(userAddress)
   if (!user.isOsTokenHolder && user.vaultsCount === 1) {
-    const network = createOrLoadNetwork()
+    const network = loadNetwork()!
     network.usersCount = network.usersCount - 1
     network.save()
     store.remove('User', user.id)
@@ -71,6 +74,7 @@ export function decreaseUserVaultsCount(userAddress: Bytes): void {
 export function increaseUserVaultsCount(userAddress: Bytes): void {
   if (
     Vault.load(userAddress.toHex()) !== null ||
+    RewardSplitter.load(userAddress.toHex()) !== null ||
     userAddress.equals(V2_REWARD_TOKEN) ||
     userAddress.equals(V2_STAKED_TOKEN) ||
     userAddress.equals(Address.zero())
@@ -79,7 +83,7 @@ export function increaseUserVaultsCount(userAddress: Bytes): void {
   }
   const user = createOrLoadUser(userAddress)
   if (!user.isOsTokenHolder && user.vaultsCount === 0) {
-    const network = createOrLoadNetwork()
+    const network = loadNetwork()!
     network.usersCount = network.usersCount + 1
     network.save()
   }

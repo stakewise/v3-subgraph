@@ -1,9 +1,10 @@
 import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
-import { ExitRequest, OsToken, OsTokenExitRequest, Vault } from '../../generated/schema'
-import { convertOsTokenSharesToAssets, createOrLoadOsToken } from './osToken'
-import { GENESIS_VAULT, OS_TOKEN_VAULT_ESCROW } from '../helpers/constants'
+import { OsToken, OsTokenExitRequest, Vault } from '../../generated/schema'
+import { convertOsTokenSharesToAssets } from './osToken'
+import { OS_TOKEN_VAULT_ESCROW } from '../helpers/constants'
 import { createOrLoadV2Pool } from './v2pool'
 import { OsTokenVaultEscrow } from '../../generated/OsTokenVaultEscrow/OsTokenVaultEscrow'
+import { loadExitRequest } from './exitRequest'
 
 export function createOrLoadOsTokenExitRequest(vault: Address, positionTicket: BigInt): OsTokenExitRequest {
   const exitRequestId = `${vault.toHex()}-${positionTicket.toString()}`
@@ -27,10 +28,12 @@ export function getExitRequestLtv(osTokenExitRequest: OsTokenExitRequest, osToke
   // use processed assets if available
   let depositedAssets: BigInt
   if (osTokenExitRequest.exitedAssets !== null) {
-    depositedAssets = osTokenExitRequest.exitedAssets as BigInt
+    depositedAssets = osTokenExitRequest.exitedAssets!
   } else {
-    const exitRequestId = `${osTokenExitRequest.vault}-${osTokenExitRequest.positionTicket.toString()}`
-    const exitRequest = ExitRequest.load(exitRequestId) as ExitRequest
+    const exitRequest = loadExitRequest(
+      Address.fromString(osTokenExitRequest.vault),
+      osTokenExitRequest.positionTicket,
+    )!
     depositedAssets = exitRequest.totalAssets
   }
   if (depositedAssets.isZero() || mintedOsTokenAssets.isZero()) {
@@ -40,18 +43,18 @@ export function getExitRequestLtv(osTokenExitRequest: OsTokenExitRequest, osToke
   return mintedOsTokenAssets.divDecimal(depositedAssets.toBigDecimal())
 }
 
-export function updateOsTokenExitRequests(vault: Vault): void {
-  if (Address.fromString(vault.id).equals(GENESIS_VAULT)) {
+export function updateOsTokenExitRequests(osToken: OsToken, vault: Vault): void {
+  if (vault.isGenesis) {
     const v2Pool = createOrLoadV2Pool()
     if (!v2Pool.migrated) {
       // wait for the migration
       return
     }
   }
-  const osToken = createOrLoadOsToken()
   const vaultAddress = Address.fromString(vault.id)
   const osTokenVaultEscrow = OsTokenVaultEscrow.bind(OS_TOKEN_VAULT_ESCROW)
 
+  // TODO: move to multicall
   let osTokenExitRequest: OsTokenExitRequest
   const osTokenExitRequests: Array<OsTokenExitRequest> = vault.osTokenExitRequests.load()
   for (let i = 0; i < osTokenExitRequests.length; i++) {

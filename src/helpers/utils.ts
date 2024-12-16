@@ -1,4 +1,4 @@
-import { Address, BigDecimal, Bytes, ethereum } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 
 export function getAggregateCall(target: Address, data: Bytes): ethereum.Value {
   const struct: Array<ethereum.Value> = [ethereum.Value.fromAddress(target), ethereum.Value.fromBytes(data)]
@@ -22,4 +22,8 @@ export function calculateAverage(values: Array<BigDecimal>): BigDecimal {
   // Note: BigDecimal division needs to handle scale/precision appropriately.
   // Here, 'values.length' is converted to a BigDecimal for division.
   return sum.div(BigDecimal.fromString(values.length.toString()))
+}
+
+export function getAnnualReward(principal: BigInt, apy: BigDecimal): BigInt {
+  return principal.toBigDecimal().times(apy).div(BigDecimal.fromString('100')).truncate(0).digits
 }

@@ -1,4 +1,4 @@
-import { BigInt, ethereum, log } from '@graphprotocol/graph-ts'
+import { BigInt, log } from '@graphprotocol/graph-ts'
 import {
   ExitedAssetsClaimed,
   ExitedAssetsProcessed,
@@ -6,16 +6,16 @@ import {
   OsTokenRedeemed,
   PositionCreated,
 } from '../../generated/OsTokenVaultEscrow/OsTokenVaultEscrow'
-import { Vault } from '../../generated/schema'
-import { createOrLoadAllocator, getAllocatorApy, getAllocatorLtv, getAllocatorLtvStatus } from '../entities/allocator'
-import { convertOsTokenSharesToAssets, createOrLoadOsToken, snapshotOsToken } from '../entities/osToken'
-import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 import {
-  createOrLoadOsTokenExitRequest,
-  getExitRequestLtv,
-  updateOsTokenExitRequests,
-} from '../entities/osTokenVaultEscrow'
-import { createOrLoadNetwork } from '../entities/network'
+  getAllocatorApy,
+  loadAllocator,
+  snapshotAllocator,
+  updateAllocatorMintedOsTokenShares,
+} from '../entities/allocator'
+import { convertOsTokenSharesToAssets, loadOsToken, snapshotOsToken } from '../entities/osToken'
+import { loadOsTokenConfig } from '../entities/osTokenConfig'
+import { createOrLoadOsTokenExitRequest, getExitRequestLtv } from '../entities/osTokenVaultEscrow'
+import { loadVault } from '../entities/vault'
 
 export function handlePositionCreated(event: PositionCreated): void {
   const vaultAddress = event.params.vault
@@ -23,18 +23,18 @@ export function handlePositionCreated(event: PositionCreated): void {
   const osTokenShares = event.params.osTokenShares
   const exitPositionTicket = event.params.exitPositionTicket
 
-  const vault = Vault.load(vaultAddress.toHex()) as Vault
-  const osToken = createOrLoadOsToken()
-  const osTokenConfig = createOrLoadOsTokenConfig(vault.osTokenConfig)
-  const allocator = createOrLoadAllocator(owner, vaultAddress)
+  const vault = loadVault(vaultAddress)!
+  const osToken = loadOsToken()!
+  const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
+  const allocator = loadAllocator(owner, vaultAddress)!
   allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.minus(osTokenShares)
   if (allocator.mintedOsTokenShares.lt(BigInt.zero())) {
     allocator.mintedOsTokenShares = BigInt.zero()
   }
-  allocator.ltv = getAllocatorLtv(allocator, osToken)
-  allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
+  updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
+  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, allocator, false)
   allocator.save()
+  snapshotAllocator(osToken, osTokenConfig, vault, allocator, BigInt.zero(), event.block.timestamp)
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
   osTokenExitRequest.owner = owner
@@ -55,7 +55,7 @@ export function handleExitedAssetsProcessed(event: ExitedAssetsProcessed): void 
   const exitedAssets = event.params.exitedAssets
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
-  const osToken = createOrLoadOsToken()
+  const osToken = loadOsToken()!
 
   osTokenExitRequest.exitedAssets = exitedAssets
   osTokenExitRequest.ltv = getExitRequestLtv(osTokenExitRequest, osToken)
@@ -74,7 +74,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const osTokenShares = event.params.osTokenShares
   const withdrawnAssets = event.params.assets
 
-  const osToken = createOrLoadOsToken()
+  const osToken = loadOsToken()!
   osToken.totalAssets = osToken.totalAssets.minus(convertOsTokenSharesToAssets(osToken, osTokenShares))
   osToken.totalSupply = osToken.totalSupply.minus(osTokenShares)
   osToken.save()
@@ -99,7 +99,7 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   const osTokenShares = event.params.osTokenShares
   const withdrawnAssets = event.params.receivedAssets
 
-  const osToken = createOrLoadOsToken()
+  const osToken = loadOsToken()!
   osToken.totalAssets = osToken.totalAssets.minus(convertOsTokenSharesToAssets(osToken, osTokenShares))
   osToken.totalSupply = osToken.totalSupply.minus(osTokenShares)
   osToken.save()
@@ -124,7 +124,7 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   const osTokenShares = event.params.osTokenShares
   const withdrawnAssets = event.params.receivedAssets
 
-  const osToken = createOrLoadOsToken()
+  const osToken = loadOsToken()!
   osToken.totalAssets = osToken.totalAssets.minus(convertOsTokenSharesToAssets(osToken, osTokenShares))
   osToken.totalSupply = osToken.totalSupply.minus(osTokenShares)
   osToken.save()
@@ -141,14 +141,4 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
     exitPositionTicket.toHex(),
     osTokenShares.toHex(),
   ])
-}
-
-export function handleOsTokenExitRequests(block: ethereum.Block): void {
-  const network = createOrLoadNetwork()
-  let vault: Vault
-  for (let i = 0; i < network.vaultIds.length; i++) {
-    vault = Vault.load(network.vaultIds[i]) as Vault
-    updateOsTokenExitRequests(vault)
-  }
-  log.info('[OsTokenExitRequests] Sync osToken exit requests at block={}', [block.number.toString()])
 }

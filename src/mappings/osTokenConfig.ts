@@ -1,9 +1,9 @@
-import { Address, log, BigInt } from '@graphprotocol/graph-ts'
-import { Vault } from '../../generated/schema'
-import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
+import { Address, BigInt, log } from '@graphprotocol/graph-ts'
 import { OsTokenConfigUpdated as OsTokenConfigV1Updated } from '../../generated/OsTokenConfigV1/OsTokenConfigV1'
 import { OsTokenConfigUpdated as OsTokenConfigV2Updated } from '../../generated/OsTokenConfigV2/OsTokenConfigV2'
 import { updateAllocatorsLtvStatus } from '../entities/allocator'
+import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
+import { loadVault } from '../entities/vault'
 
 export function handleOsTokenConfigV1Updated(event: OsTokenConfigV1Updated): void {
   const ltvPercent = event.params.ltvPercent
@@ -19,17 +19,16 @@ export function handleOsTokenConfigV1Updated(event: OsTokenConfigV1Updated): voi
 }
 
 export function handleOsTokenConfigV2Updated(event: OsTokenConfigV2Updated): void {
-  const zeroAddress = Address.zero()
-  const vaultAddress = event.params.vault.toHex()
+  const vaultAddress = event.params.vault
 
   const ltvPercent = event.params.ltvPercent
   const liqThresholdPercent = event.params.liqThresholdPercent
 
-  if (event.params.vault.equals(zeroAddress)) {
+  if (vaultAddress.equals(Address.zero())) {
     updateOsTokenConfig('2', ltvPercent, liqThresholdPercent)
   } else {
-    const vault = Vault.load(vaultAddress) as Vault
-    const osTokenConfigId = `${vaultAddress}-2`
+    const vault = loadVault(vaultAddress)!
+    const osTokenConfigId = `${vaultAddress.toHex()}-2`
 
     updateOsTokenConfig(osTokenConfigId, ltvPercent, liqThresholdPercent)
 

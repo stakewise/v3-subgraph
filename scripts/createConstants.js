@@ -39,7 +39,8 @@ result += `\nexport const DAY = BigInt.fromI32(24 * 60 * 60)\n`
 
 const camelToSnakeCase = (inputString) => inputString.replace(/([A-Z])/g, '_$1').toUpperCase()
 
-const createAddressConst = (name, address) => `\nexport const ${name} = Address.fromString('${address || zeroAddress}')\n`
+const createAddressConst = (name, address) =>
+  `\nexport const ${name} = Address.fromString('${address || zeroAddress}')\n`
 
 const createStringConst = (name, data) => `\nexport const ${name} = '${data}'\n`
 
@@ -53,10 +54,17 @@ readFile(configPath, 'utf8', (error, data) => {
   Object.keys(parsedData).forEach((key) => {
     const data = parsedData[key]
 
-    if (typeof data === 'object' && data.address) {
-      const name = camelToSnakeCase(key)
+    if (typeof data === 'object') {
+      if (data.address) {
+        const name = camelToSnakeCase(key)
 
-      result += createAddressConst(name, data.address)
+        result += createAddressConst(name, data.address)
+      }
+      if (data.startBlock) {
+        const name = camelToSnakeCase(key + 'StartBlock')
+
+        result += createStringConst(name, data.startBlock)
+      }
     }
 
     if (typeof data === 'string') {

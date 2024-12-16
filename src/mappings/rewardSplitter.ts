@@ -9,7 +9,7 @@ import { RewardSplitterCreated } from '../../generated/templates/RewardSplitterF
 import { RewardSplitter, Vault } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
 import { createOrLoadRewardSplitterShareHolder, snapshotRewardSplitterShareHolder } from '../entities/rewardSplitter'
-import { convertSharesToAssets } from '../entities/vaults'
+import { convertSharesToAssets } from '../entities/vault'
 
 // Event emitted on RewardSplitter contract creation
 export function handleRewardSplitterCreated(event: RewardSplitterCreated): void {

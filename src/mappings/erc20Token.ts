@@ -2,14 +2,15 @@ import { Address, BigInt, log, store } from '@graphprotocol/graph-ts'
 import { Transfer } from '../../generated/OsToken/Erc20Token'
 import { createOrLoadSwiseTokenHolder, createTokenTransfer } from '../entities/tokenTransfer'
 import { OS_TOKEN, SWISE_TOKEN } from '../helpers/constants'
+import { loadOsToken } from '../entities/osToken'
+import { createOrLoadUser, loadNetwork } from '../entities/network'
 import {
-  convertOsTokenSharesToAssets,
-  createOrLoadOsToken,
   createOrLoadOsTokenHolder,
   getOsTokenHolderApy,
+  loadOsTokenHolder,
   snapshotOsTokenHolder,
-} from '../entities/osToken'
-import { createOrLoadNetwork, createOrLoadUser } from '../entities/network'
+  updateOsTokenHolderAssets,
+} from '../entities/osTokenHolder'
 
 export function handleTransfer(event: Transfer): void {
   const tokenAddress = event.address
@@ -68,37 +69,37 @@ function _handleOsTokenTransfer(event: Transfer): void {
   const amount = event.params.value
   const timestamp = event.block.timestamp
 
-  const osToken = createOrLoadOsToken()
-  const network = createOrLoadNetwork()
+  const network = loadNetwork()!
+  const osToken = loadOsToken()!
   if (from.notEqual(Address.zero())) {
-    const tokenHolderFrom = createOrLoadOsTokenHolder(osToken, from)
+    const tokenHolderFrom = loadOsTokenHolder(from)!
     tokenHolderFrom.balance = tokenHolderFrom.balance.minus(amount)
-    tokenHolderFrom.assets = convertOsTokenSharesToAssets(osToken, tokenHolderFrom.balance)
     tokenHolderFrom.transfersCount = tokenHolderFrom.transfersCount.plus(BigInt.fromI32(1))
-    tokenHolderFrom.apy = getOsTokenHolderApy(network, osToken, tokenHolderFrom)
+    updateOsTokenHolderAssets(osToken, tokenHolderFrom)
+    tokenHolderFrom.apy = getOsTokenHolderApy(network, osToken, tokenHolderFrom, false)
     tokenHolderFrom.save()
-    snapshotOsTokenHolder(tokenHolderFrom, BigInt.zero(), timestamp)
+    snapshotOsTokenHolder(network, osToken, tokenHolderFrom, BigInt.zero(), timestamp)
 
     const user = createOrLoadUser(from)
     if (tokenHolderFrom.balance.isZero() && user.vaultsCount === 0) {
-      const network = createOrLoadNetwork()
+      const network = loadNetwork()!
       network.usersCount = network.usersCount - 1
       network.save()
       store.remove('User', user.id)
     }
   }
   if (to.notEqual(Address.zero())) {
-    const tokenHolderTo = createOrLoadOsTokenHolder(osToken, to)
+    const tokenHolderTo = createOrLoadOsTokenHolder(to)
     tokenHolderTo.balance = tokenHolderTo.balance.plus(amount)
-    tokenHolderTo.assets = convertOsTokenSharesToAssets(osToken, tokenHolderTo.balance)
     tokenHolderTo.transfersCount = tokenHolderTo.transfersCount.plus(BigInt.fromI32(1))
-    tokenHolderTo.apy = getOsTokenHolderApy(network, osToken, tokenHolderTo)
+    updateOsTokenHolderAssets(osToken, tokenHolderTo)
+    tokenHolderTo.apy = getOsTokenHolderApy(network, osToken, tokenHolderTo, false)
     tokenHolderTo.save()
-    snapshotOsTokenHolder(tokenHolderTo, BigInt.zero(), timestamp)
+    snapshotOsTokenHolder(network, osToken, tokenHolderTo, BigInt.zero(), timestamp)
 
     const user = createOrLoadUser(to)
     if (!user.isOsTokenHolder && user.vaultsCount === 0 && tokenHolderTo.balance.gt(BigInt.zero())) {
-      const network = createOrLoadNetwork()
+      const network = loadNetwork()!
       network.usersCount = network.usersCount + 1
       network.save()
 
