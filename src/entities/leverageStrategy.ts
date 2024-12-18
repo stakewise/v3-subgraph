@@ -1,12 +1,14 @@
 import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 import {
   Aave,
+  Distributor,
   ExitRequest,
   LeverageStrategyPosition,
   LeverageStrategyPositionSnapshot,
   OsToken,
   OsTokenConfig,
   OsTokenExitRequest,
+  PeriodicDistribution,
   Vault,
 } from '../../generated/schema'
 import { AaveLeverageStrategy } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
@@ -22,6 +24,7 @@ import {
   loadAavePosition,
   updateAavePosition,
 } from './aave'
+import { convertStringToDistributionType, DistributionType, getPeriodicDistributionApy } from './merkleDistributor'
 
 export function loadLeverageStrategyPosition(vault: Address, user: Address): LeverageStrategyPosition | null {
   const leverageStrategyPositionId = `${vault.toHex()}-${user.toHex()}`
@@ -172,6 +175,7 @@ export function getBoostPositionAnnualReward(
   vault: Vault,
   osTokenConfig: OsTokenConfig,
   strategyPosition: LeverageStrategyPosition,
+  distributor: Distributor,
   useDayApy: boolean,
 ): BigInt {
   const vaultAddress = Address.fromString(strategyPosition.vault)
@@ -183,7 +187,7 @@ export function getBoostPositionAnnualReward(
   const vaultApy = getVaultApy(vault, useDayApy)
   const osTokenApy = getOsTokenApy(osToken, useDayApy)
   const borrowApy = getAaveBorrowApy(aave, useDayApy)
-  const supplyApy = getAaveSupplyApy(aave, useDayApy)
+  const supplyApy = getAaveSupplyApy(aave, osToken, useDayApy)
 
   let totalDepositedAssets = vaultPosition.assets
   let totalMintedOsTokenShares = vaultPosition.mintedOsTokenShares
@@ -217,5 +221,29 @@ export function getBoostPositionAnnualReward(
   totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(totalMintedOsTokenAssets, osTokenMintApy))
 
   // borrowed assets lose borrow APY
-  return totalEarnedAssets.minus(getAnnualReward(totalBorrowedAssets, borrowApy))
+  totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(totalBorrowedAssets, borrowApy))
+
+  if (totalSuppliedOsTokenAssets.le(BigInt.zero())) {
+    return totalEarnedAssets
+  }
+
+  // all the supplied OsToken assets earn the additional incentives
+  const activeDistributionIds = distributor.activeDistributionIds
+  let distribution: PeriodicDistribution
+  let distributionApy: BigDecimal
+  for (let i = 0; i < activeDistributionIds.length; i++) {
+    distribution = PeriodicDistribution.load(activeDistributionIds[i])!
+    if (convertStringToDistributionType(distribution.distributionType) !== DistributionType.LEVERAGE_STRATEGY) {
+      continue
+    }
+
+    // get the distribution APY
+    distributionApy = getPeriodicDistributionApy(distribution, osToken, useDayApy)
+    if (distributionApy.equals(BigDecimal.zero())) {
+      continue
+    }
+    totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(totalSuppliedOsTokenAssets, distributionApy))
+  }
+
+  return totalEarnedAssets
 }

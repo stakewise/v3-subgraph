@@ -14,6 +14,7 @@ import { decreaseUserVaultsCount, increaseUserVaultsCount } from '../entities/ne
 import { convertSharesToAssets, loadVault } from '../entities/vault'
 import { loadOsToken } from '../entities/osToken'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
+import { loadDistributor } from '../entities/merkleDistributor'
 
 // Event emitted on mint, burn or transfer shares between allocators
 export function handleTransfer(event: Transfer): void {
@@ -22,6 +23,7 @@ export function handleTransfer(event: Transfer): void {
   const timestamp = event.block.timestamp
   const vault = loadVault(vaultAddress)!
   const osToken = loadOsToken()!
+  const distributor = loadDistributor()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
   const from = params.from
@@ -38,9 +40,9 @@ export function handleTransfer(event: Transfer): void {
   const allocatorFrom = loadAllocator(from, vaultAddress)!
   allocatorFrom.shares = allocatorFrom.shares.minus(shares)
   updateAllocatorAssets(osToken, osTokenConfig, vault, allocatorFrom)
-  allocatorFrom.apy = getAllocatorApy(osToken, osTokenConfig, vault, allocatorFrom, false)
+  allocatorFrom.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocatorFrom, false)
   allocatorFrom.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, allocatorFrom, BigInt.zero(), timestamp)
+  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocatorFrom, BigInt.zero(), timestamp)
   if (allocatorFrom.shares.isZero()) {
     decreaseUserVaultsCount(allocatorFrom.address)
   }
@@ -52,9 +54,9 @@ export function handleTransfer(event: Transfer): void {
   }
   allocatorTo.shares = allocatorTo.shares.plus(shares)
   updateAllocatorAssets(osToken, osTokenConfig, vault, allocatorTo)
-  allocatorTo.apy = getAllocatorApy(osToken, osTokenConfig, vault, allocatorTo, false)
+  allocatorTo.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocatorTo, false)
   allocatorTo.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, allocatorTo, BigInt.zero(), timestamp)
+  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocatorTo, BigInt.zero(), timestamp)
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferIn, to, assets, shares)
 
   createTransaction(event.transaction.hash.toHex())

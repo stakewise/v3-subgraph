@@ -1,5 +1,13 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
-import { Allocator, AllocatorAction, AllocatorSnapshot, OsToken, OsTokenConfig, Vault } from '../../generated/schema'
+import {
+  Allocator,
+  AllocatorAction,
+  AllocatorSnapshot,
+  Distributor,
+  OsToken,
+  OsTokenConfig,
+  Vault,
+} from '../../generated/schema'
 import { WAD } from '../helpers/constants'
 import { getAnnualReward } from '../helpers/utils'
 import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
@@ -162,6 +170,7 @@ export function getAllocatorApy(
   osToken: OsToken,
   osTokenConfig: OsTokenConfig,
   vault: Vault,
+  distributor: Distributor,
   allocator: Allocator,
   useDayApy: boolean,
 ): BigDecimal {
@@ -183,7 +192,7 @@ export function getAllocatorApy(
   if (boostPosition !== null) {
     const aave = loadAave()!
     totalEarnedAssets = totalEarnedAssets.plus(
-      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition, useDayApy),
+      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition, distributor, useDayApy),
     )
     let earnedOsTokenShares: BigInt
     let mintedLockedOsTokenShares: BigInt
@@ -274,6 +283,7 @@ export function snapshotAllocator(
   osToken: OsToken,
   osTokenConfig: OsTokenConfig,
   vault: Vault,
+  distributor: Distributor,
   allocator: Allocator,
   earnedAssets: BigInt,
   timestamp: BigInt,
@@ -283,7 +293,7 @@ export function snapshotAllocator(
   allocatorSnapshot.allocator = allocator.id
   allocatorSnapshot.earnedAssets = earnedAssets
   allocatorSnapshot.totalAssets = allocator.assets
-  allocatorSnapshot.apy = getAllocatorApy(osToken, osTokenConfig, vault, allocator, true)
+  allocatorSnapshot.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, true)
   allocatorSnapshot.ltv = allocator.ltv
   allocatorSnapshot.save()
 }

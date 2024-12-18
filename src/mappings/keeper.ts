@@ -59,7 +59,7 @@ import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 import { loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
 import { getOsTokenHolderApy, snapshotOsTokenHolder, updateOsTokenHolderAssets } from '../entities/osTokenHolder'
 import { createOrLoadAave, loadAave, updateAavePosition } from '../entities/aave'
-import { createOrLoadDistributor } from '../entities/merkleDistributor'
+import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -250,6 +250,7 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
     osTokenHolderAssetsDiffs.push(updateOsTokenHolderAssets(osToken, osTokenHolder))
   }
 
+  const distributor = loadDistributor()!
   const vaultIds = network.vaultIds
   for (let i = 0; i < vaultIds.length; i++) {
     const vaultAddress = Address.fromString(vaultIds[i])
@@ -307,22 +308,38 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
 
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, allocator, false)
+      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
       allocator.save()
-      snapshotAllocator(osToken, osTokenConfig, vault, allocator, allocatorsAssetsDiffs[j], updateTimestamp)
-      snapshotAllocator(osToken, osTokenConfig, vault, allocator, mintedOsTokenAssetsDiffs[j].neg(), blockTimestamp)
+      snapshotAllocator(
+        osToken,
+        osTokenConfig,
+        vault,
+        distributor,
+        allocator,
+        allocatorsAssetsDiffs[j],
+        updateTimestamp,
+      )
+      snapshotAllocator(
+        osToken,
+        osTokenConfig,
+        vault,
+        distributor,
+        allocator,
+        mintedOsTokenAssetsDiffs[j].neg(),
+        blockTimestamp,
+      )
     }
 
     // update vault max boost apys
-    updateVaultMaxBoostApy(aave, osToken, vault, osTokenConfig, blockNumber)
+    updateVaultMaxBoostApy(aave, osToken, vault, osTokenConfig, distributor, blockNumber)
   }
 
   // update assets of all the osToken holders
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, osTokenHolder, false)
+    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
     osTokenHolder.save()
-    snapshotOsTokenHolder(network, osToken, osTokenHolder, osTokenHolderAssetsDiffs[i], blockTimestamp)
+    snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, osTokenHolderAssetsDiffs[i], blockTimestamp)
   }
 
   log.info('[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={} blockTimestamp={}', [

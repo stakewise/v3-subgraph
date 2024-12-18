@@ -1,5 +1,5 @@
 import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
-import { Network, OsToken, OsTokenHolder, OsTokenHolderSnapshot } from '../../generated/schema'
+import { Distributor, Network, OsToken, OsTokenHolder, OsTokenHolderSnapshot } from '../../generated/schema'
 import { getAnnualReward } from '../helpers/utils'
 import { convertOsTokenSharesToAssets, getOsTokenApy, osTokenId } from './osToken'
 import { getBoostPositionAnnualReward, loadLeverageStrategyPosition } from './leverageStrategy'
@@ -31,6 +31,7 @@ export function createOrLoadOsTokenHolder(holderAddress: Address): OsTokenHolder
 export function getOsTokenHolderApy(
   network: Network,
   osToken: OsToken,
+  distributor: Distributor,
   osTokenHolder: OsTokenHolder,
   useDayApy: boolean,
 ): BigDecimal {
@@ -52,7 +53,7 @@ export function getOsTokenHolderApy(
     const aave = loadAave()!
     principalAssets = principalAssets.plus(position.totalAssets)
     totalEarnedAssets = totalEarnedAssets.plus(
-      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, position, useDayApy),
+      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, position, distributor, useDayApy),
     )
     // we only take the first boosted position
     break
@@ -75,6 +76,7 @@ export function updateOsTokenHolderAssets(osToken: OsToken, osTokenHolder: OsTok
 export function snapshotOsTokenHolder(
   network: Network,
   osToken: OsToken,
+  distributor: Distributor,
   osTokenHolder: OsTokenHolder,
   earnedAssets: BigInt,
   timestamp: BigInt,
@@ -84,6 +86,6 @@ export function snapshotOsTokenHolder(
   snapshot.osTokenHolder = osTokenHolder.id
   snapshot.earnedAssets = earnedAssets
   snapshot.totalAssets = osTokenHolder.assets
-  snapshot.apy = getOsTokenHolderApy(network, osToken, osTokenHolder, true)
+  snapshot.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, true)
   snapshot.save()
 }
