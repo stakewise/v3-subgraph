@@ -26,6 +26,10 @@ export function createOrLoadNetwork(): Network {
     network.usdcUsdRate = BigDecimal.zero()
     network.usdToEurRate = BigDecimal.zero()
     network.usdToGbpRate = BigDecimal.zero()
+    network.usdToCnyRate = BigDecimal.zero()
+    network.usdToJpyRate = BigDecimal.zero()
+    network.usdToKrwRate = BigDecimal.zero()
+    network.usdToAudRate = BigDecimal.zero()
     network.save()
   }
 
