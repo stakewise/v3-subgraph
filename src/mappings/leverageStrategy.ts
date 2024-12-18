@@ -109,13 +109,20 @@ export function handleDeposited(event: Deposited): void {
   const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
   const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
 
-  position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
-  position.save()
-
   _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress, timestamp)
 
   if (!ignoreSnapshot) {
-    snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, timestamp)
+    snapshotLeverageStrategyPosition(
+      network,
+      osToken,
+      distributor,
+      vault,
+      osTokenConfig,
+      position,
+      totalAssetsDiff,
+      earnedAssetsDiff,
+      timestamp,
+    )
   }
 
   createTransaction(event.transaction.hash.toHex())
@@ -186,7 +193,17 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress, timestamp)
 
   if (!ignoreSnapshot) {
-    snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, timestamp)
+    snapshotLeverageStrategyPosition(
+      network,
+      osToken,
+      distributor,
+      vault,
+      osTokenConfig,
+      position,
+      totalAssetsDiff,
+      earnedAssetsDiff,
+      timestamp,
+    )
   }
 
   log.info('[LeverageStrategy] ExitQueueEntered vault={} user={} positionTicket={}', [
@@ -250,7 +267,17 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress, timestamp)
 
   if (!ignoreSnapshot) {
-    snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, timestamp)
+    snapshotLeverageStrategyPosition(
+      network,
+      osToken,
+      distributor,
+      vault,
+      osTokenConfig,
+      position,
+      totalAssetsDiff,
+      earnedAssetsDiff,
+      timestamp,
+    )
   }
 
   createAllocatorAction(

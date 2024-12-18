@@ -75,13 +75,13 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
     }
 
     // update exit requests
-    updateExitRequests(vault, timestamp)
+    updateExitRequests(network, osToken, distributor, vault, osTokenConfig, timestamp)
 
     // update OsToken exit requests
     updateOsTokenExitRequests(osToken, vault)
 
     // update leverage strategy positions
-    updateLeverageStrategyPositions(osToken, vault, timestamp)
+    updateLeverageStrategyPositions(network, osToken, distributor, vault, osTokenConfig, timestamp)
 
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]

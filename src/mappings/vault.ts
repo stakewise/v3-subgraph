@@ -34,6 +34,7 @@ import {
   createAllocatorAction,
   createOrLoadAllocator,
   getAllocatorApy,
+  getAllocatorId,
   loadAllocator,
   snapshotAllocator,
   updateAllocatorAssets,
@@ -204,7 +205,14 @@ export function handleInitialized(event: Initialized): void {
 
   if (newVersion.equals(BigInt.fromI32(3))) {
     // update exit requests
-    updateExitRequests(vault, timestamp)
+    updateExitRequests(
+      loadNetwork()!,
+      loadOsToken()!,
+      loadDistributor()!,
+      vault,
+      loadOsTokenConfig(vault.osTokenConfig)!,
+      timestamp,
+    )
   }
 
   createTransaction(event.transaction.hash.toHex())
@@ -352,6 +360,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   exitRequest.vault = vaultAddressHex
   exitRequest.owner = owner
   exitRequest.receiver = receiver
+  exitRequest.allocator = getAllocatorId(owner, vaultAddress)
   exitRequest.totalTickets = shares
   exitRequest.totalAssets = assets
   exitRequest.exitedAssets = BigInt.zero()
@@ -430,6 +439,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   exitRequest.vault = vaultAddressHex
   exitRequest.owner = owner
   exitRequest.receiver = receiver
+  exitRequest.allocator = getAllocatorId(owner, vaultAddress)
   exitRequest.totalTickets = exitingTickets
   exitRequest.totalAssets = assets
   exitRequest.exitedAssets = BigInt.zero()
@@ -441,7 +451,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   exitRequest.isClaimed = false
   exitRequest.lastSnapshotTimestamp = timestamp
   exitRequest.save()
-  snapshotExitRequest(exitRequest, BigInt.zero(), timestamp)
+  snapshotExitRequest(network, osToken, distributor, vault, osTokenConfig, exitRequest, BigInt.zero(), timestamp)
 
   log.info('[Vault] V2ExitQueueEntered vault={} owner={} shares={} assets={}', [
     vaultAddressHex,
@@ -463,6 +473,12 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const vaultAddress = event.address
   const vaultAddressHex = vaultAddress.toHex()
   const timestamp = event.block.timestamp
+
+  const network = loadNetwork()!
+  const vault = loadVault(vaultAddress)!
+  const osToken = loadOsToken()!
+  const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
+  const distributor = loadDistributor()!
 
   createAllocatorAction(event, event.address, AllocatorActionType.ExitedAssetsClaimed, receiver, claimedAssets, null)
 
@@ -492,6 +508,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     nextExitRequest.vault = vaultAddressHex
     nextExitRequest.owner = prevExitRequest.owner
     nextExitRequest.timestamp = prevExitRequest.timestamp
+    nextExitRequest.allocator = prevExitRequest.allocator
     nextExitRequest.receiver = receiver
     nextExitRequest.positionTicket = newPositionTicket
     nextExitRequest.isV2Position = prevExitRequest.isV2Position
@@ -503,13 +520,13 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     nextExitRequest.isClaimed = false
     nextExitRequest.lastSnapshotTimestamp = prevExitRequest.lastSnapshotTimestamp
     nextExitRequest.save()
-    snapshotExitRequest(nextExitRequest, BigInt.zero(), timestamp)
+    snapshotExitRequest(network, osToken, distributor, vault, osTokenConfig, nextExitRequest, BigInt.zero(), timestamp)
   }
 
   prevExitRequest.isClaimable = false
   prevExitRequest.isClaimed = true
   prevExitRequest.save()
-  snapshotExitRequest(prevExitRequest, BigInt.zero(), timestamp)
+  snapshotExitRequest(network, osToken, distributor, vault, osTokenConfig, prevExitRequest, BigInt.zero(), timestamp)
 
   log.info('[Vault] ExitedAssetsClaimed vault={} prevPositionTicket={} newPositionTicket={} claimedAssets={}', [
     vaultAddressHex,

@@ -4,6 +4,7 @@ import {
   AllocatorAction,
   AllocatorSnapshot,
   Distributor,
+  ExitRequest,
   OsToken,
   OsTokenConfig,
   Vault,
@@ -221,6 +222,38 @@ export function getAllocatorApy(
   return totalEarnedAssets.divDecimal(principalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
 }
 
+export function getAllocatorTotalAssets(osToken: OsToken, allocator: Allocator): BigInt {
+  let totalAssets = allocator.assets
+
+  // get assets from the exit requests
+  let exitRequest: ExitRequest
+  const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
+  for (let i = 0; i < exitRequests.length; i++) {
+    exitRequest = exitRequests[i]
+    if (
+      !exitRequest.isClaimed &&
+      Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
+    ) {
+      totalAssets = totalAssets.plus(exitRequest.totalAssets)
+    }
+  }
+
+  // get assets from the leverage strategy position
+  const vaultAddress = Address.fromString(allocator.vault)
+  const allocatorAddress = Address.fromBytes(allocator.address)
+  const boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
+  if (boostPosition !== null) {
+    if (boostPosition.osTokenShares.gt(allocator.mintedOsTokenShares)) {
+      totalAssets = totalAssets.plus(
+        convertOsTokenSharesToAssets(osToken, boostPosition.osTokenShares.minus(allocator.mintedOsTokenShares)),
+      )
+    }
+    totalAssets = totalAssets.plus(boostPosition.assets)
+  }
+
+  return totalAssets
+}
+
 export function updateAllocatorAssets(
   osToken: OsToken,
   osTokenConfig: OsTokenConfig,
@@ -296,7 +329,7 @@ export function snapshotAllocator(
   allocatorSnapshot.timestamp = timestamp.toI64()
   allocatorSnapshot.allocator = allocator.id
   allocatorSnapshot.earnedAssets = earnedAssets
-  allocatorSnapshot.totalAssets = allocator.assets
+  allocatorSnapshot.totalAssets = getAllocatorTotalAssets(osToken, allocator)
   allocatorSnapshot.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, true)
   allocatorSnapshot.ltv = allocator.ltv
   allocatorSnapshot.save()
