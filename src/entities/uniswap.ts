@@ -1,5 +1,5 @@
 import { Address, BigInt } from '@graphprotocol/graph-ts'
-import { UniswapPosition } from '../../generated/schema'
+import { UniswapPool, UniswapPosition } from '../../generated/schema'
 import { UniswapPositionManager } from '../../generated/UniswapPositionManager/UniswapPositionManager'
 import { UniswapFactory } from '../../generated/UniswapFactory/UniswapFactory'
 import { OS_TOKEN, SWISE_TOKEN, UNISWAP_POSITION_MANAGER, UNISWAP_FACTORY } from '../helpers/constants'
@@ -12,6 +12,10 @@ const Q96 = BigInt.fromI32(2).pow(96)
 
 export function isSupportedToken(token: Address): boolean {
   return token.equals(OS_TOKEN) || token.equals(SWISE_TOKEN)
+}
+
+export function loadUniswapPool(poolAddress: Address): UniswapPool | null {
+  return UniswapPool.load(poolAddress.toHexString())
 }
 
 export function createOrLoadPosition(tokenId: BigInt): UniswapPosition | null {

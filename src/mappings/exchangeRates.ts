@@ -9,7 +9,7 @@ import {
   SWISE_ASSET_UNI_POOL,
 } from '../helpers/constants'
 import { ExchangeRateSnapshot, UniswapPool } from '../../generated/schema'
-import { createOrLoadNetwork } from '../entities/network'
+import { loadNetwork } from '../entities/network'
 
 export function handleExchangeRates(block: ethereum.Block): void {
   const decimals = BigDecimal.fromString('100000000')
@@ -72,7 +72,7 @@ export function handleExchangeRates(block: ethereum.Block): void {
   const usdToEurRate = eurToUsdRate.gt(zero) ? one.div(eurToUsdRate) : zero
   const usdToGbpRate = gbpToUsdRate.gt(zero) ? one.div(gbpToUsdRate) : zero
 
-  const network = createOrLoadNetwork()
+  const network = loadNetwork()!
   network.assetsUsdRate = assetsUsdRate
   network.swiseUsdRate = swiseUsdRate
   network.usdToEurRate = usdToEurRate

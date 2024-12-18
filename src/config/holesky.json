@@ -76,7 +76,7 @@
   },
   "osTokenVaultEscrow": {
     "address": "0x807305c086A99cbDBff07cB4256cE556d9d6F0af",
-    "startBlock": "2833379"
+    "startBlock": "2592188"
   },
   "merkleDistributor": {
     "address": "0x0000000000000000000000000000000000000000",

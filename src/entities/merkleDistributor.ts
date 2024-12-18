@@ -1,11 +1,33 @@
-import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
-import { Distributor, DistributorReward, UniswapPool, UniswapPosition, DistributorClaim } from '../../generated/schema'
-import { MAX_TICK, MIN_TICK } from './uniswap'
-import { createOrLoadNetwork } from './network'
+import { Address, BigDecimal, BigInt, Bytes } from '@graphprotocol/graph-ts'
+import {
+  Distributor,
+  DistributorClaim,
+  DistributorReward,
+  ExitRequest,
+  LeverageStrategyPosition,
+  UniswapPool,
+  UniswapPosition,
+} from '../../generated/schema'
+import { loadUniswapPool, MAX_TICK, MIN_TICK } from './uniswap'
 import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
-import { convertOsTokenSharesToAssets, createOrLoadOsToken } from './osToken'
+import { convertOsTokenSharesToAssets, loadOsToken } from './osToken'
+import { loadNetwork } from './network'
+import { loadVault } from './vault'
 
 const distributorId = '1'
+const leverageStrategyDistAddress = Address.zero()
+
+export enum DistributionType {
+  SWISE_ASSET_UNI_POOL,
+  OS_TOKEN_USDC_UNI_POOL,
+  LEVERAGE_STRATEGY,
+  UNKNOWN,
+}
+
+export function loadDistributor(): Distributor | null {
+  return Distributor.load(distributorId)
+}
+
 export function createOrLoadDistributor(): Distributor {
   let distributor = Distributor.load(distributorId)
   if (distributor === null) {
@@ -44,6 +66,34 @@ export function createOrLoadDistributorClaim(user: Address): DistributorClaim {
   }
 
   return claim
+}
+
+export function getDistributionType(distData: Bytes): DistributionType {
+  // only passed addresses are currently supported
+  const distAddress = Address.fromBytes(distData)
+  if (distAddress.equals(leverageStrategyDistAddress)) {
+    return DistributionType.LEVERAGE_STRATEGY
+  }
+  const uniPool = loadUniswapPool(distAddress)
+  if (uniPool == null) {
+    return DistributionType.UNKNOWN
+  }
+
+  const usdcToken = Address.fromString(USDC_TOKEN)
+  const assetToken = Address.fromString(ASSET_TOKEN)
+  if (
+    (uniPool.token0.equals(SWISE_TOKEN) || uniPool.token1.equals(SWISE_TOKEN)) &&
+    (uniPool.token0.equals(assetToken) || uniPool.token1.equals(assetToken))
+  ) {
+    return DistributionType.SWISE_ASSET_UNI_POOL
+  } else if (
+    (uniPool.token0.equals(OS_TOKEN) || uniPool.token1.equals(OS_TOKEN)) &&
+    (uniPool.token0.equals(usdcToken) || uniPool.token1.equals(usdcToken))
+  ) {
+    return DistributionType.OS_TOKEN_USDC_UNI_POOL
+  }
+
+  return DistributionType.UNKNOWN
 }
 
 export function distributeToSwiseAssetUniPoolUsers(pool: UniswapPool, token: Address, totalReward: BigInt): void {
@@ -85,8 +135,8 @@ export function distributeToOsTokenUsdcUniPoolUsers(pool: UniswapPool, token: Ad
   ) {
     assert(false, "Pool doesn't contain USDC and OSTOKEN tokens")
   }
-  const network = createOrLoadNetwork()
-  const osToken = createOrLoadOsToken()
+  const network = loadNetwork()!
+  const osToken = loadOsToken()!
   const assetsUsdRate = network.assetsUsdRate
   const usdcUsdRate = network.usdcUsdRate
 
@@ -118,6 +168,47 @@ export function distributeToOsTokenUsdcUniPoolUsers(pool: UniswapPool, token: Ad
     points.push(userPoints.digits)
     users.push(Address.fromBytes(uniPosition.owner))
     totalPoints = totalPoints.plus(userPoints.digits)
+  }
+
+  // distribute reward to the users
+  _distributeReward(users, points, totalPoints, token, totalReward)
+}
+
+export function distributeLeverageStrategy(token: Address, totalReward: BigInt): void {
+  const network = loadNetwork()!
+  const osToken = loadOsToken()!
+
+  let totalPoints: BigInt = BigInt.zero()
+  const points: Array<BigInt> = []
+  const users: Array<Address> = []
+  const vaultIds: Array<string> = network.vaultIds
+  for (let i = 0; i < vaultIds.length; i++) {
+    const vault = loadVault(Address.fromString(vaultIds[i]))!
+    const leveragePositions: Array<LeverageStrategyPosition> = vault.leveragePositions.load()
+    for (let i = 0; i < leveragePositions.length; i++) {
+      const position: LeverageStrategyPosition = leveragePositions[i]
+      let positionPoints = convertOsTokenSharesToAssets(osToken, position.osTokenShares).plus(position.assets)
+
+      if (position.exitRequest) {
+        const exitPosition = ExitRequest.load(position.exitRequest!)!
+        if (
+          exitPosition.totalAssets.gt(BigInt.zero()) &&
+          exitPosition.exitedAssets.notEqual(exitPosition.totalAssets)
+        ) {
+          let exitPositionPoints = convertOsTokenSharesToAssets(osToken, position.exitingOsTokenShares).plus(
+            position.exitingAssets,
+          )
+          exitPositionPoints = exitPositionPoints.minus(
+            exitPositionPoints.times(exitPosition.exitedAssets).div(exitPosition.totalAssets),
+          )
+          positionPoints = positionPoints.plus(exitPositionPoints)
+        }
+      }
+
+      points.push(positionPoints)
+      users.push(Address.fromBytes(position.user))
+      totalPoints = totalPoints.plus(positionPoints)
+    }
   }
 
   // distribute reward to the users

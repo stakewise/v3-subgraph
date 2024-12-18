@@ -8,7 +8,7 @@ import {
   IncreaseLiquidity,
   Transfer,
 } from '../../generated/UniswapPositionManager/UniswapPositionManager'
-import { createOrLoadPosition, getAmount0, getAmount1, isSupportedToken } from '../entities/uniswap'
+import { createOrLoadPosition, getAmount0, getAmount1, isSupportedToken, loadUniswapPool } from '../entities/uniswap'
 
 export function handlePoolCreated(event: PoolCreated): void {
   let hasSupportedToken = isSupportedToken(event.params.token0) || isSupportedToken(event.params.token1)
@@ -41,7 +41,7 @@ export function handlePoolCreated(event: PoolCreated): void {
 }
 
 export function handleInitialize(event: Initialize): void {
-  let pool = UniswapPool.load(event.address.toHexString())
+  let pool = loadUniswapPool(event.address)
   if (pool == null) {
     return
   }
@@ -58,7 +58,7 @@ export function handleInitialize(event: Initialize): void {
 }
 
 export function handleMint(event: Mint): void {
-  let pool = UniswapPool.load(event.address.toHexString())
+  let pool = loadUniswapPool(event.address)
   if (pool == null) {
     return
   }
@@ -81,8 +81,7 @@ export function handleMint(event: Mint): void {
 }
 
 export function handleBurn(event: Burn): void {
-  let poolAddress = event.address.toHexString()
-  let pool = UniswapPool.load(poolAddress)
+  let pool = loadUniswapPool(event.address)
   if (pool == null) {
     return
   }
@@ -105,7 +104,7 @@ export function handleBurn(event: Burn): void {
 }
 
 export function handleSwap(event: Swap): void {
-  let pool = UniswapPool.load(event.address.toHexString())
+  let pool = loadUniswapPool(event.address)
   if (pool == null) {
     return
   }
@@ -157,7 +156,7 @@ export function handleIncreaseLiquidity(event: IncreaseLiquidity): void {
     log.debug('[UniswapPositionManager] IncreaseLiquidity position={} not found', [event.params.tokenId.toString()])
     return
   }
-  let pool = UniswapPool.load(position.pool)
+  let pool = loadUniswapPool(event.address)
   if (pool == null) {
     log.error('[UniswapPositionManager] IncreaseLiquidity pool={} not found', [position.pool])
     return
@@ -181,7 +180,7 @@ export function handleDecreaseLiquidity(event: DecreaseLiquidity): void {
     log.debug('[UniswapPositionManager] DecreaseLiquidity position={} not found', [event.params.tokenId.toString()])
     return
   }
-  let pool = UniswapPool.load(position.pool)
+  let pool = loadUniswapPool(event.address)
   if (pool == null) {
     log.error('[UniswapPositionManager] DecreaseLiquidity pool={} not found', [position.pool])
     return

@@ -6,8 +6,7 @@ import {
   Vault,
 } from '../../generated/schema'
 import { RewardSplitter as RewardSplitterContract } from '../../generated/Keeper/RewardSplitter'
-import { convertSharesToAssets } from './vaults'
-import { GENESIS_VAULT } from '../helpers/constants'
+import { convertSharesToAssets } from './vault'
 import { createOrLoadV2Pool } from './v2pool'
 
 const vaultUpdateStateSelector = '0x79c702ad'
@@ -37,11 +36,8 @@ export function createOrLoadRewardSplitterShareHolder(
   return rewardSplitterShareHolder
 }
 
-export function updateRewardSplitters(vault: Vault): void {
-  if (vault.rewardsTimestamp === null) {
-    return
-  }
-  if (Address.fromString(vault.id).equals(GENESIS_VAULT)) {
+export function updateRewardSplitters(vault: Vault, timestamp: BigInt): void {
+  if (vault.isGenesis) {
     const v2Pool = createOrLoadV2Pool()
     if (!v2Pool.migrated) {
       // wait for the migration
@@ -49,41 +45,16 @@ export function updateRewardSplitters(vault: Vault): void {
     }
   }
 
-  const lastRewardsTimestamp = vault.rewardsTimestamp as BigInt
   const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
-  let updateStateCall: Bytes | null = null
-  if (
-    vault.rewardsRoot !== null &&
-    vault.proofReward !== null &&
-    vault.proofUnlockedMevReward !== null &&
-    vault.proof !== null &&
-    vault.proof!.length > 0
-  ) {
-    updateStateCall = _getVaultUpdateStateCall(
-      vault.rewardsRoot as Bytes,
-      vault.proofReward as BigInt,
-      vault.proofUnlockedMevReward as BigInt,
-      (vault.proof as Array<string>).map<Bytes>((p: string) => Bytes.fromHexString(p)),
-    )
-  }
+  const updateStateCall: Bytes | null = _getVaultUpdateStateCall(vault)
 
   let rewardSplitter: RewardSplitter
-  const outdatedRewardSplitters: Array<RewardSplitter> = []
+  const syncRewardsCall = Bytes.fromHexString(syncRewardsCallSelector)
   for (let i = 0; i < rewardSplitters.length; i++) {
     rewardSplitter = rewardSplitters[i]
-    if (rewardSplitter.lastSnapshotTimestamp.notEqual(lastRewardsTimestamp)) {
-      rewardSplitter.lastSnapshotTimestamp = lastRewardsTimestamp
-      rewardSplitter.save()
-      outdatedRewardSplitters.push(rewardSplitter)
-    }
-  }
-
-  const syncRewardsCall = Bytes.fromHexString(syncRewardsCallSelector)
-  for (let i = 0; i < outdatedRewardSplitters.length; i++) {
-    rewardSplitter = outdatedRewardSplitters[i]
     const shareHolders: Array<RewardSplitterShareHolder> = rewardSplitter.shareHolders.load()
     let calls: Array<Bytes> = []
-    if (updateStateCall !== null) {
+    if (updateStateCall) {
       calls.push(updateStateCall)
     }
     calls.push(syncRewardsCall)
@@ -93,7 +64,7 @@ export function updateRewardSplitters(vault: Vault): void {
 
     const rewardSplitterContract = RewardSplitterContract.bind(Address.fromString(rewardSplitter.id))
     let callResult: Array<Bytes> = rewardSplitterContract.multicall(calls)
-    callResult = callResult.slice(updateStateCall !== null ? 2 : 1)
+    callResult = callResult.slice(updateStateCall ? 2 : 1)
 
     let shareHolder: RewardSplitterShareHolder
     let earnedVaultAssetsBefore: BigInt
@@ -106,23 +77,39 @@ export function updateRewardSplitters(vault: Vault): void {
       snapshotRewardSplitterShareHolder(
         shareHolder,
         shareHolder.earnedVaultAssets.minus(earnedVaultAssetsBefore),
-        lastRewardsTimestamp,
+        timestamp,
       )
     }
   }
 }
 
-function _getVaultUpdateStateCall(
-  rewardsRoot: Bytes,
-  reward: BigInt,
-  unlockedMevReward: BigInt,
-  proof: Array<Bytes>,
-): Bytes {
+export function snapshotRewardSplitterShareHolder(
+  shareHolder: RewardSplitterShareHolder,
+  earnedAssets: BigInt,
+  timestamp: BigInt,
+): void {
+  const snapshot = new RewardSplitterShareHolderSnapshot(timestamp.toString())
+  snapshot.timestamp = timestamp.toI64()
+  snapshot.rewardSpliterShareHolder = shareHolder.id
+  snapshot.earnedAssets = earnedAssets
+  snapshot.totalAssets = shareHolder.earnedVaultAssets
+  snapshot.save()
+}
+
+function _getVaultUpdateStateCall(vault: Vault): Bytes | null {
+  if (
+    vault.rewardsRoot === null ||
+    vault.proofReward === null ||
+    vault.proofUnlockedMevReward === null ||
+    vault.proof === null
+  ) {
+    return null
+  }
   const updateStateArray: Array<ethereum.Value> = [
-    ethereum.Value.fromFixedBytes(rewardsRoot),
-    ethereum.Value.fromSignedBigInt(reward),
-    ethereum.Value.fromUnsignedBigInt(unlockedMevReward),
-    ethereum.Value.fromFixedBytesArray(proof),
+    ethereum.Value.fromFixedBytes(vault.rewardsRoot!),
+    ethereum.Value.fromSignedBigInt(vault.proofReward!),
+    ethereum.Value.fromUnsignedBigInt(vault.proofUnlockedMevReward!),
+    ethereum.Value.fromFixedBytesArray(vault.proof!.map<Bytes>((p: string) => Bytes.fromHexString(p))),
   ]
   // Encode the tuple
   const encodedUpdateStateArgs = ethereum.encode(ethereum.Value.fromTuple(changetype<ethereum.Tuple>(updateStateArray)))
@@ -132,17 +119,4 @@ function _getVaultUpdateStateCall(
 function _getRewardsOfCall(shareHolder: Address): Bytes {
   const encodedRewardsOfArgs = ethereum.encode(ethereum.Value.fromAddress(shareHolder))
   return Bytes.fromHexString(rewardsOfSelector).concat(encodedRewardsOfArgs as Bytes)
-}
-
-export function snapshotRewardSplitterShareHolder(
-  shareHolder: RewardSplitterShareHolder,
-  earnedAssets: BigInt,
-  rewardsTimestamp: BigInt,
-): void {
-  const snapshot = new RewardSplitterShareHolderSnapshot(rewardsTimestamp.toString())
-  snapshot.timestamp = rewardsTimestamp.toI64()
-  snapshot.rewardSpliterShareHolder = shareHolder.id
-  snapshot.earnedAssets = earnedAssets
-  snapshot.totalAssets = shareHolder.earnedVaultAssets
-  snapshot.save()
 }

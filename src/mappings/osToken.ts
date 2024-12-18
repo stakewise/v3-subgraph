@@ -1,10 +1,10 @@
 import { log } from '@graphprotocol/graph-ts'
 import { FeePercentUpdated, StateUpdated } from '../../generated/OsTokenVaultController/OsTokenVaultController'
-import { convertOsTokenSharesToAssets, createOrLoadOsToken } from '../entities/osToken'
+import { convertOsTokenSharesToAssets, createOrLoadOsToken, loadOsToken } from '../entities/osToken'
 
 export function handleStateUpdated(event: StateUpdated): void {
   const shares = event.params.treasuryShares
-  const osToken = createOrLoadOsToken()
+  const osToken = loadOsToken()!
   osToken.totalAssets = osToken.totalAssets.plus(convertOsTokenSharesToAssets(osToken, shares))
   osToken.totalSupply = osToken.totalSupply.plus(shares)
   osToken.save()

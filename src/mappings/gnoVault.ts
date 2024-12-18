@@ -1,51 +1,69 @@
 import { BigInt, log } from '@graphprotocol/graph-ts'
 
-import { Allocator, Vault } from '../../generated/schema'
+import { Allocator } from '../../generated/schema'
 import { XdaiSwapped } from '../../generated/templates/GnoVault/GnoVault'
-import { convertSharesToAssets, snapshotVault } from '../entities/vaults'
-import { createOrLoadNetwork } from '../entities/network'
-import { getAllocatorApy, getAllocatorLtv, getAllocatorLtvStatus, snapshotAllocator } from '../entities/allocator'
-import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
-import { createOrLoadOsToken } from '../entities/osToken'
+import { WAD } from '../helpers/constants'
+import { loadNetwork } from '../entities/network'
+import { getAllocatorApy, snapshotAllocator, updateAllocatorAssets } from '../entities/allocator'
+import { convertSharesToAssets, loadVault, snapshotVault, updateVaultApy } from '../entities/vault'
+import { createOrLoadV2Pool } from '../entities/v2pool'
+import { loadOsTokenConfig } from '../entities/osTokenConfig'
+import { loadOsToken } from '../entities/osToken'
 
 // Event emitted when xDAI is swapped to GNO
 export function handleXdaiSwapped(event: XdaiSwapped): void {
   const params = event.params
   const vaultAddress = event.address
   const timestamp = event.block.timestamp
-  const gnoAssets = params.assets
   const xdaiAssets = params.amount
+  const gnoAssets = params.assets
+  const vault = loadVault(vaultAddress)!
+  const osToken = loadOsToken()!
+  const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
-  const vault = Vault.load(vaultAddress.toHex()) as Vault
-  vault.totalAssets = vault.totalAssets.plus(gnoAssets)
+  let v2PoolRewardAssets = BigInt.zero()
+  if (vault.isGenesis) {
+    const v2Pool = createOrLoadV2Pool()
+    v2PoolRewardAssets = gnoAssets.times(v2Pool.totalAssets).div(v2Pool.totalAssets.plus(vault.totalAssets))
+    v2Pool.rewardAssets = v2Pool.rewardAssets.plus(v2PoolRewardAssets)
+    v2Pool.save()
+  }
+  const vaultRewardAssets = gnoAssets.minus(v2PoolRewardAssets)
+  vault.totalAssets = vault.totalAssets.plus(vaultRewardAssets)
+
+  const feeRecipientAssets = vaultRewardAssets.times(BigInt.fromI32(vault.feePercent)).div(BigInt.fromI32(10000))
+  let feeRecipientShares: BigInt
+  if (vault.totalShares.isZero()) {
+    feeRecipientShares = feeRecipientAssets
+  } else {
+    feeRecipientShares = feeRecipientAssets.times(vault.totalShares).div(vault.totalAssets.minus(feeRecipientAssets))
+  }
+  vault.totalShares = vault.totalShares.plus(feeRecipientShares)
+  updateVaultApy(
+    vault,
+    vault.lastXdaiSwappedTimestamp,
+    timestamp,
+    convertSharesToAssets(vault, BigInt.fromString(WAD)),
+    true,
+  )
+  vault.lastXdaiSwappedTimestamp = timestamp
   vault.save()
-  snapshotVault(vault, gnoAssets, timestamp)
+  snapshotVault(vault, vaultRewardAssets, timestamp)
 
-  const network = createOrLoadNetwork()
+  const network = loadNetwork()!
   network.totalAssets = network.totalAssets.plus(gnoAssets)
   network.totalEarnedAssets = network.totalEarnedAssets.plus(gnoAssets)
   network.save()
 
   // update allocators
-  const osToken = createOrLoadOsToken()
   let allocator: Allocator
-  let allocatorAssetsDiff: BigInt
-  let allocatorNewAssets: BigInt
   let allocators: Array<Allocator> = vault.allocators.load()
-  const osTokenConfig = createOrLoadOsTokenConfig(vault.osTokenConfig)
   for (let j = 0; j < allocators.length; j++) {
     allocator = allocators[j]
-    if (allocator.shares.isZero()) {
-      continue
-    }
-    allocatorNewAssets = convertSharesToAssets(vault, allocator.shares)
-    allocatorAssetsDiff = allocatorNewAssets.minus(allocator.assets)
-    allocator.assets = allocatorNewAssets
-    allocator.ltv = getAllocatorLtv(allocator, osToken)
-    allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-    allocator.apy = getAllocatorApy(allocator, vault, osToken, osTokenConfig)
+    const earnedAssets = updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
+    allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, allocator, false)
     allocator.save()
-    snapshotAllocator(allocator, osToken, osTokenConfig, allocatorAssetsDiff, BigInt.zero(), timestamp)
+    snapshotAllocator(osToken, osTokenConfig, vault, allocator, earnedAssets, timestamp)
   }
 
   log.info('[GnoVault] XdaiSwapped vault={} xdai={} gno={}', [

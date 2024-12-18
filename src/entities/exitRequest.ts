@@ -1,21 +1,21 @@
-import { ExitRequestSnapshot, ExitRequest, Vault } from '../../generated/schema'
 import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
+import { ExitRequest, ExitRequestSnapshot, Vault } from '../../generated/schema'
 import { Vault as VaultContract } from '../../generated/Keeper/Vault'
-import { convertSharesToAssets, getUpdateStateCall } from './vaults'
-import { GENESIS_VAULT } from '../helpers/constants'
-import { createOrLoadV2Pool } from './v2pool'
-import { createOrLoadSnapshotEarnedAssets } from './snapshot'
+import { loadV2Pool } from './v2pool'
+import { convertSharesToAssets, getUpdateStateCall, getVaultApy, loadVault } from './vault'
 
 const secondsInDay = '86400'
 const getExitQueueIndexSelector = '0x60d60e6e'
 const calculateExitedAssetsSelector = '0x76b58b90'
 
-export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
-  if (vault.rewardsTimestamp === null) {
-    return
-  }
-  if (Address.fromString(vault.id).equals(GENESIS_VAULT)) {
-    const v2Pool = createOrLoadV2Pool()
+export function loadExitRequest(vault: Address, positionTicket: BigInt): ExitRequest | null {
+  const exitRequestId = `${vault.toHex()}-${positionTicket.toString()}`
+  return ExitRequest.load(exitRequestId)
+}
+
+export function updateExitRequests(vault: Vault, timestamp: BigInt): void {
+  if (vault.isGenesis) {
+    const v2Pool = loadV2Pool()!
     if (!v2Pool.migrated) {
       // wait for the migration
       return
@@ -25,24 +25,10 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
   const vaultAddress = Address.fromString(vault.id)
   const vaultContract = VaultContract.bind(vaultAddress)
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
-  let updateStateCall: Bytes | null = null
-  if (
-    vault.rewardsRoot !== null &&
-    vault.proofReward !== null &&
-    vault.proofUnlockedMevReward !== null &&
-    vault.proof !== null &&
-    vault.proof!.length > 0
-  ) {
-    updateStateCall = getUpdateStateCall(
-      vault.rewardsRoot as Bytes,
-      vault.proofReward as BigInt,
-      vault.proofUnlockedMevReward as BigInt,
-      (vault.proof as Array<string>).map<Bytes>((p: string) => Bytes.fromHexString(p)),
-    )
-  }
+  const updateStateCall: Bytes | null = getUpdateStateCall(vault)
 
   let calls: Array<Bytes> = []
-  if (updateStateCall !== null) {
+  if (updateStateCall) {
     calls.push(updateStateCall)
   }
   let exitRequest: ExitRequest
@@ -56,7 +42,7 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
   }
 
   let result = vaultContract.multicall(calls)
-  if (updateStateCall !== null) {
+  if (updateStateCall) {
     // remove first call result
     result = result.slice(1)
   }
@@ -72,13 +58,13 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
   }
 
   calls = []
-  if (updateStateCall !== null) {
+  if (updateStateCall) {
     calls.push(updateStateCall)
   }
   const maxUint255 = BigInt.fromI32(2).pow(255).minus(BigInt.fromI32(1))
   for (let i = 0; i < pendingExitRequests.length; i++) {
     exitRequest = pendingExitRequests[i]
-    const exitQueueIndex = exitRequest.exitQueueIndex !== null ? (exitRequest.exitQueueIndex as BigInt) : maxUint255
+    const exitQueueIndex = exitRequest.exitQueueIndex !== null ? exitRequest.exitQueueIndex! : maxUint255
     calls.push(
       getCalculateExitedAssetsCall(
         Address.fromBytes(exitRequest.receiver),
@@ -90,13 +76,12 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
   }
 
   result = vaultContract.multicall(calls)
-  if (updateStateCall !== null) {
+  if (updateStateCall) {
     // remove first call result
     result = result.slice(1)
   }
 
   const one = BigInt.fromI32(1)
-  const vaultUpdateTimestamp = vault.rewardsTimestamp as BigInt
   for (let i = 0; i < result.length; i++) {
     exitRequest = pendingExitRequests[i]
     let decodedResult = ethereum.decode('(uint256,uint256,uint256)', result[i])!.toTuple()
@@ -113,16 +98,13 @@ export function updateExitRequests(vault: Vault, block: ethereum.Block): void {
     exitRequest.exitedAssets = exitedAssets
 
     if (!exitedAssets.isZero()) {
-      exitRequest.isClaimable = exitRequest.timestamp.plus(BigInt.fromString(secondsInDay)).lt(block.timestamp)
+      exitRequest.isClaimable = exitRequest.timestamp.plus(BigInt.fromString(secondsInDay)).lt(timestamp)
     } else {
       exitRequest.isClaimable = false
     }
-
-    if (exitRequest.lastSnapshotTimestamp.notEqual(vaultUpdateTimestamp)) {
-      exitRequest.lastSnapshotTimestamp = vaultUpdateTimestamp
-      snapshotExitRequest(exitRequest, exitRequest.totalAssets.minus(totalAssetsBefore), vaultUpdateTimestamp)
-    }
     exitRequest.save()
+
+    snapshotExitRequest(exitRequest, exitRequest.totalAssets.minus(totalAssetsBefore), timestamp)
   }
 }
 
@@ -144,22 +126,17 @@ function getCalculateExitedAssetsCall(
     .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(exitQueueIndex))!)
 }
 
-export function snapshotExitRequest(exitRequest: ExitRequest, earnedAssets: BigInt, rewardsTimestamp: BigInt): void {
-  const snapshotEarnedAssets = createOrLoadSnapshotEarnedAssets('exitRequest', exitRequest.id, rewardsTimestamp)
-  snapshotEarnedAssets.earnedAssets = snapshotEarnedAssets.earnedAssets.plus(earnedAssets)
-  snapshotEarnedAssets.save()
-
-  let apy = BigDecimal.zero()
-  const principalAssets = exitRequest.totalAssets.minus(snapshotEarnedAssets.earnedAssets)
-  if (principalAssets.gt(BigInt.zero())) {
-    apy = new BigDecimal(snapshotEarnedAssets.earnedAssets)
-      .times(BigDecimal.fromString('365'))
-      .times(BigDecimal.fromString('100'))
-      .div(new BigDecimal(principalAssets))
+export function snapshotExitRequest(exitRequest: ExitRequest, earnedAssets: BigInt, timestamp: BigInt): void {
+  let apy: BigDecimal = BigDecimal.zero()
+  if (!exitRequest.isV2Position && exitRequest.exitedAssets.lt(exitRequest.totalAssets)) {
+    const vault = loadVault(Address.fromString(exitRequest.vault))!
+    const vaultApy = getVaultApy(vault, true)
+    apy = vaultApy.minus(
+      vaultApy.times(exitRequest.exitedAssets.toBigDecimal()).div(exitRequest.totalAssets.toBigDecimal()),
+    )
   }
-
-  const exitRequestSnapshot = new ExitRequestSnapshot(rewardsTimestamp.toString())
-  exitRequestSnapshot.timestamp = rewardsTimestamp.toI64()
+  const exitRequestSnapshot = new ExitRequestSnapshot(timestamp.toString())
+  exitRequestSnapshot.timestamp = timestamp.toI64()
   exitRequestSnapshot.exitRequest = exitRequest.id
   exitRequestSnapshot.earnedAssets = exitRequest.isClaimed ? BigInt.zero() : earnedAssets
   exitRequestSnapshot.totalAssets = exitRequest.isClaimed ? BigInt.zero() : exitRequest.totalAssets

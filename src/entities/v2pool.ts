@@ -1,27 +1,22 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
-import { V2Pool, V2PoolUser } from '../../generated/schema'
-import {
-  GENESIS_VAULT,
-  V2_POOL_FEE_PERCENT,
-  V2_REWARD_TOKEN,
-  V2_STAKED_TOKEN,
-  MULTICALL,
-  WAD,
-} from '../helpers/constants'
+import { V2Pool, V2PoolUser, Vault } from '../../generated/schema'
+import { MULTICALL, V2_POOL_FEE_PERCENT, V2_REWARD_TOKEN, V2_STAKED_TOKEN, WAD } from '../helpers/constants'
 import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from '../../generated/Keeper/Multicall'
-import { isGnosisNetwork } from './network'
-import { getUpdateStateCall } from './vaults'
 import { calculateAverage, getAggregateCall } from '../helpers/utils'
+import { getUpdateStateCall } from './vault'
 
 const snapshotsPerWeek = 14
 const secondsInYear = '31536000'
 const maxPercent = '100'
 const poolId = '1'
-const swapXdaiToGnoSelector = '0xb0d11302'
 const poolRewardAssetsSelector = '0x18160ddd'
 const poolPrincipalAssetsSelector = '0x18160ddd'
 const poolPenaltyAssetsSelector = '0xe6af61c8'
 const rewardPerTokenSelector = '0xcd3daf9d'
+
+export function loadV2Pool(): V2Pool | null {
+  return V2Pool.load(poolId)
+}
 
 export function createOrLoadV2Pool(): V2Pool {
   let pool = V2Pool.load(poolId)
@@ -89,24 +84,19 @@ export function updatePoolApy(
   pool.apy = calculateAverage(apys)
 }
 
-export function getPoolStateUpdate(
-  rewardsRoot: Bytes,
-  reward: BigInt,
-  unlockedMevReward: BigInt,
-  proof: Array<Bytes>,
-): Array<BigInt> {
-  const isGnosis = isGnosisNetwork()
+export function getV2PoolState(vault: Vault): Array<BigInt> {
   const rewardAssetsCall = Bytes.fromHexString(poolRewardAssetsSelector)
   const principalAssetsCall = Bytes.fromHexString(poolPrincipalAssetsSelector)
   const penaltyAssetsCall = Bytes.fromHexString(poolPenaltyAssetsSelector)
   const rewardPerTokenCall = Bytes.fromHexString(rewardPerTokenSelector)
-  const updateStateCall = getUpdateStateCall(rewardsRoot, reward, unlockedMevReward, proof)
-  const swapXdaiToGnoCall = Bytes.fromHexString(swapXdaiToGnoSelector)
+  const updateStateCall = getUpdateStateCall(vault)
+  const vaultAddress = Address.fromString(vault.id)
+  const wad = BigInt.fromString(WAD)
 
   const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
-  let calls: Array<ethereum.Value> = [getAggregateCall(GENESIS_VAULT, updateStateCall)]
-  if (isGnosis) {
-    calls.push(getAggregateCall(GENESIS_VAULT, swapXdaiToGnoCall))
+  let calls: Array<ethereum.Value> = []
+  if (updateStateCall) {
+    calls.push(getAggregateCall(vaultAddress, updateStateCall))
   }
   calls.push(getAggregateCall(V2_REWARD_TOKEN, rewardAssetsCall))
   calls.push(getAggregateCall(V2_REWARD_TOKEN, penaltyAssetsCall))
@@ -118,16 +108,14 @@ export function getPoolStateUpdate(
     ethereum.Value.fromArray(calls),
   ])
   let resultValue = result[0].toTupleArray<TryAggregateCallReturnDataStruct>()
-  if (!resultValue[0].success) {
-    log.error('[Vault] getPoolStateUpdate failed updateStateCall={}', [updateStateCall.toHexString()])
-    assert(false, 'getPoolLatestRate failed')
-  }
-
-  if (isGnosis) {
-    resultValue = resultValue.slice(2)
-  } else {
+  if (updateStateCall) {
+    if (!resultValue[0].success) {
+      log.error('[Vault] getV2PoolState failed updateStateCall={}', [updateStateCall.toHexString()])
+      assert(false, 'getV2PoolState failed')
+    }
     resultValue = resultValue.slice(1)
   }
+
   const rewardAssets = ethereum.decode('uint256', resultValue[0].returnData)!.toBigInt()
   const penaltyAssets = ethereum.decode('uint256', resultValue[1].returnData)!.toBigInt()
   const principalAssets = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
@@ -135,8 +123,8 @@ export function getPoolStateUpdate(
   const totalAssets = principalAssets.plus(rewardAssets)
   let penaltyRate = BigInt.zero()
   if (totalAssets.gt(BigInt.zero())) {
-    penaltyRate = BigInt.fromString(WAD).times(penaltyAssets).div(totalAssets)
+    penaltyRate = wad.times(penaltyAssets).div(totalAssets)
   }
-  const newRate = BigInt.fromString(WAD).plus(rewardRate).minus(penaltyRate)
+  const newRate = wad.plus(rewardRate).minus(penaltyRate)
   return [newRate, rewardAssets, principalAssets, penaltyAssets]
 }

@@ -30,7 +30,7 @@ type Allocator @entity {
   "The allocator's LTV descriptive status"
   ltvStatus: LtvStatus!
 
-  "The allocator's APY"
+  "The allocator's average weekly APY"
   apy: BigDecimal!
 
   "The vault of the allocator"
@@ -76,7 +76,7 @@ type OsTokenHolder @entity {
   "The OsToken instance"
   osToken: OsToken!
 
-  "The osToken holder's APY"
+  "The osToken holder's average weekly APY"
   apy: BigDecimal!
 
   "The total number of OsToken transfers"
@@ -301,6 +301,9 @@ type Vault @entity {
   "The timestamp the vault was created at"
   createdAt: BigInt!
 
+  "The timestamp the vault last time swapped xDAI to GNO on gnosis"
+  lastXdaiSwappedTimestamp: BigInt!
+
   "The vault version"
   version: BigInt!
 
@@ -316,23 +319,31 @@ type Vault @entity {
   "The list of vault APY snapshot"
   apys: [BigDecimal!]!
 
-  "The average max boost APY earned in this vault by the allocator"
+  "The average weekly max boost APY earned in this vault by the allocator"
   allocatorMaxBoostApy: BigDecimal!
 
-  "The list of vault max boost APY snapshots for the allocator"
-  allocatorMaxBoostApys: [BigDecimal!]!
-
-  "The average max boost APY earned in this vault by the osToken holder"
+  "The average weekly max boost APY earned in this vault by the osToken holder"
   osTokenHolderMaxBoostApy: BigDecimal!
-
-  "The list of vault max boost APY snapshots for the osToken holder"
-  osTokenHolderMaxBoostApys: [BigDecimal!]!
 
   "The total number of vault blocklisted accounts"
   blocklistCount: BigInt!
 
   "The total number of vault whitelisted accounts"
   whitelistCount: BigInt!
+}
+
+"""
+Own MEV escrow
+"""
+type OwnMevEscrow @entity {
+  "The address of the Own MEV escrow"
+  id: ID!
+
+  "The total amount of harvested assets"
+  totalHarvestedAssets: BigInt!
+
+  "The last checkpointed assets for period rewards calculation"
+  lastCheckpointAssets: BigInt!
 }
 
 enum AllocatorActionType {
@@ -383,7 +394,7 @@ type OsToken @entity {
   "Set to 1"
   id: ID!
 
-  "The OsToken APY"
+  "The OsToken average weekly APY"
   apy: BigDecimal!
 
   "The list of OsToken APY snapshot"
@@ -634,6 +645,9 @@ type OsTokenConfig @entity {
   liqThresholdPercent: BigInt!
 }
 
+"""
+The OsToken vault exit request
+"""
 type OsTokenExitRequest @entity {
   "<Vault ID>-<Exit queue id>"
   id: ID!
@@ -655,6 +669,49 @@ type OsTokenExitRequest @entity {
 
   "The position's LTV percent"
   ltv: BigDecimal!
+}
+
+"""
+The Aave supplying and borrowing data
+"""
+type Aave @entity {
+  "Set to 1"
+  id: ID!
+
+  "The weekly average assets borrow APY"
+  borrowApy: BigDecimal!
+
+  "The list of Aave borrow APY snapshots"
+  borrowApys: [BigDecimal!]!
+
+  "The weekly average OsToken supply APY"
+  supplyApy: BigDecimal!
+
+  "The list of OsToken supply APY snapshots"
+  supplyApys: [BigDecimal!]!
+
+  "The Aave positions in Leveraged strategy"
+  positions: [AavePosition!]! @derivedFrom(field: "aave")
+}
+
+"""
+The Aave position in Leverage strategy
+"""
+type AavePosition @entity {
+  "Set to user address"
+  id: ID!
+
+  "The address of the user"
+  user: Bytes!
+
+  "The Aave instance"
+  aave: Aave!
+
+  "The total amount of supplied assets to Aave"
+  suppliedOsTokenShares: BigInt!
+
+  "The total amount of borrowed assets from Aave"
+  borrowedAssets: BigInt!
 }
 
 """
@@ -699,16 +756,6 @@ type LeverageStrategyPosition @entity {
 
   "The unprocessed exit request. Can be null if nothing is exiting."
   exitRequest: ExitRequest
-}
-
-"""
-The earned assets of the snapshot per day used for APY calculation
-"""
-type SnapshotEarnedAssets @entity {
-  "Set to `<entity>-dayCount`"
-  id: ID!
-  timestamp: Timestamp!
-  earnedAssets: BigInt!
 }
 
 """
@@ -894,7 +941,6 @@ type LeverageStrategyPositionSnapshot @entity(timeseries: true) {
   allocatorTotalEarnedAssets: BigInt!
   osTokenHolderEarnedAssets: BigInt!
   osTokenHolderTotalAssets: BigInt!
-  apy: BigDecimal!
 }
 
 """
@@ -908,7 +954,6 @@ type LeverageStrategyPositionStats @aggregation(intervals: ["day"], source: "Lev
   allocatorTotalEarnedAssets: BigInt! @aggregate(fn: "last", arg: "allocatorTotalEarnedAssets")
   osTokenHolderEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "osTokenHolderEarnedAssets")
   osTokenHolderTotalAssets: BigInt! @aggregate(fn: "last", arg: "osTokenHolderTotalAssets")
-  apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
 }
 
 "Uniswap V3 pool data"

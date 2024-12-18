@@ -7,27 +7,53 @@ features:
   - ipfsOnEthereumContracts
 dataSources:
   - kind: ethereum/contract
-    name: ExitRequests
+    name: PeriodicTasks
     network: {{ network }}
     source:
-      address: '{{ genesisVault.address }}'
-      abi: Vault
-      startBlock: {{ genesisVault.startBlock }}
+      address: '{{ keeper.address }}'
+      abi: Keeper
+      startBlock: {{ keeper.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
-      file: ./mappings/keeper.ts
+      file: ./mappings/periodicTasks.ts
       entities:
         - Network
+        - Aave
+        - AavePosition
+        - OsToken
+        - OsTokenConfig
+        - OsTokenSnapshot
+        - OsTokenHolder
+        - OsTokenExitRequest
+        - OsTokenHolderSnapshot
         - Vault
+        - VaultSnapshot
+        - Allocator
+        - AllocatorSnapshot
         - ExitRequest
         - ExitRequestSnapshot
+        - V2Pool
+        - LeverageStrategyPosition
+        - LeverageStrategyPositionSnapshot
       abis:
+        - name: Keeper
+          file: ./abis/Keeper.json
+        - name: AaveProtocolDataProvider
+          file: ./abis/AaveProtocolDataProvider.json
+        - name: AaveLeverageStrategy
+          file: ./abis/AaveLeverageStrategy.json
+        - name: OsTokenVaultController
+          file: ./abis/OsTokenVaultController.json
         - name: Vault
           file: ./abis/Vault.json
+        - name: Multicall
+          file: ./abis/Multicall.json
+        - name: OsTokenVaultEscrow
+          file: ./abis/OsTokenVaultEscrow.json
       blockHandlers:
-        - handler: handleExitRequests
+        - handler: handlePeriodicTasks
           filter:
             kind: polling
             every: {{ blocksInHour }}
@@ -40,7 +66,7 @@ dataSources:
       startBlock: {{ genesisVault.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/exchangeRates.ts
       entities:
@@ -56,36 +82,6 @@ dataSources:
             kind: polling
             every: {{ blocksInHour }}
   - kind: ethereum/contract
-    name: Aave
-    network: {{ network }}
-    source:
-      address: '{{ aaveProtocolDataProvider.address }}'
-      abi: AaveProtocolDataProvider
-      startBlock: {{ aaveProtocolDataProvider.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.8
-      language: wasm/assemblyscript
-      file: ./mappings/aave.ts
-      entities:
-        - Network
-        - Vault
-        - OsTokenConfig
-        - OsToken
-        - Allocator
-        - OsTokenHolder
-        - LeverageStrategyPosition
-      abis:
-        - name: AaveProtocolDataProvider
-          file: ./abis/AaveProtocolDataProvider.json
-        - name: AaveLeverageStrategy
-          file: ./abis/AaveLeverageStrategy.json
-      blockHandlers:
-        - handler: handleVaultBoostApy
-          filter:
-            kind: polling
-            every: {{ blocksInHour }}
-  - kind: ethereum/contract
     name: OsToken
     network: {{ network }}
     source:
@@ -94,7 +90,7 @@ dataSources:
       startBlock: {{ osToken.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/erc20Token.ts
       entities:
@@ -120,7 +116,7 @@ dataSources:
       startBlock: {{ swiseToken.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/erc20Token.ts
       entities:
@@ -141,11 +137,14 @@ dataSources:
       startBlock: {{ keeper.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/keeper.ts
       entities:
         - Network
+        - User
+        - Aave
+        - AavePosition
         - OsToken
         - OsTokenConfig
         - OsTokenSnapshot
@@ -153,6 +152,7 @@ dataSources:
         - OsTokenHolder
         - OsTokenHolderSnapshot
         - Vault
+        - OwnMevEscrow
         - VaultSnapshot
         - V2Pool
         - Allocator
@@ -199,7 +199,7 @@ dataSources:
       startBlock: {{ osTokenVaultController.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/osToken.ts
       entities:
@@ -221,7 +221,7 @@ dataSources:
       startBlock: {{ osTokenConfigV1.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/osTokenConfig.ts
       entities:
@@ -244,7 +244,7 @@ dataSources:
       startBlock: {{ osTokenConfigV2.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/osTokenConfig.ts
       entities:
@@ -267,7 +267,7 @@ dataSources:
       startBlock: {{ genesisVault.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
@@ -298,7 +298,7 @@ dataSources:
       startBlock: {{ v2RewardToken.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/v2pool.ts
       entities:
@@ -327,7 +327,7 @@ dataSources:
       startBlock: {{ v2StakedToken.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/v2pool.ts
       entities:
@@ -350,7 +350,7 @@ dataSources:
       startBlock: {{ depositDataRegistry.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/depositDataRegistry.ts
       entities:
@@ -375,7 +375,7 @@ dataSources:
       startBlock: {{ vestingEscrowFactory.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/vestingEscrow.ts
       entities:
@@ -395,7 +395,7 @@ dataSources:
       startBlock: {{ osTokenVaultEscrow.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/osTokenVaultEscrow.ts
       entities:
@@ -420,11 +420,6 @@ dataSources:
           handler: handleOsTokenLiquidated
         - event: OsTokenRedeemed(indexed address,indexed address,indexed uint256,address,uint256,uint256)
           handler: handleOsTokenRedeemed
-      blockHandlers:
-        - handler: handleOsTokenExitRequests
-          filter:
-            kind: polling
-            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: MerkleDistributor
     network: {{ network }}
@@ -434,7 +429,7 @@ dataSources:
       startBlock: {{ merkleDistributor.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/merkleDistributor.ts
       entities:
@@ -467,17 +462,20 @@ dataSources:
       startBlock: {{ aaveLeverageStrategy.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/leverageStrategy.ts
       entities:
         - Transaction
         - OsToken
         - ExitRequest
+        - Vault
         - Allocator
         - LeverageStrategyPosition
         - LeverageStrategyPositionSnapshot
         - OsTokenHolder
+        - Aave
+        - AavePosition
       abis:
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
@@ -490,11 +488,6 @@ dataSources:
           handler: handleExitQueueEntered
         - event: ExitedAssetsClaimed(indexed address,indexed address,uint256,uint256)
           handler: handleExitedAssetsClaimed
-      blockHandlers:
-        - handler: handleLeverageStrategyPositions
-          filter:
-            kind: polling
-            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: UniswapFactory
     network: {{ network }}
@@ -504,7 +497,7 @@ dataSources:
       startBlock: {{ uniswapFactory.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/uniswap.ts
       entities:
@@ -524,7 +517,7 @@ dataSources:
       startBlock: {{ uniswapPositionManager.startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/uniswap.ts
       entities:
@@ -550,7 +543,7 @@ templates:
       abi: VaultFactory
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/vaultFactory.ts
       entities:
@@ -571,7 +564,7 @@ templates:
       abi: RewardSplitterFactory
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/rewardSplitter.ts
       entities:
@@ -590,7 +583,7 @@ templates:
       abi: Vault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
@@ -632,8 +625,6 @@ templates:
           handler: handleKeysManagerUpdated
         - event: ValidatorsManagerUpdated(indexed address,indexed address)
           handler: handleValidatorsManagerUpdated
-        - event: FeeSharesMinted(address,uint256,uint256)
-          handler: handleFeeSharesMinted
         - event: OsTokenMinted(indexed address,address,uint256,uint256,address)
           handler: handleOsTokenMinted
         - event: OsTokenBurned(indexed address,uint256,uint256)
@@ -647,13 +638,31 @@ templates:
         - event: CheckpointCreated(uint256,uint256)
           handler: handleCheckpointCreated
   - kind: ethereum/contract
+    name: OwnMevEscrow
+    network: {{ network }}
+    source:
+      abi: OwnMevEscrow
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/mevEscrow.ts
+      entities:
+        - OwnMevEscrow
+      abis:
+        - name: OwnMevEscrow
+          file: ./abis/OwnMevEscrow.json
+      eventHandlers:
+        - event: Harvested(uint256)
+          handler: handleHarvested
+  - kind: ethereum/contract
     name: PrivateVault
     network: {{ network }}
     source:
       abi: PrivateVault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/privateVault.ts
       entities:
@@ -675,7 +684,7 @@ templates:
       abi: BlocklistVault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/blocklistVault.ts
       entities:
@@ -697,7 +706,7 @@ templates:
       abi: Erc20Vault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/erc20Vault.ts
       entities:
@@ -724,7 +733,7 @@ templates:
       abi: FoxVault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/vault.ts
       entities:
@@ -749,7 +758,7 @@ templates:
       abi: GnoVault
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/gnoVault.ts
       entities:
@@ -774,7 +783,7 @@ templates:
       abi: RewardSplitter
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/rewardSplitter.ts
       entities:
@@ -799,7 +808,7 @@ templates:
       abi: UniswapPool
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.8
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./mappings/uniswap.ts
       entities:
