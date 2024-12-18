@@ -295,16 +295,16 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
     }
 
     // update exit requests
-    updateExitRequests(vault, updateTimestamp)
+    updateExitRequests(network, osToken, distributor, vault, osTokenConfig, updateTimestamp)
 
     // update reward splitters
-    updateRewardSplitters(vault, updateTimestamp)
+    updateRewardSplitters(osToken, distributor, osTokenConfig, vault, updateTimestamp)
 
     // update OsToken exit requests
     updateOsTokenExitRequests(osToken, vault)
 
     // update leverage strategy positions
-    updateLeverageStrategyPositions(osToken, vault, blockTimestamp)
+    updateLeverageStrategyPositions(network, osToken, distributor, vault, osTokenConfig, blockTimestamp)
 
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]

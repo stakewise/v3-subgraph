@@ -1,4 +1,4 @@
-import { BigInt, log } from '@graphprotocol/graph-ts'
+import { Address, BigInt, log } from '@graphprotocol/graph-ts'
 import { RewardSplitter as RewardSplitterTemplate } from '../../generated/templates'
 import {
   RewardsWithdrawn,
@@ -6,10 +6,13 @@ import {
   SharesIncreased,
 } from '../../generated/templates/RewardSplitter/RewardSplitter'
 import { RewardSplitterCreated } from '../../generated/templates/RewardSplitterFactory/RewardSplitterFactory'
-import { RewardSplitter, Vault } from '../../generated/schema'
+import { RewardSplitter } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
 import { createOrLoadRewardSplitterShareHolder, snapshotRewardSplitterShareHolder } from '../entities/rewardSplitter'
-import { convertSharesToAssets } from '../entities/vault'
+import { convertSharesToAssets, loadVault } from '../entities/vault'
+import { loadOsToken } from '../entities/osToken'
+import { loadDistributor } from '../entities/merkleDistributor'
+import { loadOsTokenConfig } from '../entities/osTokenConfig'
 
 // Event emitted on RewardSplitter contract creation
 export function handleRewardSplitterCreated(event: RewardSplitterCreated): void {
@@ -97,8 +100,11 @@ export function handleRewardsWithdrawn(event: RewardsWithdrawn): void {
   const rewardSplitterAddress = event.address
   const rewardSplitterAddressHex = rewardSplitterAddress.toHex()
 
-  const rewardSplitter = RewardSplitter.load(rewardSplitterAddressHex) as RewardSplitter
-  const vault = Vault.load(rewardSplitter.vault) as Vault
+  const rewardSplitter = RewardSplitter.load(rewardSplitterAddressHex)!
+  const vault = loadVault(Address.fromString(rewardSplitter.vault))!
+  const osToken = loadOsToken()!
+  const distributor = loadDistributor()!
+  const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
   const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitterAddress, rewardSplitter.vault)
   shareHolder.earnedVaultShares = shareHolder.earnedVaultShares.minus(withdrawnVaultShares)
@@ -107,7 +113,15 @@ export function handleRewardsWithdrawn(event: RewardsWithdrawn): void {
   }
   shareHolder.earnedVaultAssets = convertSharesToAssets(vault, shareHolder.earnedVaultShares)
   shareHolder.save()
-  snapshotRewardSplitterShareHolder(shareHolder, BigInt.zero(), event.block.timestamp)
+  snapshotRewardSplitterShareHolder(
+    osToken,
+    distributor,
+    vault,
+    osTokenConfig,
+    shareHolder,
+    BigInt.zero(),
+    event.block.timestamp,
+  )
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
