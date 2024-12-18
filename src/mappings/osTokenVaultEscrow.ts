@@ -16,6 +16,7 @@ import { convertOsTokenSharesToAssets, loadOsToken, snapshotOsToken } from '../e
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { createOrLoadOsTokenExitRequest, getExitRequestLtv } from '../entities/osTokenVaultEscrow'
 import { loadVault } from '../entities/vault'
+import { loadDistributor } from '../entities/merkleDistributor'
 
 export function handlePositionCreated(event: PositionCreated): void {
   const vaultAddress = event.params.vault
@@ -26,15 +27,16 @@ export function handlePositionCreated(event: PositionCreated): void {
   const vault = loadVault(vaultAddress)!
   const osToken = loadOsToken()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
+  const distributor = loadDistributor()!
   const allocator = loadAllocator(owner, vaultAddress)!
   allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.minus(osTokenShares)
   if (allocator.mintedOsTokenShares.lt(BigInt.zero())) {
     allocator.mintedOsTokenShares = BigInt.zero()
   }
   updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, allocator, false)
+  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
   allocator.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, allocator, BigInt.zero(), event.block.timestamp)
+  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, BigInt.zero(), event.block.timestamp)
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
   osTokenExitRequest.owner = owner

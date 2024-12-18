@@ -37,6 +37,10 @@ dataSources:
         - V2Pool
         - LeverageStrategyPosition
         - LeverageStrategyPositionSnapshot
+        - Distributor
+        - PeriodicDistribution
+        - DistributorReward
+        - DistributorClaim
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
@@ -436,6 +440,8 @@ dataSources:
         - Distributor
         - Distribution
         - DistributorReward
+        - DistributorClaim
+        - DistributorClaimedAmount
       abis:
         - name: MerkleDistributor
           file: ./abis/merkleDistributor.json
@@ -448,11 +454,6 @@ dataSources:
           handler: handleRewardsRootUpdated
         - event: RewardsClaimed(indexed address,indexed address,address[],uint256[])
           handler: handleRewardsClaimed
-      blockHandlers:
-        - handler: handleDistributions
-          filter:
-            kind: polling
-            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: AaveLeverageStrategy
     network: {{ network }}

@@ -15,6 +15,7 @@ import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { loadAave, updateAaveApys, updateAavePosition } from '../entities/aave'
+import { loadDistributor, updateDistributions } from '../entities/merkleDistributor'
 
 export function handlePeriodicTasks(block: ethereum.Block): void {
   const timestamp = block.timestamp
@@ -46,6 +47,11 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
     osTokenHolder = osTokenHolders[i]
     osTokenHolderAssetsDiffs.push(updateOsTokenHolderAssets(osToken, osTokenHolder))
   }
+
+  // update distributions
+  // NB! if blocksInHour config is updated, the average apy calculation must be updated
+  const distributor = loadDistributor()!
+  updateDistributions(network, osToken, distributor, timestamp)
 
   const vaultIds = network.vaultIds
   let vaultAddress: Address
@@ -79,21 +85,29 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
 
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, allocator, false)
+      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
       allocator.save()
-      snapshotAllocator(osToken, osTokenConfig, vault, allocator, mintedOsTokenAssetsDiff[j].neg(), timestamp)
+      snapshotAllocator(
+        osToken,
+        osTokenConfig,
+        vault,
+        distributor,
+        allocator,
+        mintedOsTokenAssetsDiff[j].neg(),
+        timestamp,
+      )
     }
 
     // update vault max boost apys
-    updateVaultMaxBoostApy(aave, osToken, vault, osTokenConfig, blockNumber)
+    updateVaultMaxBoostApy(aave, osToken, vault, osTokenConfig, distributor, blockNumber)
   }
 
   // update osToken holders apys
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, osTokenHolder, false)
+    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
     osTokenHolder.save()
-    snapshotOsTokenHolder(network, osToken, osTokenHolder, osTokenHolderAssetsDiffs[i], timestamp)
+    snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, osTokenHolderAssetsDiffs[i], timestamp)
   }
   log.info('[PeriodicTasks] block={} timestamp={}', [blockNumber.toString(), timestamp.toString()])
 }

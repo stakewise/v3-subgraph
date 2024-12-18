@@ -1054,10 +1054,20 @@ type Distributor @entity {
   activeDistributionIds: [String!]!
 }
 
+enum DistributionType {
+  SWISE_ASSET_UNI_POOL
+  OS_TOKEN_USDC_UNI_POOL
+  LEVERAGE_STRATEGY
+  UNKNOWN
+}
+
 "The periodic distribution of additional incentives"
 type PeriodicDistribution @entity {
   "Set to `transaction hash-log index`"
   id: ID!
+
+  "The distribution type"
+  distributionType: DistributionType!
 
   "The extra data used to identify the distribution"
   data: Bytes!
@@ -1067,6 +1077,12 @@ type PeriodicDistribution @entity {
 
   "The amount of tokens that is distributed"
   amount: BigInt!
+
+  "The average weekly apy of the distribution"
+  apy: BigDecimal!
+
+  "The list of APY snapshots"
+  apys: [BigDecimal!]!
 
   "The timestamp when the distribution starts"
   startTimestamp: BigInt!

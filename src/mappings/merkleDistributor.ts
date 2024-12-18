@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes, ethereum, ipfs, json, JSONValue, JSONValueKind, log } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, ipfs, json, JSONValue, JSONValueKind, log } from '@graphprotocol/graph-ts'
 import { DistributorClaimedAmount, PeriodicDistribution } from '../../generated/schema'
 import {
   OneTimeDistributionAdded,
@@ -7,29 +7,34 @@ import {
   RewardsRootUpdated,
 } from '../../generated/MerkleDistributor/MerkleDistributor'
 import {
-  createOrLoadDistributor,
+  convertDistributionTypeToString,
   createOrLoadDistributorClaim,
   createOrLoadDistributorReward,
-  distributeLeverageStrategy,
-  distributeToOsTokenUsdcUniPoolUsers,
-  distributeToSwiseAssetUniPoolUsers,
   DistributionType,
   getDistributionType,
   loadDistributor,
   loadDistributorClaim,
 } from '../entities/merkleDistributor'
 import { createTransaction } from '../entities/transaction'
-import { loadUniswapPool } from '../entities/uniswap'
 
 export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded): void {
   const distribution = new PeriodicDistribution(
     `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`,
   )
+  const distType = getDistributionType(event.params.extraData)
+  if (distType == DistributionType.UNKNOWN) {
+    log.error('[MerkleDistributor] Unknown periodic distribution extraData={}', [event.params.extraData.toHex()])
+    return
+  }
+
+  distribution.distributionType = convertDistributionTypeToString(distType)
   distribution.data = event.params.extraData
   distribution.token = event.params.token
   distribution.amount = event.params.amount
   distribution.startTimestamp = event.block.timestamp.plus(event.params.delayInSeconds)
   distribution.endTimestamp = distribution.startTimestamp.plus(event.params.durationInSeconds)
+  distribution.apy = BigDecimal.zero()
+  distribution.apys = []
   distribution.save()
 
   const distributor = loadDistributor()!
@@ -111,70 +116,6 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
     rewardsIpfsHash,
     token.toHexString(),
     totalAmountToDistribute.toString(),
-  ])
-}
-
-export function handleDistributions(block: ethereum.Block): void {
-  const distributor = createOrLoadDistributor()
-  const activeDistIds = distributor.activeDistributionIds
-  if (activeDistIds.length == 0) {
-    return
-  }
-  const currentTimestamp = block.timestamp
-  const newActiveDistIds: Array<string> = []
-
-  let dist: PeriodicDistribution
-  for (let i = 0; i < activeDistIds.length; i++) {
-    dist = PeriodicDistribution.load(activeDistIds[i]) as PeriodicDistribution
-    if (dist.startTimestamp.ge(currentTimestamp)) {
-      // distribution hasn't started
-      newActiveDistIds.push(dist.id)
-      continue
-    }
-
-    // get the distribution type
-    const distType = getDistributionType(dist.data)
-    if (distType == DistributionType.UNKNOWN) {
-      log.error('[MerkleDistributor] Unknown periodic distribution data={}', [dist.data.toHex()])
-      continue
-    }
-
-    // calculate amount to distribute
-    const totalDuration = dist.endTimestamp.minus(dist.startTimestamp)
-    let passedDuration = currentTimestamp.minus(dist.startTimestamp)
-    if (passedDuration.gt(totalDuration)) {
-      passedDuration = totalDuration
-    }
-    const amountToDistribute = dist.amount.times(passedDuration).div(totalDuration)
-
-    // update distribution
-    dist.amount = dist.amount.minus(amountToDistribute)
-    dist.startTimestamp = currentTimestamp
-    dist.save()
-    if (dist.startTimestamp < dist.endTimestamp) {
-      newActiveDistIds.push(dist.id)
-    }
-
-    // distribute tokens
-    if (distType == DistributionType.SWISE_ASSET_UNI_POOL) {
-      // dist data is the pool address
-      const uniPool = loadUniswapPool(Address.fromBytes(dist.data))!
-      distributeToSwiseAssetUniPoolUsers(uniPool, Address.fromBytes(dist.token), amountToDistribute)
-    } else if (distType == DistributionType.OS_TOKEN_USDC_UNI_POOL) {
-      // dist data is the pool address
-      const uniPool = loadUniswapPool(Address.fromBytes(dist.data))!
-      distributeToOsTokenUsdcUniPoolUsers(uniPool, Address.fromBytes(dist.token), amountToDistribute)
-    } else {
-      distributeLeverageStrategy(Address.fromBytes(dist.token), amountToDistribute)
-    }
-  }
-
-  // update new active distributions
-  distributor.activeDistributionIds = newActiveDistIds
-  distributor.save()
-  log.info('[MerkleDistributor] Distributions update block={} timestamp={}', [
-    block.number.toString(),
-    block.timestamp.toString(),
   ])
 }
 
