@@ -453,6 +453,18 @@ type Network @entity {
   "The USD to GBP rate"
   usdToGbpRate: BigDecimal!
 
+  "The USD to CNY rate"
+  usdToCnyRate: BigDecimal!
+
+  "The USD to JPY rate"
+  usdToJpyRate: BigDecimal!
+
+  "The USD to KRW rate"
+  usdToKrwRate: BigDecimal!
+
+  "The USD to AUD rate"
+  usdToAudRate: BigDecimal!
+
   "The non repeated addresses of all the vaults"
   vaultIds: [String!]!
 
@@ -914,6 +926,10 @@ type ExchangeRateSnapshot @entity(timeseries: true) {
   usdcUsdRate: BigDecimal!
   usdToEurRate: BigDecimal!
   usdToGbpRate: BigDecimal!
+  usdToCnyRate: BigDecimal!
+  usdToJpyRate: BigDecimal!
+  usdToKrwRate: BigDecimal!
+  usdToAudRate: BigDecimal!
 }
 
 """
@@ -928,6 +944,10 @@ type ExchangeRateStats @aggregation(intervals: ["day"], source: "ExchangeRateSna
   usdcUsdRate: BigDecimal! @aggregate(fn: "last", arg: "usdcUsdRate")
   usdToEurRate: BigDecimal! @aggregate(fn: "last", arg: "usdToEurRate")
   usdToGbpRate: BigDecimal! @aggregate(fn: "last", arg: "usdToGbpRate")
+  usdToCnyRate: BigDecimal! @aggregate(fn: "last", arg: "usdToCnyRate")
+  usdToJpyRate: BigDecimal! @aggregate(fn: "last", arg: "usdToJpyRate")
+  usdToKrwRate: BigDecimal! @aggregate(fn: "last", arg: "usdToKrwRate")
+  usdToAudRate: BigDecimal! @aggregate(fn: "last", arg: "usdToAudRate")
 }
 
 """
