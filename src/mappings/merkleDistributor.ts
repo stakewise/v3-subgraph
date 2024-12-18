@@ -279,7 +279,7 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
 export function handleRewardsClaimed(event: RewardsClaimed): void {
   const user = event.params.account
   const tokens = event.params.tokens
-  const amounts = event.params.cumulativeAmounts
+  const cumulativeAmounts = event.params.cumulativeAmounts
   for (let i = 0; i < tokens.length; i++) {
     const claimedAmountId = `${tokens[i].toHex()}-${user.toHex()}`
     let claimedAmount = DistributorClaimedAmount.load(claimedAmountId)
@@ -287,7 +287,7 @@ export function handleRewardsClaimed(event: RewardsClaimed): void {
       claimedAmount = new DistributorClaimedAmount(claimedAmountId)
       claimedAmount.cumulativeClaimedAmount = BigInt.zero()
     }
-    claimedAmount.cumulativeClaimedAmount = claimedAmount.cumulativeClaimedAmount.plus(amounts[i])
+    claimedAmount.cumulativeClaimedAmount = cumulativeAmounts[i]
     claimedAmount.save()
   }
   store.remove('DistributorClaim', user.toHex())
