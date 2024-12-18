@@ -27,3 +27,19 @@ export function calculateAverage(values: Array<BigDecimal>): BigDecimal {
 export function getAnnualReward(principal: BigInt, apy: BigDecimal): BigInt {
   return principal.toBigDecimal().times(apy).div(BigDecimal.fromString('100')).truncate(0).digits
 }
+
+export function getCompoundedApy(initialApyPercent: BigDecimal, secondaryApyPercent: BigDecimal): BigDecimal {
+  const hundred = BigDecimal.fromString('100')
+
+  // convert percentages to decimal fractions
+  const initialApy = initialApyPercent.div(hundred)
+  const secondaryApy = secondaryApyPercent.div(hundred)
+
+  // approximate finalAPY using linearization, works only for small APYs
+  // finalApy ≈ initialApy * (1 + (secondaryApy / 2))
+  const factor = BigDecimal.fromString('1').plus(secondaryApy.div(BigDecimal.fromString('2')))
+  const finalApy = initialApy.times(factor)
+
+  // convert back to a percentage if needed
+  return finalApy.times(hundred)
+}
