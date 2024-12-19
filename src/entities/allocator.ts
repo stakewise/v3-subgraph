@@ -32,6 +32,9 @@ export enum AllocatorActionType {
   OsTokenBurned,
   OsTokenLiquidated,
   OsTokenRedeemed,
+  BoostDeposited,
+  BoostExitQueueEntered,
+  BoostExitedAssetsClaimed,
 }
 
 const LtvStatusStrings = ['Healthy', 'Moderate', 'Risky', 'Unhealthy']
@@ -49,6 +52,9 @@ const AllocatorActionTypeStrings = [
   'OsTokenBurned',
   'OsTokenLiquidated',
   'OsTokenRedeemed',
+  'BoostDeposited',
+  'BoostExitQueueEntered',
+  'BoostExitedAssetsClaimed',
 ]
 
 export function getAllocatorId(allocatorAddress: Address, vaultAddress: Address): string {
