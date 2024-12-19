@@ -359,6 +359,9 @@ enum AllocatorActionType {
   OsTokenBurned
   OsTokenLiquidated
   OsTokenRedeemed
+  BoostDeposited,
+  BoostExitQueueEntered,
+  BoostExitedAssetsClaimed,
 }
 
 """
