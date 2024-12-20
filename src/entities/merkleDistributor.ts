@@ -68,6 +68,10 @@ export function createOrLoadDistributorClaim(user: Address): DistributorClaim {
   return claim
 }
 
+export function loadDistributorClaim(user: Address): DistributorClaim | null {
+  return DistributorClaim.load(user.toHex())
+}
+
 export function getDistributionType(distData: Bytes): DistributionType {
   // only passed addresses are currently supported
   const distAddress = Address.fromBytes(distData)

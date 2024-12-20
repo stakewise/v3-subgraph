@@ -1,16 +1,5 @@
-import {
-  Address,
-  BigInt,
-  Bytes,
-  ethereum,
-  ipfs,
-  json,
-  JSONValue,
-  JSONValueKind,
-  log,
-  store,
-} from '@graphprotocol/graph-ts'
-import { DistributorClaim, DistributorClaimedAmount, PeriodicDistribution } from '../../generated/schema'
+import { Address, BigInt, Bytes, ethereum, ipfs, json, JSONValue, JSONValueKind, log } from '@graphprotocol/graph-ts'
+import { DistributorClaimedAmount, PeriodicDistribution } from '../../generated/schema'
 import {
   OneTimeDistributionAdded,
   PeriodicDistributionAdded,
@@ -27,6 +16,7 @@ import {
   DistributionType,
   getDistributionType,
   loadDistributor,
+  loadDistributorClaim,
 } from '../entities/merkleDistributor'
 import { createTransaction } from '../entities/transaction'
 import { loadUniswapPool } from '../entities/uniswap'
@@ -283,7 +273,7 @@ export function handleRewardsClaimed(event: RewardsClaimed): void {
 
   // The DistributorClaim object is guaranteed to exist at this point because
   // the user has claimed rewards using the DistributorClaim object.
-  const claim = DistributorClaim.load(user.toHex())!
+  const claim = loadDistributorClaim(user)!
   const unclaimedAmounts = claim.unclaimedAmounts
 
   for (let i = 0; i < tokens.length; i++) {
@@ -295,7 +285,7 @@ export function handleRewardsClaimed(event: RewardsClaimed): void {
     }
     claimedAmount.cumulativeClaimedAmount = cumulativeAmounts[i]
     claimedAmount.save()
-    unclaimedAmounts[i] = claim.cumulativeAmounts[i].minus(claimedAmount.cumulativeClaimedAmount)
+    unclaimedAmounts[i] = BigInt.zero()
   }
 
   claim.unclaimedAmounts = unclaimedAmounts
