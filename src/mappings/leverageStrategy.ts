@@ -122,8 +122,8 @@ export function handleDeposited(event: Deposited): void {
     vaultAddress,
     AllocatorActionType.BoostDeposited,
     userAddress,
-    assetsDiff,
-    osTokenSharesDiff,
+    convertOsTokenSharesToAssets(osToken, depositedOsTokenShares),
+    depositedOsTokenShares,
   )
 
   log.info('[LeverageStrategy] Deposited vault={} user={} osTokenShares={}', [
@@ -184,15 +184,6 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   if (!ignoreSnapshot) {
     snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, timestamp)
   }
-
-  createAllocatorAction(
-    event,
-    vaultAddress,
-    AllocatorActionType.BoostExitQueueEntered,
-    userAddress,
-    assetsDiff,
-    osTokenSharesDiff,
-  )
 
   log.info('[LeverageStrategy] ExitQueueEntered vault={} user={} positionTicket={}', [
     vaultAddressHex,
@@ -262,8 +253,8 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     vaultAddress,
     AllocatorActionType.BoostExitedAssetsClaimed,
     userAddress,
-    claimedAssets,
-    null,
+    convertOsTokenSharesToAssets(osToken, claimedOsTokenShares),
+    claimedOsTokenShares,
   )
 
   createTransaction(event.transaction.hash.toHex())

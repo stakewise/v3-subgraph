@@ -33,7 +33,6 @@ export enum AllocatorActionType {
   OsTokenLiquidated,
   OsTokenRedeemed,
   BoostDeposited,
-  BoostExitQueueEntered,
   BoostExitedAssetsClaimed,
 }
 
@@ -53,7 +52,6 @@ const AllocatorActionTypeStrings = [
   'OsTokenLiquidated',
   'OsTokenRedeemed',
   'BoostDeposited',
-  'BoostExitQueueEntered',
   'BoostExitedAssetsClaimed',
 ]
 
