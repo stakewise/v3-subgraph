@@ -11,6 +11,7 @@ import {
   snapshotOsTokenHolder,
   updateOsTokenHolderAssets,
 } from '../entities/osTokenHolder'
+import { loadDistributor } from '../entities/merkleDistributor'
 
 export function handleTransfer(event: Transfer): void {
   const tokenAddress = event.address
@@ -48,6 +49,10 @@ function _handleSwiseTokenTransfer(event: Transfer): void {
   const to = event.params.to
   const amount = event.params.value
 
+  if (amount.isZero()) {
+    return
+  }
+
   if (from.notEqual(Address.zero())) {
     const tokenHolderFrom = createOrLoadSwiseTokenHolder(from)
 
@@ -69,16 +74,21 @@ function _handleOsTokenTransfer(event: Transfer): void {
   const amount = event.params.value
   const timestamp = event.block.timestamp
 
+  if (amount.isZero()) {
+    return
+  }
+
   const network = loadNetwork()!
   const osToken = loadOsToken()!
+  const distributor = loadDistributor()!
   if (from.notEqual(Address.zero())) {
     const tokenHolderFrom = loadOsTokenHolder(from)!
     tokenHolderFrom.balance = tokenHolderFrom.balance.minus(amount)
     tokenHolderFrom.transfersCount = tokenHolderFrom.transfersCount.plus(BigInt.fromI32(1))
     updateOsTokenHolderAssets(osToken, tokenHolderFrom)
-    tokenHolderFrom.apy = getOsTokenHolderApy(network, osToken, tokenHolderFrom, false)
+    tokenHolderFrom.apy = getOsTokenHolderApy(network, osToken, distributor, tokenHolderFrom, false)
     tokenHolderFrom.save()
-    snapshotOsTokenHolder(network, osToken, tokenHolderFrom, BigInt.zero(), timestamp)
+    snapshotOsTokenHolder(network, osToken, distributor, tokenHolderFrom, BigInt.zero(), timestamp)
 
     const user = createOrLoadUser(from)
     if (tokenHolderFrom.balance.isZero() && user.vaultsCount === 0) {
@@ -93,9 +103,9 @@ function _handleOsTokenTransfer(event: Transfer): void {
     tokenHolderTo.balance = tokenHolderTo.balance.plus(amount)
     tokenHolderTo.transfersCount = tokenHolderTo.transfersCount.plus(BigInt.fromI32(1))
     updateOsTokenHolderAssets(osToken, tokenHolderTo)
-    tokenHolderTo.apy = getOsTokenHolderApy(network, osToken, tokenHolderTo, false)
+    tokenHolderTo.apy = getOsTokenHolderApy(network, osToken, distributor, tokenHolderTo, false)
     tokenHolderTo.save()
-    snapshotOsTokenHolder(network, osToken, tokenHolderTo, BigInt.zero(), timestamp)
+    snapshotOsTokenHolder(network, osToken, distributor, tokenHolderTo, BigInt.zero(), timestamp)
 
     const user = createOrLoadUser(to)
     if (!user.isOsTokenHolder && user.vaultsCount === 0 && tokenHolderTo.balance.gt(BigInt.zero())) {

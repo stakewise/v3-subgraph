@@ -33,10 +33,12 @@ dataSources:
         - Allocator
         - AllocatorSnapshot
         - ExitRequest
-        - ExitRequestSnapshot
         - V2Pool
         - LeverageStrategyPosition
-        - LeverageStrategyPositionSnapshot
+        - Distributor
+        - PeriodicDistribution
+        - DistributorReward
+        - DistributorClaim
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
@@ -158,12 +160,9 @@ dataSources:
         - Allocator
         - AllocatorSnapshot
         - ExitRequest
-        - ExitRequestSnapshot
         - RewardSplitter
         - RewardSplitterShareHolder
-        - RewardSplitterShareHolderSnapshot
         - LeverageStrategyPosition
-        - LeverageStrategyPositionSnapshot
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
@@ -436,6 +435,8 @@ dataSources:
         - Distributor
         - Distribution
         - DistributorReward
+        - DistributorClaim
+        - DistributorClaimedAmount
       abis:
         - name: MerkleDistributor
           file: ./abis/merkleDistributor.json
@@ -448,11 +449,6 @@ dataSources:
           handler: handleRewardsRootUpdated
         - event: RewardsClaimed(indexed address,indexed address,address[],uint256[])
           handler: handleRewardsClaimed
-      blockHandlers:
-        - handler: handleDistributions
-          filter:
-            kind: polling
-            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: AaveLeverageStrategy
     network: {{ network }}
@@ -472,7 +468,6 @@ dataSources:
         - Vault
         - Allocator
         - LeverageStrategyPosition
-        - LeverageStrategyPositionSnapshot
         - OsTokenHolder
         - Aave
         - AavePosition
@@ -508,6 +503,8 @@ dataSources:
       eventHandlers:
         - event: PoolCreated(indexed address,indexed address,indexed uint24,int24,address)
           handler: handlePoolCreated
+          topic1: ['{{ osToken.address }}', '{{ swiseToken.address }}']
+          topic2: ['{{ osToken.address }}', '{{ swiseToken.address }}']
   - kind: ethereum/contract
     name: UniswapPositionManager
     network: {{ network }}
@@ -598,7 +595,6 @@ templates:
         - AllocatorSnapshot
         - AllocatorAction
         - ExitRequest
-        - ExitRequestSnapshot
         - Transaction
         - LeverageStrategyPosition
       abis:
@@ -789,7 +785,6 @@ templates:
       entities:
         - RewardSplitter
         - RewardSplitterShareHolder
-        - RewardSplitterShareHolderSnapshot
         - Transaction
       abis:
         - name: RewardSplitter

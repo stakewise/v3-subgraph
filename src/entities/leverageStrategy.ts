@@ -1,17 +1,19 @@
 import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 import {
   Aave,
+  Distributor,
   ExitRequest,
   LeverageStrategyPosition,
-  LeverageStrategyPositionSnapshot,
+  Network,
   OsToken,
   OsTokenConfig,
   OsTokenExitRequest,
+  PeriodicDistribution,
   Vault,
 } from '../../generated/schema'
 import { AaveLeverageStrategy } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
 import { AAVE_LEVERAGE_STRATEGY, WAD } from '../helpers/constants'
-import { loadAllocator } from './allocator'
+import { loadAllocator, snapshotAllocator } from './allocator'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { getAnnualReward } from '../helpers/utils'
 import { getVaultApy, getVaultOsTokenMintApy } from './vault'
@@ -22,6 +24,8 @@ import {
   loadAavePosition,
   updateAavePosition,
 } from './aave'
+import { convertStringToDistributionType, DistributionType, getPeriodicDistributionApy } from './merkleDistributor'
+import { loadOsTokenHolder, snapshotOsTokenHolder } from './osTokenHolder'
 
 export function loadLeverageStrategyPosition(vault: Address, user: Address): LeverageStrategyPosition | null {
   const leverageStrategyPositionId = `${vault.toHex()}-${user.toHex()}`
@@ -42,7 +46,6 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
     leverageStrategyPosition.vault = vaultAddressHex
     leverageStrategyPosition.osTokenShares = BigInt.zero()
     leverageStrategyPosition.assets = BigInt.zero()
-    leverageStrategyPosition.totalEarnedAssets = BigInt.zero()
     leverageStrategyPosition.totalAssets = BigInt.zero()
     leverageStrategyPosition.borrowLtv = BigDecimal.zero()
     leverageStrategyPosition.exitingPercent = BigInt.zero()
@@ -55,19 +58,24 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
 }
 
 export function snapshotLeverageStrategyPosition(
+  network: Network,
+  osToken: OsToken,
+  distributor: Distributor,
+  vault: Vault,
+  osTokenConfig: OsTokenConfig,
   position: LeverageStrategyPosition,
   totalAssetsDiff: BigInt,
   earnedAssetsDiff: BigInt,
   timestamp: BigInt,
 ): void {
-  const positionSnapshot = new LeverageStrategyPositionSnapshot(timestamp.toString())
-  positionSnapshot.timestamp = timestamp.toI64()
-  positionSnapshot.position = position.id
-  positionSnapshot.allocatorEarnedAssets = earnedAssetsDiff
-  positionSnapshot.allocatorTotalEarnedAssets = position.totalEarnedAssets
-  positionSnapshot.osTokenHolderEarnedAssets = totalAssetsDiff
-  positionSnapshot.osTokenHolderTotalAssets = position.totalAssets
-  positionSnapshot.save()
+  let userAddress = Address.fromBytes(position.user)
+  const allocator = loadAllocator(userAddress, Address.fromString(vault.id))
+  if (allocator) {
+    snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, earnedAssetsDiff, timestamp)
+  }
+
+  const osTokenHolder = loadOsTokenHolder(userAddress)!
+  snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, totalAssetsDiff, timestamp)
 }
 
 export function updateLeverageStrategyPosition(osToken: OsToken, position: LeverageStrategyPosition): void {
@@ -138,7 +146,14 @@ export function updateLeverageStrategyPosition(osToken: OsToken, position: Lever
   position.save()
 }
 
-export function updateLeverageStrategyPositions(osToken: OsToken, vault: Vault, timestamp: BigInt): void {
+export function updateLeverageStrategyPositions(
+  network: Network,
+  osToken: OsToken,
+  distributor: Distributor,
+  vault: Vault,
+  osTokenConfig: OsTokenConfig,
+  timestamp: BigInt,
+): void {
   let position: LeverageStrategyPosition
   const leveragePositions: Array<LeverageStrategyPosition> = vault.leveragePositions.load()
   for (let i = 0; i < leveragePositions.length; i++) {
@@ -159,10 +174,17 @@ export function updateLeverageStrategyPositions(osToken: OsToken, vault: Vault, 
     const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
     const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
 
-    position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
-    position.save()
-
-    snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, timestamp)
+    snapshotLeverageStrategyPosition(
+      network,
+      osToken,
+      distributor,
+      vault,
+      osTokenConfig,
+      position,
+      totalAssetsDiff,
+      earnedAssetsDiff,
+      timestamp,
+    )
   }
 }
 
@@ -172,6 +194,7 @@ export function getBoostPositionAnnualReward(
   vault: Vault,
   osTokenConfig: OsTokenConfig,
   strategyPosition: LeverageStrategyPosition,
+  distributor: Distributor,
   useDayApy: boolean,
 ): BigInt {
   const vaultAddress = Address.fromString(strategyPosition.vault)
@@ -183,7 +206,7 @@ export function getBoostPositionAnnualReward(
   const vaultApy = getVaultApy(vault, useDayApy)
   const osTokenApy = getOsTokenApy(osToken, useDayApy)
   const borrowApy = getAaveBorrowApy(aave, useDayApy)
-  const supplyApy = getAaveSupplyApy(aave, useDayApy)
+  const supplyApy = getAaveSupplyApy(aave, osToken, useDayApy)
 
   let totalDepositedAssets = vaultPosition.assets
   let totalMintedOsTokenShares = vaultPosition.mintedOsTokenShares
@@ -196,6 +219,7 @@ export function getBoostPositionAnnualReward(
     }
     totalMintedOsTokenShares = totalMintedOsTokenShares.plus(osTokenExitRequest.osTokenShares)
   }
+  const totalMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalMintedOsTokenShares)
 
   const totalSuppliedOsTokenShares = aavePosition.suppliedOsTokenShares
   const totalBorrowedAssets = aavePosition.borrowedAssets
@@ -203,9 +227,13 @@ export function getBoostPositionAnnualReward(
   // deposited assets earn vault APY
   let totalEarnedAssets = getAnnualReward(totalDepositedAssets, vaultApy)
 
-  // supplied osToken shares earn osToken APY
+  // supplied osToken shares that are not minted earn osToken APY
   const totalSuppliedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalSuppliedOsTokenShares)
-  totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(totalSuppliedOsTokenAssets, osTokenApy))
+  if (totalSuppliedOsTokenAssets.gt(totalMintedOsTokenAssets)) {
+    totalEarnedAssets = totalEarnedAssets.plus(
+      getAnnualReward(totalSuppliedOsTokenAssets.minus(totalMintedOsTokenAssets), osTokenApy),
+    )
+  }
 
   // supplied osToken shares earn supply APY
   const totalEarnedOsTokenShares = getAnnualReward(totalSuppliedOsTokenShares, supplyApy)
@@ -213,9 +241,32 @@ export function getBoostPositionAnnualReward(
 
   // minted osToken shares lose mint APY
   const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig, useDayApy)
-  const totalMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalMintedOsTokenShares)
   totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(totalMintedOsTokenAssets, osTokenMintApy))
 
   // borrowed assets lose borrow APY
-  return totalEarnedAssets.minus(getAnnualReward(totalBorrowedAssets, borrowApy))
+  totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(totalBorrowedAssets, borrowApy))
+
+  if (totalSuppliedOsTokenAssets.le(BigInt.zero())) {
+    return totalEarnedAssets
+  }
+
+  // all the supplied OsToken assets earn the additional incentives
+  const activeDistributionIds = distributor.activeDistributionIds
+  let distribution: PeriodicDistribution
+  let distributionApy: BigDecimal
+  for (let i = 0; i < activeDistributionIds.length; i++) {
+    distribution = PeriodicDistribution.load(activeDistributionIds[i])!
+    if (convertStringToDistributionType(distribution.distributionType) !== DistributionType.LEVERAGE_STRATEGY) {
+      continue
+    }
+
+    // get the distribution APY
+    distributionApy = getPeriodicDistributionApy(distribution, osToken, useDayApy)
+    if (distributionApy.equals(BigDecimal.zero())) {
+      continue
+    }
+    totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(totalSuppliedOsTokenAssets, distributionApy))
+  }
+
+  return totalEarnedAssets
 }

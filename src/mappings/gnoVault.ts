@@ -9,6 +9,7 @@ import { convertSharesToAssets, loadVault, snapshotVault, updateVaultApy } from 
 import { createOrLoadV2Pool } from '../entities/v2pool'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { loadOsToken } from '../entities/osToken'
+import { loadDistributor } from '../entities/merkleDistributor'
 
 // Event emitted when xDAI is swapped to GNO
 export function handleXdaiSwapped(event: XdaiSwapped): void {
@@ -19,6 +20,7 @@ export function handleXdaiSwapped(event: XdaiSwapped): void {
   const gnoAssets = params.assets
   const vault = loadVault(vaultAddress)!
   const osToken = loadOsToken()!
+  const distributor = loadDistributor()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
   let v2PoolRewardAssets = BigInt.zero()
@@ -39,13 +41,9 @@ export function handleXdaiSwapped(event: XdaiSwapped): void {
     feeRecipientShares = feeRecipientAssets.times(vault.totalShares).div(vault.totalAssets.minus(feeRecipientAssets))
   }
   vault.totalShares = vault.totalShares.plus(feeRecipientShares)
-  updateVaultApy(
-    vault,
-    vault.lastXdaiSwappedTimestamp,
-    timestamp,
-    convertSharesToAssets(vault, BigInt.fromString(WAD)),
-    true,
-  )
+  const newRate = convertSharesToAssets(vault, BigInt.fromString(WAD))
+  updateVaultApy(vault, vault.lastXdaiSwappedTimestamp, timestamp, vault.rate.minus(newRate), true)
+  vault.rate = newRate
   vault.lastXdaiSwappedTimestamp = timestamp
   vault.save()
   snapshotVault(vault, vaultRewardAssets, timestamp)
@@ -61,9 +59,9 @@ export function handleXdaiSwapped(event: XdaiSwapped): void {
   for (let j = 0; j < allocators.length; j++) {
     allocator = allocators[j]
     const earnedAssets = updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
-    allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, allocator, false)
+    allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
     allocator.save()
-    snapshotAllocator(osToken, osTokenConfig, vault, allocator, earnedAssets, timestamp)
+    snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, earnedAssets, timestamp)
   }
 
   log.info('[GnoVault] XdaiSwapped vault={} xdai={} gno={}', [

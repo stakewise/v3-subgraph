@@ -1,5 +1,13 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, JSONValue, log, TypedMap } from '@graphprotocol/graph-ts'
-import { Aave, OsToken, OsTokenConfig, Vault, VaultSnapshot } from '../../generated/schema'
+import {
+  Aave,
+  Distributor,
+  OsToken,
+  OsTokenConfig,
+  PeriodicDistribution,
+  Vault,
+  VaultSnapshot,
+} from '../../generated/schema'
 import {
   AAVE_LEVERAGE_STRATEGY,
   AAVE_LEVERAGE_STRATEGY_START_BLOCK,
@@ -27,8 +35,10 @@ import { createTransaction } from './transaction'
 import { AaveLeverageStrategy as AaveLeverageStrategyContract } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
 import { getAaveBorrowApy, getAaveSupplyApy } from './aave'
 import { getAllocatorId } from './allocator'
+import { convertStringToDistributionType, DistributionType, getPeriodicDistributionApy } from './merkleDistributor'
 
 const snapshotsPerWeek = 14
+const snapshotsPerDay = 2
 const secondsInYear = '31536000'
 const maxPercent = '100'
 const updateStateSelector = '0x1a7ff553'
@@ -164,11 +174,11 @@ export function convertSharesToAssets(vault: Vault, shares: BigInt): BigInt {
 
 export function getVaultApy(vault: Vault, useDayApy: boolean): BigDecimal {
   const apysCount = vault.apys.length
-  if (!useDayApy || apysCount < 2) {
+  if (!useDayApy || apysCount < snapshotsPerDay) {
     return vault.apy
   }
   const apys: Array<BigDecimal> = vault.apys
-  return calculateAverage(apys.slice(apys.length - 2))
+  return calculateAverage(apys.slice(apys.length - snapshotsPerDay))
 }
 
 export function getVaultOsTokenMintApy(osToken: OsToken, osTokenConfig: OsTokenConfig, useDayApy: boolean): BigDecimal {
@@ -357,6 +367,7 @@ export function updateVaultMaxBoostApy(
   osToken: OsToken,
   vault: Vault,
   osTokenConfig: OsTokenConfig,
+  distributor: Distributor,
   blockNumber: BigInt,
 ): void {
   if (
@@ -372,7 +383,7 @@ export function updateVaultMaxBoostApy(
 
   const osTokenApy = getOsTokenApy(osToken, false)
   const borrowApy = getAaveBorrowApy(aave, false)
-  const supplyApy = getAaveSupplyApy(aave, false)
+  const supplyApy = getAaveSupplyApy(aave, osToken, false)
 
   const vaultAddress = Address.fromString(vault.id)
   const vaultLeverageLtv = aaveLeverageStrategyContract.getVaultLtv(vaultAddress)
@@ -435,6 +446,30 @@ export function updateVaultMaxBoostApy(
   allocatorEarnedAssets = allocatorEarnedAssets.minus(borrowInterestAssets)
   osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.minus(borrowInterestAssets)
 
+  // all the supplied OsToken assets earn the additional incentives
+  const activeDistributionIds = distributor.activeDistributionIds
+  let distribution: PeriodicDistribution
+  let distributionApy: BigDecimal
+  for (let i = 0; i < activeDistributionIds.length; i++) {
+    distribution = PeriodicDistribution.load(activeDistributionIds[i])!
+    if (convertStringToDistributionType(distribution.distributionType) !== DistributionType.LEVERAGE_STRATEGY) {
+      continue
+    }
+
+    // get the distribution APY
+    distributionApy = getPeriodicDistributionApy(distribution, osToken, false)
+    if (distributionApy.equals(BigDecimal.zero())) {
+      continue
+    }
+
+    allocatorEarnedAssets = allocatorEarnedAssets.plus(
+      getAnnualReward(allocatorMintedOsTokenAssets.plus(strategyMintedOsTokenAssets), distributionApy),
+    )
+    osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.plus(
+      getAnnualReward(osTokenHolderOsTokenAssets.plus(strategyMintedOsTokenAssets), distributionApy),
+    )
+  }
+
   // calculate average allocator max boost APY
   const allocatorMaxBoostApy = new BigDecimal(allocatorEarnedAssets)
     .times(BigDecimal.fromString('100'))
@@ -452,13 +487,6 @@ export function updateVaultMaxBoostApy(
 
 export function snapshotVault(vault: Vault, earnedAssets: BigInt, timestamp: BigInt): void {
   let apy = getVaultApy(vault, true)
-  const maxFeePercent = BigDecimal.fromString('10000')
-  const vaultFeePercent = BigDecimal.fromString(vault.feePercent.toString())
-  if (vaultFeePercent.lt(maxFeePercent)) {
-    // Adjust APY to account for the fee
-    apy = apy.times(maxFeePercent).div(maxFeePercent.minus(vaultFeePercent))
-  }
-
   const vaultSnapshot = new VaultSnapshot(timestamp.toString())
   vaultSnapshot.timestamp = timestamp.toI64()
   vaultSnapshot.vault = vault.id

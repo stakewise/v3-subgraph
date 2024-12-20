@@ -5,7 +5,7 @@ import {
   ExitQueueEntered,
 } from '../../generated/AaveLeverageStrategy/AaveLeverageStrategy'
 import { StrategyProxyCreated } from '../../generated/Keeper/AaveLeverageStrategy'
-import { Network, OsToken, OsTokenConfig, Vault } from '../../generated/schema'
+import { Distributor, Network, OsToken, OsTokenConfig, Vault } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
 import {
   createOrLoadLeverageStrategyPosition,
@@ -14,7 +14,6 @@ import {
   updateLeverageStrategyPosition,
 } from '../entities/leverageStrategy'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
-import { WAD } from '../helpers/constants'
 import {
   AllocatorActionType,
   createAllocatorAction,
@@ -28,24 +27,26 @@ import { loadNetwork } from '../entities/network'
 import { loadVault } from '../entities/vault'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { createOrLoadAavePosition } from '../entities/aave'
+import { loadDistributor } from '../entities/merkleDistributor'
 
 function _updateAllocatorAndOsTokenHolderApys(
   network: Network,
   osToken: OsToken,
   osTokenConfig: OsTokenConfig,
+  distributor: Distributor,
   vault: Vault,
   userAddress: Address,
   timestamp: BigInt,
 ): void {
   const allocator = loadAllocator(userAddress, Address.fromString(vault.id))!
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, allocator, false)
+  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
   allocator.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, allocator, BigInt.zero(), timestamp)
+  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, BigInt.zero(), timestamp)
 
   const osTokenHolder = loadOsTokenHolder(userAddress)!
-  osTokenHolder.apy = getOsTokenHolderApy(network, osToken, osTokenHolder, false)
+  osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
   osTokenHolder.save()
-  snapshotOsTokenHolder(network, osToken, osTokenHolder, BigInt.zero(), timestamp)
+  snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, BigInt.zero(), timestamp)
 }
 
 export function handleStrategyProxyCreated(event: StrategyProxyCreated): void {
@@ -75,6 +76,7 @@ export function handleDeposited(event: Deposited): void {
 
   const network = loadNetwork()!
   const osToken = loadOsToken()!
+  const distributor = loadDistributor()!
   const vault = loadVault(vaultAddress)!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
@@ -106,13 +108,20 @@ export function handleDeposited(event: Deposited): void {
   const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
   const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
 
-  position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
-  position.save()
-
-  _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, vault, userAddress, timestamp)
+  _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress, timestamp)
 
   if (!ignoreSnapshot) {
-    snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, timestamp)
+    snapshotLeverageStrategyPosition(
+      network,
+      osToken,
+      distributor,
+      vault,
+      osTokenConfig,
+      position,
+      totalAssetsDiff,
+      earnedAssetsDiff,
+      timestamp,
+    )
   }
 
   createTransaction(event.transaction.hash.toHex())
@@ -144,6 +153,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const osToken = loadOsToken()!
   const network = loadNetwork()!
   const vault = loadVault(vaultAddress)!
+  const distributor = loadDistributor()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
   let position = loadLeverageStrategyPosition(vaultAddress, userAddress)
@@ -176,13 +186,20 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
   const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
 
-  position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
-  position.save()
-
-  _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, vault, userAddress, timestamp)
+  _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress, timestamp)
 
   if (!ignoreSnapshot) {
-    snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, timestamp)
+    snapshotLeverageStrategyPosition(
+      network,
+      osToken,
+      distributor,
+      vault,
+      osTokenConfig,
+      position,
+      totalAssetsDiff,
+      earnedAssetsDiff,
+      timestamp,
+    )
   }
 
   log.info('[LeverageStrategy] ExitQueueEntered vault={} user={} positionTicket={}', [
@@ -201,6 +218,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
   const osToken = loadOsToken()!
   const network = loadNetwork()!
+  const distributor = loadDistributor()!
   const vault = loadVault(vaultAddress)!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
@@ -216,7 +234,6 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     ])
   }
 
-  const positionExitPercent = position.exitingPercent
   position.exitRequest = null
   position.exitingPercent = BigInt.zero()
 
@@ -236,16 +253,20 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
   const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
 
-  position.totalEarnedAssets = position.totalEarnedAssets
-    .plus(earnedAssetsDiff)
-    .times(positionExitPercent)
-    .div(BigInt.fromString(WAD))
-  position.save()
-
-  _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, vault, userAddress, timestamp)
+  _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress, timestamp)
 
   if (!ignoreSnapshot) {
-    snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, timestamp)
+    snapshotLeverageStrategyPosition(
+      network,
+      osToken,
+      distributor,
+      vault,
+      osTokenConfig,
+      position,
+      totalAssetsDiff,
+      earnedAssetsDiff,
+      timestamp,
+    )
   }
 
   createAllocatorAction(

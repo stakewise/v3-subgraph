@@ -1,8 +1,10 @@
-import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
-import { ExitRequest, ExitRequestSnapshot, Vault } from '../../generated/schema'
+import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
+import { Distributor, ExitRequest, Network, OsToken, OsTokenConfig, Vault } from '../../generated/schema'
 import { Vault as VaultContract } from '../../generated/Keeper/Vault'
 import { loadV2Pool } from './v2pool'
-import { convertSharesToAssets, getUpdateStateCall, getVaultApy, loadVault } from './vault'
+import { convertSharesToAssets, getUpdateStateCall } from './vault'
+import { loadAllocator, snapshotAllocator } from './allocator'
+import { loadOsTokenHolder, snapshotOsTokenHolder } from './osTokenHolder'
 
 const secondsInDay = '86400'
 const getExitQueueIndexSelector = '0x60d60e6e'
@@ -13,7 +15,14 @@ export function loadExitRequest(vault: Address, positionTicket: BigInt): ExitReq
   return ExitRequest.load(exitRequestId)
 }
 
-export function updateExitRequests(vault: Vault, timestamp: BigInt): void {
+export function updateExitRequests(
+  network: Network,
+  osToken: OsToken,
+  distributor: Distributor,
+  vault: Vault,
+  osTokenConfig: OsTokenConfig,
+  timestamp: BigInt,
+): void {
   if (vault.isGenesis) {
     const v2Pool = loadV2Pool()!
     if (!v2Pool.migrated) {
@@ -104,7 +113,16 @@ export function updateExitRequests(vault: Vault, timestamp: BigInt): void {
     }
     exitRequest.save()
 
-    snapshotExitRequest(exitRequest, exitRequest.totalAssets.minus(totalAssetsBefore), timestamp)
+    snapshotExitRequest(
+      network,
+      osToken,
+      distributor,
+      vault,
+      osTokenConfig,
+      exitRequest,
+      exitRequest.totalAssets.minus(totalAssetsBefore),
+      timestamp,
+    )
   }
 }
 
@@ -126,20 +144,32 @@ function getCalculateExitedAssetsCall(
     .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(exitQueueIndex))!)
 }
 
-export function snapshotExitRequest(exitRequest: ExitRequest, earnedAssets: BigInt, timestamp: BigInt): void {
-  let apy: BigDecimal = BigDecimal.zero()
-  if (!exitRequest.isV2Position && exitRequest.exitedAssets.lt(exitRequest.totalAssets)) {
-    const vault = loadVault(Address.fromString(exitRequest.vault))!
-    const vaultApy = getVaultApy(vault, true)
-    apy = vaultApy.minus(
-      vaultApy.times(exitRequest.exitedAssets.toBigDecimal()).div(exitRequest.totalAssets.toBigDecimal()),
-    )
+export function snapshotExitRequest(
+  network: Network,
+  osToken: OsToken,
+  distributor: Distributor,
+  vault: Vault,
+  osTokenConfig: OsTokenConfig,
+  exitRequest: ExitRequest,
+  earnedAssets: BigInt,
+  timestamp: BigInt,
+): void {
+  if (exitRequest.receiver.notEqual(exitRequest.owner)) {
+    return
   }
-  const exitRequestSnapshot = new ExitRequestSnapshot(timestamp.toString())
-  exitRequestSnapshot.timestamp = timestamp.toI64()
-  exitRequestSnapshot.exitRequest = exitRequest.id
-  exitRequestSnapshot.earnedAssets = exitRequest.isClaimed ? BigInt.zero() : earnedAssets
-  exitRequestSnapshot.totalAssets = exitRequest.isClaimed ? BigInt.zero() : exitRequest.totalAssets
-  exitRequestSnapshot.apy = apy
-  exitRequestSnapshot.save()
+
+  const allocator = loadAllocator(Address.fromBytes(exitRequest.owner), Address.fromString(vault.id))!
+  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, earnedAssets, timestamp)
+
+  const osTokenVaultIds = network.osTokenVaultIds
+  for (let i = 0; i < osTokenVaultIds.length; i++) {
+    // if vault is an OsToken vault, snapshot exit request for osToken holder
+    if (vault.id === osTokenVaultIds[i]) {
+      const osTokenHolder = loadOsTokenHolder(Address.fromBytes(allocator.address))
+      if (osTokenHolder) {
+        snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, earnedAssets, timestamp)
+      }
+      break
+    }
+  }
 }
