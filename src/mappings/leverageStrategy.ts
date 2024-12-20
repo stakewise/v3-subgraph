@@ -15,7 +15,14 @@ import {
 } from '../entities/leverageStrategy'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import { WAD } from '../helpers/constants'
-import { createOrLoadAllocator, getAllocatorApy, loadAllocator, snapshotAllocator } from '../entities/allocator'
+import {
+  AllocatorActionType,
+  createAllocatorAction,
+  createOrLoadAllocator,
+  getAllocatorApy,
+  loadAllocator,
+  snapshotAllocator,
+} from '../entities/allocator'
 import { getOsTokenHolderApy, loadOsTokenHolder, snapshotOsTokenHolder } from '../entities/osTokenHolder'
 import { loadNetwork } from '../entities/network'
 import { loadVault } from '../entities/vault'
@@ -109,6 +116,15 @@ export function handleDeposited(event: Deposited): void {
   }
 
   createTransaction(event.transaction.hash.toHex())
+
+  createAllocatorAction(
+    event,
+    vaultAddress,
+    AllocatorActionType.BoostDeposited,
+    userAddress,
+    convertOsTokenSharesToAssets(osToken, depositedOsTokenShares),
+    depositedOsTokenShares,
+  )
 
   log.info('[LeverageStrategy] Deposited vault={} user={} osTokenShares={}', [
     vaultAddress.toHex(),
@@ -231,6 +247,15 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   if (!ignoreSnapshot) {
     snapshotLeverageStrategyPosition(position, totalAssetsDiff, earnedAssetsDiff, timestamp)
   }
+
+  createAllocatorAction(
+    event,
+    vaultAddress,
+    AllocatorActionType.BoostExitedAssetsClaimed,
+    userAddress,
+    convertOsTokenSharesToAssets(osToken, claimedOsTokenShares),
+    claimedOsTokenShares,
+  )
 
   createTransaction(event.transaction.hash.toHex())
 
