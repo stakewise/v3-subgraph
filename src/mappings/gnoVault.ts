@@ -41,13 +41,9 @@ export function handleXdaiSwapped(event: XdaiSwapped): void {
     feeRecipientShares = feeRecipientAssets.times(vault.totalShares).div(vault.totalAssets.minus(feeRecipientAssets))
   }
   vault.totalShares = vault.totalShares.plus(feeRecipientShares)
-  updateVaultApy(
-    vault,
-    vault.lastXdaiSwappedTimestamp,
-    timestamp,
-    convertSharesToAssets(vault, BigInt.fromString(WAD)),
-    true,
-  )
+  const newRate = convertSharesToAssets(vault, BigInt.fromString(WAD))
+  updateVaultApy(vault, vault.lastXdaiSwappedTimestamp, timestamp, vault.rate.minus(newRate), true)
+  vault.rate = newRate
   vault.lastXdaiSwappedTimestamp = timestamp
   vault.save()
   snapshotVault(vault, vaultRewardAssets, timestamp)

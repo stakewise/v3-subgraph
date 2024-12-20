@@ -46,7 +46,6 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
     leverageStrategyPosition.vault = vaultAddressHex
     leverageStrategyPosition.osTokenShares = BigInt.zero()
     leverageStrategyPosition.assets = BigInt.zero()
-    leverageStrategyPosition.totalEarnedAssets = BigInt.zero()
     leverageStrategyPosition.totalAssets = BigInt.zero()
     leverageStrategyPosition.borrowLtv = BigDecimal.zero()
     leverageStrategyPosition.exitingPercent = BigInt.zero()
@@ -220,6 +219,7 @@ export function getBoostPositionAnnualReward(
     }
     totalMintedOsTokenShares = totalMintedOsTokenShares.plus(osTokenExitRequest.osTokenShares)
   }
+  const totalMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalMintedOsTokenShares)
 
   const totalSuppliedOsTokenShares = aavePosition.suppliedOsTokenShares
   const totalBorrowedAssets = aavePosition.borrowedAssets
@@ -227,9 +227,13 @@ export function getBoostPositionAnnualReward(
   // deposited assets earn vault APY
   let totalEarnedAssets = getAnnualReward(totalDepositedAssets, vaultApy)
 
-  // supplied osToken shares earn osToken APY
+  // supplied osToken shares that are not minted earn osToken APY
   const totalSuppliedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalSuppliedOsTokenShares)
-  totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(totalSuppliedOsTokenAssets, osTokenApy))
+  if (totalSuppliedOsTokenAssets.gt(totalMintedOsTokenAssets)) {
+    totalEarnedAssets = totalEarnedAssets.plus(
+      getAnnualReward(totalSuppliedOsTokenAssets.minus(totalMintedOsTokenAssets), osTokenApy),
+    )
+  }
 
   // supplied osToken shares earn supply APY
   const totalEarnedOsTokenShares = getAnnualReward(totalSuppliedOsTokenShares, supplyApy)
@@ -237,7 +241,6 @@ export function getBoostPositionAnnualReward(
 
   // minted osToken shares lose mint APY
   const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig, useDayApy)
-  const totalMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalMintedOsTokenShares)
   totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(totalMintedOsTokenAssets, osTokenMintApy))
 
   // borrowed assets lose borrow APY

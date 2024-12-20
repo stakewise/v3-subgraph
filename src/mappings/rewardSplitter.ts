@@ -26,7 +26,6 @@ export function handleRewardSplitterCreated(event: RewardSplitterCreated): void 
   rewardSplitter.totalShares = BigInt.zero()
   rewardSplitter.owner = owner
   rewardSplitter.vault = vault
-  rewardSplitter.lastSnapshotTimestamp = event.block.timestamp
   rewardSplitter.save()
 
   createTransaction(txHash)

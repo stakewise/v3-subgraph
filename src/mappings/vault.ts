@@ -370,7 +370,6 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   exitRequest.timestamp = timestamp
   exitRequest.isClaimable = false
   exitRequest.isClaimed = false
-  exitRequest.lastSnapshotTimestamp = timestamp
   exitRequest.save()
 
   log.info('[Vault] V1ExitQueueEntered vault={} owner={} shares={}', [
@@ -449,7 +448,6 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   exitRequest.timestamp = timestamp
   exitRequest.isClaimable = false
   exitRequest.isClaimed = false
-  exitRequest.lastSnapshotTimestamp = timestamp
   exitRequest.save()
   snapshotExitRequest(network, osToken, distributor, vault, osTokenConfig, exitRequest, BigInt.zero(), timestamp)
 
@@ -518,7 +516,6 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     nextExitRequest.exitQueueIndex = null
     nextExitRequest.isClaimable = false
     nextExitRequest.isClaimed = false
-    nextExitRequest.lastSnapshotTimestamp = prevExitRequest.lastSnapshotTimestamp
     nextExitRequest.save()
     snapshotExitRequest(network, osToken, distributor, vault, osTokenConfig, nextExitRequest, BigInt.zero(), timestamp)
   }

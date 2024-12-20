@@ -140,7 +140,7 @@ type ExitRequest @entity {
   "The exit request vault"
   vault: Vault!
 
-  "The estimated withdrawal timestamp. Managed by the backend service."
+  "The estimated withdrawal timestamp. Updated by the backend service."
   withdrawalTimestamp: BigInt
 
   "Defines whether the exit request is claimable"
@@ -148,9 +148,6 @@ type ExitRequest @entity {
 
   "Defines whether the exit request is claimed"
   isClaimed: Boolean!
-
-  "The timestamp of the last exit request snapshot"
-  lastSnapshotTimestamp: BigInt!
 }
 
 """
@@ -420,9 +417,6 @@ type OsToken @entity {
 
   "The OsToken holders"
   holders: [OsTokenHolder!]! @derivedFrom(field: "osToken")
-
-  "The timestamp of the last rewards update"
-  lastUpdateTimestamp: BigInt!
 }
 
 """
@@ -550,9 +544,6 @@ type RewardSplitter @entity {
 
   "Shareholders of the reward splitter"
   shareHolders: [RewardSplitterShareHolder!]! @derivedFrom(field: "rewardSplitter")
-
-  "Last snapshot timestamp"
-  lastSnapshotTimestamp: BigInt!
 }
 
 """
@@ -756,9 +747,6 @@ type LeverageStrategyPosition @entity {
 
   "The total amount of user assets"
   assets: BigInt!
-
-  "The total amount of user earned assets in strategy"
-  totalEarnedAssets: BigInt!
 
   "The total amount of user assets"
   totalAssets: BigInt!

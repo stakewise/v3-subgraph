@@ -14,7 +14,6 @@ import {
   updateLeverageStrategyPosition,
 } from '../entities/leverageStrategy'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
-import { WAD } from '../helpers/constants'
 import {
   AllocatorActionType,
   createAllocatorAction,
@@ -187,9 +186,6 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
   const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
 
-  position.totalEarnedAssets = position.totalEarnedAssets.plus(earnedAssetsDiff)
-  position.save()
-
   _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress, timestamp)
 
   if (!ignoreSnapshot) {
@@ -238,7 +234,6 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     ])
   }
 
-  const positionExitPercent = position.exitingPercent
   position.exitRequest = null
   position.exitingPercent = BigInt.zero()
 
@@ -257,12 +252,6 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
   const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
   const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
-
-  position.totalEarnedAssets = position.totalEarnedAssets
-    .plus(earnedAssetsDiff)
-    .times(positionExitPercent)
-    .div(BigInt.fromString(WAD))
-  position.save()
 
   _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress, timestamp)
 

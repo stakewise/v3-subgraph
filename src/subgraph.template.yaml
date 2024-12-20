@@ -33,10 +33,8 @@ dataSources:
         - Allocator
         - AllocatorSnapshot
         - ExitRequest
-        - ExitRequestSnapshot
         - V2Pool
         - LeverageStrategyPosition
-        - LeverageStrategyPositionSnapshot
         - Distributor
         - PeriodicDistribution
         - DistributorReward
@@ -162,12 +160,9 @@ dataSources:
         - Allocator
         - AllocatorSnapshot
         - ExitRequest
-        - ExitRequestSnapshot
         - RewardSplitter
         - RewardSplitterShareHolder
-        - RewardSplitterShareHolderSnapshot
         - LeverageStrategyPosition
-        - LeverageStrategyPositionSnapshot
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
@@ -473,7 +468,6 @@ dataSources:
         - Vault
         - Allocator
         - LeverageStrategyPosition
-        - LeverageStrategyPositionSnapshot
         - OsTokenHolder
         - Aave
         - AavePosition
@@ -601,7 +595,6 @@ templates:
         - AllocatorSnapshot
         - AllocatorAction
         - ExitRequest
-        - ExitRequestSnapshot
         - Transaction
         - LeverageStrategyPosition
       abis:
@@ -792,7 +785,6 @@ templates:
       entities:
         - RewardSplitter
         - RewardSplitterShareHolder
-        - RewardSplitterShareHolderSnapshot
         - Transaction
       abis:
         - name: RewardSplitter

@@ -49,6 +49,10 @@ function _handleSwiseTokenTransfer(event: Transfer): void {
   const to = event.params.to
   const amount = event.params.value
 
+  if (amount.isZero()) {
+    return
+  }
+
   if (from.notEqual(Address.zero())) {
     const tokenHolderFrom = createOrLoadSwiseTokenHolder(from)
 
@@ -69,6 +73,10 @@ function _handleOsTokenTransfer(event: Transfer): void {
   const to = event.params.to
   const amount = event.params.value
   const timestamp = event.block.timestamp
+
+  if (amount.isZero()) {
+    return
+  }
 
   const network = loadNetwork()!
   const osToken = loadOsToken()!

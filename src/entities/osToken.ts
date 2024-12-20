@@ -24,7 +24,6 @@ export function createOrLoadOsToken(): OsToken {
     osToken.feePercent = 0
     osToken.totalSupply = BigInt.zero()
     osToken.totalAssets = BigInt.zero()
-    osToken.lastUpdateTimestamp = BigInt.zero()
     osToken.save()
   }
 

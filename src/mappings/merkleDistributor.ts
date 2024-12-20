@@ -16,23 +16,55 @@ import {
   loadDistributorClaim,
 } from '../entities/merkleDistributor'
 import { createTransaction } from '../entities/transaction'
+import { OS_TOKEN } from '../helpers/constants'
+import { loadNetwork } from '../entities/network'
+
+const secondsInYear = '31536000'
 
 export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded): void {
-  const distribution = new PeriodicDistribution(
-    `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`,
-  )
-  const distType = getDistributionType(event.params.extraData)
+  const token = event.params.token
+  const extraData = event.params.extraData
+  const network = loadNetwork()!
+
+  const distType = getDistributionType(extraData)
   if (distType == DistributionType.UNKNOWN) {
-    log.error('[MerkleDistributor] Unknown periodic distribution extraData={}', [event.params.extraData.toHex()])
+    log.error('[MerkleDistributor] Unknown periodic distribution extraData={}', [extraData.toHex()])
+    return
+  } else if (distType == DistributionType.LEVERAGE_STRATEGY && token.notEqual(OS_TOKEN)) {
+    log.error('[MerkleDistributor] Leverage strategy distribution token is not OsToken={}', [token.toHex()])
+    return
+  } else if (
+    distType == DistributionType.SWISE_ASSET_UNI_POOL &&
+    (network.assetsUsdRate.equals(BigDecimal.zero()) || network.swiseUsdRate.equals(BigDecimal.zero()))
+  ) {
+    log.error('[MerkleDistributor] Swise asset Uni pool distribution assetsUsdRate or swiseUsdRate is zero', [])
+    return
+  } else if (
+    distType == DistributionType.OS_TOKEN_USDC_UNI_POOL &&
+    (network.assetsUsdRate.equals(BigDecimal.zero()) || network.usdcUsdRate.equals(BigDecimal.zero()))
+  ) {
+    log.error('[MerkleDistributor] OsToken USDC Uni pool distribution assetsUsdRate or usdcUsdRate is zero', [])
     return
   }
 
+  const startTimestamp = event.block.timestamp.plus(event.params.delayInSeconds)
+  let endTimestamp: BigInt
+  if (distType == DistributionType.LEVERAGE_STRATEGY) {
+    // leverage strategy distribution will continue until there is enough tokens to maintain specific APY
+    endTimestamp = startTimestamp.plus(BigInt.fromString(secondsInYear))
+  } else {
+    endTimestamp = startTimestamp.plus(event.params.durationInSeconds)
+  }
+
+  const distribution = new PeriodicDistribution(
+    `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`,
+  )
   distribution.distributionType = convertDistributionTypeToString(distType)
-  distribution.data = event.params.extraData
-  distribution.token = event.params.token
+  distribution.data = extraData
+  distribution.token = token
   distribution.amount = event.params.amount
-  distribution.startTimestamp = event.block.timestamp.plus(event.params.delayInSeconds)
-  distribution.endTimestamp = distribution.startTimestamp.plus(event.params.durationInSeconds)
+  distribution.startTimestamp = startTimestamp
+  distribution.endTimestamp = endTimestamp
   distribution.apy = BigDecimal.zero()
   distribution.apys = []
   distribution.save()
@@ -44,8 +76,8 @@ export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded
   distributor.save()
 
   log.info('[MerkleDistributor] PeriodicDistributionAdded data={} token={} amount={}', [
-    distribution.data.toHexString(),
-    distribution.token.toString(),
+    distribution.data.toHex(),
+    distribution.token.toHex(),
     distribution.amount.toString(),
   ])
 }
