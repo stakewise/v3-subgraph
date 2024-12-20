@@ -10,7 +10,7 @@ import {
   log,
   store,
 } from '@graphprotocol/graph-ts'
-import { DistributorClaimedAmount, PeriodicDistribution } from '../../generated/schema'
+import { DistributorClaim, DistributorClaimedAmount, PeriodicDistribution } from '../../generated/schema'
 import {
   OneTimeDistributionAdded,
   PeriodicDistributionAdded,
@@ -280,6 +280,12 @@ export function handleRewardsClaimed(event: RewardsClaimed): void {
   const user = event.params.account
   const tokens = event.params.tokens
   const cumulativeAmounts = event.params.cumulativeAmounts
+
+  // The DistributorClaim object is guaranteed to exist at this point because
+  // the user has claimed rewards using the DistributorClaim object.
+  const claim = DistributorClaim.load(user.toHex())!
+  const unclaimedAmounts = claim.unclaimedAmounts
+
   for (let i = 0; i < tokens.length; i++) {
     const claimedAmountId = `${tokens[i].toHex()}-${user.toHex()}`
     let claimedAmount = DistributorClaimedAmount.load(claimedAmountId)
@@ -289,8 +295,11 @@ export function handleRewardsClaimed(event: RewardsClaimed): void {
     }
     claimedAmount.cumulativeClaimedAmount = cumulativeAmounts[i]
     claimedAmount.save()
+    unclaimedAmounts[i] = claim.cumulativeAmounts[i].minus(claimedAmount.cumulativeClaimedAmount)
   }
-  store.remove('DistributorClaim', user.toHex())
+
+  claim.unclaimedAmounts = unclaimedAmounts
+  claim.save()
 
   createTransaction(event.transaction.hash.toHex())
   log.info('[MerkleDistributor] RewardsClaimed user={}', [user.toHex()])
