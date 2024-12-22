@@ -199,19 +199,19 @@ export function getAllocatorApy(
     totalEarnedAssets = totalEarnedAssets.plus(
       getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition, distributor, useDayApy),
     )
-    let earnedOsTokenShares: BigInt
+    let extraOsTokenShares: BigInt
     let mintedLockedOsTokenShares: BigInt
     if (boostPosition.osTokenShares.gt(allocator.mintedOsTokenShares)) {
-      earnedOsTokenShares = boostPosition.osTokenShares.minus(allocator.mintedOsTokenShares)
+      extraOsTokenShares = boostPosition.osTokenShares.minus(allocator.mintedOsTokenShares)
       mintedLockedOsTokenShares = allocator.mintedOsTokenShares
     } else {
-      earnedOsTokenShares = BigInt.zero()
+      extraOsTokenShares = BigInt.zero()
       mintedLockedOsTokenShares = boostPosition.osTokenShares
     }
     const mintedLockedOsTokenAssets = convertOsTokenSharesToAssets(osToken, mintedLockedOsTokenShares)
     totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(mintedLockedOsTokenAssets, osTokenApy))
     principalAssets = principalAssets
-      .plus(convertOsTokenSharesToAssets(osToken, earnedOsTokenShares))
+      .plus(convertOsTokenSharesToAssets(osToken, extraOsTokenShares))
       .plus(boostPosition.assets)
   }
 
@@ -219,7 +219,10 @@ export function getAllocatorApy(
     return BigDecimal.zero()
   }
 
-  return totalEarnedAssets.divDecimal(principalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
+  const allocatorApy = totalEarnedAssets.divDecimal(principalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
+  if (allocatorApy.gt(vault.allocatorMaxBoostApy)) {
+    return vault.allocatorMaxBoostApy
+  }
 }
 
 export function getAllocatorTotalAssets(osToken: OsToken, allocator: Allocator): BigInt {

@@ -8,6 +8,7 @@ import {
   OsToken,
   OsTokenHolder,
   OsTokenHolderSnapshot,
+  Vault,
 } from '../../generated/schema'
 import { getAnnualReward } from '../helpers/utils'
 import { convertOsTokenSharesToAssets, getOsTokenApy, osTokenId } from './osToken'
@@ -51,10 +52,11 @@ export function getOsTokenHolderApy(
   let totalEarnedAssets = getAnnualReward(principalAssets, osTokenApy)
 
   // check balances of leverage strategy positions
+  let vault: Vault | null = null
   const osTokenVaultIds = network.osTokenVaultIds
   for (let i = 0; i < osTokenVaultIds.length; i++) {
     const vaultAddress = Address.fromString(osTokenVaultIds[i])
-    const vault = loadVault(vaultAddress)!
+    vault = loadVault(vaultAddress)!
     const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
     const position = loadLeverageStrategyPosition(vaultAddress, Address.fromString(osTokenHolder.id))
     if (!position) {
@@ -73,7 +75,14 @@ export function getOsTokenHolderApy(
     return BigDecimal.zero()
   }
 
-  return totalEarnedAssets.divDecimal(principalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
+  const osTokenHolderApy = totalEarnedAssets
+    .divDecimal(principalAssets.toBigDecimal())
+    .times(BigDecimal.fromString('100'))
+  if (vault && osTokenHolderApy.gt(vault.osTokenHolderMaxBoostApy)) {
+    return vault.osTokenHolderMaxBoostApy
+  }
+
+  return osTokenHolderApy
 }
 
 export function getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, osTokenHolder: OsTokenHolder): BigInt {
