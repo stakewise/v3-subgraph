@@ -223,6 +223,8 @@ export function getAllocatorApy(
   if (allocatorApy.gt(vault.allocatorMaxBoostApy)) {
     return vault.allocatorMaxBoostApy
   }
+
+  return allocatorApy
 }
 
 export function getAllocatorTotalAssets(osToken: OsToken, allocator: Allocator): BigInt {
