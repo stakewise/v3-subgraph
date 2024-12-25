@@ -10,7 +10,7 @@ import {
   OS_TOKEN,
   WAD,
 } from '../helpers/constants'
-import { calculateAverage, getCompoundedApy } from '../helpers/utils'
+import { calculateMedian, getCompoundedApy } from '../helpers/utils'
 import { getOsTokenApy } from './osToken'
 
 const aaveId = '1'
@@ -87,7 +87,7 @@ export function updateAaveApys(aave: Aave, blockNumber: BigInt): void {
     apys = apys.slice(apys.length - snapshotsPerWeek)
   }
   aave.supplyApys = apys
-  aave.supplyApy = calculateAverage(apys)
+  aave.supplyApy = calculateMedian(apys)
   aave.save()
 
   apys = aave.borrowApys
@@ -97,7 +97,7 @@ export function updateAaveApys(aave: Aave, blockNumber: BigInt): void {
     apys = apys.slice(apys.length - snapshotsPerWeek)
   }
   aave.borrowApys = apys
-  aave.borrowApy = calculateAverage(apys)
+  aave.borrowApy = calculateMedian(apys)
   aave.save()
 }
 
@@ -117,7 +117,7 @@ export function getAaveSupplyApy(aave: Aave, osToken: OsToken, useDayApy: boolea
     apy = aave.supplyApy
   } else {
     const apys: Array<BigDecimal> = aave.supplyApys
-    apy = calculateAverage(apys.slice(apysCount - snapshotsPerDay))
+    apy = calculateMedian(apys.slice(apysCount - snapshotsPerDay))
   }
   // earned osToken shares earn extra staking rewards, apply compounding
   return getCompoundedApy(apy, getOsTokenApy(osToken, useDayApy))
@@ -130,5 +130,5 @@ export function getAaveBorrowApy(aave: Aave, useDayApy: boolean): BigDecimal {
     return aave.borrowApy
   }
   const apys: Array<BigDecimal> = aave.borrowApys
-  return calculateAverage(apys.slice(apysCount - snapshotsPerDay))
+  return calculateMedian(apys.slice(apysCount - snapshotsPerDay))
 }
