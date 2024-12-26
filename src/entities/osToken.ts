@@ -4,6 +4,8 @@ import { OsTokenVaultController as OsTokenVaultControllerContact } from '../../g
 import { OS_TOKEN_VAULT_CONTROLLER, WAD } from '../helpers/constants'
 import { calculateAverage } from '../helpers/utils'
 
+const snapshotsPerWeek = 14
+const snapshotsPerDay = 2
 const secondsInYear = '31536000'
 const maxPercent = '100'
 export const osTokenId = '1'
@@ -22,7 +24,6 @@ export function createOrLoadOsToken(): OsToken {
     osToken.feePercent = 0
     osToken.totalSupply = BigInt.zero()
     osToken.totalAssets = BigInt.zero()
-    osToken.lastUpdateTimestamp = BigInt.zero()
     osToken.save()
   }
 
@@ -55,8 +56,8 @@ export function updateOsTokenApy(osToken: OsToken, newAvgRewardPerSecond: BigInt
 
   let apys = osToken.apys
   apys.push(currentApy)
-  if (apys.length > 14) {
-    apys = apys.slice(apys.length - 14)
+  if (apys.length > snapshotsPerWeek) {
+    apys = apys.slice(apys.length - snapshotsPerWeek)
   }
   osToken.apys = apys
   osToken.apy = calculateAverage(apys)
@@ -81,22 +82,15 @@ export function convertAssetsToOsTokenShares(osToken: OsToken, assets: BigInt): 
 
 export function getOsTokenApy(osToken: OsToken, useDayApy: boolean): BigDecimal {
   const apysCount = osToken.apys.length
-  if (!useDayApy || apysCount < 2) {
+  if (!useDayApy || apysCount < snapshotsPerDay) {
     return osToken.apy
   }
   const apys: Array<BigDecimal> = osToken.apys
-  return calculateAverage(apys.slice(apys.length - 2))
+  return calculateAverage(apys.slice(apys.length - snapshotsPerDay))
 }
 
 export function snapshotOsToken(osToken: OsToken, earnedAssets: BigInt, timestamp: BigInt): void {
   let apy = getOsTokenApy(osToken, true)
-  const maxFeePercent = BigDecimal.fromString('10000')
-  const osTokenFeePercent = BigDecimal.fromString(osToken.feePercent.toString())
-  if (osTokenFeePercent.lt(maxFeePercent)) {
-    // Adjust APY to account for the fee
-    apy = apy.times(maxFeePercent).div(maxFeePercent.minus(osTokenFeePercent))
-  }
-
   const osTokenSnapshot = new OsTokenSnapshot(timestamp.toString())
   osTokenSnapshot.timestamp = timestamp.toI64()
   osTokenSnapshot.earnedAssets = earnedAssets

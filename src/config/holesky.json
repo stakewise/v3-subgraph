@@ -51,11 +51,11 @@
     "startBlock": "215379"
   },
   "osToken": {
-    "address": "0xF603c5A3F774F05d4D848A9bB139809790890864",
+    "address": "0xf603c5a3f774f05d4d848a9bb139809790890864",
     "startBlock": "215376"
   },
   "swiseToken": {
-    "address": "0x484871C6D54a3dAEBeBBDB0AB7a54c97D72986Bb",
+    "address": "0x484871c6d54a3daebebbdb0ab7a54c97d72986bb",
     "startBlock": "166860"
   },
   "osTokenConfigV1": {
@@ -83,8 +83,8 @@
     "startBlock": "2592188"
   },
   "merkleDistributor": {
-    "address": "0x0000000000000000000000000000000000000000",
-    "startBlock": "2592186"
+    "address": "0xD595e0bDcdB632299aED5296083f082D3f80406d",
+    "startBlock": "2876307"
   },
   "aaveLeverageStrategy": {
     "address": "0xdB38cfc6e98a34Cdc60c568f607417E646C75B34",

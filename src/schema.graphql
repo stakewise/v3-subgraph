@@ -35,12 +35,15 @@ type Allocator @entity {
 
   "The vault of the allocator"
   vault: Vault!
+
+  "The exit requests of the allocator"
+  exitRequests: [ExitRequest!]! @derivedFrom(field: "allocator")
 }
 
 """
 Token transfer
 """
-type TokenTransfer @entity {
+type TokenTransfer @entity(immutable: true) {
   "The transfer hash"
   id: ID!
 
@@ -116,6 +119,9 @@ type ExitRequest @entity {
   "The address that will receive exited assets"
   receiver: Bytes!
 
+  "The allocator of the vault that created the exit request"
+  allocator: Allocator!
+
   "The total number of tickets in the exit queue"
   totalTickets: BigInt!
 
@@ -134,7 +140,7 @@ type ExitRequest @entity {
   "The exit request vault"
   vault: Vault!
 
-  "The estimated withdrawal timestamp. Managed by the backend service."
+  "The estimated withdrawal timestamp. Updated by the backend service."
   withdrawalTimestamp: BigInt
 
   "Defines whether the exit request is claimable"
@@ -142,9 +148,6 @@ type ExitRequest @entity {
 
   "Defines whether the exit request is claimed"
   isClaimed: Boolean!
-
-  "The timestamp of the last exit request snapshot"
-  lastSnapshotTimestamp: BigInt!
 }
 
 """
@@ -367,7 +370,7 @@ enum AllocatorActionType {
 """
 Allocator action
 """
-type AllocatorAction @entity {
+type AllocatorAction @entity(immutable: true) {
   "Set to `transaction hash-log index`"
   id: ID!
 
@@ -414,9 +417,6 @@ type OsToken @entity {
 
   "The OsToken holders"
   holders: [OsTokenHolder!]! @derivedFrom(field: "osToken")
-
-  "The timestamp of the last rewards update"
-  lastUpdateTimestamp: BigInt!
 }
 
 """
@@ -544,9 +544,6 @@ type RewardSplitter @entity {
 
   "Shareholders of the reward splitter"
   shareHolders: [RewardSplitterShareHolder!]! @derivedFrom(field: "rewardSplitter")
-
-  "Last snapshot timestamp"
-  lastSnapshotTimestamp: BigInt!
 }
 
 """
@@ -578,7 +575,7 @@ type RewardSplitterShareHolder @entity {
 """
 StakeWise V3 transaction
 """
-type Transaction @entity {
+type Transaction @entity(immutable: true) {
   "Transaction hash"
   id: ID!
 }
@@ -635,7 +632,7 @@ type V2PoolUser @entity {
 """
 Vesting Escrow
 """
-type VestingEscrow @entity {
+type VestingEscrow @entity(immutable: true) {
   "The vesting escrow address"
   id: ID!
 
@@ -750,9 +747,6 @@ type LeverageStrategyPosition @entity {
 
   "The total amount of user assets"
   assets: BigInt!
-
-  "The total amount of user earned assets in strategy"
-  totalEarnedAssets: BigInt!
 
   "The total amount of user assets"
   totalAssets: BigInt!
@@ -872,52 +866,6 @@ type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
 }
 
 """
-The snapshot of the ExitRequest state
-"""
-type ExitRequestSnapshot @entity(timeseries: true) {
-  id: Int8!
-  timestamp: Timestamp!
-  exitRequest: ExitRequest!
-  earnedAssets: BigInt!
-  totalAssets: BigInt!
-  apy: BigDecimal!
-}
-
-"""
-The aggregation of the ExitRequest snapshots
-"""
-type ExitRequestStats @aggregation(intervals: ["day"], source: "ExitRequestSnapshot") {
-  id: Int8!
-  timestamp: Timestamp!
-  exitRequest: ExitRequest!
-  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
-  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
-  apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
-}
-
-"""
-The snapshot of the RewardSplitterShareHolder state
-"""
-type RewardSplitterShareHolderSnapshot @entity(timeseries: true) {
-  id: Int8!
-  timestamp: Timestamp!
-  rewardSpliterShareHolder: RewardSplitterShareHolder!
-  earnedAssets: BigInt!
-  totalAssets: BigInt!
-}
-
-"""
-The aggregation of the RewardSplitterShareHolder snapshots
-"""
-type RewardSplitterShareHolderStats @aggregation(intervals: ["day"], source: "RewardSplitterShareHolderSnapshot") {
-  id: Int8!
-  timestamp: Timestamp!
-  rewardSpliterShareHolder: RewardSplitterShareHolder!
-  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
-  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
-}
-
-"""
 The snapshot of the exchange rates
 """
 type ExchangeRateSnapshot @entity(timeseries: true) {
@@ -951,32 +899,6 @@ type ExchangeRateStats @aggregation(intervals: ["day"], source: "ExchangeRateSna
   usdToJpyRate: BigDecimal! @aggregate(fn: "last", arg: "usdToJpyRate")
   usdToKrwRate: BigDecimal! @aggregate(fn: "last", arg: "usdToKrwRate")
   usdToAudRate: BigDecimal! @aggregate(fn: "last", arg: "usdToAudRate")
-}
-
-"""
-The snapshot of the LeverageStrategyPosition state
-"""
-type LeverageStrategyPositionSnapshot @entity(timeseries: true) {
-  id: Int8!
-  timestamp: Timestamp!
-  position: LeverageStrategyPosition!
-  allocatorEarnedAssets: BigInt!
-  allocatorTotalEarnedAssets: BigInt!
-  osTokenHolderEarnedAssets: BigInt!
-  osTokenHolderTotalAssets: BigInt!
-}
-
-"""
-The aggregation of the LeverageStrategyPosition snapshots
-"""
-type LeverageStrategyPositionStats @aggregation(intervals: ["day"], source: "LeverageStrategyPositionSnapshot") {
-  id: Int8!
-  timestamp: Timestamp!
-  position: LeverageStrategyPosition!
-  allocatorEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "allocatorEarnedAssets")
-  allocatorTotalEarnedAssets: BigInt! @aggregate(fn: "last", arg: "allocatorTotalEarnedAssets")
-  osTokenHolderEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "osTokenHolderEarnedAssets")
-  osTokenHolderTotalAssets: BigInt! @aggregate(fn: "last", arg: "osTokenHolderTotalAssets")
 }
 
 "Uniswap V3 pool data"
@@ -1054,10 +976,20 @@ type Distributor @entity {
   activeDistributionIds: [String!]!
 }
 
+enum DistributionType {
+  SWISE_ASSET_UNI_POOL
+  OS_TOKEN_USDC_UNI_POOL
+  LEVERAGE_STRATEGY
+  UNKNOWN
+}
+
 "The periodic distribution of additional incentives"
 type PeriodicDistribution @entity {
   "Set to `transaction hash-log index`"
   id: ID!
+
+  "The distribution type"
+  distributionType: DistributionType!
 
   "The extra data used to identify the distribution"
   data: Bytes!
@@ -1067,6 +999,12 @@ type PeriodicDistribution @entity {
 
   "The amount of tokens that is distributed"
   amount: BigInt!
+
+  "The average weekly apy of the distribution"
+  apy: BigDecimal!
+
+  "The list of APY snapshots"
+  apys: [BigDecimal!]!
 
   "The timestamp when the distribution starts"
   startTimestamp: BigInt!

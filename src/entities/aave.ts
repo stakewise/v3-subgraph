@@ -1,5 +1,5 @@
 import { Address, BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
-import { Aave, AavePosition } from '../../generated/schema'
+import { Aave, AavePosition, OsToken } from '../../generated/schema'
 import { AaveProtocolDataProvider as AaveProtocolDataProviderContract } from '../../generated/PeriodicTasks/AaveProtocolDataProvider'
 import { AaveLeverageStrategy } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
 import {
@@ -10,10 +10,12 @@ import {
   OS_TOKEN,
   WAD,
 } from '../helpers/constants'
-import { calculateAverage } from '../helpers/utils'
+import { calculateMedian, getCompoundedApy } from '../helpers/utils'
+import { getOsTokenApy } from './osToken'
 
 const aaveId = '1'
 const snapshotsPerWeek = 168
+const snapshotsPerDay = 24
 
 export function loadAave(): Aave | null {
   return Aave.load(aaveId)
@@ -85,17 +87,17 @@ export function updateAaveApys(aave: Aave, blockNumber: BigInt): void {
     apys = apys.slice(apys.length - snapshotsPerWeek)
   }
   aave.supplyApys = apys
-  aave.supplyApy = calculateAverage(apys)
+  aave.supplyApy = calculateMedian(apys)
   aave.save()
 
   apys = aave.borrowApys
   apys.push(borrowApy)
   // assumes that updates happen every hour
-  if (apys.length > 14) {
+  if (apys.length > snapshotsPerWeek) {
     apys = apys.slice(apys.length - snapshotsPerWeek)
   }
   aave.borrowApys = apys
-  aave.borrowApy = calculateAverage(apys)
+  aave.borrowApy = calculateMedian(apys)
   aave.save()
 }
 
@@ -107,22 +109,26 @@ export function updateAavePosition(position: AavePosition): void {
   position.save()
 }
 
-export function getAaveSupplyApy(aave: Aave, useDayApy: boolean): BigDecimal {
+export function getAaveSupplyApy(aave: Aave, osToken: OsToken, useDayApy: boolean): BigDecimal {
   // assumes that updates happen every hour
   const apysCount = aave.supplyApys.length
-  if (!useDayApy || apysCount < 24) {
-    return aave.supplyApy
+  let apy: BigDecimal
+  if (!useDayApy || apysCount < snapshotsPerDay) {
+    apy = aave.supplyApy
+  } else {
+    const apys: Array<BigDecimal> = aave.supplyApys
+    apy = calculateMedian(apys.slice(apysCount - snapshotsPerDay))
   }
-  const apys: Array<BigDecimal> = aave.supplyApys
-  return calculateAverage(apys.slice(apysCount - 24))
+  // earned osToken shares earn extra staking rewards, apply compounding
+  return getCompoundedApy(apy, getOsTokenApy(osToken, useDayApy))
 }
 
 export function getAaveBorrowApy(aave: Aave, useDayApy: boolean): BigDecimal {
   // assumes that updates happen every hour
   const apysCount = aave.borrowApys.length
-  if (!useDayApy || apysCount < 24) {
+  if (!useDayApy || apysCount < snapshotsPerDay) {
     return aave.borrowApy
   }
   const apys: Array<BigDecimal> = aave.borrowApys
-  return calculateAverage(apys.slice(apysCount - 24))
+  return calculateMedian(apys.slice(apysCount - snapshotsPerDay))
 }
