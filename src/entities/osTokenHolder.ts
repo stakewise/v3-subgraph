@@ -56,12 +56,12 @@ export function getOsTokenHolderApy(
   const osTokenVaultIds = network.osTokenVaultIds
   for (let i = 0; i < osTokenVaultIds.length; i++) {
     const vaultAddress = Address.fromString(osTokenVaultIds[i])
-    vault = loadVault(vaultAddress)!
-    const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
     const position = loadLeverageStrategyPosition(vaultAddress, Address.fromString(osTokenHolder.id))
     if (!position) {
       continue
     }
+    vault = loadVault(vaultAddress)!
+    const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
     const aave = loadAave()!
     principalAssets = principalAssets.plus(position.totalAssets)
     totalEarnedAssets = totalEarnedAssets.plus(
@@ -75,14 +75,7 @@ export function getOsTokenHolderApy(
     return BigDecimal.zero()
   }
 
-  const osTokenHolderApy = totalEarnedAssets
-    .divDecimal(principalAssets.toBigDecimal())
-    .times(BigDecimal.fromString('100'))
-  if (vault && osTokenHolderApy.gt(vault.osTokenHolderMaxBoostApy)) {
-    return vault.osTokenHolderMaxBoostApy
-  }
-
-  return osTokenHolderApy
+  return totalEarnedAssets.divDecimal(principalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
 }
 
 export function getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, osTokenHolder: OsTokenHolder): BigInt {

@@ -219,12 +219,7 @@ export function getAllocatorApy(
     return BigDecimal.zero()
   }
 
-  const allocatorApy = totalEarnedAssets.divDecimal(principalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
-  if (allocatorApy.gt(vault.allocatorMaxBoostApy)) {
-    return vault.allocatorMaxBoostApy
-  }
-
-  return allocatorApy
+  return totalEarnedAssets.divDecimal(principalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
 }
 
 export function getAllocatorTotalAssets(osToken: OsToken, allocator: Allocator): BigInt {
