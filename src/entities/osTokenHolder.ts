@@ -85,7 +85,7 @@ export function getOsTokenHolderApy(
     osTokenHolderApy.gt(vault.osTokenHolderMaxBoostApy)
   ) {
     log.warning(
-      '[getOsTokenHolderApy] Calculated APY is higher than max boost APY: maxBoostApy={}, osTokenHolderApy={} vault={} holder={}',
+      '[getOsTokenHolderApy] Calculated APY is higher than max boost APY: maxBoostApy={} osTokenHolderApy={} vault={} holder={}',
       [vault.osTokenHolderMaxBoostApy.toString(), osTokenHolderApy.toString(), vault.id, osTokenHolder.id],
     )
     return vault.osTokenHolderMaxBoostApy

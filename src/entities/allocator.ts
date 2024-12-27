@@ -222,7 +222,7 @@ export function getAllocatorApy(
   const allocatorApy = totalEarnedAssets.divDecimal(principalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
   if (!useDayApy && vault.apy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
     log.warning(
-      '[getAllocatorApy] Calculated APY is higher than max boost APY: maxBoostApy={}, allocatorApy={} vault={} allocator={}',
+      '[getAllocatorApy] Calculated APY is higher than max boost APY: maxBoostApy={} allocatorApy={} vault={} allocator={}',
       [vault.allocatorMaxBoostApy.toString(), allocatorApy.toString(), vault.id, allocator.address.toHex()],
     )
     return vault.allocatorMaxBoostApy
