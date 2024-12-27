@@ -63,7 +63,10 @@ export function getOsTokenHolderApy(
     vault = loadVault(vaultAddress)!
     const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
     const aave = loadAave()!
-    principalAssets = principalAssets.plus(position.totalAssets)
+    principalAssets = principalAssets
+      .plus(position.assets)
+      .plus(position.exitingAssets)
+      .plus(convertOsTokenSharesToAssets(osToken, position.osTokenShares.plus(position.exitingOsTokenShares)))
     totalEarnedAssets = totalEarnedAssets.plus(
       getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, position, distributor, useDayApy),
     )
@@ -131,7 +134,8 @@ export function getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, 
   if (boostPosition) {
     totalAssets = totalAssets
       .plus(boostPosition.assets)
-      .plus(convertOsTokenSharesToAssets(osToken, boostPosition.osTokenShares))
+      .plus(boostPosition.exitingAssets)
+      .plus(convertOsTokenSharesToAssets(osToken, boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)))
   }
 
   return totalAssets
