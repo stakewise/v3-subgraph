@@ -199,20 +199,21 @@ export function getAllocatorApy(
     totalEarnedAssets = totalEarnedAssets.plus(
       getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition, distributor, useDayApy),
     )
+    const boostedOsTokenShares = boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)
     let extraOsTokenShares: BigInt
     let mintedLockedOsTokenShares: BigInt
-    if (boostPosition.osTokenShares.gt(allocator.mintedOsTokenShares)) {
-      extraOsTokenShares = boostPosition.osTokenShares.minus(allocator.mintedOsTokenShares)
+    if (boostedOsTokenShares.gt(allocator.mintedOsTokenShares)) {
+      extraOsTokenShares = boostedOsTokenShares.minus(allocator.mintedOsTokenShares)
       mintedLockedOsTokenShares = allocator.mintedOsTokenShares
     } else {
       extraOsTokenShares = BigInt.zero()
-      mintedLockedOsTokenShares = boostPosition.osTokenShares
+      mintedLockedOsTokenShares = boostedOsTokenShares
     }
     const mintedLockedOsTokenAssets = convertOsTokenSharesToAssets(osToken, mintedLockedOsTokenShares)
     totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(mintedLockedOsTokenAssets, osTokenApy))
     principalAssets = principalAssets
       .plus(convertOsTokenSharesToAssets(osToken, extraOsTokenShares))
-      .plus(boostPosition.assets)
+      .plus(boostPosition.assets.plus(boostPosition.exitingAssets))
   }
 
   if (principalAssets.isZero()) {
@@ -251,12 +252,13 @@ export function getAllocatorTotalAssets(osToken: OsToken, allocator: Allocator):
   const allocatorAddress = Address.fromBytes(allocator.address)
   const boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
   if (boostPosition !== null) {
-    if (boostPosition.osTokenShares.gt(allocator.mintedOsTokenShares)) {
+    const boostedOsTokenShares = boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)
+    if (boostedOsTokenShares.gt(allocator.mintedOsTokenShares)) {
       totalAssets = totalAssets.plus(
-        convertOsTokenSharesToAssets(osToken, boostPosition.osTokenShares.minus(allocator.mintedOsTokenShares)),
+        convertOsTokenSharesToAssets(osToken, boostedOsTokenShares.minus(allocator.mintedOsTokenShares)),
       )
     }
-    totalAssets = totalAssets.plus(boostPosition.assets)
+    totalAssets = totalAssets.plus(boostPosition.assets).plus(boostPosition.exitingAssets)
   }
 
   return totalAssets
