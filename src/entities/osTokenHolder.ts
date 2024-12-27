@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
 import {
   Allocator,
   Distributor,
@@ -75,7 +75,22 @@ export function getOsTokenHolderApy(
     return BigDecimal.zero()
   }
 
-  return totalEarnedAssets.divDecimal(principalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
+  const osTokenHolderApy = totalEarnedAssets
+    .divDecimal(principalAssets.toBigDecimal())
+    .times(BigDecimal.fromString('100'))
+  if (
+    !useDayApy &&
+    vault &&
+    osTokenApy.lt(vault.osTokenHolderMaxBoostApy) &&
+    osTokenHolderApy.gt(vault.osTokenHolderMaxBoostApy)
+  ) {
+    log.warning(
+      '[getOsTokenHolderApy] Calculated APY is higher than max boost APY: maxBoostApy={}, osTokenHolderApy={} vault={} holder={}',
+      [vault.osTokenHolderMaxBoostApy.toString(), osTokenHolderApy.toString(), vault.id, osTokenHolder.id],
+    )
+    return vault.osTokenHolderMaxBoostApy
+  }
+  return osTokenHolderApy
 }
 
 export function getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, osTokenHolder: OsTokenHolder): BigInt {

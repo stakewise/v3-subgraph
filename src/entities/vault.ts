@@ -585,6 +585,7 @@ export function updateVaultApy(
   }
 
   let apys = vault.apys
+  const apysCount = apys.length
   let currentApy = rateChange
     .toBigDecimal()
     .times(BigDecimal.fromString(secondsInYear))
@@ -592,21 +593,21 @@ export function updateVaultApy(
     .div(BigDecimal.fromString(WAD))
     .div(totalDuration.toBigDecimal())
 
-  if (appendToLast && vault.apys.length > 0) {
-    currentApy = currentApy.plus(vault.apys[vault.apys.length - 1])
+  if (appendToLast && apysCount > 0) {
+    currentApy = currentApy.plus(apys[apysCount - 1])
   }
   const maxApy = BigDecimal.fromString(MAX_VAULT_APY)
   if (currentApy.gt(maxApy)) {
     currentApy = maxApy
   }
 
-  if (appendToLast && vault.apys.length > 0) {
-    apys[apys.length - 1] = currentApy
+  if (appendToLast && apysCount > 0) {
+    apys[apysCount - 1] = currentApy
   } else {
     apys.push(currentApy)
   }
-  if (apys.length > snapshotsPerWeek) {
-    apys = apys.slice(apys.length - snapshotsPerWeek)
+  if (apysCount > snapshotsPerWeek) {
+    apys = apys.slice(apysCount - snapshotsPerWeek)
   }
   vault.apys = apys
   vault.apy = calculateAverage(apys)

@@ -1,6 +1,6 @@
 import { Address, BigDecimal, BigInt, Bytes, ipfs, json, log } from '@graphprotocol/graph-ts'
 
-import { ExitRequest, Vault } from '../../generated/schema'
+import { Allocator, ExitRequest, Vault } from '../../generated/schema'
 import {
   BlocklistVault as BlocklistVaultTemplate,
   GnoVault as GnoVaultTemplate,
@@ -547,7 +547,13 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   snapshotOsToken(osToken, BigInt.zero(), timestamp)
 
   const vault = loadVault(vaultAddress)!
-  const allocator = loadAllocator(holder, vaultAddress)!
+  let allocator: Allocator
+  if (vault.isGenesis) {
+    // the allocator may not exist during Genesis Vault migration
+    allocator = createOrLoadAllocator(holder, vaultAddress)
+  } else {
+    allocator = loadAllocator(holder, vaultAddress)!
+  }
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const distributor = loadDistributor()!
   allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.plus(shares)
