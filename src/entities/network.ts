@@ -37,7 +37,7 @@ export function createOrLoadNetwork(): Network {
 }
 
 export function isGnosisNetwork(): boolean {
-  return NETWORK == 'chiado' || NETWORK == 'gnosis'
+  return NETWORK == 'chiado' || NETWORK == 'gnosis' || NETWORK == 'xdai'
 }
 
 export function createOrLoadUser(userAddress: Bytes): User {

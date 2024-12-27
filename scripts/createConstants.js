@@ -4,7 +4,7 @@ const path = require('path')
 const isMainnet = process.argv.includes('mainnet')
 const isHolesky = process.argv.includes('holesky')
 const isChiado = process.argv.includes('chiado')
-const isGnosis = process.argv.includes('gnosis')
+const isGnosis = process.argv.includes('gnosis') || process.argv.includes('xdai')
 
 let configName = null
 
