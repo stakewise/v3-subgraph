@@ -101,7 +101,6 @@ dataSources:
         - OsToken
         - TokenTransfer
         - OsTokenHolder
-        - OsTokenHolderSnapshot
         - LeverageStrategyPosition
       abis:
         - name: Erc20Token
@@ -402,7 +401,6 @@ dataSources:
         - OsToken
         - OsTokenConfig
         - OsTokenExitRequest
-        - OsTokenSnapshot
         - Allocator
         - ExitRequest
       abis:
@@ -587,12 +585,9 @@ templates:
         - Network
         - User
         - OsToken
-        - OsTokenSnapshot
         - OsTokenConfig
         - Vault
-        - VaultSnapshot
         - Allocator
-        - AllocatorSnapshot
         - AllocatorAction
         - ExitRequest
         - Transaction
@@ -712,7 +707,6 @@ templates:
         - OsToken
         - OsTokenConfig
         - Allocator
-        - AllocatorSnapshot
         - AllocatorAction
         - Transaction
         - LeverageStrategyPosition

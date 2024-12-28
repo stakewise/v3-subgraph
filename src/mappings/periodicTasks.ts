@@ -1,5 +1,5 @@
 import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
-import { loadVault, updateVaultMaxBoostApy } from '../entities/vault'
+import { loadVault, snapshotVault, updateVaultMaxBoostApy } from '../entities/vault'
 import { loadOsToken, snapshotOsToken, updateOsTokenTotalAssets } from '../entities/osToken'
 import { loadNetwork } from '../entities/network'
 import { AavePosition, Allocator, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
@@ -100,6 +100,9 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
 
     // update vault max boost apys
     updateVaultMaxBoostApy(aave, osToken, vault, osTokenConfig, distributor, blockNumber)
+
+    // snapshot vault
+    snapshotVault(vault, BigInt.zero(), timestamp)
   }
 
   // update osToken holders apys

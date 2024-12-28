@@ -8,7 +8,6 @@ import {
   createOrLoadOsTokenHolder,
   getOsTokenHolderApy,
   loadOsTokenHolder,
-  snapshotOsTokenHolder,
   updateOsTokenHolderAssets,
 } from '../entities/osTokenHolder'
 import { loadDistributor } from '../entities/merkleDistributor'
@@ -72,7 +71,6 @@ function _handleOsTokenTransfer(event: Transfer): void {
   const from = event.params.from
   const to = event.params.to
   const amount = event.params.value
-  const timestamp = event.block.timestamp
 
   if (amount.isZero()) {
     return
@@ -88,7 +86,6 @@ function _handleOsTokenTransfer(event: Transfer): void {
     updateOsTokenHolderAssets(osToken, tokenHolderFrom)
     tokenHolderFrom.apy = getOsTokenHolderApy(network, osToken, distributor, tokenHolderFrom, false)
     tokenHolderFrom.save()
-    snapshotOsTokenHolder(network, osToken, distributor, tokenHolderFrom, BigInt.zero(), timestamp)
 
     const user = createOrLoadUser(from)
     if (tokenHolderFrom.balance.isZero() && user.vaultsCount === 0) {
@@ -105,7 +102,6 @@ function _handleOsTokenTransfer(event: Transfer): void {
     updateOsTokenHolderAssets(osToken, tokenHolderTo)
     tokenHolderTo.apy = getOsTokenHolderApy(network, osToken, distributor, tokenHolderTo, false)
     tokenHolderTo.save()
-    snapshotOsTokenHolder(network, osToken, distributor, tokenHolderTo, BigInt.zero(), timestamp)
 
     const user = createOrLoadUser(to)
     if (!user.isOsTokenHolder && user.vaultsCount === 0 && tokenHolderTo.balance.gt(BigInt.zero())) {
