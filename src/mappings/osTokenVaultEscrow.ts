@@ -6,13 +6,8 @@ import {
   OsTokenRedeemed,
   PositionCreated,
 } from '../../generated/OsTokenVaultEscrow/OsTokenVaultEscrow'
-import {
-  getAllocatorApy,
-  loadAllocator,
-  snapshotAllocator,
-  updateAllocatorMintedOsTokenShares,
-} from '../entities/allocator'
-import { convertOsTokenSharesToAssets, loadOsToken, snapshotOsToken } from '../entities/osToken'
+import { getAllocatorApy, loadAllocator, updateAllocatorMintedOsTokenShares } from '../entities/allocator'
+import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { createOrLoadOsTokenExitRequest, getExitRequestLtv } from '../entities/osTokenVaultEscrow'
 import { loadVault } from '../entities/vault'
@@ -36,7 +31,6 @@ export function handlePositionCreated(event: PositionCreated): void {
   updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
   allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
   allocator.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, BigInt.zero(), event.block.timestamp)
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
   osTokenExitRequest.owner = owner
@@ -80,7 +74,6 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   osToken.totalAssets = osToken.totalAssets.minus(convertOsTokenSharesToAssets(osToken, osTokenShares))
   osToken.totalSupply = osToken.totalSupply.minus(osTokenShares)
   osToken.save()
-  snapshotOsToken(osToken, BigInt.zero(), event.block.timestamp)
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
   osTokenExitRequest.osTokenShares = osTokenExitRequest.osTokenShares.minus(osTokenShares)
@@ -105,7 +98,6 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   osToken.totalAssets = osToken.totalAssets.minus(convertOsTokenSharesToAssets(osToken, osTokenShares))
   osToken.totalSupply = osToken.totalSupply.minus(osTokenShares)
   osToken.save()
-  snapshotOsToken(osToken, BigInt.zero(), event.block.timestamp)
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
   osTokenExitRequest.osTokenShares = osTokenExitRequest.osTokenShares.minus(osTokenShares)
@@ -130,7 +122,6 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   osToken.totalAssets = osToken.totalAssets.minus(convertOsTokenSharesToAssets(osToken, osTokenShares))
   osToken.totalSupply = osToken.totalSupply.minus(osTokenShares)
   osToken.save()
-  snapshotOsToken(osToken, BigInt.zero(), event.block.timestamp)
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
   osTokenExitRequest.osTokenShares = osTokenExitRequest.osTokenShares.minus(osTokenShares)

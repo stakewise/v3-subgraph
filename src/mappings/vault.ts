@@ -36,16 +36,15 @@ import {
   getAllocatorApy,
   getAllocatorId,
   loadAllocator,
-  snapshotAllocator,
   updateAllocatorAssets,
   updateAllocatorMintedOsTokenShares,
 } from '../entities/allocator'
 import { decreaseUserVaultsCount, increaseUserVaultsCount, isGnosisNetwork, loadNetwork } from '../entities/network'
-import { convertOsTokenSharesToAssets, loadOsToken, snapshotOsToken } from '../entities/osToken'
+import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import { DEPOSIT_DATA_REGISTRY, OS_TOKEN_CONFIG_V2_START_BLOCK, WAD } from '../helpers/constants'
 import { createOrLoadOsTokenConfig, loadOsTokenConfig } from '../entities/osTokenConfig'
 import { loadExitRequest, snapshotExitRequest, updateExitRequests } from '../entities/exitRequest'
-import { convertSharesToAssets, loadVault, snapshotVault } from '../entities/vault'
+import { convertSharesToAssets, loadVault } from '../entities/vault'
 import { loadDistributor } from '../entities/merkleDistributor'
 
 // Event emitted on assets transfer from allocator to vault
@@ -55,14 +54,12 @@ export function handleDeposited(event: Deposited): void {
   const shares = params.shares
   const receiver = params.receiver
   const vaultAddress = event.address
-  const timestamp = event.block.timestamp
 
   const vault = loadVault(vaultAddress)!
   const isVaultCreation = vault.totalShares.isZero() && vault.totalAssets.isZero()
   vault.totalAssets = vault.totalAssets.plus(assets)
   vault.totalShares = vault.totalShares.plus(shares)
   vault.save()
-  snapshotVault(vault, BigInt.zero(), timestamp)
 
   const network = loadNetwork()!
   network.totalAssets = network.totalAssets.plus(assets)
@@ -80,7 +77,6 @@ export function handleDeposited(event: Deposited): void {
   updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
   allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
   allocator.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, BigInt.zero(), timestamp)
 
   const txHash = event.transaction.hash.toHex()
 
@@ -107,13 +103,11 @@ export function handleRedeemed(event: Redeemed): void {
   const shares = params.shares
   const owner = params.owner
   const vaultAddress = event.address
-  const timestamp = event.block.timestamp
 
   const vault = loadVault(vaultAddress)!
   vault.totalAssets = vault.totalAssets.minus(assets)
   vault.totalShares = vault.totalShares.minus(shares)
   vault.save()
-  snapshotVault(vault, BigInt.zero(), timestamp)
 
   const osToken = loadOsToken()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
@@ -128,7 +122,6 @@ export function handleRedeemed(event: Redeemed): void {
   updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
   allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
   allocator.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, BigInt.zero(), timestamp)
 
   if (allocator.shares.isZero()) {
     decreaseUserVaultsCount(allocator.address)
@@ -339,7 +332,6 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
     updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
     allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
     allocator.save()
-    snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, BigInt.zero(), timestamp)
 
     if (allocator.shares.isZero()) {
       decreaseUserVaultsCount(allocator.address)
@@ -406,7 +398,6 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   vault.exitingAssets = vault.exitingAssets.plus(assets)
   vault.exitingTickets = vault.exitingTickets.plus(exitingTickets)
   vault.save()
-  snapshotVault(vault, BigInt.zero(), timestamp)
 
   const network = loadNetwork()!
   network.totalAssets = network.totalAssets.minus(assets)
@@ -421,7 +412,6 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
   allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
   allocator.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, BigInt.zero(), timestamp)
 
   if (allocator.shares.isZero()) {
     decreaseUserVaultsCount(allocator.address)
@@ -449,7 +439,6 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   exitRequest.isClaimable = false
   exitRequest.isClaimed = false
   exitRequest.save()
-  snapshotExitRequest(network, osToken, distributor, vault, osTokenConfig, exitRequest, BigInt.zero(), timestamp)
 
   log.info('[Vault] V2ExitQueueEntered vault={} owner={} shares={} assets={}', [
     vaultAddressHex,
@@ -517,7 +506,6 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     nextExitRequest.isClaimable = false
     nextExitRequest.isClaimed = false
     nextExitRequest.save()
-    snapshotExitRequest(network, osToken, distributor, vault, osTokenConfig, nextExitRequest, BigInt.zero(), timestamp)
   }
 
   prevExitRequest.isClaimable = false
@@ -538,13 +526,11 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   const shares = event.params.shares
   const assets = event.params.assets
   const vaultAddress = event.address
-  const timestamp = event.block.timestamp
 
   const osToken = loadOsToken()!
   osToken.totalAssets = osToken.totalAssets.plus(convertOsTokenSharesToAssets(osToken, shares))
   osToken.totalSupply = osToken.totalSupply.plus(shares)
   osToken.save()
-  snapshotOsToken(osToken, BigInt.zero(), timestamp)
 
   const vault = loadVault(vaultAddress)!
   let allocator: Allocator
@@ -560,7 +546,6 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
   allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
   allocator.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, BigInt.zero(), timestamp)
 
   createAllocatorAction(event, vaultAddress, AllocatorActionType.OsTokenMinted, holder, assets, shares)
   const txHash = event.transaction.hash.toHex()
@@ -577,14 +562,12 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
   const holder = event.params.caller
   const assets = event.params.assets
   const shares = event.params.shares
-  const timestamp = event.block.timestamp
   const vaultAddress = event.address
 
   const osToken = loadOsToken()!
   osToken.totalAssets = osToken.totalAssets.minus(convertOsTokenSharesToAssets(osToken, shares))
   osToken.totalSupply = osToken.totalSupply.minus(shares)
   osToken.save()
-  snapshotOsToken(osToken, BigInt.zero(), timestamp)
 
   const vault = loadVault(vaultAddress)!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
@@ -597,7 +580,6 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
   updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
   allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
   allocator.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, BigInt.zero(), timestamp)
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
@@ -617,14 +599,12 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   const withdrawnShares = event.params.shares
   const withdrawnAssets = event.params.receivedAssets
   const vaultAddress = event.address
-  const timestamp = event.block.timestamp
 
   const vault = loadVault(vaultAddress)!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   vault.totalShares = vault.totalShares.minus(withdrawnShares)
   vault.totalAssets = vault.totalAssets.minus(withdrawnAssets)
   vault.save()
-  snapshotVault(vault, BigInt.zero(), timestamp)
 
   const network = loadNetwork()!
   network.totalAssets = network.totalAssets.minus(withdrawnAssets)
@@ -634,7 +614,6 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   osToken.totalAssets = osToken.totalAssets.minus(convertOsTokenSharesToAssets(osToken, shares))
   osToken.totalSupply = osToken.totalSupply.minus(shares)
   osToken.save()
-  snapshotOsToken(osToken, BigInt.zero(), timestamp)
 
   const distributor = loadDistributor()!
   const allocator = loadAllocator(holder, vaultAddress)!
@@ -647,7 +626,6 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
   allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
   allocator.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, BigInt.zero(), timestamp)
 
   if (allocator.shares.isZero()) {
     decreaseUserVaultsCount(allocator.address)
@@ -670,13 +648,11 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   const withdrawnShares = event.params.shares
   const withdrawnAssets = event.params.assets
   const vaultAddress = event.address
-  const timestamp = event.block.timestamp
 
   const vault = loadVault(vaultAddress)!
   vault.totalShares = vault.totalShares.minus(withdrawnShares)
   vault.totalAssets = vault.totalAssets.minus(withdrawnAssets)
   vault.save()
-  snapshotVault(vault, BigInt.zero(), timestamp)
 
   const network = loadNetwork()!
   network.totalAssets = network.totalAssets.minus(withdrawnAssets)
@@ -687,7 +663,6 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   osToken.totalAssets = osToken.totalAssets.minus(convertOsTokenSharesToAssets(osToken, shares))
   osToken.totalSupply = osToken.totalSupply.minus(shares)
   osToken.save()
-  snapshotOsToken(osToken, BigInt.zero(), timestamp)
 
   const distributor = loadDistributor()!
   const allocator = loadAllocator(holder, vaultAddress)!
@@ -700,7 +675,6 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
   allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
   allocator.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, BigInt.zero(), timestamp)
 
   if (allocator.shares.isZero()) {
     decreaseUserVaultsCount(allocator.address)
@@ -868,13 +842,11 @@ export function handleMigrated(event: Migrated): void {
   const receiver = params.receiver
   const assets = params.assets
   const shares = params.shares
-  const timestamp = event.block.timestamp
 
   const vault = loadVault(vaultAddress)!
   vault.totalAssets = vault.totalAssets.plus(assets)
   vault.totalShares = vault.totalShares.plus(shares)
   vault.save()
-  snapshotVault(vault, BigInt.zero(), timestamp)
 
   const network = loadNetwork()!
   network.totalAssets = network.totalAssets.plus(assets)
@@ -891,7 +863,6 @@ export function handleMigrated(event: Migrated): void {
   updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
   allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
   allocator.save()
-  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, BigInt.zero(), timestamp)
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)

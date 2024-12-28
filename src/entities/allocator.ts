@@ -185,8 +185,25 @@ export function getAllocatorApy(
   const vaultApy = getVaultApy(vault, useDayApy)
   const osTokenApy = getOsTokenApy(osToken, useDayApy)
 
-  let principalAssets = allocator.assets
-  let totalEarnedAssets = getAnnualReward(principalAssets, vaultApy)
+  let totalAssets = allocator.assets
+  let stakingAssets = allocator.assets
+
+  // get assets from the exit requests
+  let exitRequest: ExitRequest
+  const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
+  for (let i = 0; i < exitRequests.length; i++) {
+    exitRequest = exitRequests[i]
+    if (
+      !exitRequest.isClaimed &&
+      !exitRequest.isV2Position &&
+      Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
+    ) {
+      stakingAssets = stakingAssets.plus(exitRequest.totalAssets.minus(exitRequest.exitedAssets))
+      totalAssets = totalAssets.plus(exitRequest.totalAssets)
+    }
+  }
+
+  let totalEarnedAssets = getAnnualReward(stakingAssets, vaultApy)
 
   const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, allocator.mintedOsTokenShares)
   totalEarnedAssets = totalEarnedAssets.minus(
@@ -211,16 +228,16 @@ export function getAllocatorApy(
     }
     const mintedLockedOsTokenAssets = convertOsTokenSharesToAssets(osToken, mintedLockedOsTokenShares)
     totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(mintedLockedOsTokenAssets, osTokenApy))
-    principalAssets = principalAssets
+    totalAssets = totalAssets
       .plus(convertOsTokenSharesToAssets(osToken, extraOsTokenShares))
       .plus(boostPosition.assets.plus(boostPosition.exitingAssets))
   }
 
-  if (principalAssets.isZero()) {
+  if (totalAssets.isZero()) {
     return BigDecimal.zero()
   }
 
-  const allocatorApy = totalEarnedAssets.divDecimal(principalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
+  const allocatorApy = totalEarnedAssets.divDecimal(totalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
   if (!useDayApy && vault.apy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
     log.warning(
       '[getAllocatorApy] Calculated APY is higher than max boost APY: maxBoostApy={} allocatorApy={} vault={} allocator={}',
