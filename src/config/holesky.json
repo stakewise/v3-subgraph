@@ -105,5 +105,9 @@
   "uniswapPositionManager": {
     "address": "0x0000000000000000000000000000000000000000",
     "startBlock": "2673700"
+  },
+  "validatorsRegistry": {
+    "address": "0x4242424242424242424242424242424242424242",
+    "startBlock": "0"
   }
 }

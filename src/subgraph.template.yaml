@@ -437,7 +437,7 @@ dataSources:
         - DistributorClaimedAmount
       abis:
         - name: MerkleDistributor
-          file: ./abis/merkleDistributor.json
+          file: ./abis/MerkleDistributor.json
       eventHandlers:
         - event: PeriodicDistributionAdded(indexed address,indexed address,uint256,uint256,uint256,bytes)
           handler: handlePeriodicDistributionAdded
@@ -528,6 +528,26 @@ dataSources:
           handler: handleDecreaseLiquidity
         - event: Transfer(indexed address,indexed address,indexed uint256)
           handler: handleTransfer
+  - kind: ethereum/contract
+    name: ValidatorsRegistry
+    network: {{ network }}
+    source:
+      address: '{{ validatorsRegistry.address }}'
+      abi: ValidatorsRegistry
+      startBlock: {{ validatorsRegistry.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/networkValidator.ts
+      entities:
+        - NetworkValidator
+      abis:
+        - name: ValidatorsRegistry
+          file: ./abis/ValidatorsRegistry.json
+      eventHandlers:
+        - event: DepositEvent(bytes,bytes,bytes,bytes,bytes)
+          handler: handleDepositEvent
 templates:
   - kind: ethereum/contract
     name: VaultFactory

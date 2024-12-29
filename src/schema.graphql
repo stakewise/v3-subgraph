@@ -1057,3 +1057,9 @@ type DistributorClaimedAmount @entity {
   "The total amount of the token claimed by the user"
   cumulativeClaimedAmount: BigInt!
 }
+
+"The distributor claimed amounts"
+type NetworkValidator @entity {
+  "Set to validator public key"
+  id: ID!
+}
