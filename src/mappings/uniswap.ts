@@ -153,12 +153,6 @@ export function handleIncreaseLiquidity(event: IncreaseLiquidity): void {
 
   // position could not be fetched or is not supported
   if (position == null) {
-    log.debug('[UniswapPositionManager] IncreaseLiquidity position={} not found', [event.params.tokenId.toString()])
-    return
-  }
-  let pool = loadUniswapPool(event.address)
-  if (pool == null) {
-    log.error('[UniswapPositionManager] IncreaseLiquidity pool={} not found', [position.pool])
     return
   }
 
@@ -177,12 +171,6 @@ export function handleDecreaseLiquidity(event: DecreaseLiquidity): void {
   // position is not supported
   const position = UniswapPosition.load(event.params.tokenId.toString())
   if (position == null) {
-    log.debug('[UniswapPositionManager] DecreaseLiquidity position={} not found', [event.params.tokenId.toString()])
-    return
-  }
-  let pool = loadUniswapPool(event.address)
-  if (pool == null) {
-    log.error('[UniswapPositionManager] DecreaseLiquidity pool={} not found', [position.pool])
     return
   }
 

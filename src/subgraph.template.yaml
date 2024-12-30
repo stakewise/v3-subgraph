@@ -501,6 +501,8 @@ dataSources:
       eventHandlers:
         - event: PoolCreated(indexed address,indexed address,indexed uint24,int24,address)
           handler: handlePoolCreated
+          topic1: ['{{ osToken.address }}', '{{ swiseToken.address }}']
+          topic2: ['{{ osToken.address }}', '{{ swiseToken.address }}']
   - kind: ethereum/contract
     name: UniswapPositionManager
     network: {{ network }}
@@ -524,10 +526,14 @@ dataSources:
       eventHandlers:
         - event: IncreaseLiquidity(indexed uint256,uint128,uint256,uint256)
           handler: handleIncreaseLiquidity
+          calls:
+            uniPosition: UniswapPositionManager[event.address].positions(event.params.tokenId)
         - event: DecreaseLiquidity(indexed uint256,uint128,uint256,uint256)
           handler: handleDecreaseLiquidity
         - event: Transfer(indexed address,indexed address,indexed uint256)
           handler: handleTransfer
+          calls:
+            uniPosition: UniswapPositionManager[event.address].positions(event.params.tokenId)
 templates:
   - kind: ethereum/contract
     name: VaultFactory
