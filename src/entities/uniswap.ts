@@ -21,7 +21,6 @@ export function loadUniswapPool(poolAddress: Address): UniswapPool | null {
 export function createOrLoadPosition(tokenId: BigInt): UniswapPosition | null {
   let position = UniswapPosition.load(tokenId.toString())
   if (position == null) {
-    let factory = UniswapFactory.bind(UNISWAP_FACTORY)
     let positionManager = UniswapPositionManager.bind(UNISWAP_POSITION_MANAGER)
     let positionCall = positionManager.try_positions(tokenId)
     if (positionCall.reverted) {
@@ -39,6 +38,7 @@ export function createOrLoadPosition(tokenId: BigInt): UniswapPosition | null {
     }
 
     let fee = positionResult.getFee()
+    let factory = UniswapFactory.bind(UNISWAP_FACTORY)
     let poolAddress = factory.getPool(token0, token1, fee)
 
     position = new UniswapPosition(tokenId.toString())
