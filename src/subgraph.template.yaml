@@ -532,6 +532,8 @@ dataSources:
           handler: handleDecreaseLiquidity
         - event: Transfer(indexed address,indexed address,indexed uint256)
           handler: handleTransfer
+          calls:
+            uniPosition: UniswapPositionManager[event.address].positions(event.params.tokenId)
 templates:
   - kind: ethereum/contract
     name: VaultFactory
