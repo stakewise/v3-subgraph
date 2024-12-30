@@ -501,6 +501,8 @@ dataSources:
       eventHandlers:
         - event: PoolCreated(indexed address,indexed address,indexed uint24,int24,address)
           handler: handlePoolCreated
+          topic1: ['{{ osToken.address }}', '{{ swiseToken.address }}']
+          topic2: ['{{ osToken.address }}', '{{ swiseToken.address }}']
   - kind: ethereum/contract
     name: UniswapPositionManager
     network: {{ network }}
