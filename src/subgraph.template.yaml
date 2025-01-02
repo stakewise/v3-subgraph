@@ -182,6 +182,8 @@ dataSources:
           handler: handleOwnershipTransferred
         - event: RewardsUpdated(indexed address,indexed bytes32,uint256,uint64,uint64,string)
           handler: handleRewardsUpdated
+          calls:
+            osTokenTotalAssets: OsTokenVaultController[{{ osTokenVaultController.address }}].totalAssets()
         - event: Harvested(indexed address,indexed bytes32,int256,uint256)
           handler: handleHarvested
         - event: ValidatorsApproval(indexed address,string)
@@ -475,6 +477,8 @@ dataSources:
       eventHandlers:
         - event: StrategyProxyCreated(indexed bytes32,indexed address,indexed address,address)
           handler: handleStrategyProxyCreated
+          calls:
+            strategyProxy: AaveLeverageStrategy[event.address].getStrategyProxy(event.params.vault, event.params.user)
         - event: Deposited(indexed address,indexed address,uint256,uint256,address)
           handler: handleDeposited
         - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256,uint256,uint256)
@@ -534,6 +538,29 @@ dataSources:
           handler: handleTransfer
           calls:
             uniPosition: UniswapPositionManager[event.address].positions(event.params.tokenId)
+  - kind: ethereum/contract
+    name: StrategiesRegistry
+    network: {{ network }}
+    source:
+      address: '{{ strategiesRegistry.address }}'
+      abi: StrategiesRegistry
+      startBlock: {{ strategiesRegistry.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/strategiesRegistry.ts
+      entities:
+        - Aave
+        - OsTokenConfig
+        - Vault
+        - Network
+      abis:
+        - name: StrategiesRegistry
+          file: ./abis/StrategiesRegistry.json
+      eventHandlers:
+        - event: StrategyConfigUpdated(indexed bytes32,string,bytes)
+          handler: handleStrategyConfigUpdated
 templates:
   - kind: ethereum/contract
     name: VaultFactory

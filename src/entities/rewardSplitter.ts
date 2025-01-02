@@ -7,10 +7,10 @@ import {
   RewardSplitterShareHolder,
   Vault,
 } from '../../generated/schema'
-import { RewardSplitter as RewardSplitterContract } from '../../generated/Keeper/RewardSplitter'
 import { convertSharesToAssets } from './vault'
-import { createOrLoadV2Pool } from './v2pool'
+import { loadV2Pool } from './v2pool'
 import { createOrLoadAllocator, snapshotAllocator } from './allocator'
+import { chunkedRewardSplitterMulticall } from '../helpers/utils'
 
 const vaultUpdateStateSelector = '0x79c702ad'
 const syncRewardsCallSelector = '0x72c0c211'
@@ -46,12 +46,9 @@ export function updateRewardSplitters(
   vault: Vault,
   timestamp: BigInt,
 ): void {
-  if (vault.isGenesis) {
-    const v2Pool = createOrLoadV2Pool()
-    if (!v2Pool.migrated) {
-      // wait for the migration
-      return
-    }
+  if (vault.isGenesis && !loadV2Pool()!.migrated) {
+    // wait for the migration
+    return
   }
 
   const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
@@ -71,16 +68,15 @@ export function updateRewardSplitters(
       calls.push(_getRewardsOfCall(Address.fromBytes(shareHolders[j].address)))
     }
 
-    const rewardSplitterContract = RewardSplitterContract.bind(Address.fromString(rewardSplitter.id))
-    let callResult: Array<Bytes> = rewardSplitterContract.multicall(calls)
-    callResult = callResult.slice(updateStateCall ? 2 : 1)
+    let result = chunkedRewardSplitterMulticall(Address.fromString(rewardSplitter.id), calls)
+    result = result.slice(updateStateCall ? 2 : 1)
 
     let shareHolder: RewardSplitterShareHolder
     let earnedVaultAssetsBefore: BigInt
     for (let j = 0; j < shareHolders.length; j++) {
       shareHolder = shareHolders[j]
       earnedVaultAssetsBefore = shareHolder.earnedVaultAssets
-      shareHolder.earnedVaultShares = ethereum.decode('uint256', callResult[j])!.toBigInt()
+      shareHolder.earnedVaultShares = ethereum.decode('uint256', result[j])!.toBigInt()
       shareHolder.earnedVaultAssets = convertSharesToAssets(vault, shareHolder.earnedVaultShares)
       shareHolder.save()
       snapshotRewardSplitterShareHolder(

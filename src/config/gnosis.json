@@ -105,5 +105,9 @@
   "uniswapPositionManager": {
     "address": "0x0000000000000000000000000000000000000000",
     "startBlock": "34778574"
+  },
+  "strategiesRegistry": {
+    "address": "0x4abB9BBb82922A6893A5d6890cd2eE94610BEc48",
+    "startBlock": "12438574"
   }
 }

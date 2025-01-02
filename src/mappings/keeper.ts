@@ -26,7 +26,7 @@ import {
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
   VaultFactory as VaultFactoryTemplate,
 } from '../../generated/templates'
-import { AavePosition, Allocator, OsTokenHolder } from '../../generated/schema'
+import { Allocator, OsTokenHolder } from '../../generated/schema'
 import {
   createOrLoadOsToken,
   loadOsToken,
@@ -58,7 +58,7 @@ import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 import { loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
 import { getOsTokenHolderApy, snapshotOsTokenHolder, updateOsTokenHolderAssets } from '../entities/osTokenHolder'
-import { createOrLoadAave, loadAave, updateAavePosition } from '../entities/aave'
+import { createOrLoadAave, loadAave } from '../entities/aave'
 import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
 
 const IS_PRIVATE_KEY = 'isPrivate'
@@ -227,12 +227,8 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   }
   const feeRecipientsEarnedShares = updateVaults(json.fromBytes(data!), rewardsRoot, updateTimestamp, rewardsIpfsHash)
 
-  // update Aave
+  // fetch Aave data
   const aave = loadAave()!
-  const positions: Array<AavePosition> = aave.positions.load()
-  for (let i = 0; i < positions.length; i++) {
-    updateAavePosition(positions[i])
-  }
 
   // update OsToken
   const osToken = loadOsToken()!
@@ -304,7 +300,7 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
     updateOsTokenExitRequests(osToken, vault)
 
     // update leverage strategy positions
-    updateLeverageStrategyPositions(network, osToken, distributor, vault, osTokenConfig, blockTimestamp)
+    updateLeverageStrategyPositions(network, aave, osToken, distributor, vault, osTokenConfig, blockTimestamp)
 
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]

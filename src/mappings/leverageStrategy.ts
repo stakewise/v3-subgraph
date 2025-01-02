@@ -25,7 +25,7 @@ import { getOsTokenHolderApy, loadOsTokenHolder } from '../entities/osTokenHolde
 import { loadNetwork } from '../entities/network'
 import { loadVault } from '../entities/vault'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { createOrLoadAavePosition } from '../entities/aave'
+import { createOrLoadAavePosition, loadAave } from '../entities/aave'
 import { loadDistributor } from '../entities/merkleDistributor'
 
 function _updateAllocatorAndOsTokenHolderApys(
@@ -36,10 +36,11 @@ function _updateAllocatorAndOsTokenHolderApys(
   vault: Vault,
   userAddress: Address,
 ): void {
-  const allocator = loadAllocator(userAddress, Address.fromString(vault.id))!
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
-  allocator.save()
-
+  const allocator = loadAllocator(userAddress, Address.fromString(vault.id))
+  if (allocator) {
+    allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+    allocator.save()
+  }
   const osTokenHolder = loadOsTokenHolder(userAddress)!
   osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
   osTokenHolder.save()
@@ -70,6 +71,7 @@ export function handleDeposited(event: Deposited): void {
   const depositedOsTokenShares = event.params.osTokenShares
   const timestamp = event.block.timestamp
 
+  const aave = loadAave()!
   const network = loadNetwork()!
   const osToken = loadOsToken()!
   const distributor = loadDistributor()!
@@ -92,7 +94,7 @@ export function handleDeposited(event: Deposited): void {
   const assetsBefore = position.assets.plus(position.exitingAssets)
   const totalAssetsBefore = position.totalAssets
 
-  updateLeverageStrategyPosition(osToken, position)
+  updateLeverageStrategyPosition(aave, osToken, position)
 
   const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
   const assetsAfter = position.assets.plus(position.exitingAssets)
@@ -146,6 +148,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const exitingPercent = event.params.positionPercent
   const timestamp = event.block.timestamp
 
+  const aave = loadAave()!
   const osToken = loadOsToken()!
   const network = loadNetwork()!
   const vault = loadVault(vaultAddress)!
@@ -170,7 +173,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   position.exitRequest = `${vaultAddressHex}-${positionTicket}`
   position.exitingPercent = exitingPercent
 
-  updateLeverageStrategyPosition(osToken, position)
+  updateLeverageStrategyPosition(aave, osToken, position)
 
   const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
   const assetsAfter = position.assets.plus(position.exitingAssets)
@@ -214,6 +217,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
   const osToken = loadOsToken()!
   const network = loadNetwork()!
+  const aave = loadAave()!
   const distributor = loadDistributor()!
   const vault = loadVault(vaultAddress)!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
@@ -237,7 +241,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const assetsBefore = position.assets.plus(position.exitingAssets)
   const totalAssetsBefore = position.totalAssets
 
-  updateLeverageStrategyPosition(osToken, position)
+  updateLeverageStrategyPosition(aave, osToken, position)
 
   const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
   const assetsAfter = position.assets.plus(position.exitingAssets)

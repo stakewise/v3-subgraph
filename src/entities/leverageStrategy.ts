@@ -1,6 +1,7 @@
 import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 import {
   Aave,
+  AavePosition,
   Distributor,
   ExitRequest,
   LeverageStrategyPosition,
@@ -78,13 +79,20 @@ export function snapshotLeverageStrategyPosition(
   snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, totalAssetsDiff, timestamp)
 }
 
-export function updateLeverageStrategyPosition(osToken: OsToken, position: LeverageStrategyPosition): void {
-  const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
-
+export function updateLeverageStrategyPosition(aave: Aave, osToken: OsToken, position: LeverageStrategyPosition): void {
+  if (aave.leverageMaxBorrowLtvPercent.isZero()) {
+    assert(false, 'Leverage max borrow LTV percent is zero')
+  }
   // get and update borrow position state
   const proxy = Address.fromBytes(position.proxy)
-  const borrowState = createOrLoadAavePosition(proxy)
-  updateAavePosition(borrowState)
+  let borrowState: AavePosition
+  let _borrowState = loadAavePosition(proxy)
+  if (_borrowState === null) {
+    borrowState = createOrLoadAavePosition(proxy)
+    updateAavePosition(borrowState)
+  } else {
+    borrowState = _borrowState
+  }
   const borrowedAssets = borrowState.borrowedAssets
   const suppliedOsTokenShares = borrowState.suppliedOsTokenShares
 
@@ -108,8 +116,7 @@ export function updateLeverageStrategyPosition(osToken: OsToken, position: Lever
 
   const wad = BigInt.fromString(WAD)
   if (borrowedAssets.ge(stakedAssets)) {
-    const borrowLtv = aaveLeverageStrategy.getBorrowLtv()
-    const leftOsTokenAssets = borrowedAssets.minus(stakedAssets).times(wad).div(borrowLtv)
+    const leftOsTokenAssets = borrowedAssets.minus(stakedAssets).times(wad).div(aave.leverageMaxBorrowLtvPercent)
     position.assets = BigInt.zero()
     position.osTokenShares = suppliedOsTokenShares
       .minus(mintedOsTokenShares)
@@ -148,6 +155,7 @@ export function updateLeverageStrategyPosition(osToken: OsToken, position: Lever
 
 export function updateLeverageStrategyPositions(
   network: Network,
+  aave: Aave,
   osToken: OsToken,
   distributor: Distributor,
   vault: Vault,
@@ -162,7 +170,7 @@ export function updateLeverageStrategyPositions(
     const assetsBefore = position.assets.plus(position.exitingAssets)
     const totalAssetsBefore = position.totalAssets
 
-    updateLeverageStrategyPosition(osToken, position)
+    updateLeverageStrategyPosition(aave, osToken, position)
 
     const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
     const assetsAfter = position.assets.plus(position.exitingAssets)

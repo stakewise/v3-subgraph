@@ -2,7 +2,7 @@ import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import { loadVault, snapshotVault, updateVaultMaxBoostApy } from '../entities/vault'
 import { loadOsToken, snapshotOsToken, updateOsTokenTotalAssets } from '../entities/osToken'
 import { loadNetwork } from '../entities/network'
-import { AavePosition, Allocator, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
+import { Allocator, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
 import {
   getAllocatorApy,
   getAllocatorsMintedShares,
@@ -14,7 +14,7 @@ import { getOsTokenHolderApy, snapshotOsTokenHolder, updateOsTokenHolderAssets }
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { loadAave, updateAaveApys, updateAavePosition } from '../entities/aave'
+import { loadAave, updateAaveApys, updateAavePositions } from '../entities/aave'
 import { loadDistributor, updateDistributions } from '../entities/merkleDistributor'
 
 export function handlePeriodicTasks(block: ethereum.Block): void {
@@ -29,10 +29,7 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
   // update Aave
   // NB! if blocksInHour config is updated, the average apy calculation must be updated
   updateAaveApys(aave, block.number)
-  const positions: Array<AavePosition> = aave.positions.load()
-  for (let i = 0; i < positions.length; i++) {
-    updateAavePosition(positions[i])
-  }
+  updateAavePositions(aave)
 
   // update osToken
   const osToken = loadOsToken()!
@@ -81,7 +78,7 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
     updateOsTokenExitRequests(osToken, vault)
 
     // update leverage strategy positions
-    updateLeverageStrategyPositions(network, osToken, distributor, vault, osTokenConfig, timestamp)
+    updateLeverageStrategyPositions(network, aave, osToken, distributor, vault, osTokenConfig, timestamp)
 
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]

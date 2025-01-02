@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { Aave, AavePosition, OsToken } from '../../generated/schema'
 import { AaveProtocolDataProvider as AaveProtocolDataProviderContract } from '../../generated/PeriodicTasks/AaveProtocolDataProvider'
 import { AaveLeverageStrategy } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
@@ -10,12 +10,13 @@ import {
   OS_TOKEN,
   WAD,
 } from '../helpers/constants'
-import { calculateMedian, getCompoundedApy } from '../helpers/utils'
+import { calculateMedian, chunkedMulticall, getCompoundedApy } from '../helpers/utils'
 import { getOsTokenApy } from './osToken'
 
 const aaveId = '1'
 const snapshotsPerWeek = 168
 const snapshotsPerDay = 24
+const getBorrowStateSelector = '0xe70631bc'
 
 export function loadAave(): Aave | null {
   return Aave.load(aaveId)
@@ -31,6 +32,7 @@ export function createOrLoadAave(): Aave {
     aave = new Aave(aaveId)
     aave.borrowApy = BigDecimal.zero()
     aave.supplyApy = BigDecimal.zero()
+    aave.leverageMaxBorrowLtvPercent = BigInt.zero()
     aave.borrowApys = []
     aave.supplyApys = []
     aave.save()
@@ -101,6 +103,29 @@ export function updateAaveApys(aave: Aave, blockNumber: BigInt): void {
   aave.save()
 }
 
+export function updateAavePositions(aave: Aave): void {
+  const positions: Array<AavePosition> = aave.positions.load()
+  const positionsCount = positions.length
+
+  let position: AavePosition
+  const contractAddresses: Array<Address> = []
+  const contractCalls: Array<Bytes> = []
+  for (let i = 0; i < positionsCount; i++) {
+    position = positions[i]
+    contractAddresses.push(AAVE_LEVERAGE_STRATEGY)
+    contractCalls.push(_getBorrowStateCall(Address.fromBytes(position.user)))
+  }
+
+  const result = chunkedMulticall(contractAddresses, contractCalls)
+  for (let i = 0; i < positionsCount; i++) {
+    position = positions[i]
+    let decodedResult = ethereum.decode('(uint256,uint256)', result[i]!)!.toTuple()
+    position.borrowedAssets = decodedResult[0].toBigInt()
+    position.suppliedOsTokenShares = decodedResult[1].toBigInt()
+    position.save()
+  }
+}
+
 export function updateAavePosition(position: AavePosition): void {
   const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
   const borrowState = aaveLeverageStrategy.getBorrowState(Address.fromBytes(position.user))
@@ -131,4 +156,9 @@ export function getAaveBorrowApy(aave: Aave, useDayApy: boolean): BigDecimal {
   }
   const apys: Array<BigDecimal> = aave.borrowApys
   return calculateMedian(apys.slice(apysCount - snapshotsPerDay))
+}
+
+function _getBorrowStateCall(user: Address): Bytes {
+  const encodedGetBorrowStateArgs = ethereum.encode(ethereum.Value.fromAddress(user))
+  return Bytes.fromHexString(getBorrowStateSelector).concat(encodedGetBorrowStateArgs!)
 }
