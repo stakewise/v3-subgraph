@@ -182,8 +182,6 @@ dataSources:
           handler: handleOwnershipTransferred
         - event: RewardsUpdated(indexed address,indexed bytes32,uint256,uint64,uint64,string)
           handler: handleRewardsUpdated
-          calls:
-            osTokenTotalAssets: OsTokenVaultController[{{ osTokenVaultController.address }}].totalAssets()
         - event: Harvested(indexed address,indexed bytes32,int256,uint256)
           handler: handleHarvested
         - event: ValidatorsApproval(indexed address,string)
