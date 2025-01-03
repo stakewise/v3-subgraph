@@ -119,15 +119,15 @@ export function getAllocatorsMintedShares(vault: Vault, allocators: Array<Alloca
   const allocatorsCount = allocators.length
   if (!vault.isOsTokenEnabled) {
     // If OsToken is disabled, just return zeros
-    let response = new Array<BigInt>(allocatorsCount)
+    let response: Array<BigInt> = []
     for (let i = 0; i < allocatorsCount; i++) {
-      response[i] = BigInt.zero()
+      response.push(BigInt.zero())
     }
     return response
   }
 
   // Prepare all calls for retrieving minted shares from OsToken positions
-  let calls = new Array<Bytes>()
+  let calls: Array<Bytes> = []
   for (let i = 0; i < allocatorsCount; i++) {
     calls.push(_getOsTokenPositionsCall(allocators[i]))
   }
@@ -136,7 +136,7 @@ export function getAllocatorsMintedShares(vault: Vault, allocators: Array<Alloca
   let results = chunkedVaultMulticall(Address.fromString(vault.id), calls)
 
   // Decode the result for each allocator in the same order
-  let mintedShares = new Array<BigInt>()
+  let mintedShares: Array<BigInt> = []
   for (let i = 0; i < allocatorsCount; i++) {
     mintedShares.push(ethereum.decode('uint256', results[i])!.toBigInt())
   }

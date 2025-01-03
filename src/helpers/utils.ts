@@ -63,9 +63,12 @@ export function getCompoundedApy(initialApyPercent: BigDecimal, secondaryApyPerc
 
 export function chunkedVaultMulticall(vaultAddress: Address, calls: Array<Bytes>, chunkSize: i32 = 10): Array<Bytes> {
   const vaultContract = VaultContract.bind(vaultAddress)
-  let aggregatedResults: Bytes[] = []
-  for (let i = 0; i < calls.length; i += chunkSize) {
-    let chunk = calls.slice(i, i + chunkSize)
+  const callsCount = calls.length
+
+  let aggregatedResults: Array<Bytes> = []
+  let chunk: Array<Bytes>
+  for (let i = 0; i < callsCount; i += chunkSize) {
+    chunk = calls.slice(i, i + chunkSize)
     let chunkResult = vaultContract.multicall(chunk)
     // Concatenate results in order
     for (let j = 0; j < chunkResult.length; j++) {
@@ -81,9 +84,12 @@ export function chunkedRewardSplitterMulticall(
   chunkSize: i32 = 10,
 ): Array<Bytes> {
   const rewardSplitterContract = RewardSplitterContract.bind(rewardSplitter)
-  let aggregatedResults: Bytes[] = []
-  for (let i = 0; i < calls.length; i += chunkSize) {
-    let chunk = calls.slice(i, i + chunkSize)
+  const callsCount = calls.length
+
+  let aggregatedResults: Array<Bytes> = []
+  let chunk: Array<Bytes>
+  for (let i = 0; i < callsCount; i += chunkSize) {
+    chunk = calls.slice(i, i + chunkSize)
     let chunkResult = rewardSplitterContract.multicall(chunk)
     // Concatenate results in order
     for (let j = 0; j < chunkResult.length; j++) {
@@ -107,14 +113,14 @@ export function chunkedMulticall(
     return []
   }
 
-  const aggregateCalls = new Array<ethereum.Value>(callsCount)
+  const aggregateCalls: Array<ethereum.Value> = []
   for (let i = 0; i < callsCount; i++) {
     aggregateCalls.push(_getAggregateCall(contractAddresses[i], contractCalls[i]))
   }
 
   const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
   const encodedRequireSuccess = ethereum.Value.fromBoolean(requireSuccess)
-  let callResults = new Array<TryAggregateCallReturnDataStruct>(callsCount)
+  let callResults: Array<TryAggregateCallReturnDataStruct> = []
   for (let i = 0; i < callsCount; i += chunkSize) {
     const chunkCalls = aggregateCalls.slice(i, i + chunkSize)
     const chunkResult = multicallContract
@@ -126,8 +132,8 @@ export function chunkedMulticall(
     callResults = callResults.concat(chunkResult)
   }
 
-  const results = new Array<Bytes | null>(callsCount)
-  for (let i = 0; i < callsCount; i += chunkSize) {
+  const results: Array<Bytes | null> = []
+  for (let i = 0; i < callsCount; i++) {
     const callResult = callResults[i]
     results.push(callResult.success ? callResult.returnData : null)
   }

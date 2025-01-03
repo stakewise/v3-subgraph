@@ -530,7 +530,7 @@ function getVaultState(vault: Vault): Array<BigInt> {
   }
 
   const callsCount = contractCalls.length
-  let contractAddresses = new Array<Address>(callsCount)
+  let contractAddresses: Array<Address> = []
   const vaultAddr = Address.fromString(vault.id)
   for (let i = 0; i < callsCount; i++) {
     contractAddresses[i] = vaultAddr
