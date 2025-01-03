@@ -1,4 +1,14 @@
-import { Address, BigInt, Bytes, DataSourceContext, ipfs, json, JSONValue, log } from '@graphprotocol/graph-ts'
+import {
+  Address,
+  BigInt,
+  Bytes,
+  DataSourceContext,
+  ethereum,
+  ipfs,
+  json,
+  JSONValue,
+  log,
+} from '@graphprotocol/graph-ts'
 import {
   BLOCKLIST_ERC20_VAULT_FACTORY_V2,
   BLOCKLIST_ERC20_VAULT_FACTORY_V3,
@@ -26,22 +36,9 @@ import {
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
   VaultFactory as VaultFactoryTemplate,
 } from '../../generated/templates'
-import { Allocator, OsTokenHolder } from '../../generated/schema'
-import {
-  createOrLoadOsToken,
-  loadOsToken,
-  snapshotOsToken,
-  updateOsTokenApy,
-  updateOsTokenTotalAssets,
-} from '../entities/osToken'
-import {
-  createOrLoadAllocator,
-  getAllocatorApy,
-  getAllocatorsMintedShares,
-  snapshotAllocator,
-  updateAllocatorAssets,
-  updateAllocatorMintedOsTokenShares,
-} from '../entities/allocator'
+import { Allocator, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
+import { createOrLoadOsToken, loadOsToken, snapshotOsToken, updateOsTokenApy } from '../entities/osToken'
+import { createOrLoadAllocator, getAllocatorApy, snapshotAllocator, updateAllocatorAssets } from '../entities/allocator'
 import { createOrLoadNetwork, increaseUserVaultsCount, loadNetwork } from '../entities/network'
 import {
   ConfigUpdated,
@@ -56,14 +53,15 @@ import { updateExitRequests } from '../entities/exitRequest'
 import { updateRewardSplitters } from '../entities/rewardSplitter'
 import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
-import { loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
-import { getOsTokenHolderApy, snapshotOsTokenHolder, updateOsTokenHolderAssets } from '../entities/osTokenHolder'
+import { loadVault, snapshotVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
+import { getOsTokenHolderApy, snapshotOsTokenHolder } from '../entities/osTokenHolder'
 import { createOrLoadAave, loadAave } from '../entities/aave'
 import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
 const IS_BLOCKLIST_KEY = 'isBlocklist'
+const secondsInDay = 86400
 
 export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   createOrLoadV2Pool()
@@ -232,20 +230,9 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
 
   // update OsToken
   const osToken = loadOsToken()!
-  const osTokenEarnedAssets = updateOsTokenTotalAssets(osToken)
   updateOsTokenApy(osToken, newAvgRewardPerSecond)
-  snapshotOsToken(osToken, osTokenEarnedAssets, blockTimestamp)
 
-  // update assets of all the osToken holders
   const network = loadNetwork()!
-  let osTokenHolder: OsTokenHolder
-  const osTokenHolderAssetsDiffs: Array<BigInt> = []
-  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
-  for (let i = 0; i < osTokenHolders.length; i++) {
-    osTokenHolder = osTokenHolders[i]
-    osTokenHolderAssetsDiffs.push(updateOsTokenHolderAssets(osToken, osTokenHolder))
-  }
-
   const distributor = loadDistributor()!
   const vaultIds = network.vaultIds
   for (let i = 0; i < vaultIds.length; i++) {
@@ -279,29 +266,25 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
     // update allocators
     let allocator: Allocator
     let allocators: Array<Allocator> = vault.allocators.load()
-    const allocatorsMintedOsTokenShares = getAllocatorsMintedShares(vault, allocators)
     const allocatorsAssetsDiffs: Array<BigInt> = []
-    const mintedOsTokenAssetsDiffs: Array<BigInt> = []
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
       allocatorsAssetsDiffs.push(updateAllocatorAssets(osToken, osTokenConfig, vault, allocator))
-      mintedOsTokenAssetsDiffs.push(
-        updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocatorsMintedOsTokenShares[j]),
-      )
     }
 
     // update exit requests
-    updateExitRequests(network, osToken, distributor, vault, osTokenConfig, updateTimestamp)
+    updateExitRequests(network, vault, updateTimestamp)
 
     // update reward splitters
-    updateRewardSplitters(osToken, distributor, osTokenConfig, vault, updateTimestamp)
+    updateRewardSplitters(vault)
 
     // update OsToken exit requests
     updateOsTokenExitRequests(osToken, vault)
 
     // update leverage strategy positions
-    updateLeverageStrategyPositions(network, aave, osToken, distributor, vault, osTokenConfig, blockTimestamp)
+    updateLeverageStrategyPositions(network, aave, osToken, vault)
 
+    // update allocators apys
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
       allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
@@ -315,27 +298,19 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
         allocatorsAssetsDiffs[j],
         updateTimestamp,
       )
-      snapshotAllocator(
-        osToken,
-        osTokenConfig,
-        vault,
-        distributor,
-        allocator,
-        mintedOsTokenAssetsDiffs[j].neg(),
-        blockTimestamp,
-      )
     }
 
     // update vault max boost apys
     updateVaultMaxBoostApy(aave, osToken, vault, osTokenConfig, distributor, blockNumber)
   }
 
-  // update assets of all the osToken holders
+  // update osToken holders apys
+  let osTokenHolder: OsTokenHolder
+  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
     osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
     osTokenHolder.save()
-    snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, osTokenHolderAssetsDiffs[i], blockTimestamp)
   }
 
   log.info('[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={} blockTimestamp={}', [
@@ -403,4 +378,55 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
   network.oraclesConfigIpfsHash = configIpfsHash
   network.save()
   log.info('[Keeper] ConfigUpdated configIpfsHash={}', [configIpfsHash])
+}
+
+export function handleDailySnapshots(block: ethereum.Block): void {
+  const network = loadNetwork()
+  if (!network) {
+    return
+  }
+
+  const timestamp = block.timestamp
+  const newSnapshotsCount = timestamp.plus(BigInt.fromI32(30)).div(BigInt.fromI32(secondsInDay))
+  if (newSnapshotsCount.le(network.snapshotsCount)) {
+    return
+  }
+  network.snapshotsCount = newSnapshotsCount
+  network.save()
+
+  const osToken = loadOsToken()
+  if (!osToken) {
+    return
+  }
+  snapshotOsToken(osToken, osToken._periodEarnedAssets, timestamp)
+  osToken._periodEarnedAssets = BigInt.zero()
+  osToken.save()
+
+  let osTokenHolder: OsTokenHolder
+  const distributor = loadDistributor()!
+  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
+  for (let i = 0; i < osTokenHolders.length; i++) {
+    osTokenHolder = osTokenHolders[i]
+    snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, osTokenHolder._periodEarnedAssets, timestamp)
+    osTokenHolder._periodEarnedAssets = BigInt.zero()
+    osTokenHolder.save()
+  }
+
+  let vault: Vault
+  let osTokenConfig: OsTokenConfig
+  const vaultIds = network.vaultIds
+  for (let i = 0; i < vaultIds.length; i++) {
+    vault = loadVault(Address.fromString(vaultIds[i]))!
+    osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
+    snapshotVault(vault, BigInt.zero(), timestamp)
+
+    const allocators: Array<Allocator> = vault.allocators.load()
+    for (let j = 0; j < allocators.length; j++) {
+      const allocator = allocators[j]
+      snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, allocator._periodEarnedAssets, timestamp)
+      allocator._periodEarnedAssets = BigInt.zero()
+      allocator.save()
+    }
+  }
+  log.info('[DailySnapshots] block={} timestamp={}', [block.number.toString(), timestamp.toString()])
 }

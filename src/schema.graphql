@@ -38,6 +38,9 @@ type Allocator @entity {
 
   "The exit requests of the allocator"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "allocator")
+
+  "The period earned assets"
+  _periodEarnedAssets: BigInt!
 }
 
 """
@@ -84,6 +87,9 @@ type OsTokenHolder @entity {
 
   "The total number of OsToken transfers"
   transfersCount: BigInt!
+
+  "The period earned assets"
+  _periodEarnedAssets: BigInt!
 }
 
 """
@@ -417,6 +423,9 @@ type OsToken @entity {
 
   "The OsToken holders"
   holders: [OsTokenHolder!]! @derivedFrom(field: "osToken")
+
+  "The period earned assets"
+  _periodEarnedAssets: BigInt!
 }
 
 """
@@ -479,6 +488,9 @@ type Network @entity {
 
   "The total number of non repeated vault allocators and osToken holders"
   usersCount: Int!
+
+  "The total number of snapshots"
+  snapshotsCount: BigInt!
 }
 
 type User @entity {

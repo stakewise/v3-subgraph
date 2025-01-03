@@ -1,7 +1,6 @@
-import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
 import {
   Aave,
-  AavePosition,
   Distributor,
   ExitRequest,
   LeverageStrategyPosition,
@@ -14,19 +13,14 @@ import {
 } from '../../generated/schema'
 import { AaveLeverageStrategy } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
 import { AAVE_LEVERAGE_STRATEGY, WAD } from '../helpers/constants'
-import { loadAllocator, snapshotAllocator } from './allocator'
+import { loadAllocator } from './allocator'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { getAnnualReward } from '../helpers/utils'
 import { getVaultApy, getVaultOsTokenMintApy } from './vault'
-import {
-  createOrLoadAavePosition,
-  getAaveBorrowApy,
-  getAaveSupplyApy,
-  loadAavePosition,
-  updateAavePosition,
-} from './aave'
+import { getAaveBorrowApy, getAaveSupplyApy, loadAavePosition } from './aave'
 import { convertStringToDistributionType, DistributionType, getPeriodicDistributionApy } from './merkleDistributor'
-import { loadOsTokenHolder, snapshotOsTokenHolder } from './osTokenHolder'
+import { loadOsTokenHolder } from './osTokenHolder'
+import { getIsOsTokenVault } from './network'
 
 export function loadLeverageStrategyPosition(vault: Address, user: Address): LeverageStrategyPosition | null {
   const leverageStrategyPositionId = `${vault.toHex()}-${user.toHex()}`
@@ -58,41 +52,13 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
   return leverageStrategyPosition
 }
 
-export function snapshotLeverageStrategyPosition(
-  network: Network,
-  osToken: OsToken,
-  distributor: Distributor,
-  vault: Vault,
-  osTokenConfig: OsTokenConfig,
-  position: LeverageStrategyPosition,
-  totalAssetsDiff: BigInt,
-  earnedAssetsDiff: BigInt,
-  timestamp: BigInt,
-): void {
-  let userAddress = Address.fromBytes(position.user)
-  const allocator = loadAllocator(userAddress, Address.fromString(vault.id))
-  if (allocator) {
-    snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, earnedAssetsDiff, timestamp)
-  }
-
-  const osTokenHolder = loadOsTokenHolder(userAddress)!
-  snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, totalAssetsDiff, timestamp)
-}
-
 export function updateLeverageStrategyPosition(aave: Aave, osToken: OsToken, position: LeverageStrategyPosition): void {
   if (aave.leverageMaxBorrowLtvPercent.isZero()) {
     assert(false, 'Leverage max borrow LTV percent is zero')
   }
   // get and update borrow position state
   const proxy = Address.fromBytes(position.proxy)
-  let borrowState: AavePosition
-  let _borrowState = loadAavePosition(proxy)
-  if (_borrowState === null) {
-    borrowState = createOrLoadAavePosition(proxy)
-    updateAavePosition(borrowState)
-  } else {
-    borrowState = _borrowState
-  }
+  let borrowState = loadAavePosition(proxy)!
   const borrowedAssets = borrowState.borrowedAssets
   const suppliedOsTokenShares = borrowState.suppliedOsTokenShares
 
@@ -153,45 +119,86 @@ export function updateLeverageStrategyPosition(aave: Aave, osToken: OsToken, pos
   position.save()
 }
 
-export function updateLeverageStrategyPositions(
-  network: Network,
-  aave: Aave,
+export function updatePeriodEarnedAssets(
   osToken: OsToken,
-  distributor: Distributor,
   vault: Vault,
-  osTokenConfig: OsTokenConfig,
-  timestamp: BigInt,
+  totalAssetsBefore: BigInt,
+  assetsBefore: BigInt,
+  osTokenSharesBefore: BigInt,
+  isOsTokenVault: boolean,
+  position: LeverageStrategyPosition,
 ): void {
+  const osTokenAssetsBefore = totalAssetsBefore.minus(assetsBefore)
+
+  const assetsAfter = position.assets.plus(position.exitingAssets)
+  const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
+  const osTokenAssetsAfter = position.totalAssets.minus(assetsAfter)
+
+  const earnedAssets = assetsAfter.plus(osTokenAssetsAfter).minus(assetsBefore).minus(osTokenAssetsBefore)
+
+  const userAddress = Address.fromBytes(position.user)
+  const allocator = loadAllocator(userAddress, Address.fromString(vault.id))
+  if (allocator) {
+    let mintedLockedOsTokenShares: BigInt
+    if (osTokenSharesAfter.gt(allocator.mintedOsTokenShares)) {
+      mintedLockedOsTokenShares = allocator.mintedOsTokenShares
+    } else {
+      mintedLockedOsTokenShares = osTokenSharesAfter
+    }
+    let allocatorEarnedAssets = earnedAssets
+    const mintedLockedOsTokenAssetsBefore = mintedLockedOsTokenShares
+      .times(osTokenAssetsBefore)
+      .div(osTokenSharesBefore)
+    const mintedLockedOsTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, mintedLockedOsTokenShares)
+    if (mintedLockedOsTokenAssetsAfter.lt(mintedLockedOsTokenAssetsBefore)) {
+      log.error(
+        'updatePeriodEarnedAssets invalid minted OsToken shares: mintedLockedOsTokenAssetsAfter={} mintedLockedOsTokenAssetsBefore={} userAddress={} vault={}',
+        [
+          mintedLockedOsTokenAssetsAfter.toString(),
+          mintedLockedOsTokenAssetsBefore.toString(),
+          userAddress.toHex(),
+          vault.id,
+        ],
+      )
+      assert(false, 'invalid minted OsToken shares')
+    }
+    allocatorEarnedAssets = allocatorEarnedAssets.minus(
+      mintedLockedOsTokenAssetsAfter.minus(mintedLockedOsTokenAssetsBefore),
+    )
+    allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(allocatorEarnedAssets)
+    allocator.save()
+  }
+
+  if (!isOsTokenVault) {
+    return
+  }
+
+  const osTokenHolder = loadOsTokenHolder(userAddress)!
+  osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(earnedAssets)
+  osTokenHolder.save()
+}
+
+export function updateLeverageStrategyPositions(network: Network, aave: Aave, osToken: OsToken, vault: Vault): void {
   let position: LeverageStrategyPosition
   const leveragePositions: Array<LeverageStrategyPosition> = vault.leveragePositions.load()
+
+  let isOsTokenVault = getIsOsTokenVault(network, vault)
   for (let i = 0; i < leveragePositions.length; i++) {
     position = leveragePositions[i]
-    const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
-    const assetsBefore = position.assets.plus(position.exitingAssets)
     const totalAssetsBefore = position.totalAssets
+    const assetsBefore = position.assets.plus(position.exitingAssets)
+    const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
 
     updateLeverageStrategyPosition(aave, osToken, position)
 
-    const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-    const assetsAfter = position.assets.plus(position.exitingAssets)
-    const totalAssetsAfter = position.totalAssets
-
-    const assetsDiff = assetsAfter.minus(assetsBefore)
-    const osTokenSharesDiff = osTokenSharesAfter.minus(osTokenSharesBefore)
-
-    const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
-    const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
-
-    snapshotLeverageStrategyPosition(
-      network,
+    updatePeriodEarnedAssets(
       osToken,
-      distributor,
       vault,
-      osTokenConfig,
+      totalAssetsBefore,
+      assetsBefore,
+      osTokenSharesBefore,
+      isOsTokenVault,
       position,
-      totalAssetsDiff,
-      earnedAssetsDiff,
-      timestamp,
     )
   }
 }

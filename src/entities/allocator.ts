@@ -85,6 +85,7 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.address = allocatorAddress
     vaultAllocator.vault = vaultAddress.toHex()
     vaultAllocator.apy = BigDecimal.zero()
+    vaultAllocator._periodEarnedAssets = BigInt.zero()
     vaultAllocator.save()
   }
 
@@ -326,11 +327,14 @@ export function updateAllocatorMintedOsTokenShares(
   osTokenConfig: OsTokenConfig,
   allocator: Allocator,
   newMintedOsTokenShares: BigInt,
-): BigInt {
+): void {
   const mintedOsTokenSharesDiff = newMintedOsTokenShares.minus(allocator.mintedOsTokenShares)
-  if (osTokenConfig.ltvPercent.isZero()) {
-    log.error('[Allocator] ltvPercent cannot be zero for vault={}', [allocator.vault])
-    return convertOsTokenSharesToAssets(osToken, mintedOsTokenSharesDiff)
+  if (osTokenConfig.ltvPercent.isZero() || mintedOsTokenSharesDiff.lt(BigInt.zero())) {
+    log.error(
+      '[Allocator] minted OsToken shares update failed for allocator={} osTokenConfig={} mintedOsTokenSharesDiff={}',
+      [allocator.id, osTokenConfig.id, mintedOsTokenSharesDiff.toString()],
+    )
+    return
   }
 
   const mintedOsTokenAssetsDiff = convertOsTokenSharesToAssets(osToken, mintedOsTokenSharesDiff)
@@ -340,9 +344,8 @@ export function updateAllocatorMintedOsTokenShares(
   allocator.mintedOsTokenShares = newMintedOsTokenShares
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
+  allocator._periodEarnedAssets = allocator._periodEarnedAssets.minus(mintedOsTokenAssetsDiff)
   allocator.save()
-
-  return mintedOsTokenAssetsDiff
 }
 
 export function snapshotAllocator(

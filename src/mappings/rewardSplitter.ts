@@ -8,11 +8,8 @@ import {
 import { RewardSplitterCreated } from '../../generated/templates/RewardSplitterFactory/RewardSplitterFactory'
 import { RewardSplitter } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
-import { createOrLoadRewardSplitterShareHolder, snapshotRewardSplitterShareHolder } from '../entities/rewardSplitter'
+import { createOrLoadRewardSplitterShareHolder } from '../entities/rewardSplitter'
 import { convertSharesToAssets, loadVault } from '../entities/vault'
-import { loadOsToken } from '../entities/osToken'
-import { loadDistributor } from '../entities/merkleDistributor'
-import { loadOsTokenConfig } from '../entities/osTokenConfig'
 
 // Event emitted on RewardSplitter contract creation
 export function handleRewardSplitterCreated(event: RewardSplitterCreated): void {
@@ -101,9 +98,6 @@ export function handleRewardsWithdrawn(event: RewardsWithdrawn): void {
 
   const rewardSplitter = RewardSplitter.load(rewardSplitterAddressHex)!
   const vault = loadVault(Address.fromString(rewardSplitter.vault))!
-  const osToken = loadOsToken()!
-  const distributor = loadDistributor()!
-  const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
   const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitterAddress, rewardSplitter.vault)
   shareHolder.earnedVaultShares = shareHolder.earnedVaultShares.minus(withdrawnVaultShares)
@@ -112,15 +106,6 @@ export function handleRewardsWithdrawn(event: RewardsWithdrawn): void {
   }
   shareHolder.earnedVaultAssets = convertSharesToAssets(vault, shareHolder.earnedVaultShares)
   shareHolder.save()
-  snapshotRewardSplitterShareHolder(
-    osToken,
-    distributor,
-    vault,
-    osTokenConfig,
-    shareHolder,
-    BigInt.zero(),
-    event.block.timestamp,
-  )
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)

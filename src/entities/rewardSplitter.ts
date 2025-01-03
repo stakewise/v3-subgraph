@@ -1,16 +1,9 @@
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
-import {
-  Distributor,
-  OsToken,
-  OsTokenConfig,
-  RewardSplitter,
-  RewardSplitterShareHolder,
-  Vault,
-} from '../../generated/schema'
+import { RewardSplitter, RewardSplitterShareHolder, Vault } from '../../generated/schema'
 import { convertSharesToAssets } from './vault'
 import { loadV2Pool } from './v2pool'
-import { createOrLoadAllocator, snapshotAllocator } from './allocator'
 import { chunkedRewardSplitterMulticall } from '../helpers/utils'
+import { createOrLoadAllocator } from './allocator'
 
 const vaultUpdateStateSelector = '0x79c702ad'
 const syncRewardsCallSelector = '0x72c0c211'
@@ -39,13 +32,7 @@ export function createOrLoadRewardSplitterShareHolder(
   return rewardSplitterShareHolder
 }
 
-export function updateRewardSplitters(
-  osToken: OsToken,
-  distributor: Distributor,
-  osTokenConfig: OsTokenConfig,
-  vault: Vault,
-  timestamp: BigInt,
-): void {
+export function updateRewardSplitters(vault: Vault): void {
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     // wait for the migration
     return
@@ -79,30 +66,14 @@ export function updateRewardSplitters(
       shareHolder.earnedVaultShares = ethereum.decode('uint256', result[j])!.toBigInt()
       shareHolder.earnedVaultAssets = convertSharesToAssets(vault, shareHolder.earnedVaultShares)
       shareHolder.save()
-      snapshotRewardSplitterShareHolder(
-        osToken,
-        distributor,
-        vault,
-        osTokenConfig,
-        shareHolder,
+
+      const allocator = createOrLoadAllocator(Address.fromBytes(shareHolder.address), Address.fromString(vault.id))
+      allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(
         shareHolder.earnedVaultAssets.minus(earnedVaultAssetsBefore),
-        timestamp,
       )
+      allocator.save()
     }
   }
-}
-
-export function snapshotRewardSplitterShareHolder(
-  osToken: OsToken,
-  distributor: Distributor,
-  vault: Vault,
-  osTokenConfig: OsTokenConfig,
-  shareHolder: RewardSplitterShareHolder,
-  earnedAssets: BigInt,
-  timestamp: BigInt,
-): void {
-  const allocator = createOrLoadAllocator(Address.fromBytes(shareHolder.address), Address.fromString(vault.id))
-  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, earnedAssets, timestamp)
 }
 
 function _getVaultUpdateStateCall(vault: Vault): Bytes | null {

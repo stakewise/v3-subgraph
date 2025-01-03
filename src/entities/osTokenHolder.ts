@@ -33,6 +33,7 @@ export function createOrLoadOsTokenHolder(holderAddress: Address): OsTokenHolder
     holder.osToken = osTokenId
     holder.transfersCount = BigInt.zero()
     holder.apy = BigDecimal.zero()
+    holder._periodEarnedAssets = BigInt.zero()
     holder.save()
   }
 
@@ -141,11 +142,11 @@ export function getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, 
   return totalAssets
 }
 
-export function updateOsTokenHolderAssets(osToken: OsToken, osTokenHolder: OsTokenHolder): BigInt {
+export function updateOsTokenHolderAssets(osToken: OsToken, osTokenHolder: OsTokenHolder): void {
   const assetsBefore = osTokenHolder.assets
   osTokenHolder.assets = convertOsTokenSharesToAssets(osToken, osTokenHolder.balance)
+  osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(osTokenHolder.assets.minus(assetsBefore))
   osTokenHolder.save()
-  return osTokenHolder.assets.minus(assetsBefore)
 }
 
 export function snapshotOsTokenHolder(
