@@ -10,8 +10,8 @@ import { createTransaction } from '../entities/transaction'
 import {
   createOrLoadLeverageStrategyPosition,
   loadLeverageStrategyPosition,
-  snapshotLeverageStrategyPosition,
   updateLeverageStrategyPosition,
+  updatePeriodEarnedAssets,
 } from '../entities/leverageStrategy'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import {
@@ -22,11 +22,12 @@ import {
   loadAllocator,
 } from '../entities/allocator'
 import { getOsTokenHolderApy, loadOsTokenHolder } from '../entities/osTokenHolder'
-import { loadNetwork } from '../entities/network'
+import { getIsOsTokenVault, loadNetwork } from '../entities/network'
 import { loadVault } from '../entities/vault'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { createOrLoadAavePosition } from '../entities/aave'
+import { createOrLoadAavePosition, loadAave, loadAavePosition, updateAavePosition } from '../entities/aave'
 import { loadDistributor } from '../entities/merkleDistributor'
+import { WAD } from '../helpers/constants'
 
 function _updateAllocatorAndOsTokenHolderApys(
   network: Network,
@@ -36,10 +37,11 @@ function _updateAllocatorAndOsTokenHolderApys(
   vault: Vault,
   userAddress: Address,
 ): void {
-  const allocator = loadAllocator(userAddress, Address.fromString(vault.id))!
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
-  allocator.save()
-
+  const allocator = loadAllocator(userAddress, Address.fromString(vault.id))
+  if (allocator) {
+    allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+    allocator.save()
+  }
   const osTokenHolder = loadOsTokenHolder(userAddress)!
   osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
   osTokenHolder.save()
@@ -68,8 +70,8 @@ export function handleDeposited(event: Deposited): void {
   const vaultAddress = event.params.vault
   const userAddress = event.params.user
   const depositedOsTokenShares = event.params.osTokenShares
-  const timestamp = event.block.timestamp
 
+  const aave = loadAave()!
   const network = loadNetwork()!
   const osToken = loadOsToken()!
   const distributor = loadDistributor()!
@@ -92,31 +94,19 @@ export function handleDeposited(event: Deposited): void {
   const assetsBefore = position.assets.plus(position.exitingAssets)
   const totalAssetsBefore = position.totalAssets
 
-  updateLeverageStrategyPosition(osToken, position)
-
-  const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const assetsAfter = position.assets.plus(position.exitingAssets)
-  const totalAssetsAfter = position.totalAssets
-
-  const assetsDiff = assetsAfter.minus(assetsBefore)
-  const osTokenSharesDiff = osTokenSharesAfter.minus(osTokenSharesBefore).minus(depositedOsTokenShares)
-
-  const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
-  const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
-
+  updateAavePosition(createOrLoadAavePosition(Address.fromBytes(position.proxy)))
+  updateLeverageStrategyPosition(aave, osToken, position)
   _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress)
 
-  if (!ignoreSnapshot) {
-    snapshotLeverageStrategyPosition(
-      network,
+  if (!ignoreSnapshot && osTokenSharesBefore.gt(BigInt.zero())) {
+    updatePeriodEarnedAssets(
       osToken,
-      distributor,
       vault,
-      osTokenConfig,
+      totalAssetsBefore.plus(convertOsTokenSharesToAssets(osToken, depositedOsTokenShares)),
+      assetsBefore,
+      osTokenSharesBefore.plus(depositedOsTokenShares),
+      getIsOsTokenVault(network, vault),
       position,
-      totalAssetsDiff,
-      earnedAssetsDiff,
-      timestamp,
     )
   }
 
@@ -144,8 +134,8 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const userAddress = event.params.user
   const positionTicket = event.params.positionTicket
   const exitingPercent = event.params.positionPercent
-  const timestamp = event.block.timestamp
 
+  const aave = loadAave()!
   const osToken = loadOsToken()!
   const network = loadNetwork()!
   const vault = loadVault(vaultAddress)!
@@ -170,31 +160,18 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   position.exitRequest = `${vaultAddressHex}-${positionTicket}`
   position.exitingPercent = exitingPercent
 
-  updateLeverageStrategyPosition(osToken, position)
-
-  const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const assetsAfter = position.assets.plus(position.exitingAssets)
-  const totalAssetsAfter = position.totalAssets
-
-  const assetsDiff = assetsAfter.minus(assetsBefore)
-  const osTokenSharesDiff = osTokenSharesAfter.minus(osTokenSharesBefore)
-
-  const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
-  const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
-
+  updateLeverageStrategyPosition(aave, osToken, position)
   _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress)
 
   if (!ignoreSnapshot) {
-    snapshotLeverageStrategyPosition(
-      network,
+    updatePeriodEarnedAssets(
       osToken,
-      distributor,
       vault,
-      osTokenConfig,
+      totalAssetsBefore,
+      assetsBefore,
+      osTokenSharesBefore,
+      getIsOsTokenVault(network, vault),
       position,
-      totalAssetsDiff,
-      earnedAssetsDiff,
-      timestamp,
     )
   }
 
@@ -209,11 +186,10 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const vaultAddress = event.params.vault
   const userAddress = event.params.user
   const claimedOsTokenShares = event.params.osTokenShares
-  const claimedAssets = event.params.assets
-  const timestamp = event.block.timestamp
 
   const osToken = loadOsToken()!
   const network = loadNetwork()!
+  const aave = loadAave()!
   const distributor = loadDistributor()!
   const vault = loadVault(vaultAddress)!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
@@ -230,38 +206,28 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     ])
   }
 
+  const osTokenSharesBefore = position.osTokenShares
+  const assetsBefore = position.assets
+  const totalAssetsBefore = position.totalAssets.minus(
+    position.totalAssets.times(position.exitingPercent).div(BigInt.fromString(WAD)),
+  )
+
   position.exitRequest = null
   position.exitingPercent = BigInt.zero()
 
-  const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const assetsBefore = position.assets.plus(position.exitingAssets)
-  const totalAssetsBefore = position.totalAssets
-
-  updateLeverageStrategyPosition(osToken, position)
-
-  const osTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const assetsAfter = position.assets.plus(position.exitingAssets)
-  const totalAssetsAfter = position.totalAssets
-
-  const assetsDiff = assetsAfter.plus(claimedAssets).minus(assetsBefore)
-  const osTokenSharesDiff = osTokenSharesAfter.plus(claimedOsTokenShares).minus(osTokenSharesBefore)
-
-  const earnedAssetsDiff = convertOsTokenSharesToAssets(osToken, osTokenSharesDiff).plus(assetsDiff)
-  const totalAssetsDiff = totalAssetsAfter.minus(totalAssetsBefore)
-
+  updateAavePosition(loadAavePosition(Address.fromBytes(position.proxy))!)
+  updateLeverageStrategyPosition(aave, osToken, position)
   _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress)
 
   if (!ignoreSnapshot) {
-    snapshotLeverageStrategyPosition(
-      network,
+    updatePeriodEarnedAssets(
       osToken,
-      distributor,
       vault,
-      osTokenConfig,
+      totalAssetsBefore,
+      assetsBefore,
+      osTokenSharesBefore,
+      getIsOsTokenVault(network, vault),
       position,
-      totalAssetsDiff,
-      earnedAssetsDiff,
-      timestamp,
     )
   }
 

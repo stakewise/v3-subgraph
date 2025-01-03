@@ -4,6 +4,7 @@ import { OsTokenConfigUpdated as OsTokenConfigV2Updated } from '../../generated/
 import { updateAllocatorsLtvStatus } from '../entities/allocator'
 import { createOrLoadOsTokenConfig } from '../entities/osTokenConfig'
 import { loadVault } from '../entities/vault'
+import { Vault } from '../../generated/schema'
 
 export function handleOsTokenConfigV1Updated(event: OsTokenConfigV1Updated): void {
   const ltvPercent = event.params.ltvPercent
@@ -41,10 +42,13 @@ export function handleOsTokenConfigV2Updated(event: OsTokenConfigV2Updated): voi
 
 function updateOsTokenConfig(version: string, ltvPercent: BigInt, liqThresholdPercent: BigInt): void {
   const osTokenConfig = createOrLoadOsTokenConfig(version)
-
   osTokenConfig.ltvPercent = ltvPercent
   osTokenConfig.liqThresholdPercent = liqThresholdPercent
 
+  if (Vault.load(version) !== null) {
+    // vault specific config
+    osTokenConfig.leverageMaxMintLtvPercent = createOrLoadOsTokenConfig('2').leverageMaxMintLtvPercent
+  }
   osTokenConfig.save()
 
   log.info('[OsTokenConfig] OsTokenConfigUpdated version={} ltvPercent={} liqThresholdPercent={}', [

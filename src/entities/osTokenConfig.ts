@@ -25,6 +25,7 @@ export function createOrLoadOsTokenConfig(version: string): OsTokenConfig {
     osTokenConfig.ltvPercent = BigInt.zero()
     osTokenConfig.liqThresholdPercent = BigInt.zero()
   }
+  osTokenConfig.leverageMaxMintLtvPercent = BigInt.zero()
   osTokenConfig.save()
 
   return osTokenConfig

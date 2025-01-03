@@ -1,8 +1,7 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { V2Pool, V2PoolUser, Vault } from '../../generated/schema'
-import { MULTICALL, V2_POOL_FEE_PERCENT, V2_REWARD_TOKEN, V2_STAKED_TOKEN, WAD } from '../helpers/constants'
-import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from '../../generated/Keeper/Multicall'
-import { calculateAverage, getAggregateCall } from '../helpers/utils'
+import { V2_POOL_FEE_PERCENT, V2_REWARD_TOKEN, V2_STAKED_TOKEN, WAD } from '../helpers/constants'
+import { calculateAverage, chunkedMulticall } from '../helpers/utils'
 import { getUpdateStateCall } from './vault'
 
 const snapshotsPerWeek = 14
@@ -93,33 +92,38 @@ export function getV2PoolState(vault: Vault): Array<BigInt> {
   const vaultAddress = Address.fromString(vault.id)
   const wad = BigInt.fromString(WAD)
 
-  const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
-  let calls: Array<ethereum.Value> = []
+  const contractAddresses: Array<Address> = []
+  let contractCalls: Array<Bytes> = []
   if (updateStateCall) {
-    calls.push(getAggregateCall(vaultAddress, updateStateCall))
+    contractAddresses.push(vaultAddress)
+    contractCalls.push(updateStateCall)
   }
-  calls.push(getAggregateCall(V2_REWARD_TOKEN, rewardAssetsCall))
-  calls.push(getAggregateCall(V2_REWARD_TOKEN, penaltyAssetsCall))
-  calls.push(getAggregateCall(V2_STAKED_TOKEN, principalAssetsCall))
-  calls.push(getAggregateCall(V2_REWARD_TOKEN, rewardPerTokenCall))
+  contractAddresses.push(V2_REWARD_TOKEN)
+  contractCalls.push(rewardAssetsCall)
 
-  const result = multicallContract.call('tryAggregate', 'tryAggregate(bool,(address,bytes)[]):((bool,bytes)[])', [
-    ethereum.Value.fromBoolean(false),
-    ethereum.Value.fromArray(calls),
-  ])
-  let resultValue = result[0].toTupleArray<TryAggregateCallReturnDataStruct>()
+  contractAddresses.push(V2_REWARD_TOKEN)
+  contractCalls.push(penaltyAssetsCall)
+
+  contractAddresses.push(V2_STAKED_TOKEN)
+  contractCalls.push(principalAssetsCall)
+
+  contractAddresses.push(V2_REWARD_TOKEN)
+  contractCalls.push(rewardPerTokenCall)
+
+  let results = chunkedMulticall(contractAddresses, contractCalls, false)
   if (updateStateCall) {
-    if (!resultValue[0].success) {
+    // check whether update state call succeeded
+    if (results[0] === null) {
       log.error('[Vault] getV2PoolState failed updateStateCall={}', [updateStateCall.toHexString()])
       assert(false, 'getV2PoolState failed')
     }
-    resultValue = resultValue.slice(1)
+    results = results.slice(1)
   }
 
-  const rewardAssets = ethereum.decode('uint256', resultValue[0].returnData)!.toBigInt()
-  const penaltyAssets = ethereum.decode('uint256', resultValue[1].returnData)!.toBigInt()
-  const principalAssets = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
-  const rewardRate = ethereum.decode('uint256', resultValue[3].returnData)!.toBigInt()
+  const rewardAssets = ethereum.decode('uint256', results[0]!)!.toBigInt()
+  const penaltyAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
+  const principalAssets = ethereum.decode('uint256', results[2]!)!.toBigInt()
+  const rewardRate = ethereum.decode('uint256', results[3]!)!.toBigInt()
   const totalAssets = principalAssets.plus(rewardAssets)
   let penaltyRate = BigInt.zero()
   if (totalAssets.gt(BigInt.zero())) {
