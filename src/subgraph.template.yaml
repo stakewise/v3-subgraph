@@ -74,7 +74,9 @@ dataSources:
       language: wasm/assemblyscript
       file: ./mappings/exchangeRates.ts
       entities:
-        - Network
+        - ExchangeRate
+        - ExchangeRateSnapshot
+        - ExchangeRateStats
       abis:
         - name: PriceFeed
           file: ./abis/PriceFeed.json

@@ -447,36 +447,6 @@ type Network @entity {
   "Total number of vaults"
   vaultsCount: Int!
 
-  "The USD rate of the assets (e.g. ETH, GNO)"
-  assetsUsdRate: BigDecimal!
-
-  "The USD rate of the SWISE"
-  swiseUsdRate: BigDecimal!
-
-  "The USD rate of DAI"
-  daiUsdRate: BigDecimal!
-
-  "The USD rate of USDC"
-  usdcUsdRate: BigDecimal!
-
-  "The USD to EUR rate"
-  usdToEurRate: BigDecimal!
-
-  "The USD to GBP rate"
-  usdToGbpRate: BigDecimal!
-
-  "The USD to CNY rate"
-  usdToCnyRate: BigDecimal!
-
-  "The USD to JPY rate"
-  usdToJpyRate: BigDecimal!
-
-  "The USD to KRW rate"
-  usdToKrwRate: BigDecimal!
-
-  "The USD to AUD rate"
-  usdToAudRate: BigDecimal!
-
   "The non repeated addresses of all the vaults"
   vaultIds: [String!]!
 
@@ -881,6 +851,44 @@ type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
   totalShares: BigInt! @aggregate(fn: "last", arg: "totalShares")
   apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
+}
+
+"""
+The latest exchange rates
+"""
+type ExchangeRate @entity {
+  "Always 0"
+  id: ID!
+
+  "The USD rate of the assets (e.g. ETH, GNO)"
+  assetsUsdRate: BigDecimal!
+
+  "The USD rate of the SWISE"
+  swiseUsdRate: BigDecimal!
+
+  "The USD rate of DAI"
+  daiUsdRate: BigDecimal!
+
+  "The USD rate of USDC"
+  usdcUsdRate: BigDecimal!
+
+  "The USD to EUR rate"
+  usdToEurRate: BigDecimal!
+
+  "The USD to GBP rate"
+  usdToGbpRate: BigDecimal!
+
+  "The USD to CNY rate"
+  usdToCnyRate: BigDecimal!
+
+  "The USD to JPY rate"
+  usdToJpyRate: BigDecimal!
+
+  "The USD to KRW rate"
+  usdToKrwRate: BigDecimal!
+
+  "The USD to AUD rate"
+  usdToAudRate: BigDecimal!
 }
 
 """

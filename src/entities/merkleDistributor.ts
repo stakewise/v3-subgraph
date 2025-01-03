@@ -3,6 +3,7 @@ import {
   Distributor,
   DistributorClaim,
   DistributorReward,
+  ExchangeRate,
   LeverageStrategyPosition,
   Network,
   OsToken,
@@ -172,6 +173,7 @@ export function convertStringToDistributionType(distTypeString: string): Distrib
 
 export function updateDistributions(
   network: Network,
+  exchangeRate: ExchangeRate,
   osToken: OsToken,
   distributor: Distributor,
   currentTimestamp: BigInt,
@@ -216,7 +218,7 @@ export function updateDistributions(
       // dist data is the pool address
       const uniPool = loadUniswapPool(Address.fromBytes(dist.data))!
       principalAssets = distributeToSwiseAssetUniPoolUsers(
-        network,
+        exchangeRate,
         uniPool,
         Address.fromBytes(dist.token),
         distributedAmount,
@@ -226,7 +228,7 @@ export function updateDistributions(
       // dist data is the pool address
       const uniPool = loadUniswapPool(Address.fromBytes(dist.data))!
       principalAssets = distributeToOsTokenUsdcUniPoolUsers(
-        network,
+        exchangeRate,
         osToken,
         uniPool,
         Address.fromBytes(dist.token),
@@ -241,8 +243,11 @@ export function updateDistributions(
     let distributedAssets: BigInt = BigInt.zero()
     if (dist.token.equals(OS_TOKEN)) {
       distributedAssets = convertOsTokenSharesToAssets(osToken, distributedAmount)
-    } else if (dist.token.equals(SWISE_TOKEN) && network.assetsUsdRate.gt(BigDecimal.zero())) {
-      distributedAssets = distributedAmount.toBigDecimal().times(network.swiseUsdRate).div(network.assetsUsdRate).digits
+    } else if (dist.token.equals(SWISE_TOKEN) && exchangeRate.assetsUsdRate.gt(BigDecimal.zero())) {
+      distributedAssets = distributedAmount
+        .toBigDecimal()
+        .times(exchangeRate.swiseUsdRate)
+        .div(exchangeRate.assetsUsdRate).digits
     } else {
       log.error('[MerkleDistributor] Unknown token={} price to update APY', [dist.token.toHex()])
     }
@@ -294,15 +299,15 @@ export function updatePeriodicDistributionApy(
 }
 
 export function distributeToSwiseAssetUniPoolUsers(
-  network: Network,
+  exchangeRate: ExchangeRate,
   pool: UniswapPool,
   token: Address,
   totalReward: BigInt,
 ): BigInt {
   const swiseToken = SWISE_TOKEN
   const assetToken = Address.fromString(ASSET_TOKEN)
-  const swiseUsdRate = network.swiseUsdRate
-  const assetsUsdRate = network.assetsUsdRate
+  const swiseUsdRate = exchangeRate.swiseUsdRate
+  const assetsUsdRate = exchangeRate.assetsUsdRate
   if (
     (pool.token0.notEqual(swiseToken) && pool.token1.notEqual(assetToken)) ||
     (pool.token0.notEqual(assetToken) && pool.token1.notEqual(swiseToken))
@@ -352,7 +357,7 @@ export function distributeToSwiseAssetUniPoolUsers(
 }
 
 export function distributeToOsTokenUsdcUniPoolUsers(
-  network: Network,
+  exchangeRate: ExchangeRate,
   osToken: OsToken,
   pool: UniswapPool,
   token: Address,
@@ -365,8 +370,8 @@ export function distributeToOsTokenUsdcUniPoolUsers(
   ) {
     assert(false, "Pool doesn't contain USDC and OsToken tokens")
   }
-  const assetsUsdRate = network.assetsUsdRate
-  const usdcUsdRate = network.usdcUsdRate
+  const assetsUsdRate = exchangeRate.assetsUsdRate
+  const usdcUsdRate = exchangeRate.usdcUsdRate
   if (assetsUsdRate.equals(BigDecimal.zero()) || usdcUsdRate.equals(BigDecimal.zero())) {
     assert(false, 'Missing USD rates for OsToken or USDC token')
   }
