@@ -9,10 +9,14 @@ export function handleStrategyConfigUpdated(event: StrategyConfigUpdated): void 
   const configName = event.params.configName
   const value = event.params.value
 
-  if (configName == 'leverageMaxBorrowLtvPercent') {
+  if (configName == 'maxBorrowLtvPercent') {
     const aave = loadAave()!
     aave.leverageMaxBorrowLtvPercent = ethereum.decode('uint256', value)!.toBigInt()
     aave.save()
+    log.info('[StrategiesRegistry] StrategyConfigUpdated configName={} leverageMaxBorrowLtvPercent={}', [
+      configName,
+      aave.leverageMaxBorrowLtvPercent.toString(),
+    ])
   } else if (configName == 'maxVaultLtvPercent') {
     const leverageMaxMinLtvPercent = ethereum.decode('uint256', value)!.toBigInt()
     let osTokenConfig = loadOsTokenConfig('2')!
@@ -29,7 +33,11 @@ export function handleStrategyConfigUpdated(event: StrategyConfigUpdated): void 
         osTokenConfig.save()
       }
     }
+    log.info('[StrategiesRegistry] StrategyConfigUpdated configName={} maxVaultLtvPercent={}', [
+      configName,
+      leverageMaxMinLtvPercent.toString(),
+    ])
+  } else {
+    log.info('[StrategiesRegistry] StrategyConfigUpdated configName={}', [configName])
   }
-
-  log.info('[StrategiesRegistry] StrategyConfigUpdated configName={}', [configName])
 }
