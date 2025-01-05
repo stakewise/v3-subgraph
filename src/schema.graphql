@@ -883,42 +883,6 @@ type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
   apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
 }
 
-"""
-The snapshot of the exchange rates
-"""
-type ExchangeRateSnapshot @entity(timeseries: true) {
-  id: Int8!
-  timestamp: Timestamp!
-  assetsUsdRate: BigDecimal!
-  swiseUsdRate: BigDecimal!
-  daiUsdRate: BigDecimal!
-  usdcUsdRate: BigDecimal!
-  usdToEurRate: BigDecimal!
-  usdToGbpRate: BigDecimal!
-  usdToCnyRate: BigDecimal!
-  usdToJpyRate: BigDecimal!
-  usdToKrwRate: BigDecimal!
-  usdToAudRate: BigDecimal!
-}
-
-"""
-The aggregation of the ExchangeRate snapshots
-"""
-type ExchangeRateStats @aggregation(intervals: ["day"], source: "ExchangeRateSnapshot") {
-  id: Int8!
-  timestamp: Timestamp!
-  assetsUsdRate: BigDecimal! @aggregate(fn: "last", arg: "assetsUsdRate")
-  swiseUsdRate: BigDecimal! @aggregate(fn: "last", arg: "swiseUsdRate")
-  daiUsdRate: BigDecimal! @aggregate(fn: "last", arg: "daiUsdRate")
-  usdcUsdRate: BigDecimal! @aggregate(fn: "last", arg: "usdcUsdRate")
-  usdToEurRate: BigDecimal! @aggregate(fn: "last", arg: "usdToEurRate")
-  usdToGbpRate: BigDecimal! @aggregate(fn: "last", arg: "usdToGbpRate")
-  usdToCnyRate: BigDecimal! @aggregate(fn: "last", arg: "usdToCnyRate")
-  usdToJpyRate: BigDecimal! @aggregate(fn: "last", arg: "usdToJpyRate")
-  usdToKrwRate: BigDecimal! @aggregate(fn: "last", arg: "usdToKrwRate")
-  usdToAudRate: BigDecimal! @aggregate(fn: "last", arg: "usdToAudRate")
-}
-
 "Uniswap V3 pool data"
 type UniswapPool @entity {
   "The address of the pool"

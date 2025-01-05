@@ -73,8 +73,6 @@ dataSources:
       file: ./mappings/exchangeRates.ts
       entities:
         - Network
-        - ExchangeRateSnapshot
-        - ExchangeRateStats
       abis:
         - name: PriceFeed
           file: ./abis/PriceFeed.json

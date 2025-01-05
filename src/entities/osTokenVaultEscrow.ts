@@ -63,11 +63,13 @@ export function updateOsTokenExitRequests(osToken: OsToken, vault: Vault): void 
 
   let osTokenExitRequest: OsTokenExitRequest
   const osTokenExitRequests: Array<OsTokenExitRequest> = vault.osTokenExitRequests.load()
+  const unprocessedExitRequests: Array<OsTokenExitRequest> = []
   for (let i = 0; i < osTokenExitRequests.length; i++) {
     osTokenExitRequest = osTokenExitRequests[i]
     if (osTokenExitRequest.osTokenShares.isZero()) {
       continue
     }
+    unprocessedExitRequests.push(osTokenExitRequest)
     contractAddresses.push(OS_TOKEN_VAULT_ESCROW)
     contractCalls.push(_getPositionCall(vaultAddress, osTokenExitRequest.positionTicket))
   }
@@ -78,11 +80,8 @@ export function updateOsTokenExitRequests(osToken: OsToken, vault: Vault): void 
   }
 
   // process result
-  for (let i = 0; i < osTokenExitRequests.length; i++) {
-    osTokenExitRequest = osTokenExitRequests[i]
-    if (osTokenExitRequest.osTokenShares.isZero()) {
-      continue
-    }
+  for (let i = 0; i < unprocessedExitRequests.length; i++) {
+    osTokenExitRequest = unprocessedExitRequests[i]
     let decodedResult = ethereum.decode('(address,uint256,uint256)', result[i]!)!.toTuple()
     osTokenExitRequest.osTokenShares = decodedResult[2].toBigInt()
     osTokenExitRequest.ltv = getExitRequestLtv(osTokenExitRequest, osToken)

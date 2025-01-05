@@ -4,10 +4,10 @@ import { updateExchangeRates } from '../entities/exchangeRates'
 
 export function handleExchangeRates(block: ethereum.Block): void {
   const network = loadNetwork()!
-  updateExchangeRates(network, block.timestamp)
+  updateExchangeRates(network)
 
   log.info(
-    '[ExchangeRates] assetsUsdRate={} usdToEurRate={} usdToGbpRate={} usdToCnyRate={} usdToJpyRate={} usdToKrwRate={} usdToAudRate={} daiUsdRate={} usdcUsdRate={} swiseUsdRate={}',
+    '[ExchangeRates] assetsUsdRate={} usdToEurRate={} usdToGbpRate={} usdToCnyRate={} usdToJpyRate={} usdToKrwRate={} usdToAudRate={} daiUsdRate={} usdcUsdRate={} swiseUsdRate={} timestamp={}',
     [
       network.assetsUsdRate.toString(),
       network.usdToEurRate.toString(),
@@ -19,6 +19,7 @@ export function handleExchangeRates(block: ethereum.Block): void {
       network.daiUsdRate.toString(),
       network.usdcUsdRate.toString(),
       network.swiseUsdRate.toString(),
+      block.timestamp.toString(),
     ],
   )
 }
