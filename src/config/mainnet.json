@@ -1,6 +1,7 @@
 {
   "network": "mainnet",
   "blocksInHour": "300",
+  "maxRetainBlocks": "216000",
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
   "v2PoolFeePercent": "1000",
