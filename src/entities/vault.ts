@@ -386,14 +386,10 @@ export function updateVaultMaxBoostApy(
     : osTokenConfig.leverageMaxMintLtvPercent
   const aaveLeverageLtv = aave.leverageMaxBorrowLtvPercent
   if (vaultLeverageLtv.isZero() || aaveLeverageLtv.isZero()) {
-    log.warning('[Vault] updateVaultMaxBoostApy ltvPercent is zero vault={} vaultLeverageLtv={} aaveLeverageLtv={}', [
-      vault.id,
-      vaultLeverageLtv.toString(),
-      aaveLeverageLtv.toString(),
-    ])
     vault.allocatorMaxBoostApy = BigDecimal.zero()
     vault.osTokenHolderMaxBoostApy = BigDecimal.zero()
     vault.save()
+    return
   }
 
   // calculate vault staking rate and the rate paid for minting osToken

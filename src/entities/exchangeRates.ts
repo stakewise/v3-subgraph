@@ -1,4 +1,4 @@
-import { Network, UniswapPool } from '../../generated/schema'
+import { ExchangeRateSnapshot, Network, UniswapPool } from '../../generated/schema'
 import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import {
   ASSETS_USD_PRICE_FEED,
@@ -18,7 +18,7 @@ import { isGnosisNetwork } from './network'
 
 const latestAnswerSelector = '0x50d25bcd'
 
-export function updateExchangeRates(network: Network): void {
+export function updateExchangeRates(network: Network, timestamp: BigInt): void {
   if (NETWORK == 'chiado' || NETWORK == 'holesky') {
     return
   }
@@ -130,4 +130,18 @@ export function updateExchangeRates(network: Network): void {
   network.daiUsdRate = daiUsdRate
   network.usdcUsdRate = usdcUsdRate
   network.save()
+
+  const exchangeRateSnapshot = new ExchangeRateSnapshot(timestamp.toString())
+  exchangeRateSnapshot.timestamp = timestamp.toI64()
+  exchangeRateSnapshot.assetsUsdRate = assetsUsdRate
+  exchangeRateSnapshot.swiseUsdRate = swiseUsdRate
+  exchangeRateSnapshot.daiUsdRate = daiUsdRate
+  exchangeRateSnapshot.usdcUsdRate = usdcUsdRate
+  exchangeRateSnapshot.usdToEurRate = usdToEurRate
+  exchangeRateSnapshot.usdToGbpRate = usdToGbpRate
+  exchangeRateSnapshot.usdToCnyRate = usdToCnyRate
+  exchangeRateSnapshot.usdToJpyRate = usdToJpyRate
+  exchangeRateSnapshot.usdToKrwRate = usdToKrwRate
+  exchangeRateSnapshot.usdToAudRate = usdToAudRate
+  exchangeRateSnapshot.save()
 }
