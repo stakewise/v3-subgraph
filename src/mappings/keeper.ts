@@ -403,7 +403,10 @@ export function handleDailySnapshots(block: ethereum.Block): void {
   osToken.save()
 
   let osTokenHolder: OsTokenHolder
-  const distributor = loadDistributor()!
+  const distributor = loadDistributor()
+  if (!distributor) {
+    return
+  }
   const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
