@@ -190,8 +190,6 @@ dataSources:
           handler: handleValidatorsApproval
         - event: ConfigUpdated(string)
           handler: handleConfigUpdated
-      blockHandlers:
-        - handler: handleDailySnapshots
   - kind: ethereum/contract
     name: OsTokenVaultController
     network: {{ network }}
@@ -507,8 +505,6 @@ dataSources:
       eventHandlers:
         - event: PoolCreated(indexed address,indexed address,indexed uint24,int24,address)
           handler: handlePoolCreated
-          topic1: ['{{ osToken.address }}', '{{ swiseToken.address }}']
-          topic2: ['{{ osToken.address }}', '{{ swiseToken.address }}']
   - kind: ethereum/contract
     name: UniswapPositionManager
     network: {{ network }}

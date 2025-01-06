@@ -1,14 +1,4 @@
-import {
-  Address,
-  BigInt,
-  Bytes,
-  DataSourceContext,
-  ethereum,
-  ipfs,
-  json,
-  JSONValue,
-  log,
-} from '@graphprotocol/graph-ts'
+import { Address, BigInt, Bytes, DataSourceContext, ipfs, json, JSONValue, log } from '@graphprotocol/graph-ts'
 import {
   BLOCKLIST_ERC20_VAULT_FACTORY_V2,
   BLOCKLIST_ERC20_VAULT_FACTORY_V3,
@@ -36,8 +26,8 @@ import {
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
   VaultFactory as VaultFactoryTemplate,
 } from '../../generated/templates'
-import { Allocator, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
-import { createOrLoadOsToken, loadOsToken, snapshotOsToken, updateOsTokenApy } from '../entities/osToken'
+import { Allocator, OsTokenHolder } from '../../generated/schema'
+import { createOrLoadOsToken, loadOsToken, updateOsTokenApy } from '../entities/osToken'
 import { createOrLoadAllocator, getAllocatorApy, snapshotAllocator, updateAllocatorAssets } from '../entities/allocator'
 import { createOrLoadNetwork, increaseUserVaultsCount, loadNetwork } from '../entities/network'
 import {
@@ -53,15 +43,14 @@ import { updateExitRequests } from '../entities/exitRequest'
 import { updateRewardSplitters } from '../entities/rewardSplitter'
 import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
-import { loadVault, snapshotVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
-import { getOsTokenHolderApy, snapshotOsTokenHolder } from '../entities/osTokenHolder'
+import { loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
+import { getOsTokenHolderApy } from '../entities/osTokenHolder'
 import { createOrLoadAave, loadAave } from '../entities/aave'
 import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
 const IS_BLOCKLIST_KEY = 'isBlocklist'
-const secondsInDay = 86400
 
 export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   createOrLoadV2Pool()
@@ -378,58 +367,4 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
   network.oraclesConfigIpfsHash = configIpfsHash
   network.save()
   log.info('[Keeper] ConfigUpdated configIpfsHash={}', [configIpfsHash])
-}
-
-export function handleDailySnapshots(block: ethereum.Block): void {
-  const network = loadNetwork()
-  if (!network) {
-    return
-  }
-
-  const timestamp = block.timestamp
-  const newSnapshotsCount = timestamp.plus(BigInt.fromI32(30)).div(BigInt.fromI32(secondsInDay))
-  if (newSnapshotsCount.le(network.snapshotsCount)) {
-    return
-  }
-  network.snapshotsCount = newSnapshotsCount
-  network.save()
-
-  const osToken = loadOsToken()
-  if (!osToken) {
-    return
-  }
-  snapshotOsToken(osToken, osToken._periodEarnedAssets, timestamp)
-  osToken._periodEarnedAssets = BigInt.zero()
-  osToken.save()
-
-  let osTokenHolder: OsTokenHolder
-  const distributor = loadDistributor()
-  if (!distributor) {
-    return
-  }
-  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
-  for (let i = 0; i < osTokenHolders.length; i++) {
-    osTokenHolder = osTokenHolders[i]
-    snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, osTokenHolder._periodEarnedAssets, timestamp)
-    osTokenHolder._periodEarnedAssets = BigInt.zero()
-    osTokenHolder.save()
-  }
-
-  let vault: Vault
-  let osTokenConfig: OsTokenConfig
-  const vaultIds = network.vaultIds
-  for (let i = 0; i < vaultIds.length; i++) {
-    vault = loadVault(Address.fromString(vaultIds[i]))!
-    osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
-    snapshotVault(vault, BigInt.zero(), timestamp)
-
-    const allocators: Array<Allocator> = vault.allocators.load()
-    for (let j = 0; j < allocators.length; j++) {
-      const allocator = allocators[j]
-      snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, allocator._periodEarnedAssets, timestamp)
-      allocator._periodEarnedAssets = BigInt.zero()
-      allocator.save()
-    }
-  }
-  log.info('[DailySnapshots] block={} timestamp={}', [block.number.toString(), timestamp.toString()])
 }
