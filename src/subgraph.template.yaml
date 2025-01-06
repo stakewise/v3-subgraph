@@ -22,6 +22,7 @@ dataSources:
       file: ./mappings/periodicTasks.ts
       entities:
         - Network
+        - ExchangeRate
         - Aave
         - AavePosition
         - OsToken
