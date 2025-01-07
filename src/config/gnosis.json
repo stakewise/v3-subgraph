@@ -1,6 +1,7 @@
 {
   "network": "gnosis",
   "blocksInHour": "700",
+  "maxRetainBlocks": "504000",
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
   "v2PoolFeePercent": "1500",
@@ -105,5 +106,9 @@
   "uniswapPositionManager": {
     "address": "0x0000000000000000000000000000000000000000",
     "startBlock": "34778574"
+  },
+  "strategiesRegistry": {
+    "address": "0x4abB9BBb82922A6893A5d6890cd2eE94610BEc48",
+    "startBlock": "36651385"
   }
 }

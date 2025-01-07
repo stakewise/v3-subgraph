@@ -20,6 +20,7 @@ export function createOrLoadNetwork(): Network {
     network.vaultIds = []
     network.osTokenVaultIds = []
     network.oraclesConfigIpfsHash = ''
+    network.snapshotsCount = BigInt.zero()
     network.assetsUsdRate = BigDecimal.zero()
     network.swiseUsdRate = BigDecimal.zero()
     network.daiUsdRate = BigDecimal.zero()
@@ -38,6 +39,16 @@ export function createOrLoadNetwork(): Network {
 
 export function isGnosisNetwork(): boolean {
   return NETWORK == 'chiado' || NETWORK == 'gnosis' || NETWORK == 'xdai'
+}
+
+export function getIsOsTokenVault(network: Network, vault: Vault): boolean {
+  const osTokenVaultIds = network.osTokenVaultIds
+  for (let i = 0; i < osTokenVaultIds.length; i++) {
+    if (vault.id === osTokenVaultIds[i]) {
+      return true
+    }
+  }
+  return false
 }
 
 export function createOrLoadUser(userAddress: Bytes): User {

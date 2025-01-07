@@ -43,7 +43,7 @@ import { decreaseUserVaultsCount, increaseUserVaultsCount, isGnosisNetwork, load
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import { DEPOSIT_DATA_REGISTRY, OS_TOKEN_CONFIG_V2_START_BLOCK, WAD } from '../helpers/constants'
 import { createOrLoadOsTokenConfig, loadOsTokenConfig } from '../entities/osTokenConfig'
-import { loadExitRequest, snapshotExitRequest, updateExitRequests } from '../entities/exitRequest'
+import { loadExitRequest, updateExitRequests } from '../entities/exitRequest'
 import { convertSharesToAssets, loadVault } from '../entities/vault'
 import { loadDistributor } from '../entities/merkleDistributor'
 
@@ -198,14 +198,7 @@ export function handleInitialized(event: Initialized): void {
 
   if (newVersion.equals(BigInt.fromI32(3))) {
     // update exit requests
-    updateExitRequests(
-      loadNetwork()!,
-      loadOsToken()!,
-      loadDistributor()!,
-      vault,
-      loadOsTokenConfig(vault.osTokenConfig)!,
-      timestamp,
-    )
+    updateExitRequests(loadNetwork()!, vault, timestamp)
   }
 
   createTransaction(event.transaction.hash.toHex())
@@ -459,13 +452,6 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const claimedAssets = params.withdrawnAssets
   const vaultAddress = event.address
   const vaultAddressHex = vaultAddress.toHex()
-  const timestamp = event.block.timestamp
-
-  const network = loadNetwork()!
-  const vault = loadVault(vaultAddress)!
-  const osToken = loadOsToken()!
-  const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
-  const distributor = loadDistributor()!
 
   createAllocatorAction(event, event.address, AllocatorActionType.ExitedAssetsClaimed, receiver, claimedAssets, null)
 
@@ -511,7 +497,6 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   prevExitRequest.isClaimable = false
   prevExitRequest.isClaimed = true
   prevExitRequest.save()
-  snapshotExitRequest(network, osToken, distributor, vault, osTokenConfig, prevExitRequest, BigInt.zero(), timestamp)
 
   log.info('[Vault] ExitedAssetsClaimed vault={} prevPositionTicket={} newPositionTicket={} claimedAssets={}', [
     vaultAddressHex,

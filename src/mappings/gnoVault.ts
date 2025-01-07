@@ -4,7 +4,7 @@ import { Allocator } from '../../generated/schema'
 import { XdaiSwapped } from '../../generated/templates/GnoVault/GnoVault'
 import { WAD } from '../helpers/constants'
 import { loadNetwork } from '../entities/network'
-import { getAllocatorApy, snapshotAllocator, updateAllocatorAssets } from '../entities/allocator'
+import { getAllocatorApy, updateAllocatorAssets } from '../entities/allocator'
 import { convertSharesToAssets, loadVault, snapshotVault, updateVaultApy } from '../entities/vault'
 import { createOrLoadV2Pool } from '../entities/v2pool'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
@@ -60,8 +60,8 @@ export function handleXdaiSwapped(event: XdaiSwapped): void {
     allocator = allocators[j]
     const earnedAssets = updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
     allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+    allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
     allocator.save()
-    snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, earnedAssets, timestamp)
   }
 
   log.info('[GnoVault] XdaiSwapped vault={} xdai={} gno={}', [

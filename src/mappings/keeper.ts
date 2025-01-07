@@ -26,22 +26,9 @@ import {
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
   VaultFactory as VaultFactoryTemplate,
 } from '../../generated/templates'
-import { AavePosition, Allocator, OsTokenHolder } from '../../generated/schema'
-import {
-  createOrLoadOsToken,
-  loadOsToken,
-  snapshotOsToken,
-  updateOsTokenApy,
-  updateOsTokenTotalAssets,
-} from '../entities/osToken'
-import {
-  createOrLoadAllocator,
-  getAllocatorApy,
-  getAllocatorsMintedShares,
-  snapshotAllocator,
-  updateAllocatorAssets,
-  updateAllocatorMintedOsTokenShares,
-} from '../entities/allocator'
+import { Allocator, OsTokenHolder } from '../../generated/schema'
+import { createOrLoadOsToken, loadOsToken, updateOsTokenApy } from '../entities/osToken'
+import { createOrLoadAllocator, getAllocatorApy, snapshotAllocator, updateAllocatorAssets } from '../entities/allocator'
 import { createOrLoadNetwork, increaseUserVaultsCount, loadNetwork } from '../entities/network'
 import {
   ConfigUpdated,
@@ -57,8 +44,8 @@ import { updateRewardSplitters } from '../entities/rewardSplitter'
 import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 import { loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
-import { getOsTokenHolderApy, snapshotOsTokenHolder, updateOsTokenHolderAssets } from '../entities/osTokenHolder'
-import { createOrLoadAave, loadAave, updateAavePosition } from '../entities/aave'
+import { getOsTokenHolderApy } from '../entities/osTokenHolder'
+import { createOrLoadAave, loadAave } from '../entities/aave'
 import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
 
 const IS_PRIVATE_KEY = 'isPrivate'
@@ -227,29 +214,14 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   }
   const feeRecipientsEarnedShares = updateVaults(json.fromBytes(data!), rewardsRoot, updateTimestamp, rewardsIpfsHash)
 
-  // update Aave
+  // fetch Aave data
   const aave = loadAave()!
-  const positions: Array<AavePosition> = aave.positions.load()
-  for (let i = 0; i < positions.length; i++) {
-    updateAavePosition(positions[i])
-  }
 
   // update OsToken
   const osToken = loadOsToken()!
-  const osTokenEarnedAssets = updateOsTokenTotalAssets(osToken)
   updateOsTokenApy(osToken, newAvgRewardPerSecond)
-  snapshotOsToken(osToken, osTokenEarnedAssets, blockTimestamp)
 
-  // update assets of all the osToken holders
   const network = loadNetwork()!
-  let osTokenHolder: OsTokenHolder
-  const osTokenHolderAssetsDiffs: Array<BigInt> = []
-  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
-  for (let i = 0; i < osTokenHolders.length; i++) {
-    osTokenHolder = osTokenHolders[i]
-    osTokenHolderAssetsDiffs.push(updateOsTokenHolderAssets(osToken, osTokenHolder))
-  }
-
   const distributor = loadDistributor()!
   const vaultIds = network.vaultIds
   for (let i = 0; i < vaultIds.length; i++) {
@@ -283,29 +255,25 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
     // update allocators
     let allocator: Allocator
     let allocators: Array<Allocator> = vault.allocators.load()
-    const allocatorsMintedOsTokenShares = getAllocatorsMintedShares(vault, allocators)
     const allocatorsAssetsDiffs: Array<BigInt> = []
-    const mintedOsTokenAssetsDiffs: Array<BigInt> = []
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
       allocatorsAssetsDiffs.push(updateAllocatorAssets(osToken, osTokenConfig, vault, allocator))
-      mintedOsTokenAssetsDiffs.push(
-        updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocatorsMintedOsTokenShares[j]),
-      )
     }
 
     // update exit requests
-    updateExitRequests(network, osToken, distributor, vault, osTokenConfig, updateTimestamp)
+    updateExitRequests(network, vault, updateTimestamp)
 
     // update reward splitters
-    updateRewardSplitters(osToken, distributor, osTokenConfig, vault, updateTimestamp)
+    updateRewardSplitters(vault)
 
     // update OsToken exit requests
     updateOsTokenExitRequests(osToken, vault)
 
     // update leverage strategy positions
-    updateLeverageStrategyPositions(network, osToken, distributor, vault, osTokenConfig, blockTimestamp)
+    updateLeverageStrategyPositions(network, aave, osToken, vault)
 
+    // update allocators apys
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
       allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
@@ -319,27 +287,19 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
         allocatorsAssetsDiffs[j],
         updateTimestamp,
       )
-      snapshotAllocator(
-        osToken,
-        osTokenConfig,
-        vault,
-        distributor,
-        allocator,
-        mintedOsTokenAssetsDiffs[j].neg(),
-        blockTimestamp,
-      )
     }
 
     // update vault max boost apys
     updateVaultMaxBoostApy(aave, osToken, vault, osTokenConfig, distributor, blockNumber)
   }
 
-  // update assets of all the osToken holders
+  // update osToken holders apys
+  let osTokenHolder: OsTokenHolder
+  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
     osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
     osTokenHolder.save()
-    snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, osTokenHolderAssetsDiffs[i], blockTimestamp)
   }
 
   log.info('[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={} blockTimestamp={}', [

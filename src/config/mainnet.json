@@ -1,6 +1,7 @@
 {
   "network": "mainnet",
   "blocksInHour": "300",
+  "maxRetainBlocks": "216000",
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
   "v2PoolFeePercent": "1000",
@@ -80,7 +81,7 @@
   },
   "osTokenVaultEscrow": {
     "address": "0x09e84205DF7c68907e619D07aFD90143c5763605",
-    "startBlock": "2592222"
+    "startBlock": "21034500"
   },
   "merkleDistributor": {
     "address": "0xA593948a0bC611fC6945eA013806b0191aE79B47",
@@ -105,5 +106,9 @@
   "uniswapPositionManager": {
     "address": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
     "startBlock": "18276054"
+  },
+  "strategiesRegistry": {
+    "address": "0x90b82E4b3aa385B4A02B7EBc1892a4BeD6B5c465",
+    "startBlock": "21024037"
   }
 }

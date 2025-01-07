@@ -12,7 +12,6 @@ import {
   AAVE_LEVERAGE_STRATEGY,
   AAVE_LEVERAGE_STRATEGY_START_BLOCK,
   MAX_VAULT_APY,
-  MULTICALL,
   VAULT_FACTORY_V2,
   VAULT_FACTORY_V3,
   WAD,
@@ -20,8 +19,7 @@ import {
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { isGnosisNetwork, loadNetwork } from './network'
 import { getV2PoolState, loadV2Pool, updatePoolApy } from './v2pool'
-import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from '../../generated/Keeper/Multicall'
-import { calculateAverage, getAggregateCall, getAnnualReward } from '../helpers/utils'
+import { calculateAverage, chunkedMulticall, getAnnualReward } from '../helpers/utils'
 import { createOrLoadOwnMevEscrow } from './mevEscrow'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
 import {
@@ -32,7 +30,6 @@ import {
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import { createTransaction } from './transaction'
-import { AaveLeverageStrategy as AaveLeverageStrategyContract } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
 import { getAaveBorrowApy, getAaveSupplyApy } from './aave'
 import { getAllocatorId } from './allocator'
 import { convertStringToDistributionType, DistributionType, getPeriodicDistributionApy } from './merkleDistributor'
@@ -379,14 +376,21 @@ export function updateVaultMaxBoostApy(
     return
   }
   const wad = BigInt.fromString(WAD)
-  const aaveLeverageStrategyContract = AaveLeverageStrategyContract.bind(AAVE_LEVERAGE_STRATEGY)
 
   const osTokenApy = getOsTokenApy(osToken, false)
   const borrowApy = getAaveBorrowApy(aave, false)
   const supplyApy = getAaveSupplyApy(aave, osToken, false)
 
-  const vaultAddress = Address.fromString(vault.id)
-  const vaultLeverageLtv = aaveLeverageStrategyContract.getVaultLtv(vaultAddress)
+  const vaultLeverageLtv = osTokenConfig.ltvPercent.lt(osTokenConfig.leverageMaxMintLtvPercent)
+    ? osTokenConfig.ltvPercent
+    : osTokenConfig.leverageMaxMintLtvPercent
+  const aaveLeverageLtv = aave.leverageMaxBorrowLtvPercent
+  if (vaultLeverageLtv.isZero() || aaveLeverageLtv.isZero()) {
+    vault.allocatorMaxBoostApy = BigDecimal.zero()
+    vault.osTokenHolderMaxBoostApy = BigDecimal.zero()
+    vault.save()
+    return
+  }
 
   // calculate vault staking rate and the rate paid for minting osToken
   const vaultApy = getVaultApy(vault, false)
@@ -404,10 +408,11 @@ export function updateVaultMaxBoostApy(
   const osTokenHolderOsTokenShares = allocatorMintedOsTokenShares
 
   // calculate assets/shares boosted from the strategy
-  const strategyMintedOsTokenShares = aaveLeverageStrategyContract.getFlashloanOsTokenShares(
-    vaultAddress,
-    osTokenHolderOsTokenShares,
-  )
+  const totalLtv = vaultLeverageLtv.times(aaveLeverageLtv).div(wad)
+  const strategyMintedOsTokenShares = osTokenHolderOsTokenShares
+    .times(wad)
+    .div(wad.minus(totalLtv))
+    .minus(osTokenHolderOsTokenShares)
   const strategyMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, strategyMintedOsTokenShares)
   const strategyDepositedAssets = strategyMintedOsTokenAssets.times(wad).div(vaultLeverageLtv)
 
@@ -503,41 +508,36 @@ function getVaultState(vault: Vault): Array<BigInt> {
   }
 
   const isV2OrHigherVault = vault.version.ge(BigInt.fromI32(2))
-  const vaultAddr = Address.fromString(vault.id)
   const updateStateCall = getUpdateStateCall(vault)
-  const convertToAssetsCall = _getConvertToAssetsCall(BigInt.fromString(WAD))
-  const totalAssetsCall = Bytes.fromHexString(totalAssetsSelector)
-  const totalSharesCall = Bytes.fromHexString(totalSharesSelector)
-  const exitingAssetsCall = Bytes.fromHexString(exitingAssetsSelector)
-  const queuedSharesCall = Bytes.fromHexString(queuedSharesSelector)
 
-  const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
-  let calls: Array<ethereum.Value> = []
+  let contractCalls: Array<Bytes> = []
   if (updateStateCall) {
     const getFeeRecipientSharesCall = _getSharesCall(Address.fromBytes(vault.feeRecipient))
-    const getFeeRecipientSharesAggregateCall = getAggregateCall(vaultAddr, getFeeRecipientSharesCall)
-    calls.push(getFeeRecipientSharesAggregateCall)
-    calls.push(getAggregateCall(vaultAddr, updateStateCall))
-    calls.push(getFeeRecipientSharesAggregateCall)
+    contractCalls.push(getFeeRecipientSharesCall)
+    contractCalls.push(updateStateCall)
+    contractCalls.push(getFeeRecipientSharesCall)
   }
-  calls.push(getAggregateCall(vaultAddr, convertToAssetsCall))
-  calls.push(getAggregateCall(vaultAddr, totalAssetsCall))
-  calls.push(getAggregateCall(vaultAddr, totalSharesCall))
-  calls.push(getAggregateCall(vaultAddr, queuedSharesCall))
+  contractCalls.push(_getConvertToAssetsCall(BigInt.fromString(WAD)))
+  contractCalls.push(Bytes.fromHexString(totalAssetsSelector))
+  contractCalls.push(Bytes.fromHexString(totalSharesSelector))
+  contractCalls.push(Bytes.fromHexString(queuedSharesSelector))
   if (isV2OrHigherVault) {
-    calls.push(getAggregateCall(vaultAddr, exitingAssetsCall))
+    contractCalls.push(Bytes.fromHexString(exitingAssetsSelector))
   }
 
-  const result = multicallContract.call('tryAggregate', 'tryAggregate(bool,(address,bytes)[]):((bool,bytes)[])', [
-    ethereum.Value.fromBoolean(false),
-    ethereum.Value.fromArray(calls),
-  ])
-  let resultValue = result[0].toTupleArray<TryAggregateCallReturnDataStruct>()
+  const callsCount = contractCalls.length
+  let contractAddresses: Array<Address> = []
+  const vaultAddr = Address.fromString(vault.id)
+  for (let i = 0; i < callsCount; i++) {
+    contractAddresses[i] = vaultAddr
+  }
+
+  let results = chunkedMulticall(contractAddresses, contractCalls, false)
 
   let feeRecipientEarnedShares = BigInt.zero()
   if (updateStateCall) {
     // check whether update state call succeeded
-    if (!resultValue[1].success) {
+    if (results[1] === null) {
       log.error('[Vault] getVaultState failed for vault={} updateStateCall={}', [
         vault.id,
         updateStateCall.toHexString(),
@@ -546,21 +546,19 @@ function getVaultState(vault: Vault): Array<BigInt> {
     }
 
     // calculate fee recipient earned shares
-    const feeRecipientSharesBefore = ethereum.decode('uint256', resultValue[0].returnData)!.toBigInt()
-    const feeRecipientSharesAfter = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
+    const feeRecipientSharesBefore = ethereum.decode('uint256', results[0]!)!.toBigInt()
+    const feeRecipientSharesAfter = ethereum.decode('uint256', results[2]!)!.toBigInt()
     feeRecipientEarnedShares = feeRecipientSharesAfter.minus(feeRecipientSharesBefore)
 
     // remove responses from the result
-    resultValue = resultValue.slice(3)
+    results = results.slice(3)
   }
 
-  const newRate = ethereum.decode('uint256', resultValue[0].returnData)!.toBigInt()
-  const totalAssets = ethereum.decode('uint256', resultValue[1].returnData)!.toBigInt()
-  const totalShares = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
-  const queuedShares = ethereum.decode('uint128', resultValue[3].returnData)!.toBigInt()
-  const exitingAssets = isV2OrHigherVault
-    ? ethereum.decode('uint128', resultValue[4].returnData)!.toBigInt()
-    : vault.exitingAssets
+  const newRate = ethereum.decode('uint256', results[0]!)!.toBigInt()
+  const totalAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
+  const totalShares = ethereum.decode('uint256', results[2]!)!.toBigInt()
+  const queuedShares = ethereum.decode('uint128', results[3]!)!.toBigInt()
+  const exitingAssets = isV2OrHigherVault ? ethereum.decode('uint128', results[4]!)!.toBigInt() : vault.exitingAssets
   return [newRate, totalAssets, totalShares, queuedShares, exitingAssets, feeRecipientEarnedShares]
 }
 

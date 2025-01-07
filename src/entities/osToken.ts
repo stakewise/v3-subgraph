@@ -24,24 +24,24 @@ export function createOrLoadOsToken(): OsToken {
     osToken.feePercent = 0
     osToken.totalSupply = BigInt.zero()
     osToken.totalAssets = BigInt.zero()
+    osToken._periodEarnedAssets = BigInt.zero()
     osToken.save()
   }
 
   return osToken
 }
 
-export function updateOsTokenTotalAssets(osToken: OsToken): BigInt {
+export function updateOsTokenTotalAssets(osToken: OsToken): void {
   const osTokenVaultController = OsTokenVaultControllerContact.bind(OS_TOKEN_VAULT_CONTROLLER)
   const newTotalAssets = osTokenVaultController.totalAssets()
   const osTokenTotalAssetsDiff = newTotalAssets.minus(osToken.totalAssets)
   if (osTokenTotalAssetsDiff.lt(BigInt.zero())) {
     log.error('[OsToken] osTokenTotalAssetsDiff cannot be negative={}', [osTokenTotalAssetsDiff.toString()])
-    return BigInt.zero()
+    return
   }
   osToken.totalAssets = newTotalAssets
+  osToken._periodEarnedAssets = osToken._periodEarnedAssets.plus(osTokenTotalAssetsDiff)
   osToken.save()
-
-  return osTokenTotalAssetsDiff
 }
 
 export function updateOsTokenApy(osToken: OsToken, newAvgRewardPerSecond: BigInt): void {
