@@ -73,6 +73,9 @@ export function updateOsTokenExitRequests(osToken: OsToken, vault: Vault): void 
     contractAddresses.push(OS_TOKEN_VAULT_ESCROW)
     contractCalls.push(_getPositionCall(vaultAddress, osTokenExitRequest.positionTicket))
   }
+  if (unprocessedExitRequests.length == 0) {
+    return
+  }
 
   let result = chunkedMulticall(contractAddresses, contractCalls)
   if (updateStateCall) {

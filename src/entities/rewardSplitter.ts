@@ -54,6 +54,9 @@ export function updateRewardSplitters(vault: Vault): void {
   for (let i = 0; i < rewardSplitters.length; i++) {
     rewardSplitter = rewardSplitters[i]
     const shareHolders: Array<RewardSplitterShareHolder> = rewardSplitter.shareHolders.load()
+    if (shareHolders.length == 0) {
+      continue
+    }
     let calls: Array<Bytes> = []
     if (updateStateCall) {
       calls.push(updateStateCall)
