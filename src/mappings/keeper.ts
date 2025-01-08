@@ -278,7 +278,7 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
     // update allocators apys
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
       allocator.save()
     }
 
@@ -291,7 +291,7 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
+    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
     osTokenHolder.save()
   }
 

@@ -81,7 +81,7 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
     // update allocators apys
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
       allocator.save()
     }
 
@@ -92,7 +92,7 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
   // update osToken holders apys
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
+    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
     osTokenHolder.save()
   }
 

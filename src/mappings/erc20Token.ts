@@ -84,7 +84,7 @@ function _handleOsTokenTransfer(event: Transfer): void {
     tokenHolderFrom.balance = tokenHolderFrom.balance.minus(amount)
     tokenHolderFrom.transfersCount = tokenHolderFrom.transfersCount.plus(BigInt.fromI32(1))
     updateOsTokenHolderAssets(osToken, tokenHolderFrom)
-    tokenHolderFrom.apy = getOsTokenHolderApy(network, osToken, distributor, tokenHolderFrom, false)
+    tokenHolderFrom.apy = getOsTokenHolderApy(network, osToken, distributor, tokenHolderFrom)
     tokenHolderFrom.save()
 
     const user = createOrLoadUser(from)
@@ -100,7 +100,7 @@ function _handleOsTokenTransfer(event: Transfer): void {
     tokenHolderTo.balance = tokenHolderTo.balance.plus(amount)
     tokenHolderTo.transfersCount = tokenHolderTo.transfersCount.plus(BigInt.fromI32(1))
     updateOsTokenHolderAssets(osToken, tokenHolderTo)
-    tokenHolderTo.apy = getOsTokenHolderApy(network, osToken, distributor, tokenHolderTo, false)
+    tokenHolderTo.apy = getOsTokenHolderApy(network, osToken, distributor, tokenHolderTo)
     tokenHolderTo.save()
 
     const user = createOrLoadUser(to)

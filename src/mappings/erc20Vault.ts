@@ -38,7 +38,7 @@ export function handleTransfer(event: Transfer): void {
   const allocatorFrom = loadAllocator(from, vaultAddress)!
   allocatorFrom.shares = allocatorFrom.shares.minus(shares)
   updateAllocatorAssets(osToken, osTokenConfig, vault, allocatorFrom)
-  allocatorFrom.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocatorFrom, false)
+  allocatorFrom.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocatorFrom)
   allocatorFrom.save()
   if (allocatorFrom.shares.isZero()) {
     decreaseUserVaultsCount(allocatorFrom.address)
@@ -51,7 +51,7 @@ export function handleTransfer(event: Transfer): void {
   }
   allocatorTo.shares = allocatorTo.shares.plus(shares)
   updateAllocatorAssets(osToken, osTokenConfig, vault, allocatorTo)
-  allocatorTo.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocatorTo, false)
+  allocatorTo.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocatorTo)
   allocatorTo.save()
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferIn, to, assets, shares)
 

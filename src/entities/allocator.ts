@@ -182,13 +182,12 @@ export function getAllocatorApy(
   vault: Vault,
   distributor: Distributor,
   allocator: Allocator,
-  useDayApy: boolean,
 ): BigDecimal {
   const vaultAddress = Address.fromString(allocator.vault)
   const allocatorAddress = Address.fromBytes(allocator.address)
 
-  const vaultApy = getVaultApy(vault, useDayApy)
-  const osTokenApy = getOsTokenApy(osToken, useDayApy)
+  const vaultApy = getVaultApy(vault, false)
+  const osTokenApy = getOsTokenApy(osToken, false)
 
   let totalAssets = allocator.assets
   let stakingAssets = allocator.assets
@@ -212,14 +211,14 @@ export function getAllocatorApy(
 
   const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, allocator.mintedOsTokenShares)
   totalEarnedAssets = totalEarnedAssets.minus(
-    getAnnualReward(mintedOsTokenAssets, getVaultOsTokenMintApy(osToken, osTokenConfig, useDayApy)),
+    getAnnualReward(mintedOsTokenAssets, getVaultOsTokenMintApy(osToken, osTokenConfig)),
   )
 
   const boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
   if (boostPosition !== null) {
     const aave = loadAave()!
     totalEarnedAssets = totalEarnedAssets.plus(
-      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition, distributor, useDayApy),
+      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition, distributor),
     )
     const boostedOsTokenShares = boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)
     let extraOsTokenShares: BigInt
@@ -243,7 +242,7 @@ export function getAllocatorApy(
   }
 
   const allocatorApy = totalEarnedAssets.divDecimal(totalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
-  if (!useDayApy && vault.apy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
+  if (vault.apy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
     log.warning(
       '[getAllocatorApy] Calculated APY is higher than max boost APY: maxBoostApy={} allocatorApy={} vault={} allocator={}',
       [vault.allocatorMaxBoostApy.toString(), allocatorApy.toString(), vault.id, allocator.address.toHex()],
