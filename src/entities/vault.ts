@@ -19,7 +19,7 @@ import {
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { isGnosisNetwork, loadNetwork } from './network'
 import { getV2PoolState, loadV2Pool, updatePoolApy } from './v2pool'
-import { calculateAverage, chunkedMulticall, getAnnualReward } from '../helpers/utils'
+import { calculateAverage, chunkedMulticall, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { createOrLoadOwnMevEscrow } from './mevEscrow'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
 import {
@@ -30,7 +30,6 @@ import {
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import { createTransaction } from './transaction'
-import { getAaveBorrowApy, getAaveSupplyApy } from './aave'
 import { getAllocatorId } from './allocator'
 import { convertStringToDistributionType, DistributionType, getPeriodicDistributionApy } from './merkleDistributor'
 
@@ -178,8 +177,8 @@ export function getVaultApy(vault: Vault, useDayApy: boolean): BigDecimal {
   return calculateAverage(apys.slice(apys.length - snapshotsPerDay))
 }
 
-export function getVaultOsTokenMintApy(osToken: OsToken, osTokenConfig: OsTokenConfig, useDayApy: boolean): BigDecimal {
-  const osTokenApy = getOsTokenApy(osToken, useDayApy)
+export function getVaultOsTokenMintApy(osToken: OsToken, osTokenConfig: OsTokenConfig): BigDecimal {
+  const osTokenApy = getOsTokenApy(osToken, false)
   const feePercentBigDecimal = BigDecimal.fromString(osToken.feePercent.toString())
   if (osTokenConfig.ltvPercent.isZero()) {
     log.error('getVaultOsTokenMintApy osTokenConfig.ltvPercent is zero osTokenConfig={}', [osTokenConfig.id])
@@ -378,8 +377,9 @@ export function updateVaultMaxBoostApy(
   const wad = BigInt.fromString(WAD)
 
   const osTokenApy = getOsTokenApy(osToken, false)
-  const borrowApy = getAaveBorrowApy(aave, false)
-  const supplyApy = getAaveSupplyApy(aave, osToken, false)
+  const borrowApy = aave.borrowApy
+  // earned osToken shares earn extra staking rewards, apply compounding
+  const supplyApy = getCompoundedApy(aave.supplyApy, osTokenApy)
 
   const vaultLeverageLtv = osTokenConfig.ltvPercent.lt(osTokenConfig.leverageMaxMintLtvPercent)
     ? osTokenConfig.ltvPercent
@@ -394,7 +394,7 @@ export function updateVaultMaxBoostApy(
 
   // calculate vault staking rate and the rate paid for minting osToken
   const vaultApy = getVaultApy(vault, false)
-  const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig, false)
+  const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig)
 
   // calculate max boost apy for vault allocator
   const allocatorDepositedAssets = wad
@@ -462,7 +462,7 @@ export function updateVaultMaxBoostApy(
     }
 
     // get the distribution APY
-    distributionApy = getPeriodicDistributionApy(distribution, osToken, false)
+    distributionApy = getPeriodicDistributionApy(distribution, osToken)
     if (distributionApy.equals(BigDecimal.zero())) {
       continue
     }

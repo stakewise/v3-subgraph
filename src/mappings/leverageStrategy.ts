@@ -39,11 +39,11 @@ function _updateAllocatorAndOsTokenHolderApys(
 ): void {
   const allocator = loadAllocator(userAddress, Address.fromString(vault.id))
   if (allocator) {
-    allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+    allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
     allocator.save()
   }
   const osTokenHolder = loadOsTokenHolder(userAddress)!
-  osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
+  osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
   osTokenHolder.save()
 }
 

@@ -75,7 +75,7 @@ export function handleDeposited(event: Deposited): void {
   }
   allocator.shares = allocator.shares.plus(shares)
   updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
@@ -120,7 +120,7 @@ export function handleRedeemed(event: Redeemed): void {
   const allocator = loadAllocator(owner, vaultAddress)!
   allocator.shares = allocator.shares.minus(shares)
   updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   if (allocator.shares.isZero()) {
@@ -323,7 +323,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
     const allocator = loadAllocator(owner, event.address)!
     allocator.shares = allocator.shares.minus(shares)
     updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
-    allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+    allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
     allocator.save()
 
     if (allocator.shares.isZero()) {
@@ -403,7 +403,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   const allocator = loadAllocator(owner, vaultAddress)!
   allocator.shares = allocator.shares.minus(shares)
   updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   if (allocator.shares.isZero()) {
@@ -529,7 +529,7 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   const distributor = loadDistributor()!
   allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.plus(shares)
   updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   createAllocatorAction(event, vaultAddress, AllocatorActionType.OsTokenMinted, holder, assets, shares)
@@ -563,7 +563,7 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
     allocator.mintedOsTokenShares = BigInt.zero()
   }
   updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
@@ -609,7 +609,7 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
     allocator.mintedOsTokenShares = BigInt.zero()
   }
   updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   if (allocator.shares.isZero()) {
@@ -658,7 +658,7 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
     allocator.mintedOsTokenShares = BigInt.zero()
   }
   updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   if (allocator.shares.isZero()) {
@@ -846,7 +846,7 @@ export function handleMigrated(event: Migrated): void {
   }
   allocator.shares = allocator.shares.plus(shares)
   updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()

@@ -10,7 +10,7 @@ import {
   OsTokenHolderSnapshot,
   Vault,
 } from '../../generated/schema'
-import { getAnnualReward } from '../helpers/utils'
+import { calculateApy, getAnnualReward } from '../helpers/utils'
 import { convertOsTokenSharesToAssets, getOsTokenApy, osTokenId } from './osToken'
 import { getBoostPositionAnnualReward, loadLeverageStrategyPosition } from './leverageStrategy'
 import { loadVault } from './vault'
@@ -45,9 +45,8 @@ export function getOsTokenHolderApy(
   osToken: OsToken,
   distributor: Distributor,
   osTokenHolder: OsTokenHolder,
-  useDayApy: boolean,
 ): BigDecimal {
-  const osTokenApy = getOsTokenApy(osToken, useDayApy)
+  const osTokenApy = getOsTokenApy(osToken, false)
 
   let principalAssets = osTokenHolder.assets
   let totalEarnedAssets = getAnnualReward(principalAssets, osTokenApy)
@@ -69,7 +68,7 @@ export function getOsTokenHolderApy(
       .plus(position.exitingAssets)
       .plus(convertOsTokenSharesToAssets(osToken, position.osTokenShares.plus(position.exitingOsTokenShares)))
     totalEarnedAssets = totalEarnedAssets.plus(
-      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, position, distributor, useDayApy),
+      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, position, distributor),
     )
     // we only take the first boosted position
     break
@@ -82,12 +81,7 @@ export function getOsTokenHolderApy(
   const osTokenHolderApy = totalEarnedAssets
     .divDecimal(principalAssets.toBigDecimal())
     .times(BigDecimal.fromString('100'))
-  if (
-    !useDayApy &&
-    vault &&
-    osTokenApy.lt(vault.osTokenHolderMaxBoostApy) &&
-    osTokenHolderApy.gt(vault.osTokenHolderMaxBoostApy)
-  ) {
+  if (vault && osTokenApy.lt(vault.osTokenHolderMaxBoostApy) && osTokenHolderApy.gt(vault.osTokenHolderMaxBoostApy)) {
     log.warning(
       '[getOsTokenHolderApy] Calculated APY is higher than max boost APY: maxBoostApy={} osTokenHolderApy={} vault={} holder={}',
       [vault.osTokenHolderMaxBoostApy.toString(), osTokenHolderApy.toString(), vault.id, osTokenHolder.id],
@@ -152,16 +146,17 @@ export function updateOsTokenHolderAssets(osToken: OsToken, osTokenHolder: OsTok
 export function snapshotOsTokenHolder(
   network: Network,
   osToken: OsToken,
-  distributor: Distributor,
   osTokenHolder: OsTokenHolder,
   earnedAssets: BigInt,
+  duration: BigInt,
   timestamp: BigInt,
 ): void {
+  const totalAssets = getOsTokenHolderTotalAssets(network, osToken, osTokenHolder)
   const snapshot = new OsTokenHolderSnapshot(timestamp.toString())
   snapshot.timestamp = timestamp.toI64()
   snapshot.osTokenHolder = osTokenHolder.id
   snapshot.earnedAssets = earnedAssets
-  snapshot.totalAssets = getOsTokenHolderTotalAssets(network, osToken, osTokenHolder)
-  snapshot.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, true)
+  snapshot.totalAssets = totalAssets
+  snapshot.apy = calculateApy(earnedAssets, totalAssets, duration)
   snapshot.save()
 }

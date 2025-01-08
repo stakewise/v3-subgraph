@@ -28,7 +28,7 @@ import {
 } from '../../generated/templates'
 import { Allocator, OsTokenHolder } from '../../generated/schema'
 import { createOrLoadOsToken, loadOsToken, updateOsTokenApy } from '../entities/osToken'
-import { createOrLoadAllocator, getAllocatorApy, snapshotAllocator, updateAllocatorAssets } from '../entities/allocator'
+import { createOrLoadAllocator, getAllocatorApy, updateAllocatorAssets } from '../entities/allocator'
 import { createOrLoadNetwork, increaseUserVaultsCount, loadNetwork } from '../entities/network'
 import {
   ConfigUpdated,
@@ -253,12 +253,14 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
     }
 
     // update allocators
+    let earnedAssets: BigInt
     let allocator: Allocator
     let allocators: Array<Allocator> = vault.allocators.load()
-    const allocatorsAssetsDiffs: Array<BigInt> = []
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocatorsAssetsDiffs.push(updateAllocatorAssets(osToken, osTokenConfig, vault, allocator))
+      earnedAssets = updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
+      allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
+      allocator.save()
     }
 
     // update exit requests
@@ -276,17 +278,8 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
     // update allocators apys
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
       allocator.save()
-      snapshotAllocator(
-        osToken,
-        osTokenConfig,
-        vault,
-        distributor,
-        allocator,
-        allocatorsAssetsDiffs[j],
-        updateTimestamp,
-      )
     }
 
     // update vault max boost apys
@@ -298,7 +291,7 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
+    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
     osTokenHolder.save()
   }
 

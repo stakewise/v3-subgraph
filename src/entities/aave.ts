@@ -1,5 +1,5 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
-import { Aave, AavePosition, OsToken } from '../../generated/schema'
+import { Aave, AavePosition } from '../../generated/schema'
 import { AaveProtocolDataProvider as AaveProtocolDataProviderContract } from '../../generated/PeriodicTasks/AaveProtocolDataProvider'
 import { AaveLeverageStrategy } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
 import {
@@ -10,12 +10,10 @@ import {
   OS_TOKEN,
   WAD,
 } from '../helpers/constants'
-import { calculateMedian, chunkedMulticall, getCompoundedApy } from '../helpers/utils'
-import { getOsTokenApy } from './osToken'
+import { calculateMedian, chunkedMulticall } from '../helpers/utils'
 
 const aaveId = '1'
 const snapshotsPerWeek = 168
-const snapshotsPerDay = 24
 const getBorrowStateSelector = '0xe70631bc'
 
 export function loadAave(): Aave | null {
@@ -132,30 +130,6 @@ export function updateAavePosition(position: AavePosition): void {
   position.borrowedAssets = borrowState.getBorrowedAssets()
   position.suppliedOsTokenShares = borrowState.getSuppliedOsTokenShares()
   position.save()
-}
-
-export function getAaveSupplyApy(aave: Aave, osToken: OsToken, useDayApy: boolean): BigDecimal {
-  // assumes that updates happen every hour
-  const apysCount = aave.supplyApys.length
-  let apy: BigDecimal
-  if (!useDayApy || apysCount < snapshotsPerDay) {
-    apy = aave.supplyApy
-  } else {
-    const apys: Array<BigDecimal> = aave.supplyApys
-    apy = calculateMedian(apys.slice(apysCount - snapshotsPerDay))
-  }
-  // earned osToken shares earn extra staking rewards, apply compounding
-  return getCompoundedApy(apy, getOsTokenApy(osToken, useDayApy))
-}
-
-export function getAaveBorrowApy(aave: Aave, useDayApy: boolean): BigDecimal {
-  // assumes that updates happen every hour
-  const apysCount = aave.borrowApys.length
-  if (!useDayApy || apysCount < snapshotsPerDay) {
-    return aave.borrowApy
-  }
-  const apys: Array<BigDecimal> = aave.borrowApys
-  return calculateMedian(apys.slice(apysCount - snapshotsPerDay))
 }
 
 function _getBorrowStateCall(user: Address): Bytes {

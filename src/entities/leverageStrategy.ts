@@ -15,9 +15,9 @@ import { AaveLeverageStrategy } from '../../generated/PeriodicTasks/AaveLeverage
 import { AAVE_LEVERAGE_STRATEGY, WAD } from '../helpers/constants'
 import { loadAllocator } from './allocator'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
-import { getAnnualReward } from '../helpers/utils'
+import { getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { getVaultApy, getVaultOsTokenMintApy } from './vault'
-import { getAaveBorrowApy, getAaveSupplyApy, loadAavePosition } from './aave'
+import { loadAavePosition } from './aave'
 import { convertStringToDistributionType, DistributionType, getPeriodicDistributionApy } from './merkleDistributor'
 import { loadOsTokenHolder } from './osTokenHolder'
 import { getIsOsTokenVault } from './network'
@@ -210,7 +210,6 @@ export function getBoostPositionAnnualReward(
   osTokenConfig: OsTokenConfig,
   strategyPosition: LeverageStrategyPosition,
   distributor: Distributor,
-  useDayApy: boolean,
 ): BigInt {
   const vaultAddress = Address.fromString(strategyPosition.vault)
   const proxyAddress = Address.fromBytes(strategyPosition.proxy)
@@ -218,10 +217,11 @@ export function getBoostPositionAnnualReward(
   const vaultPosition = loadAllocator(proxyAddress, vaultAddress)!
   const aavePosition = loadAavePosition(proxyAddress)!
 
-  const vaultApy = getVaultApy(vault, useDayApy)
-  const osTokenApy = getOsTokenApy(osToken, useDayApy)
-  const borrowApy = getAaveBorrowApy(aave, useDayApy)
-  const supplyApy = getAaveSupplyApy(aave, osToken, useDayApy)
+  const vaultApy = getVaultApy(vault, false)
+  const osTokenApy = getOsTokenApy(osToken, false)
+  const borrowApy = aave.borrowApy
+  // earned osToken shares earn extra staking rewards, apply compounding
+  const supplyApy = getCompoundedApy(aave.supplyApy, osTokenApy)
 
   let totalDepositedAssets = vaultPosition.assets
   let totalMintedOsTokenShares = vaultPosition.mintedOsTokenShares
@@ -255,7 +255,7 @@ export function getBoostPositionAnnualReward(
   totalEarnedAssets = totalEarnedAssets.plus(convertOsTokenSharesToAssets(osToken, totalEarnedOsTokenShares))
 
   // minted osToken shares lose mint APY
-  const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig, useDayApy)
+  const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig)
   totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(totalMintedOsTokenAssets, osTokenMintApy))
 
   // borrowed assets lose borrow APY
@@ -276,7 +276,7 @@ export function getBoostPositionAnnualReward(
     }
 
     // get the distribution APY
-    distributionApy = getPeriodicDistributionApy(distribution, osToken, useDayApy)
+    distributionApy = getPeriodicDistributionApy(distribution, osToken)
     if (distributionApy.equals(BigDecimal.zero())) {
       continue
     }
