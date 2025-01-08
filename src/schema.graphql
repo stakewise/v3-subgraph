@@ -489,8 +489,8 @@ type Network @entity {
   "The total number of non repeated vault allocators and osToken holders"
   usersCount: Int!
 
-  "The total number of snapshots"
-  snapshotsCount: BigInt!
+  "The timestamp of the last snapshot"
+  lastSnapshotTimestamp: BigInt!
 }
 
 type User @entity {

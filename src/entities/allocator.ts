@@ -11,7 +11,7 @@ import {
   Vault,
 } from '../../generated/schema'
 import { WAD } from '../helpers/constants'
-import { chunkedVaultMulticall, getAnnualReward } from '../helpers/utils'
+import { calculateApy, chunkedVaultMulticall, getAnnualReward } from '../helpers/utils'
 import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { convertSharesToAssets, getVaultApy, getVaultOsTokenMintApy, loadVault } from './vault'
 import { loadOsTokenConfig } from './osTokenConfig'
@@ -306,7 +306,6 @@ export function updateAllocatorAssets(
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.save()
   return allocator.assets.minus(assetsBefore)
 }
 
@@ -362,19 +361,19 @@ export function updateAllocatorMintedOsTokenShares(
 
 export function snapshotAllocator(
   osToken: OsToken,
-  osTokenConfig: OsTokenConfig,
   vault: Vault,
-  distributor: Distributor,
   allocator: Allocator,
   earnedAssets: BigInt,
+  duration: BigInt,
   timestamp: BigInt,
 ): void {
+  const totalAssets = getAllocatorTotalAssets(osToken, vault, allocator)
   const allocatorSnapshot = new AllocatorSnapshot(timestamp.toString())
   allocatorSnapshot.timestamp = timestamp.toI64()
   allocatorSnapshot.allocator = allocator.id
   allocatorSnapshot.earnedAssets = earnedAssets
-  allocatorSnapshot.totalAssets = getAllocatorTotalAssets(osToken, vault, allocator)
-  allocatorSnapshot.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, true)
+  allocatorSnapshot.totalAssets = totalAssets
+  allocatorSnapshot.apy = calculateApy(earnedAssets, totalAssets, duration)
   allocatorSnapshot.ltv = allocator.ltv
   allocatorSnapshot.save()
 }
