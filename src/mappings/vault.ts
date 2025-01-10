@@ -505,7 +505,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const osToken = loadOsToken()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const distributor = loadDistributor()!
-  const allocator = loadAllocator(prevExitRequest.owner, vaultAddress)!
+  const allocator = loadAllocator(Address.fromBytes(prevExitRequest.owner), vaultAddress)!
   allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
