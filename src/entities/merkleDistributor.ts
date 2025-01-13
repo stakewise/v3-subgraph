@@ -1,5 +1,6 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import {
+  Allocator,
   Distributor,
   DistributorClaim,
   DistributorReward,
@@ -9,6 +10,7 @@ import {
   PeriodicDistribution,
   UniswapPool,
   UniswapPosition,
+  Vault,
 } from '../../generated/schema'
 import { loadUniswapPool, MAX_TICK, MIN_TICK } from './uniswap'
 import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
@@ -24,6 +26,7 @@ const snapshotsPerWeek = 168
 const leverageStrategyDistAddress = Address.zero()
 
 export enum DistributionType {
+  VAULT,
   SWISE_ASSET_UNI_POOL,
   OS_TOKEN_USDC_UNI_POOL,
   LEVERAGE_STRATEGY,
@@ -94,6 +97,11 @@ export function getDistributionType(distData: Bytes): DistributionType {
 
   // only passed addresses are currently supported
   const distAddress = Address.fromBytes(distData)
+
+  const vault = loadVault(distAddress)
+  if (vault != null) {
+    return DistributionType.VAULT
+  }
   const uniPool = loadUniswapPool(distAddress)
   if (uniPool == null) {
     return DistributionType.UNKNOWN
@@ -130,6 +138,9 @@ export function getPeriodicDistributionApy(distribution: PeriodicDistribution, o
 }
 
 export function convertDistributionTypeToString(distType: DistributionType): string {
+  if (distType == DistributionType.VAULT) {
+    return 'VAULT'
+  }
   if (distType == DistributionType.SWISE_ASSET_UNI_POOL) {
     return 'SWISE_ASSET_UNI_POOL'
   }
@@ -143,6 +154,9 @@ export function convertDistributionTypeToString(distType: DistributionType): str
 }
 
 export function convertStringToDistributionType(distTypeString: string): DistributionType {
+  if (distTypeString == 'VAULT') {
+    return DistributionType.VAULT
+  }
   if (distTypeString == 'SWISE_ASSET_UNI_POOL') {
     return DistributionType.SWISE_ASSET_UNI_POOL
   }
@@ -187,7 +201,16 @@ export function updateDistributions(
     let distributedAmount: BigInt
     let principalAssets: BigInt
     const distType = convertStringToDistributionType(dist.distributionType)
-    if (distType == DistributionType.LEVERAGE_STRATEGY) {
+    if (distType == DistributionType.VAULT) {
+      const vault = loadVault(Address.fromBytes(dist.data))!
+      const token = Address.fromBytes(dist.token)
+      distributedAmount = dist.amount.times(passedDuration).div(totalDuration)
+      if (dist.amount.equals(distributedAmount)) {
+        // distribution is finished
+        dist.endTimestamp = currentTimestamp
+      }
+      principalAssets = distributeToVaultUsers(vault, token, distributedAmount)
+    } else if (distType == DistributionType.LEVERAGE_STRATEGY) {
       const targetApy = getLeverageStrategyTargetApy(dist.data)
       const response = distributeToLeverageStrategyUsers(network, targetApy, passedDuration, dist.amount)
       principalAssets = convertOsTokenSharesToAssets(osToken, response[0])
@@ -276,6 +299,28 @@ export function updatePeriodicDistributionApy(
   distribution.apys = apys
   distribution.apy = calculateAverage(apys)
   distribution.save()
+}
+
+export function distributeToVaultUsers(vault: Vault, token: Address, totalReward: BigInt): BigInt {
+  let allocator: Allocator
+  let totalAssets: BigInt = BigInt.zero()
+  const allocators: Array<Allocator> = vault.allocators.load()
+
+  // collect all the users and their assets
+  const users: Array<Address> = []
+  const usersAssets: Array<BigInt> = []
+
+  for (let i = 0; i < allocators.length; i++) {
+    allocator = allocators[i]
+    users.push(Address.fromBytes(allocator.address))
+    usersAssets.push(allocator.assets)
+    totalAssets = totalAssets.plus(allocator.assets)
+  }
+
+  // distribute reward to the users
+  _distributeReward(users, usersAssets, totalAssets, token, totalReward)
+
+  return totalAssets
 }
 
 export function distributeToSwiseAssetUniPoolUsers(
