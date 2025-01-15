@@ -1,6 +1,9 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import { Vault as VaultContract } from '../../generated/Keeper/Vault'
-import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from '../../generated/Keeper/Multicall'
+import {
+  Multicall as MulticallContract,
+  TryAggregateCallReturnDataOutputStruct,
+} from '../../generated/Keeper/Multicall'
 import { RewardSplitter as RewardSplitterContract } from '../../generated/Keeper/RewardSplitter'
 import { MULTICALL } from './constants'
 
@@ -135,7 +138,7 @@ export function chunkedMulticall(
 
   const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
   const encodedRequireSuccess = ethereum.Value.fromBoolean(requireSuccess)
-  let callResults: Array<TryAggregateCallReturnDataStruct> = []
+  let callResults: Array<TryAggregateCallReturnDataOutputStruct> = []
   for (let i = 0; i < callsCount; i += chunkSize) {
     const chunkCalls = aggregateCalls.slice(i, i + chunkSize)
     const chunkResult = multicallContract
@@ -143,7 +146,7 @@ export function chunkedMulticall(
         encodedRequireSuccess,
         ethereum.Value.fromArray(chunkCalls),
       ])[0]
-      .toTupleArray<TryAggregateCallReturnDataStruct>()
+      .toTupleArray<TryAggregateCallReturnDataOutputStruct>()
     callResults = callResults.concat(chunkResult)
   }
 
