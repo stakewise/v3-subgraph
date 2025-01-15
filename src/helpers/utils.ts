@@ -4,6 +4,9 @@ import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from
 import { RewardSplitter as RewardSplitterContract } from '../../generated/Keeper/RewardSplitter'
 import { MULTICALL } from './constants'
 
+const secondsInYear = '31536000'
+const maxPercent = '100'
+
 export function calculateMedian(values: Array<BigDecimal>): BigDecimal {
   if (values.length === 0) {
     return BigDecimal.zero()
@@ -43,6 +46,18 @@ export function calculateAverage(values: Array<BigDecimal>): BigDecimal {
 
 export function getAnnualReward(principal: BigInt, apy: BigDecimal): BigInt {
   return principal.toBigDecimal().times(apy).div(BigDecimal.fromString('100')).truncate(0).digits
+}
+
+export function calculateApy(earnedAssets: BigInt, totalAssets: BigInt, durationInSeconds: BigInt): BigDecimal {
+  if (durationInSeconds.isZero() || totalAssets.isZero()) {
+    return BigDecimal.zero()
+  }
+  return earnedAssets
+    .toBigDecimal()
+    .times(BigDecimal.fromString(secondsInYear))
+    .times(BigDecimal.fromString(maxPercent))
+    .div(totalAssets.toBigDecimal())
+    .div(durationInSeconds.toBigDecimal())
 }
 
 export function getCompoundedApy(initialApyPercent: BigDecimal, secondaryApyPercent: BigDecimal): BigDecimal {

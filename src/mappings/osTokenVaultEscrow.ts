@@ -29,7 +29,7 @@ export function handlePositionCreated(event: PositionCreated): void {
     allocator.mintedOsTokenShares = BigInt.zero()
   }
   updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)

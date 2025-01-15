@@ -9,6 +9,14 @@ const vaultUpdateStateSelector = '0x79c702ad'
 const syncRewardsCallSelector = '0x72c0c211'
 const rewardsOfSelector = '0x479ba7ae'
 
+export function loadRewardSplitterShareHolder(
+  shareHolderAddress: Address,
+  rewardSplitter: Address,
+): RewardSplitterShareHolder | null {
+  const rewardSplitterShareHolderId = `${rewardSplitter.toHex()}-${shareHolderAddress.toHex()}`
+  return RewardSplitterShareHolder.load(rewardSplitterShareHolderId)
+}
+
 export function createOrLoadRewardSplitterShareHolder(
   shareHolderAddress: Address,
   rewardSplitter: Address,
@@ -46,6 +54,9 @@ export function updateRewardSplitters(vault: Vault): void {
   for (let i = 0; i < rewardSplitters.length; i++) {
     rewardSplitter = rewardSplitters[i]
     const shareHolders: Array<RewardSplitterShareHolder> = rewardSplitter.shareHolders.load()
+    if (shareHolders.length == 0) {
+      continue
+    }
     let calls: Array<Bytes> = []
     if (updateStateCall) {
       calls.push(updateStateCall)

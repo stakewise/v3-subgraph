@@ -44,6 +44,9 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
       allCallsStage1.push(getExitQueueIndexCall(exitRequest.positionTicket))
     }
   }
+  if (pendingExitRequests.length == 0) {
+    return
+  }
 
   // Execute in chunks of size 10
   let stage1Results: Array<Bytes> = chunkedVaultMulticall(Address.fromString(vault.id), allCallsStage1)

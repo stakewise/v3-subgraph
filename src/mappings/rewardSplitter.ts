@@ -8,7 +8,7 @@ import {
 import { RewardSplitterCreated } from '../../generated/templates/RewardSplitterFactory/RewardSplitterFactory'
 import { RewardSplitter } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
-import { createOrLoadRewardSplitterShareHolder } from '../entities/rewardSplitter'
+import { createOrLoadRewardSplitterShareHolder, loadRewardSplitterShareHolder } from '../entities/rewardSplitter'
 import { convertSharesToAssets, loadVault } from '../entities/vault'
 
 // Event emitted on RewardSplitter contract creation
@@ -74,7 +74,7 @@ export function handleSharesDecreased(event: SharesDecreased): void {
   rewardSplitter.totalShares = rewardSplitter.totalShares.minus(shares)
   rewardSplitter.save()
 
-  const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitterAddress, rewardSplitter.vault)
+  const shareHolder = loadRewardSplitterShareHolder(account, rewardSplitterAddress)!
   shareHolder.shares = shareHolder.shares.minus(shares)
   shareHolder.save()
 
@@ -99,7 +99,7 @@ export function handleRewardsWithdrawn(event: RewardsWithdrawn): void {
   const rewardSplitter = RewardSplitter.load(rewardSplitterAddressHex)!
   const vault = loadVault(Address.fromString(rewardSplitter.vault))!
 
-  const shareHolder = createOrLoadRewardSplitterShareHolder(account, rewardSplitterAddress, rewardSplitter.vault)
+  const shareHolder = loadRewardSplitterShareHolder(account, rewardSplitterAddress)!
   shareHolder.earnedVaultShares = shareHolder.earnedVaultShares.minus(withdrawnVaultShares)
   if (shareHolder.earnedVaultShares.lt(BigInt.zero())) {
     shareHolder.earnedVaultShares = BigInt.zero()

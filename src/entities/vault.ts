@@ -19,7 +19,7 @@ import {
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { isGnosisNetwork, loadNetwork } from './network'
 import { getV2PoolState, loadV2Pool, updatePoolApy } from './v2pool'
-import { calculateAverage, chunkedMulticall, getAnnualReward } from '../helpers/utils'
+import { calculateAverage, chunkedMulticall, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { createOrLoadOwnMevEscrow } from './mevEscrow'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
 import {
@@ -30,7 +30,6 @@ import {
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import { createTransaction } from './transaction'
-import { getAaveBorrowApy, getAaveSupplyApy } from './aave'
 import { getAllocatorId } from './allocator'
 import { convertStringToDistributionType, DistributionType, getPeriodicDistributionApy } from './merkleDistributor'
 
@@ -178,8 +177,8 @@ export function getVaultApy(vault: Vault, useDayApy: boolean): BigDecimal {
   return calculateAverage(apys.slice(apys.length - snapshotsPerDay))
 }
 
-export function getVaultOsTokenMintApy(osToken: OsToken, osTokenConfig: OsTokenConfig, useDayApy: boolean): BigDecimal {
-  const osTokenApy = getOsTokenApy(osToken, useDayApy)
+export function getVaultOsTokenMintApy(osToken: OsToken, osTokenConfig: OsTokenConfig): BigDecimal {
+  const osTokenApy = getOsTokenApy(osToken, false)
   const feePercentBigDecimal = BigDecimal.fromString(osToken.feePercent.toString())
   if (osTokenConfig.ltvPercent.isZero()) {
     log.error('getVaultOsTokenMintApy osTokenConfig.ltvPercent is zero osTokenConfig={}', [osTokenConfig.id])
@@ -378,8 +377,9 @@ export function updateVaultMaxBoostApy(
   const wad = BigInt.fromString(WAD)
 
   const osTokenApy = getOsTokenApy(osToken, false)
-  const borrowApy = getAaveBorrowApy(aave, false)
-  const supplyApy = getAaveSupplyApy(aave, osToken, false)
+  const borrowApy = aave.borrowApy
+  // earned osToken shares earn extra staking rewards, apply compounding
+  const supplyApy = getCompoundedApy(aave.supplyApy, osTokenApy)
 
   const vaultLeverageLtv = osTokenConfig.ltvPercent.lt(osTokenConfig.leverageMaxMintLtvPercent)
     ? osTokenConfig.ltvPercent
@@ -394,62 +394,34 @@ export function updateVaultMaxBoostApy(
 
   // calculate vault staking rate and the rate paid for minting osToken
   const vaultApy = getVaultApy(vault, false)
-  const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig, false)
+  const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig)
 
-  // calculate max boost apy for vault allocator
-  const allocatorDepositedAssets = wad
-
-  // allocator mints max osToken shares
-  const allocatorMintedOsTokenAssets = allocatorDepositedAssets.times(osTokenConfig.ltvPercent).div(wad)
-  const allocatorMintedOsTokenShares = convertAssetsToOsTokenShares(osToken, allocatorMintedOsTokenAssets)
-
-  // osTokenHolder deposits all osToken shares
-  const osTokenHolderOsTokenAssets = allocatorMintedOsTokenAssets
-  const osTokenHolderOsTokenShares = allocatorMintedOsTokenShares
+  // initial amounts for calculating earnings
+  const boostedOsTokenAssets = wad
+  const boostedOsTokenShares = convertAssetsToOsTokenShares(osToken, wad)
 
   // calculate assets/shares boosted from the strategy
   const totalLtv = vaultLeverageLtv.times(aaveLeverageLtv).div(wad)
-  const strategyMintedOsTokenShares = osTokenHolderOsTokenShares
+  const strategyMintedOsTokenShares = boostedOsTokenShares
     .times(wad)
     .div(wad.minus(totalLtv))
-    .minus(osTokenHolderOsTokenShares)
+    .minus(boostedOsTokenShares)
   const strategyMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, strategyMintedOsTokenShares)
   const strategyDepositedAssets = strategyMintedOsTokenAssets.times(wad).div(vaultLeverageLtv)
 
-  // calculate earned assets from staking
-  let allocatorEarnedAssets = getAnnualReward(allocatorDepositedAssets.plus(strategyDepositedAssets), vaultApy)
-  let osTokenHolderEarnedAssets = getAnnualReward(osTokenHolderOsTokenAssets, osTokenApy).plus(
-    getAnnualReward(strategyDepositedAssets, vaultApy),
-  )
+  // calculate strategy earned assets from staking
+  let strategyEarnedAssets = getAnnualReward(strategyDepositedAssets, vaultApy)
 
   // subtract apy lost on minting osToken
-  allocatorEarnedAssets = allocatorEarnedAssets.minus(
-    getAnnualReward(allocatorMintedOsTokenAssets.plus(strategyMintedOsTokenAssets), osTokenMintApy),
-  )
-  osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.minus(
-    getAnnualReward(strategyMintedOsTokenAssets, osTokenMintApy),
-  )
+  strategyEarnedAssets = strategyEarnedAssets.minus(getAnnualReward(strategyMintedOsTokenAssets, osTokenMintApy))
 
   // all supplied osToken shares earn supply apy
-  const allocatorEarnedOsTokenShares = getAnnualReward(
-    allocatorMintedOsTokenShares.plus(strategyMintedOsTokenShares),
-    supplyApy,
-  )
-  allocatorEarnedAssets = allocatorEarnedAssets.plus(
-    convertOsTokenSharesToAssets(osToken, allocatorEarnedOsTokenShares),
-  )
-  const osTokenHolderEarnedOsTokenShares = getAnnualReward(
-    osTokenHolderOsTokenShares.plus(strategyMintedOsTokenShares),
-    supplyApy,
-  )
-  osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.plus(
-    convertOsTokenSharesToAssets(osToken, osTokenHolderEarnedOsTokenShares),
-  )
+  const earnedOsTokenShares = getAnnualReward(boostedOsTokenShares.plus(strategyMintedOsTokenShares), supplyApy)
+  strategyEarnedAssets = strategyEarnedAssets.plus(convertOsTokenSharesToAssets(osToken, earnedOsTokenShares))
 
   // all borrowed assets lose borrow apy
   const borrowInterestAssets = getAnnualReward(strategyDepositedAssets, borrowApy)
-  allocatorEarnedAssets = allocatorEarnedAssets.minus(borrowInterestAssets)
-  osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.minus(borrowInterestAssets)
+  strategyEarnedAssets = strategyEarnedAssets.minus(borrowInterestAssets)
 
   // all the supplied OsToken assets earn the additional incentives
   const activeDistributionIds = distributor.activeDistributionIds
@@ -462,31 +434,32 @@ export function updateVaultMaxBoostApy(
     }
 
     // get the distribution APY
-    distributionApy = getPeriodicDistributionApy(distribution, osToken, false)
+    distributionApy = getPeriodicDistributionApy(distribution, osToken)
     if (distributionApy.equals(BigDecimal.zero())) {
       continue
     }
 
-    allocatorEarnedAssets = allocatorEarnedAssets.plus(
-      getAnnualReward(allocatorMintedOsTokenAssets.plus(strategyMintedOsTokenAssets), distributionApy),
-    )
-    osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.plus(
-      getAnnualReward(osTokenHolderOsTokenAssets.plus(strategyMintedOsTokenAssets), distributionApy),
+    strategyEarnedAssets = strategyEarnedAssets.plus(
+      getAnnualReward(boostedOsTokenAssets.plus(strategyMintedOsTokenAssets), distributionApy),
     )
   }
 
   // calculate average allocator max boost APY
-  const allocatorMaxBoostApy = new BigDecimal(allocatorEarnedAssets)
+  const allocatorDepositedAssets = boostedOsTokenAssets.times(wad).div(osTokenConfig.ltvPercent)
+  const allocatorEarnedAssets = strategyEarnedAssets
+    .plus(getAnnualReward(allocatorDepositedAssets, vaultApy))
+    .minus(getAnnualReward(boostedOsTokenAssets, osTokenMintApy))
+  vault.allocatorMaxBoostApy = allocatorEarnedAssets
+    .toBigDecimal()
     .times(BigDecimal.fromString('100'))
-    .div(new BigDecimal(allocatorDepositedAssets))
+    .div(allocatorDepositedAssets.toBigDecimal())
 
-  // calculate average osToken holder APY
-  const osTokenHolderMaxBoostApy = new BigDecimal(osTokenHolderEarnedAssets)
+  // calculate average osToken holder max boost APY
+  const osTokenHolderEarnedAssets = strategyEarnedAssets.plus(getAnnualReward(boostedOsTokenAssets, osTokenApy))
+  vault.osTokenHolderMaxBoostApy = osTokenHolderEarnedAssets
+    .toBigDecimal()
     .times(BigDecimal.fromString('100'))
-    .div(new BigDecimal(osTokenHolderOsTokenAssets))
-
-  vault.allocatorMaxBoostApy = allocatorMaxBoostApy
-  vault.osTokenHolderMaxBoostApy = osTokenHolderMaxBoostApy
+    .div(boostedOsTokenAssets.toBigDecimal())
   vault.save()
 }
 

@@ -83,7 +83,7 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
     // update allocators apys
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
       allocator.save()
     }
 
@@ -94,7 +94,7 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
   // update osToken holders apys
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
+    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
     osTokenHolder.save()
   }
 
@@ -106,10 +106,21 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
 
 function _updateSnapshots(network: Network, timestamp: BigInt): void {
   const newSnapshotsCount = timestamp.plus(BigInt.fromI32(secondsInHour)).div(BigInt.fromI32(secondsInDay))
-  if (newSnapshotsCount.le(network.snapshotsCount)) {
+  const prevSnapshotsCount = network.lastSnapshotTimestamp
+    .plus(BigInt.fromI32(secondsInHour))
+    .div(BigInt.fromI32(secondsInDay))
+  if (newSnapshotsCount.le(prevSnapshotsCount)) {
     return
   }
-  network.snapshotsCount = newSnapshotsCount
+  if (network.lastSnapshotTimestamp.isZero()) {
+    // skip first snapshot
+    network.lastSnapshotTimestamp = timestamp
+    network.save()
+    return
+  }
+
+  const duration = timestamp.minus(network.lastSnapshotTimestamp)
+  network.lastSnapshotTimestamp = timestamp
   network.save()
 
   const osToken = loadOsToken()
@@ -121,30 +132,24 @@ function _updateSnapshots(network: Network, timestamp: BigInt): void {
   osToken.save()
 
   let osTokenHolder: OsTokenHolder
-  const distributor = loadDistributor()
-  if (!distributor) {
-    return
-  }
   const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, osTokenHolder._periodEarnedAssets, timestamp)
+    snapshotOsTokenHolder(network, osToken, osTokenHolder, osTokenHolder._periodEarnedAssets, duration, timestamp)
     osTokenHolder._periodEarnedAssets = BigInt.zero()
     osTokenHolder.save()
   }
 
   let vault: Vault
-  let osTokenConfig: OsTokenConfig
   const vaultIds = network.vaultIds
   for (let i = 0; i < vaultIds.length; i++) {
     vault = loadVault(Address.fromString(vaultIds[i]))!
-    osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
     snapshotVault(vault, BigInt.zero(), timestamp)
 
     const allocators: Array<Allocator> = vault.allocators.load()
     for (let j = 0; j < allocators.length; j++) {
       const allocator = allocators[j]
-      snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, allocator._periodEarnedAssets, timestamp)
+      snapshotAllocator(osToken, vault, allocator, allocator._periodEarnedAssets, duration, timestamp)
       allocator._periodEarnedAssets = BigInt.zero()
       allocator.save()
     }

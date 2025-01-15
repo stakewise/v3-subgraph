@@ -59,7 +59,7 @@ export function handleXdaiSwapped(event: XdaiSwapped): void {
   for (let j = 0; j < allocators.length; j++) {
     allocator = allocators[j]
     const earnedAssets = updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
-    allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
+    allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
     allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
     allocator.save()
   }
