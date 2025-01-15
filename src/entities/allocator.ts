@@ -11,7 +11,7 @@ import {
   Vault,
 } from '../../generated/schema'
 import { WAD } from '../helpers/constants'
-import { calculateApy, chunkedVaultMulticall, chunkedVaultMulticall, getAnnualReward } from '../helpers/utils'
+import { calculateApy, chunkedVaultMulticall, getAnnualReward } from '../helpers/utils'
 import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { convertSharesToAssets, getVaultApy, getVaultOsTokenMintApy, loadVault } from './vault'
 import { loadOsTokenConfig } from './osTokenConfig'
