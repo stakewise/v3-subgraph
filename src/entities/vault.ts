@@ -98,6 +98,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
   vault.lastXdaiSwappedTimestamp = block.timestamp
+  vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault.apy = BigDecimal.zero()
   vault.apys = []
   vault.allocatorMaxBoostApy = BigDecimal.zero()
@@ -283,7 +284,7 @@ export function updateVaults(
     // save fee recipient earned shares
     feeRecipientsEarnedShares.set(
       getAllocatorId(Address.fromBytes(vault.feeRecipient), vaultAddress),
-      feeRecipientShares,
+      feeRecipientShares.minus(vault._unclaimedFeeRecipientShares),
     )
 
     // calculate smoothing pool penalty
@@ -329,6 +330,7 @@ export function updateVaults(
     vault.rewardsTimestamp = updateTimestamp
     vault.rewardsIpfsHash = rewardsIpfsHash
     vault.canHarvest = true
+    vault._unclaimedFeeRecipientShares = feeRecipientShares
     vault.save()
 
     // update v2 pool data
@@ -475,7 +477,7 @@ export function snapshotVault(vault: Vault, earnedAssets: BigInt, timestamp: Big
   vaultSnapshot.save()
 }
 
-function getVaultState(vault: Vault): Array<BigInt> {
+export function getVaultState(vault: Vault): Array<BigInt> {
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     return [BigInt.fromString(WAD), BigInt.zero(), BigInt.zero(), BigInt.zero(), BigInt.zero(), BigInt.zero()]
   }

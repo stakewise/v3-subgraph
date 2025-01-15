@@ -43,7 +43,7 @@ import { updateExitRequests } from '../entities/exitRequest'
 import { updateRewardSplitters } from '../entities/rewardSplitter'
 import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
-import { loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
+import { getVaultState, loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
 import { getOsTokenHolderApy } from '../entities/osTokenHolder'
 import { createOrLoadAave, loadAave } from '../entities/aave'
 import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
@@ -314,6 +314,12 @@ export function handleHarvested(event: Harvested): void {
     return
   }
   vault.canHarvest = vault.rewardsRoot!.notEqual(event.params.rewardsRoot)
+  if (vault.canHarvest) {
+    const state = getVaultState(vault)
+    vault._unclaimedFeeRecipientShares = state[5]
+  } else {
+    vault._unclaimedFeeRecipientShares = BigInt.zero()
+  }
   vault.save()
   if (vault.isGenesis) {
     const v2Pool = createOrLoadV2Pool()
