@@ -16,7 +16,7 @@ type Allocator @entity {
   address: Bytes!
 
   "Indicates if the allocator is a contract"
-  isContract: Boolean
+  isContract: Boolean!
 
   "The allocator's shares amount"
   shares: BigInt!
@@ -761,7 +761,7 @@ type LeverageStrategyPosition @entity {
   user: Bytes!
 
   "Indicates if the user is a contract"
-  userIsContract: Boolean
+  userIsContract: Boolean!
 
   "The vault used for the leverage"
   vault: Vault!
@@ -973,7 +973,7 @@ type UniswapPosition @entity {
   owner: Bytes!
 
   "Indicates if the owner is a contract"
-  ownerIsContract: Boolean
+  ownerIsContract: Boolean!
 
   "The address of the pool"
   pool: UniswapPool!
