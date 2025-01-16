@@ -760,6 +760,9 @@ type LeverageStrategyPosition @entity {
   "The address of the user"
   user: Bytes!
 
+  "Indicates if the user is a contract"
+  userIsContract: Boolean
+
   "The vault used for the leverage"
   vault: Vault!
 
@@ -968,6 +971,9 @@ type UniswapPosition @entity {
 
   "The address of the position owner"
   owner: Bytes!
+
+  "Indicates if the owner is a contract"
+  ownerIsContract: Boolean
 
   "The address of the pool"
   pool: UniswapPool!

@@ -361,6 +361,9 @@ export function distributeToSwiseAssetUniPoolUsers(
       continue
     }
     const user = Address.fromBytes(uniPosition.owner)
+    if (uniPosition.ownerIsContract) {
+      continue
+    }
 
     // calculate user assets
     let userAssets: BigInt
@@ -418,6 +421,9 @@ export function distributeToOsTokenUsdcUniPoolUsers(
       continue
     }
     const user = Address.fromBytes(uniPosition.owner)
+    if (uniPosition.ownerIsContract) {
+      continue
+    }
 
     // calculate user assets
     let userAssets: BigInt
@@ -462,6 +468,10 @@ export function distributeToLeverageStrategyUsers(
       // calculate user principal
       const aavePosition = loadAavePosition(Address.fromBytes(position.proxy))!
       const user = Address.fromBytes(position.user)
+      if (position.userIsContract) {
+        continue
+      }
+
       const userPrincipalOsTokenShares = aavePosition.suppliedOsTokenShares
 
       users.push(user)
