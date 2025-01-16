@@ -1,15 +1,9 @@
-import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import { loadVault, snapshotVault, updateVaultMaxBoostApy } from '../entities/vault'
 import { loadOsToken, snapshotOsToken, updateOsTokenTotalAssets } from '../entities/osToken'
 import { loadNetwork } from '../entities/network'
-import { Allocator, Network, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
-import {
-  getAllocatorApy,
-  getAllocatorsMintedShares,
-  snapshotAllocator,
-  updateAllocatorMintedOsTokenShares,
-} from '../entities/allocator'
-import { updateExitRequests } from '../entities/exitRequest'
+import { Allocator, ExitRequest, Network, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
+import { getAllocatorApy, snapshotAllocator, updateAllocatorsMintedOsTokenShares } from '../entities/allocator'
 import { getOsTokenHolderApy, snapshotOsTokenHolder, updateOsTokenHolderAssets } from '../entities/osTokenHolder'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
@@ -60,17 +54,22 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
     vault = loadVault(vaultAddress)!
     osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
-    // update allocators
-    let allocator: Allocator
-    let allocators: Array<Allocator> = vault.allocators.load()
-    const allocatorsMintedOsTokenShares = getAllocatorsMintedShares(vault, allocators)
-    for (let j = 0; j < allocators.length; j++) {
-      allocator = allocators[j]
-      updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocatorsMintedOsTokenShares[j])
-    }
+    // update allocators minted osToken shares
+    updateAllocatorsMintedOsTokenShares(osToken, osTokenConfig, vault)
 
     // update exit requests
-    updateExitRequests(network, vault, timestamp)
+    let exitRequest: ExitRequest
+    const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
+    for (let i = 0; i < exitRequests.length; i++) {
+      exitRequest = exitRequests[i]
+      if (exitRequest.exitedAssets.gt(BigInt.zero()) && !exitRequest.isClaimed && !exitRequest.isClaimable) {
+        const isClaimable = exitRequest.timestamp.plus(BigInt.fromI32(secondsInDay)).lt(timestamp)
+        if (isClaimable) {
+          exitRequest.isClaimable = isClaimable
+          exitRequest.save()
+        }
+      }
+    }
 
     // update OsToken exit requests
     updateOsTokenExitRequests(osToken, vault)
@@ -79,10 +78,19 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
     updateLeverageStrategyPositions(network, aave, osToken, vault)
 
     // update allocators apys
-    for (let j = 0; j < allocators.length; j++) {
-      allocator = allocators[j]
-      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
-      allocator.save()
+    if (vault.isOsTokenEnabled) {
+      let allocator: Allocator
+      let allocatorApy: BigDecimal
+      const allocators: Array<Allocator> = vault.allocators.load()
+      for (let j = 0; j < allocators.length; j++) {
+        allocator = allocators[j]
+        allocatorApy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+        if (allocatorApy.equals(allocator.apy)) {
+          continue
+        }
+        allocator.apy = allocatorApy
+        allocator.save()
+      }
     }
 
     // update vault max boost apys
@@ -90,9 +98,14 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
   }
 
   // update osToken holders apys
+  let osTokenHolderApy: BigDecimal
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
+    osTokenHolderApy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
+    if (osTokenHolderApy.equals(osTokenHolder.apy)) {
+      continue
+    }
+    osTokenHolder.apy = osTokenHolderApy
     osTokenHolder.save()
   }
 

@@ -451,18 +451,26 @@ export function updateVaultMaxBoostApy(
   const allocatorEarnedAssets = strategyEarnedAssets
     .plus(getAnnualReward(allocatorDepositedAssets, vaultApy))
     .minus(getAnnualReward(boostedOsTokenAssets, osTokenMintApy))
-  vault.allocatorMaxBoostApy = allocatorEarnedAssets
+  const allocatorMaxBoostApy = allocatorEarnedAssets
     .toBigDecimal()
     .times(BigDecimal.fromString('100'))
     .div(allocatorDepositedAssets.toBigDecimal())
 
   // calculate average osToken holder max boost APY
   const osTokenHolderEarnedAssets = strategyEarnedAssets.plus(getAnnualReward(boostedOsTokenAssets, osTokenApy))
-  vault.osTokenHolderMaxBoostApy = osTokenHolderEarnedAssets
+  const osTokenHolderMaxBoostApy = osTokenHolderEarnedAssets
     .toBigDecimal()
     .times(BigDecimal.fromString('100'))
     .div(boostedOsTokenAssets.toBigDecimal())
-  vault.save()
+
+  if (
+    allocatorMaxBoostApy.notEqual(vault.allocatorMaxBoostApy) ||
+    osTokenHolderMaxBoostApy.notEqual(vault.osTokenHolderMaxBoostApy)
+  ) {
+    vault.allocatorMaxBoostApy = allocatorMaxBoostApy
+    vault.osTokenHolderMaxBoostApy = osTokenHolderMaxBoostApy
+    vault.save()
+  }
 }
 
 export function snapshotVault(vault: Vault, earnedAssets: BigInt, timestamp: BigInt): void {

@@ -118,32 +118,40 @@ export function createAllocatorAction(
   allocatorAction.save()
 }
 
-export function getAllocatorsMintedShares(vault: Vault, allocators: Array<Allocator>): Array<BigInt> {
-  const allocatorsCount = allocators.length
+export function updateAllocatorsMintedOsTokenShares(
+  osToken: OsToken,
+  osTokenConfig: OsTokenConfig,
+  vault: Vault,
+): void {
   if (!vault.isOsTokenEnabled) {
-    // If OsToken is disabled, just return zeros
-    let response: Array<BigInt> = []
-    for (let i = 0; i < allocatorsCount; i++) {
-      response.push(BigInt.zero())
-    }
-    return response
+    return
   }
 
   // Prepare all calls for retrieving minted shares from OsToken positions
   let calls: Array<Bytes> = []
-  for (let i = 0; i < allocatorsCount; i++) {
-    calls.push(_getOsTokenPositionsCall(allocators[i]))
+  let allocator: Allocator
+  const allocatorsWithMintedOsTokenShares: Array<Allocator> = []
+  const allocators: Array<Allocator> = vault.allocators.load()
+  for (let i = 0; i < allocators.length; i++) {
+    allocator = allocators[i]
+    if (allocator.mintedOsTokenShares.gt(BigInt.zero())) {
+      allocatorsWithMintedOsTokenShares.push(allocator)
+      calls.push(_getOsTokenPositionsCall(allocator))
+    }
   }
 
-  // Execute calls in chunks of size 10
-  let results = chunkedVaultMulticall(Address.fromString(vault.id), calls)
+  // Execute calls in chunks of size 100
+  let response = chunkedVaultMulticall(Address.fromString(vault.id), calls, 100)
 
   // Decode the result for each allocator in the same order
-  let mintedShares: Array<BigInt> = []
-  for (let i = 0; i < allocatorsCount; i++) {
-    mintedShares.push(ethereum.decode('uint256', results[i])!.toBigInt())
+  for (let i = 0; i < response.length; i++) {
+    updateAllocatorMintedOsTokenShares(
+      osToken,
+      osTokenConfig,
+      allocatorsWithMintedOsTokenShares[i],
+      ethereum.decode('uint256', response[i])!.toBigInt(),
+    )
   }
-  return mintedShares
 }
 
 export function getAllocatorLtvStatus(allocator: Allocator, osTokenConfig: OsTokenConfig): string {

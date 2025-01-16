@@ -136,15 +136,17 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
 
     const allocator = loadAllocator(Address.fromBytes(exitRequest.owner), Address.fromString(vault.id))!
     const earnedAssets = exitRequest.totalAssets.minus(totalAssetsBefore)
-    allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
-    allocator.save()
+    if (!earnedAssets.isZero()) {
+      allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
+      allocator.save()
+    }
 
     if (!isOsTokenVault) {
       continue
     }
 
     const osTokenHolder = loadOsTokenHolder(Address.fromBytes(exitRequest.owner))
-    if (osTokenHolder) {
+    if (osTokenHolder && !earnedAssets.isZero()) {
       osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(earnedAssets)
       osTokenHolder.save()
     }

@@ -5,6 +5,10 @@ schema:
   file: ./schema.graphql
 features:
   - ipfsOnEthereumContracts
+  - grafting
+graft:
+  base: QmP8AMeowbiVDyLEpK2P4dknwjxM2pASQssFFCEiRy6L2s
+  block: 21144500
 indexerHints:
   prune: {{ maxRetainBlocks }}
 dataSources:
