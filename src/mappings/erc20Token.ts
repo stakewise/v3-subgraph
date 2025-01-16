@@ -2,14 +2,9 @@ import { Address, BigInt, log, store } from '@graphprotocol/graph-ts'
 import { Transfer } from '../../generated/OsToken/Erc20Token'
 import { createOrLoadSwiseTokenHolder, createTokenTransfer } from '../entities/tokenTransfer'
 import { OS_TOKEN, SWISE_TOKEN } from '../helpers/constants'
-import { loadOsToken } from '../entities/osToken'
+import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import { createOrLoadUser, loadNetwork } from '../entities/network'
-import {
-  createOrLoadOsTokenHolder,
-  getOsTokenHolderApy,
-  loadOsTokenHolder,
-  updateOsTokenHolderAssets,
-} from '../entities/osTokenHolder'
+import { createOrLoadOsTokenHolder, getOsTokenHolderApy, loadOsTokenHolder } from '../entities/osTokenHolder'
 import { loadDistributor } from '../entities/merkleDistributor'
 
 export function handleTransfer(event: Transfer): void {
@@ -82,8 +77,8 @@ function _handleOsTokenTransfer(event: Transfer): void {
   if (from.notEqual(Address.zero())) {
     const tokenHolderFrom = loadOsTokenHolder(from)!
     tokenHolderFrom.balance = tokenHolderFrom.balance.minus(amount)
+    tokenHolderFrom.assets = convertOsTokenSharesToAssets(osToken, tokenHolderFrom.balance)
     tokenHolderFrom.transfersCount = tokenHolderFrom.transfersCount.plus(BigInt.fromI32(1))
-    updateOsTokenHolderAssets(osToken, tokenHolderFrom)
     tokenHolderFrom.apy = getOsTokenHolderApy(network, osToken, distributor, tokenHolderFrom)
     tokenHolderFrom.save()
 
@@ -98,8 +93,8 @@ function _handleOsTokenTransfer(event: Transfer): void {
   if (to.notEqual(Address.zero())) {
     const tokenHolderTo = createOrLoadOsTokenHolder(to)
     tokenHolderTo.balance = tokenHolderTo.balance.plus(amount)
+    tokenHolderTo.assets = convertOsTokenSharesToAssets(osToken, tokenHolderTo.balance)
     tokenHolderTo.transfersCount = tokenHolderTo.transfersCount.plus(BigInt.fromI32(1))
-    updateOsTokenHolderAssets(osToken, tokenHolderTo)
     tokenHolderTo.apy = getOsTokenHolderApy(network, osToken, distributor, tokenHolderTo)
     tokenHolderTo.save()
 
