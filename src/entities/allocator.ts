@@ -79,6 +79,7 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
 
   if (vaultAllocator === null) {
     vaultAllocator = new Allocator(vaultAllocatorAddress)
+    vaultAllocator.isContract = ethereum.hasCode(allocatorAddress).inner
     vaultAllocator.shares = BigInt.zero()
     vaultAllocator.assets = BigInt.zero()
     vaultAllocator.mintedOsTokenShares = BigInt.zero()

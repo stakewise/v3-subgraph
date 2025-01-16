@@ -201,6 +201,7 @@ export function updateDistributions(
     let distributedAmount: BigInt
     let principalAssets: BigInt
     const distType = convertStringToDistributionType(dist.distributionType)
+
     if (distType == DistributionType.VAULT) {
       const vault = loadVault(Address.fromBytes(dist.data))!
       const token = Address.fromBytes(dist.token)
@@ -312,6 +313,9 @@ export function distributeToVaultUsers(vault: Vault, token: Address, totalReward
 
   for (let i = 0; i < allocators.length; i++) {
     allocator = allocators[i]
+    if (allocator.isContract) {
+      continue
+    }
     users.push(Address.fromBytes(allocator.address))
     usersAssets.push(allocator.assets)
     totalAssets = totalAssets.plus(allocator.assets)

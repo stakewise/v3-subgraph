@@ -15,6 +15,9 @@ type Allocator @entity {
   "The allocator's address"
   address: Bytes!
 
+  "Indicates if the allocator is a contract"
+  isContract: Boolean
+
   "The allocator's shares amount"
   shares: BigInt!
 
@@ -995,6 +998,7 @@ type Distributor @entity {
 }
 
 enum DistributionType {
+  VAULT
   SWISE_ASSET_UNI_POOL
   OS_TOKEN_USDC_UNI_POOL
   LEVERAGE_STRATEGY
