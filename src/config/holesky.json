@@ -1,6 +1,7 @@
 {
   "network": "holesky",
   "blocksInHour": "300",
+  "maxRetainBlocks": "216000",
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
   "v2PoolFeePercent": "1000",
@@ -105,6 +106,10 @@
   "uniswapPositionManager": {
     "address": "0x0000000000000000000000000000000000000000",
     "startBlock": "2673700"
+  },
+  "strategiesRegistry": {
+    "address": "0xFc8E3E7c919b4392D9F5B27015688e49c80015f0",
+    "startBlock": "2579173"
   },
   "validatorsRegistry": {
     "address": "0x4242424242424242424242424242424242424242",

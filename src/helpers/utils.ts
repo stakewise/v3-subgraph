@@ -1,9 +1,14 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
+import { Vault as VaultContract } from '../../generated/Keeper/Vault'
+import {
+  Multicall as MulticallContract,
+  TryAggregateCallReturnDataOutputStruct,
+} from '../../generated/Keeper/Multicall'
+import { RewardSplitter as RewardSplitterContract } from '../../generated/Keeper/RewardSplitter'
+import { MULTICALL } from './constants'
 
-export function getAggregateCall(target: Address, data: Bytes): ethereum.Value {
-  const struct: Array<ethereum.Value> = [ethereum.Value.fromAddress(target), ethereum.Value.fromBytes(data)]
-  return ethereum.Value.fromTuple(changetype<ethereum.Tuple>(struct))
-}
+const secondsInYear = '31536000'
+const maxPercent = '100'
 
 export function calculateMedian(values: Array<BigDecimal>): BigDecimal {
   if (values.length === 0) {
@@ -46,6 +51,18 @@ export function getAnnualReward(principal: BigInt, apy: BigDecimal): BigInt {
   return principal.toBigDecimal().times(apy).div(BigDecimal.fromString('100')).truncate(0).digits
 }
 
+export function calculateApy(earnedAssets: BigInt, totalAssets: BigInt, durationInSeconds: BigInt): BigDecimal {
+  if (durationInSeconds.isZero() || totalAssets.isZero()) {
+    return BigDecimal.zero()
+  }
+  return earnedAssets
+    .toBigDecimal()
+    .times(BigDecimal.fromString(secondsInYear))
+    .times(BigDecimal.fromString(maxPercent))
+    .div(totalAssets.toBigDecimal())
+    .div(durationInSeconds.toBigDecimal())
+}
+
 export function getCompoundedApy(initialApyPercent: BigDecimal, secondaryApyPercent: BigDecimal): BigDecimal {
   const hundred = BigDecimal.fromString('100')
 
@@ -60,4 +77,88 @@ export function getCompoundedApy(initialApyPercent: BigDecimal, secondaryApyPerc
 
   // convert back to a percentage if needed
   return finalApy.times(hundred)
+}
+
+export function chunkedVaultMulticall(vaultAddress: Address, calls: Array<Bytes>, chunkSize: i32 = 10): Array<Bytes> {
+  const vaultContract = VaultContract.bind(vaultAddress)
+  const callsCount = calls.length
+
+  let aggregatedResults: Array<Bytes> = []
+  let chunk: Array<Bytes>
+  for (let i = 0; i < callsCount; i += chunkSize) {
+    chunk = calls.slice(i, i + chunkSize)
+    let chunkResult = vaultContract.multicall(chunk)
+    // Concatenate results in order
+    for (let j = 0; j < chunkResult.length; j++) {
+      aggregatedResults.push(chunkResult[j])
+    }
+  }
+  return aggregatedResults
+}
+
+export function chunkedRewardSplitterMulticall(
+  rewardSplitter: Address,
+  calls: Array<Bytes>,
+  chunkSize: i32 = 10,
+): Array<Bytes> {
+  const rewardSplitterContract = RewardSplitterContract.bind(rewardSplitter)
+  const callsCount = calls.length
+
+  let aggregatedResults: Array<Bytes> = []
+  let chunk: Array<Bytes>
+  for (let i = 0; i < callsCount; i += chunkSize) {
+    chunk = calls.slice(i, i + chunkSize)
+    let chunkResult = rewardSplitterContract.multicall(chunk)
+    // Concatenate results in order
+    for (let j = 0; j < chunkResult.length; j++) {
+      aggregatedResults.push(chunkResult[j])
+    }
+  }
+  return aggregatedResults
+}
+
+export function chunkedMulticall(
+  contractAddresses: Array<Address>,
+  contractCalls: Array<Bytes>,
+  requireSuccess: boolean = true,
+  chunkSize: i32 = 10,
+): Array<Bytes | null> {
+  const callsCount = contractAddresses.length
+  if (callsCount !== contractCalls.length) {
+    assert(false, 'contractAddresses and calls must have the same length')
+  }
+  if (callsCount == 0) {
+    return []
+  }
+
+  const aggregateCalls: Array<ethereum.Value> = []
+  for (let i = 0; i < callsCount; i++) {
+    aggregateCalls.push(_getAggregateCall(contractAddresses[i], contractCalls[i]))
+  }
+
+  const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
+  const encodedRequireSuccess = ethereum.Value.fromBoolean(requireSuccess)
+  let callResults: Array<TryAggregateCallReturnDataOutputStruct> = []
+  for (let i = 0; i < callsCount; i += chunkSize) {
+    const chunkCalls = aggregateCalls.slice(i, i + chunkSize)
+    const chunkResult = multicallContract
+      .call('tryAggregate', 'tryAggregate(bool,(address,bytes)[]):((bool,bytes)[])', [
+        encodedRequireSuccess,
+        ethereum.Value.fromArray(chunkCalls),
+      ])[0]
+      .toTupleArray<TryAggregateCallReturnDataOutputStruct>()
+    callResults = callResults.concat(chunkResult)
+  }
+
+  const results: Array<Bytes | null> = []
+  for (let i = 0; i < callsCount; i++) {
+    const callResult = callResults[i]
+    results.push(callResult.success ? callResult.returnData : null)
+  }
+  return results
+}
+
+export function _getAggregateCall(target: Address, data: Bytes): ethereum.Value {
+  const struct: Array<ethereum.Value> = [ethereum.Value.fromAddress(target), ethereum.Value.fromBytes(data)]
+  return ethereum.Value.fromTuple(changetype<ethereum.Tuple>(struct))
 }

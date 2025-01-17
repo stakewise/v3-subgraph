@@ -1,6 +1,7 @@
 {
   "network": "chiado",
   "blocksInHour": "700",
+  "maxRetainBlocks": "504000",
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
   "v2PoolFeePercent": "1500",
@@ -105,6 +106,10 @@
   "uniswapPositionManager": {
     "address": "0x0000000000000000000000000000000000000000",
     "startBlock": "10626869"
+  },
+  "strategiesRegistry": {
+    "address": "0x4abB9BBb82922A6893A5d6890cd2eE94610BEc48",
+    "startBlock": "12438574"
   },
   "validatorsRegistry": {
     "address": "0xb97036A26259B7147018913bD58a774cf91acf25",

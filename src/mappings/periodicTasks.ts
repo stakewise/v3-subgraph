@@ -1,21 +1,18 @@
-import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import { loadVault, snapshotVault, updateVaultMaxBoostApy } from '../entities/vault'
 import { loadOsToken, snapshotOsToken, updateOsTokenTotalAssets } from '../entities/osToken'
 import { loadNetwork } from '../entities/network'
-import { AavePosition, Allocator, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
-import {
-  getAllocatorApy,
-  getAllocatorsMintedShares,
-  snapshotAllocator,
-  updateAllocatorMintedOsTokenShares,
-} from '../entities/allocator'
-import { updateExitRequests } from '../entities/exitRequest'
+import { Allocator, ExitRequest, Network, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
+import { getAllocatorApy, snapshotAllocator, updateAllocatorsMintedOsTokenShares } from '../entities/allocator'
 import { getOsTokenHolderApy, snapshotOsTokenHolder, updateOsTokenHolderAssets } from '../entities/osTokenHolder'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { loadAave, updateAaveApys, updateAavePosition } from '../entities/aave'
+import { loadAave, updateAaveApys, updateAavePositions } from '../entities/aave'
 import { loadDistributor, updateDistributions } from '../entities/merkleDistributor'
+
+const secondsInHour = 3600
+const secondsInDay = 86400
 
 export function handlePeriodicTasks(block: ethereum.Block): void {
   const timestamp = block.timestamp
@@ -29,23 +26,18 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
   // update Aave
   // NB! if blocksInHour config is updated, the average apy calculation must be updated
   updateAaveApys(aave, block.number)
-  const positions: Array<AavePosition> = aave.positions.load()
-  for (let i = 0; i < positions.length; i++) {
-    updateAavePosition(positions[i])
-  }
+  updateAavePositions(aave)
 
   // update osToken
   const osToken = loadOsToken()!
-  const osTokenAssetsDiff = updateOsTokenTotalAssets(osToken)
-  snapshotOsToken(osToken, osTokenAssetsDiff, timestamp)
+  updateOsTokenTotalAssets(osToken)
 
   // update assets of all the osToken holders
   let osTokenHolder: OsTokenHolder
-  const osTokenHolderAssetsDiffs: Array<BigInt> = []
   const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    osTokenHolderAssetsDiffs.push(updateOsTokenHolderAssets(osToken, osTokenHolder))
+    updateOsTokenHolderAssets(osToken, osTokenHolder)
   }
 
   // update distributions
@@ -62,55 +54,116 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
     vault = loadVault(vaultAddress)!
     osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
-    // update allocators
-    let allocator: Allocator
-    let allocators: Array<Allocator> = vault.allocators.load()
-    const allocatorsMintedOsTokenShares = getAllocatorsMintedShares(vault, allocators)
-    let mintedOsTokenAssetsDiff: Array<BigInt> = []
-    for (let j = 0; j < allocators.length; j++) {
-      allocator = allocators[j]
-      mintedOsTokenAssetsDiff.push(
-        updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocatorsMintedOsTokenShares[j]),
-      )
-    }
+    // update allocators minted osToken shares
+    updateAllocatorsMintedOsTokenShares(osToken, osTokenConfig, vault)
 
     // update exit requests
-    updateExitRequests(network, osToken, distributor, vault, osTokenConfig, timestamp)
+    let exitRequest: ExitRequest
+    const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
+    for (let i = 0; i < exitRequests.length; i++) {
+      exitRequest = exitRequests[i]
+      if (exitRequest.exitedAssets.gt(BigInt.zero()) && !exitRequest.isClaimed && !exitRequest.isClaimable) {
+        const isClaimable = exitRequest.timestamp.plus(BigInt.fromI32(secondsInDay)).lt(timestamp)
+        if (isClaimable) {
+          exitRequest.isClaimable = isClaimable
+          exitRequest.save()
+        }
+      }
+    }
 
     // update OsToken exit requests
     updateOsTokenExitRequests(osToken, vault)
 
     // update leverage strategy positions
-    updateLeverageStrategyPositions(network, osToken, distributor, vault, osTokenConfig, timestamp)
+    updateLeverageStrategyPositions(network, aave, osToken, vault)
 
-    for (let j = 0; j < allocators.length; j++) {
-      allocator = allocators[j]
-      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, false)
-      allocator.save()
-      snapshotAllocator(
-        osToken,
-        osTokenConfig,
-        vault,
-        distributor,
-        allocator,
-        mintedOsTokenAssetsDiff[j].neg(),
-        timestamp,
-      )
+    // update allocators apys
+    if (vault.isOsTokenEnabled) {
+      let allocator: Allocator
+      let allocatorApy: BigDecimal
+      const allocators: Array<Allocator> = vault.allocators.load()
+      for (let j = 0; j < allocators.length; j++) {
+        allocator = allocators[j]
+        allocatorApy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+        if (allocatorApy.equals(allocator.apy)) {
+          continue
+        }
+        allocator.apy = allocatorApy
+        allocator.save()
+      }
     }
 
     // update vault max boost apys
     updateVaultMaxBoostApy(aave, osToken, vault, osTokenConfig, distributor, blockNumber)
-
-    // snapshot vault
-    snapshotVault(vault, BigInt.zero(), timestamp)
   }
 
   // update osToken holders apys
+  let osTokenHolderApy: BigDecimal
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, false)
+    osTokenHolderApy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
+    if (osTokenHolderApy.equals(osTokenHolder.apy)) {
+      continue
+    }
+    osTokenHolder.apy = osTokenHolderApy
     osTokenHolder.save()
-    snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, osTokenHolderAssetsDiffs[i], timestamp)
   }
+
+  // Update snapshots
+  _updateSnapshots(network, timestamp)
+
   log.info('[PeriodicTasks] block={} timestamp={}', [blockNumber.toString(), timestamp.toString()])
+}
+
+function _updateSnapshots(network: Network, timestamp: BigInt): void {
+  const newSnapshotsCount = timestamp.plus(BigInt.fromI32(secondsInHour)).div(BigInt.fromI32(secondsInDay))
+  const prevSnapshotsCount = network.lastSnapshotTimestamp
+    .plus(BigInt.fromI32(secondsInHour))
+    .div(BigInt.fromI32(secondsInDay))
+  if (newSnapshotsCount.le(prevSnapshotsCount)) {
+    return
+  }
+  if (network.lastSnapshotTimestamp.isZero()) {
+    // skip first snapshot
+    network.lastSnapshotTimestamp = timestamp
+    network.save()
+    return
+  }
+
+  const duration = timestamp.minus(network.lastSnapshotTimestamp)
+  network.lastSnapshotTimestamp = timestamp
+  network.save()
+
+  const osToken = loadOsToken()
+  if (!osToken) {
+    return
+  }
+  snapshotOsToken(osToken, osToken._periodEarnedAssets, timestamp)
+  osToken._periodEarnedAssets = BigInt.zero()
+  osToken.save()
+
+  let osTokenHolder: OsTokenHolder
+  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
+  for (let i = 0; i < osTokenHolders.length; i++) {
+    osTokenHolder = osTokenHolders[i]
+    snapshotOsTokenHolder(network, osToken, osTokenHolder, osTokenHolder._periodEarnedAssets, duration, timestamp)
+    osTokenHolder._periodEarnedAssets = BigInt.zero()
+    osTokenHolder.save()
+  }
+
+  let vault: Vault
+  const vaultIds = network.vaultIds
+  for (let i = 0; i < vaultIds.length; i++) {
+    vault = loadVault(Address.fromString(vaultIds[i]))!
+    snapshotVault(vault, BigInt.zero(), timestamp)
+
+    const allocators: Array<Allocator> = vault.allocators.load()
+    for (let j = 0; j < allocators.length; j++) {
+      const allocator = allocators[j]
+      snapshotAllocator(osToken, vault, allocator, allocator._periodEarnedAssets, duration, timestamp)
+      allocator._periodEarnedAssets = BigInt.zero()
+      allocator.save()
+    }
+  }
+  log.info('[PeriodicTasks] snapshots updated timestamp={}', [timestamp.toString()])
 }

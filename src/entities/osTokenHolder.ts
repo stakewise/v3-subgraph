@@ -8,12 +8,11 @@ import {
   OsToken,
   OsTokenHolder,
   OsTokenHolderSnapshot,
-  Vault,
 } from '../../generated/schema'
-import { getAnnualReward } from '../helpers/utils'
+import { calculateApy, getAnnualReward } from '../helpers/utils'
 import { convertOsTokenSharesToAssets, getOsTokenApy, osTokenId } from './osToken'
 import { getBoostPositionAnnualReward, loadLeverageStrategyPosition } from './leverageStrategy'
-import { loadVault } from './vault'
+import { getVaultApy, loadVault } from './vault'
 import { loadOsTokenConfig } from './osTokenConfig'
 import { loadAave } from './aave'
 import { loadAllocator } from './allocator'
@@ -33,10 +32,34 @@ export function createOrLoadOsTokenHolder(holderAddress: Address): OsTokenHolder
     holder.osToken = osTokenId
     holder.transfersCount = BigInt.zero()
     holder.apy = BigDecimal.zero()
+    holder._periodEarnedAssets = BigInt.zero()
     holder.save()
   }
 
   return holder
+}
+
+export function getOsTokenHolderVault(network: Network, osTokenHolder: OsTokenHolder): Address | null {
+  const osTokenHolderAddress = Address.fromString(osTokenHolder.id)
+
+  // find OsToken holder vault
+  let vaultAddress: Address
+  let allocator: Allocator | null = null
+  let boostPosition: LeverageStrategyPosition | null = null
+  const osTokenVaultIds = network.osTokenVaultIds
+  for (let i = 0; i < osTokenVaultIds.length; i++) {
+    vaultAddress = Address.fromString(osTokenVaultIds[i])
+    allocator = loadAllocator(osTokenHolderAddress, vaultAddress)
+    if (allocator) {
+      return vaultAddress
+    }
+    boostPosition = loadLeverageStrategyPosition(vaultAddress, osTokenHolderAddress)
+    if (boostPosition) {
+      return vaultAddress
+    }
+  }
+
+  return null
 }
 
 export function getOsTokenHolderApy(
@@ -44,49 +67,59 @@ export function getOsTokenHolderApy(
   osToken: OsToken,
   distributor: Distributor,
   osTokenHolder: OsTokenHolder,
-  useDayApy: boolean,
 ): BigDecimal {
-  const osTokenApy = getOsTokenApy(osToken, useDayApy)
+  const osTokenApy = getOsTokenApy(osToken, false)
 
-  let principalAssets = osTokenHolder.assets
-  let totalEarnedAssets = getAnnualReward(principalAssets, osTokenApy)
+  let totalAssets = osTokenHolder.assets
+  const vaultAddress = getOsTokenHolderVault(network, osTokenHolder)
+  if (!vaultAddress) {
+    return totalAssets.isZero() ? BigDecimal.zero() : osTokenApy
+  }
 
-  // check balances of leverage strategy positions
-  let vault: Vault | null = null
-  const osTokenVaultIds = network.osTokenVaultIds
-  for (let i = 0; i < osTokenVaultIds.length; i++) {
-    const vaultAddress = Address.fromString(osTokenVaultIds[i])
-    const position = loadLeverageStrategyPosition(vaultAddress, Address.fromString(osTokenHolder.id))
-    if (!position) {
-      continue
+  const vault = loadVault(vaultAddress)!
+  let totalEarnedAssets = getAnnualReward(totalAssets, osTokenApy)
+
+  const userAddress = Address.fromString(osTokenHolder.id)
+  const allocator = loadAllocator(userAddress, vaultAddress)
+  if (allocator) {
+    let exitRequest: ExitRequest
+    const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
+    const vaultApy = getVaultApy(vault, false)
+    for (let i = 0; i < exitRequests.length; i++) {
+      exitRequest = exitRequests[i]
+      if (
+        !exitRequest.isClaimed &&
+        !exitRequest.isV2Position &&
+        Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
+      ) {
+        totalEarnedAssets = totalEarnedAssets.plus(
+          getAnnualReward(exitRequest.totalAssets.minus(exitRequest.exitedAssets), vaultApy),
+        )
+        totalAssets = totalAssets.plus(exitRequest.totalAssets)
+      }
     }
-    vault = loadVault(vaultAddress)!
+  }
+
+  // check balances of leverage strategy position
+  const position = loadLeverageStrategyPosition(vaultAddress, userAddress)
+  if (position) {
     const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
     const aave = loadAave()!
-    principalAssets = principalAssets
+    totalAssets = totalAssets
       .plus(position.assets)
       .plus(position.exitingAssets)
       .plus(convertOsTokenSharesToAssets(osToken, position.osTokenShares.plus(position.exitingOsTokenShares)))
     totalEarnedAssets = totalEarnedAssets.plus(
-      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, position, distributor, useDayApy),
+      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, position, distributor),
     )
-    // we only take the first boosted position
-    break
   }
 
-  if (principalAssets.isZero()) {
+  if (totalAssets.isZero()) {
     return BigDecimal.zero()
   }
 
-  const osTokenHolderApy = totalEarnedAssets
-    .divDecimal(principalAssets.toBigDecimal())
-    .times(BigDecimal.fromString('100'))
-  if (
-    !useDayApy &&
-    vault &&
-    osTokenApy.lt(vault.osTokenHolderMaxBoostApy) &&
-    osTokenHolderApy.gt(vault.osTokenHolderMaxBoostApy)
-  ) {
+  const osTokenHolderApy = totalEarnedAssets.divDecimal(totalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
+  if (osTokenApy.lt(vault.osTokenHolderMaxBoostApy) && osTokenHolderApy.gt(vault.osTokenHolderMaxBoostApy)) {
     log.warning(
       '[getOsTokenHolderApy] Calculated APY is higher than max boost APY: maxBoostApy={} osTokenHolderApy={} vault={} holder={}',
       [vault.osTokenHolderMaxBoostApy.toString(), osTokenHolderApy.toString(), vault.id, osTokenHolder.id],
@@ -101,21 +134,13 @@ export function getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, 
   let totalAssets = osTokenHolder.assets
 
   // find OsToken holder vault
-  let vaultAddress: Address
-  let allocator: Allocator | null = null
-  let boostPosition: LeverageStrategyPosition | null = null
-  const osTokenVaultIds = network.osTokenVaultIds
-  for (let i = 0; i < osTokenVaultIds.length; i++) {
-    vaultAddress = Address.fromString(osTokenVaultIds[i])
-    allocator = loadAllocator(osTokenHolderAddress, vaultAddress)
-    boostPosition = loadLeverageStrategyPosition(vaultAddress, osTokenHolderAddress)
-
-    if (allocator || boostPosition) {
-      break
-    }
+  const vaultAddress = getOsTokenHolderVault(network, osTokenHolder)
+  if (!vaultAddress) {
+    return totalAssets
   }
 
   // add assets in all unclaimed exit requests
+  const allocator = loadAllocator(osTokenHolderAddress, vaultAddress)
   if (allocator) {
     let exitRequest: ExitRequest
     const exitRequests = allocator.exitRequests.load()
@@ -131,6 +156,7 @@ export function getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, 
   }
 
   // add boost position assets
+  const boostPosition = loadLeverageStrategyPosition(vaultAddress, osTokenHolderAddress)
   if (boostPosition) {
     totalAssets = totalAssets
       .plus(boostPosition.assets)
@@ -141,26 +167,27 @@ export function getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, 
   return totalAssets
 }
 
-export function updateOsTokenHolderAssets(osToken: OsToken, osTokenHolder: OsTokenHolder): BigInt {
+export function updateOsTokenHolderAssets(osToken: OsToken, osTokenHolder: OsTokenHolder): void {
   const assetsBefore = osTokenHolder.assets
   osTokenHolder.assets = convertOsTokenSharesToAssets(osToken, osTokenHolder.balance)
+  osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(osTokenHolder.assets.minus(assetsBefore))
   osTokenHolder.save()
-  return osTokenHolder.assets.minus(assetsBefore)
 }
 
 export function snapshotOsTokenHolder(
   network: Network,
   osToken: OsToken,
-  distributor: Distributor,
   osTokenHolder: OsTokenHolder,
   earnedAssets: BigInt,
+  duration: BigInt,
   timestamp: BigInt,
 ): void {
+  const totalAssets = getOsTokenHolderTotalAssets(network, osToken, osTokenHolder)
   const snapshot = new OsTokenHolderSnapshot(timestamp.toString())
   snapshot.timestamp = timestamp.toI64()
   snapshot.osTokenHolder = osTokenHolder.id
   snapshot.earnedAssets = earnedAssets
-  snapshot.totalAssets = getOsTokenHolderTotalAssets(network, osToken, osTokenHolder)
-  snapshot.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder, true)
+  snapshot.totalAssets = totalAssets
+  snapshot.apy = calculateApy(earnedAssets, totalAssets, duration)
   snapshot.save()
 }

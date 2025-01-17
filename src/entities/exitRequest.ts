@@ -1,10 +1,11 @@
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
-import { Distributor, ExitRequest, Network, OsToken, OsTokenConfig, Vault } from '../../generated/schema'
-import { Vault as VaultContract } from '../../generated/Keeper/Vault'
+import { ExitRequest, Network, Vault } from '../../generated/schema'
 import { loadV2Pool } from './v2pool'
 import { convertSharesToAssets, getUpdateStateCall } from './vault'
-import { loadAllocator, snapshotAllocator } from './allocator'
-import { loadOsTokenHolder, snapshotOsTokenHolder } from './osTokenHolder'
+import { loadAllocator } from './allocator'
+import { loadOsTokenHolder } from './osTokenHolder'
+import { chunkedVaultMulticall } from '../helpers/utils'
+import { getIsOsTokenVault } from './network'
 
 const secondsInDay = '86400'
 const getExitQueueIndexSelector = '0x60d60e6e'
@@ -15,50 +16,51 @@ export function loadExitRequest(vault: Address, positionTicket: BigInt): ExitReq
   return ExitRequest.load(exitRequestId)
 }
 
-export function updateExitRequests(
-  network: Network,
-  osToken: OsToken,
-  distributor: Distributor,
-  vault: Vault,
-  osTokenConfig: OsTokenConfig,
-  timestamp: BigInt,
-): void {
-  if (vault.isGenesis) {
-    const v2Pool = loadV2Pool()!
-    if (!v2Pool.migrated) {
-      // wait for the migration
-      return
-    }
+export function updateExitRequests(network: Network, vault: Vault, timestamp: BigInt): void {
+  // If vault is in "genesis" mode, we need to wait for legacy migration
+  if (vault.isGenesis && !loadV2Pool()!.migrated) {
+    return
   }
 
-  const vaultAddress = Address.fromString(vault.id)
-  const vaultContract = VaultContract.bind(vaultAddress)
+  const isOsTokenVault = getIsOsTokenVault(network, vault)
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
   const updateStateCall: Bytes | null = getUpdateStateCall(vault)
 
-  let calls: Array<Bytes> = []
+  // ─────────────────────────────────────────────────────────────────────
+  // STAGE 1: Query exitQueueIndex for all pending exit requests
+  // ─────────────────────────────────────────────────────────────────────
+
+  // Collect all the calls for the first multicall batch
+  let allCallsStage1: Array<Bytes> = []
   if (updateStateCall) {
-    calls.push(updateStateCall)
+    allCallsStage1.push(updateStateCall)
   }
-  let exitRequest: ExitRequest
-  const pendingExitRequests: Array<ExitRequest> = []
+
+  let pendingExitRequests: Array<ExitRequest> = []
   for (let i = 0; i < exitRequests.length; i++) {
-    exitRequest = exitRequests[i]
+    let exitRequest = exitRequests[i]
     if (!exitRequest.isClaimed) {
       pendingExitRequests.push(exitRequest)
-      calls.push(getExitQueueIndexCall(exitRequest.positionTicket))
+      allCallsStage1.push(getExitQueueIndexCall(exitRequest.positionTicket))
     }
   }
-
-  let result = vaultContract.multicall(calls)
-  if (updateStateCall) {
-    // remove first call result
-    result = result.slice(1)
+  if (pendingExitRequests.length == 0) {
+    return
   }
 
-  for (let i = 0; i < result.length; i++) {
-    const index = ethereum.decode('int256', result[i])!.toBigInt()
-    exitRequest = pendingExitRequests[i]
+  // Execute in chunks of size 10
+  let stage1Results: Array<Bytes> = chunkedVaultMulticall(Address.fromString(vault.id), allCallsStage1)
+
+  // If we had an updateStateCall, remove its result from the front
+  // so that the remainder of the results map cleanly to `pendingExitRequests`.
+  if (updateStateCall) {
+    stage1Results = stage1Results.slice(1) // remove first result
+  }
+
+  // Parse exitQueueIndex results
+  for (let i = 0; i < stage1Results.length; i++) {
+    let exitRequest = pendingExitRequests[i]
+    let index = ethereum.decode('int256', stage1Results[i])!.toBigInt()
     if (index.lt(BigInt.zero())) {
       exitRequest.exitQueueIndex = null
     } else {
@@ -66,15 +68,22 @@ export function updateExitRequests(
     }
   }
 
-  calls = []
+  // ─────────────────────────────────────────────────────────────────────
+  // STAGE 2: Query exited assets for all pending exit requests
+  // ─────────────────────────────────────────────────────────────────────
+
+  // Build calls for the second multicall batch
+  let allCallsStage2: Array<Bytes> = []
   if (updateStateCall) {
-    calls.push(updateStateCall)
+    allCallsStage2.push(updateStateCall)
   }
+
   const maxUint255 = BigInt.fromI32(2).pow(255).minus(BigInt.fromI32(1))
   for (let i = 0; i < pendingExitRequests.length; i++) {
-    exitRequest = pendingExitRequests[i]
-    const exitQueueIndex = exitRequest.exitQueueIndex !== null ? exitRequest.exitQueueIndex! : maxUint255
-    calls.push(
+    let exitRequest = pendingExitRequests[i]
+    let exitQueueIndex = exitRequest.exitQueueIndex !== null ? exitRequest.exitQueueIndex! : maxUint255
+
+    allCallsStage2.push(
       getCalculateExitedAssetsCall(
         Address.fromBytes(exitRequest.receiver),
         exitRequest.positionTicket,
@@ -84,19 +93,25 @@ export function updateExitRequests(
     )
   }
 
-  result = vaultContract.multicall(calls)
+  // Execute in chunks of size 10
+  let stage2Results: Array<Bytes> = chunkedVaultMulticall(Address.fromString(vault.id), allCallsStage2)
+
+  // If we had an updateStateCall, remove its result from the front again
   if (updateStateCall) {
-    // remove first call result
-    result = result.slice(1)
+    stage2Results = stage2Results.slice(1)
   }
 
+  // Parse and update each exitRequest
   const one = BigInt.fromI32(1)
-  for (let i = 0; i < result.length; i++) {
-    exitRequest = pendingExitRequests[i]
-    let decodedResult = ethereum.decode('(uint256,uint256,uint256)', result[i])!.toTuple()
-    const leftTickets = decodedResult[0].toBigInt()
-    const exitedAssets = decodedResult[2].toBigInt()
-    const totalAssetsBefore = exitRequest.totalAssets
+  for (let i = 0; i < stage2Results.length; i++) {
+    let exitRequest = pendingExitRequests[i]
+    let decodedResult = ethereum.decode('(uint256,uint256,uint256)', stage2Results[i])!.toTuple()
+
+    let leftTickets = decodedResult[0].toBigInt()
+    let exitedAssets = decodedResult[2].toBigInt()
+    let totalAssetsBefore = exitRequest.totalAssets
+
+    // If multiple tickets remain, recalculate total assets. Otherwise, set total to exitedAssets.
     if (leftTickets.gt(one)) {
       exitRequest.totalAssets = exitRequest.isV2Position
         ? leftTickets.times(vault.exitingAssets).div(vault.exitingTickets).plus(exitedAssets)
@@ -106,23 +121,35 @@ export function updateExitRequests(
     }
     exitRequest.exitedAssets = exitedAssets
 
+    // If there are some exited assets, check if they are claimable
     if (!exitedAssets.isZero()) {
       exitRequest.isClaimable = exitRequest.timestamp.plus(BigInt.fromString(secondsInDay)).lt(timestamp)
     } else {
       exitRequest.isClaimable = false
     }
+
     exitRequest.save()
 
-    snapshotExitRequest(
-      network,
-      osToken,
-      distributor,
-      vault,
-      osTokenConfig,
-      exitRequest,
-      exitRequest.totalAssets.minus(totalAssetsBefore),
-      timestamp,
-    )
+    if (exitRequest.receiver.notEqual(exitRequest.owner)) {
+      continue
+    }
+
+    const allocator = loadAllocator(Address.fromBytes(exitRequest.owner), Address.fromString(vault.id))!
+    const earnedAssets = exitRequest.totalAssets.minus(totalAssetsBefore)
+    if (!earnedAssets.isZero()) {
+      allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
+      allocator.save()
+    }
+
+    if (!isOsTokenVault) {
+      continue
+    }
+
+    const osTokenHolder = loadOsTokenHolder(Address.fromBytes(exitRequest.owner))
+    if (osTokenHolder && !earnedAssets.isZero()) {
+      osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(earnedAssets)
+      osTokenHolder.save()
+    }
   }
 }
 
@@ -142,34 +169,4 @@ function getCalculateExitedAssetsCall(
     .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(positionTicket))!)
     .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(timestamp))!)
     .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(exitQueueIndex))!)
-}
-
-export function snapshotExitRequest(
-  network: Network,
-  osToken: OsToken,
-  distributor: Distributor,
-  vault: Vault,
-  osTokenConfig: OsTokenConfig,
-  exitRequest: ExitRequest,
-  earnedAssets: BigInt,
-  timestamp: BigInt,
-): void {
-  if (exitRequest.receiver.notEqual(exitRequest.owner)) {
-    return
-  }
-
-  const allocator = loadAllocator(Address.fromBytes(exitRequest.owner), Address.fromString(vault.id))!
-  snapshotAllocator(osToken, osTokenConfig, vault, distributor, allocator, earnedAssets, timestamp)
-
-  const osTokenVaultIds = network.osTokenVaultIds
-  for (let i = 0; i < osTokenVaultIds.length; i++) {
-    // if vault is an OsToken vault, snapshot exit request for osToken holder
-    if (vault.id === osTokenVaultIds[i]) {
-      const osTokenHolder = loadOsTokenHolder(Address.fromBytes(allocator.address))
-      if (osTokenHolder) {
-        snapshotOsTokenHolder(network, osToken, distributor, osTokenHolder, earnedAssets, timestamp)
-      }
-      break
-    }
-  }
 }

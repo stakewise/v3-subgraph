@@ -12,7 +12,6 @@ import {
   AAVE_LEVERAGE_STRATEGY,
   AAVE_LEVERAGE_STRATEGY_START_BLOCK,
   MAX_VAULT_APY,
-  MULTICALL,
   VAULT_FACTORY_V2,
   VAULT_FACTORY_V3,
   WAD,
@@ -20,8 +19,7 @@ import {
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { isGnosisNetwork, loadNetwork } from './network'
 import { getV2PoolState, loadV2Pool, updatePoolApy } from './v2pool'
-import { Multicall as MulticallContract, TryAggregateCallReturnDataStruct } from '../../generated/Keeper/Multicall'
-import { calculateAverage, getAggregateCall, getAnnualReward } from '../helpers/utils'
+import { calculateAverage, chunkedMulticall, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { createOrLoadOwnMevEscrow } from './mevEscrow'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
 import {
@@ -32,8 +30,6 @@ import {
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import { createTransaction } from './transaction'
-import { AaveLeverageStrategy as AaveLeverageStrategyContract } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
-import { getAaveBorrowApy, getAaveSupplyApy } from './aave'
 import { getAllocatorId } from './allocator'
 import { convertStringToDistributionType, DistributionType, getPeriodicDistributionApy } from './merkleDistributor'
 
@@ -102,6 +98,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
   vault.lastXdaiSwappedTimestamp = block.timestamp
+  vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault.apy = BigDecimal.zero()
   vault.apys = []
   vault.allocatorMaxBoostApy = BigDecimal.zero()
@@ -181,8 +178,8 @@ export function getVaultApy(vault: Vault, useDayApy: boolean): BigDecimal {
   return calculateAverage(apys.slice(apys.length - snapshotsPerDay))
 }
 
-export function getVaultOsTokenMintApy(osToken: OsToken, osTokenConfig: OsTokenConfig, useDayApy: boolean): BigDecimal {
-  const osTokenApy = getOsTokenApy(osToken, useDayApy)
+export function getVaultOsTokenMintApy(osToken: OsToken, osTokenConfig: OsTokenConfig): BigDecimal {
+  const osTokenApy = getOsTokenApy(osToken, false)
   const feePercentBigDecimal = BigDecimal.fromString(osToken.feePercent.toString())
   if (osTokenConfig.ltvPercent.isZero()) {
     log.error('getVaultOsTokenMintApy osTokenConfig.ltvPercent is zero osTokenConfig={}', [osTokenConfig.id])
@@ -287,7 +284,7 @@ export function updateVaults(
     // save fee recipient earned shares
     feeRecipientsEarnedShares.set(
       getAllocatorId(Address.fromBytes(vault.feeRecipient), vaultAddress),
-      feeRecipientShares,
+      feeRecipientShares.minus(vault._unclaimedFeeRecipientShares),
     )
 
     // calculate smoothing pool penalty
@@ -333,6 +330,7 @@ export function updateVaults(
     vault.rewardsTimestamp = updateTimestamp
     vault.rewardsIpfsHash = rewardsIpfsHash
     vault.canHarvest = true
+    vault._unclaimedFeeRecipientShares = feeRecipientShares
     vault.save()
 
     // update v2 pool data
@@ -379,72 +377,53 @@ export function updateVaultMaxBoostApy(
     return
   }
   const wad = BigInt.fromString(WAD)
-  const aaveLeverageStrategyContract = AaveLeverageStrategyContract.bind(AAVE_LEVERAGE_STRATEGY)
 
   const osTokenApy = getOsTokenApy(osToken, false)
-  const borrowApy = getAaveBorrowApy(aave, false)
-  const supplyApy = getAaveSupplyApy(aave, osToken, false)
+  const borrowApy = aave.borrowApy
+  // earned osToken shares earn extra staking rewards, apply compounding
+  const supplyApy = getCompoundedApy(aave.supplyApy, osTokenApy)
 
-  const vaultAddress = Address.fromString(vault.id)
-  const vaultLeverageLtv = aaveLeverageStrategyContract.getVaultLtv(vaultAddress)
+  const vaultLeverageLtv = osTokenConfig.ltvPercent.lt(osTokenConfig.leverageMaxMintLtvPercent)
+    ? osTokenConfig.ltvPercent
+    : osTokenConfig.leverageMaxMintLtvPercent
+  const aaveLeverageLtv = aave.leverageMaxBorrowLtvPercent
+  if (vaultLeverageLtv.isZero() || aaveLeverageLtv.isZero()) {
+    vault.allocatorMaxBoostApy = BigDecimal.zero()
+    vault.osTokenHolderMaxBoostApy = BigDecimal.zero()
+    vault.save()
+    return
+  }
 
   // calculate vault staking rate and the rate paid for minting osToken
   const vaultApy = getVaultApy(vault, false)
-  const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig, false)
+  const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig)
 
-  // calculate max boost apy for vault allocator
-  const allocatorDepositedAssets = wad
-
-  // allocator mints max osToken shares
-  const allocatorMintedOsTokenAssets = allocatorDepositedAssets.times(osTokenConfig.ltvPercent).div(wad)
-  const allocatorMintedOsTokenShares = convertAssetsToOsTokenShares(osToken, allocatorMintedOsTokenAssets)
-
-  // osTokenHolder deposits all osToken shares
-  const osTokenHolderOsTokenAssets = allocatorMintedOsTokenAssets
-  const osTokenHolderOsTokenShares = allocatorMintedOsTokenShares
+  // initial amounts for calculating earnings
+  const boostedOsTokenAssets = wad
+  const boostedOsTokenShares = convertAssetsToOsTokenShares(osToken, wad)
 
   // calculate assets/shares boosted from the strategy
-  const strategyMintedOsTokenShares = aaveLeverageStrategyContract.getFlashloanOsTokenShares(
-    vaultAddress,
-    osTokenHolderOsTokenShares,
-  )
+  const totalLtv = vaultLeverageLtv.times(aaveLeverageLtv).div(wad)
+  const strategyMintedOsTokenShares = boostedOsTokenShares
+    .times(wad)
+    .div(wad.minus(totalLtv))
+    .minus(boostedOsTokenShares)
   const strategyMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, strategyMintedOsTokenShares)
   const strategyDepositedAssets = strategyMintedOsTokenAssets.times(wad).div(vaultLeverageLtv)
 
-  // calculate earned assets from staking
-  let allocatorEarnedAssets = getAnnualReward(allocatorDepositedAssets.plus(strategyDepositedAssets), vaultApy)
-  let osTokenHolderEarnedAssets = getAnnualReward(osTokenHolderOsTokenAssets, osTokenApy).plus(
-    getAnnualReward(strategyDepositedAssets, vaultApy),
-  )
+  // calculate strategy earned assets from staking
+  let strategyEarnedAssets = getAnnualReward(strategyDepositedAssets, vaultApy)
 
   // subtract apy lost on minting osToken
-  allocatorEarnedAssets = allocatorEarnedAssets.minus(
-    getAnnualReward(allocatorMintedOsTokenAssets.plus(strategyMintedOsTokenAssets), osTokenMintApy),
-  )
-  osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.minus(
-    getAnnualReward(strategyMintedOsTokenAssets, osTokenMintApy),
-  )
+  strategyEarnedAssets = strategyEarnedAssets.minus(getAnnualReward(strategyMintedOsTokenAssets, osTokenMintApy))
 
   // all supplied osToken shares earn supply apy
-  const allocatorEarnedOsTokenShares = getAnnualReward(
-    allocatorMintedOsTokenShares.plus(strategyMintedOsTokenShares),
-    supplyApy,
-  )
-  allocatorEarnedAssets = allocatorEarnedAssets.plus(
-    convertOsTokenSharesToAssets(osToken, allocatorEarnedOsTokenShares),
-  )
-  const osTokenHolderEarnedOsTokenShares = getAnnualReward(
-    osTokenHolderOsTokenShares.plus(strategyMintedOsTokenShares),
-    supplyApy,
-  )
-  osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.plus(
-    convertOsTokenSharesToAssets(osToken, osTokenHolderEarnedOsTokenShares),
-  )
+  const earnedOsTokenShares = getAnnualReward(boostedOsTokenShares.plus(strategyMintedOsTokenShares), supplyApy)
+  strategyEarnedAssets = strategyEarnedAssets.plus(convertOsTokenSharesToAssets(osToken, earnedOsTokenShares))
 
   // all borrowed assets lose borrow apy
   const borrowInterestAssets = getAnnualReward(strategyDepositedAssets, borrowApy)
-  allocatorEarnedAssets = allocatorEarnedAssets.minus(borrowInterestAssets)
-  osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.minus(borrowInterestAssets)
+  strategyEarnedAssets = strategyEarnedAssets.minus(borrowInterestAssets)
 
   // all the supplied OsToken assets earn the additional incentives
   const activeDistributionIds = distributor.activeDistributionIds
@@ -457,32 +436,41 @@ export function updateVaultMaxBoostApy(
     }
 
     // get the distribution APY
-    distributionApy = getPeriodicDistributionApy(distribution, osToken, false)
+    distributionApy = getPeriodicDistributionApy(distribution, osToken)
     if (distributionApy.equals(BigDecimal.zero())) {
       continue
     }
 
-    allocatorEarnedAssets = allocatorEarnedAssets.plus(
-      getAnnualReward(allocatorMintedOsTokenAssets.plus(strategyMintedOsTokenAssets), distributionApy),
-    )
-    osTokenHolderEarnedAssets = osTokenHolderEarnedAssets.plus(
-      getAnnualReward(osTokenHolderOsTokenAssets.plus(strategyMintedOsTokenAssets), distributionApy),
+    strategyEarnedAssets = strategyEarnedAssets.plus(
+      getAnnualReward(boostedOsTokenAssets.plus(strategyMintedOsTokenAssets), distributionApy),
     )
   }
 
   // calculate average allocator max boost APY
-  const allocatorMaxBoostApy = new BigDecimal(allocatorEarnedAssets)
+  const allocatorDepositedAssets = boostedOsTokenAssets.times(wad).div(osTokenConfig.ltvPercent)
+  const allocatorEarnedAssets = strategyEarnedAssets
+    .plus(getAnnualReward(allocatorDepositedAssets, vaultApy))
+    .minus(getAnnualReward(boostedOsTokenAssets, osTokenMintApy))
+  const allocatorMaxBoostApy = allocatorEarnedAssets
+    .toBigDecimal()
     .times(BigDecimal.fromString('100'))
-    .div(new BigDecimal(allocatorDepositedAssets))
+    .div(allocatorDepositedAssets.toBigDecimal())
 
-  // calculate average osToken holder APY
-  const osTokenHolderMaxBoostApy = new BigDecimal(osTokenHolderEarnedAssets)
+  // calculate average osToken holder max boost APY
+  const osTokenHolderEarnedAssets = strategyEarnedAssets.plus(getAnnualReward(boostedOsTokenAssets, osTokenApy))
+  const osTokenHolderMaxBoostApy = osTokenHolderEarnedAssets
+    .toBigDecimal()
     .times(BigDecimal.fromString('100'))
-    .div(new BigDecimal(osTokenHolderOsTokenAssets))
+    .div(boostedOsTokenAssets.toBigDecimal())
 
-  vault.allocatorMaxBoostApy = allocatorMaxBoostApy
-  vault.osTokenHolderMaxBoostApy = osTokenHolderMaxBoostApy
-  vault.save()
+  if (
+    allocatorMaxBoostApy.notEqual(vault.allocatorMaxBoostApy) ||
+    osTokenHolderMaxBoostApy.notEqual(vault.osTokenHolderMaxBoostApy)
+  ) {
+    vault.allocatorMaxBoostApy = allocatorMaxBoostApy
+    vault.osTokenHolderMaxBoostApy = osTokenHolderMaxBoostApy
+    vault.save()
+  }
 }
 
 export function snapshotVault(vault: Vault, earnedAssets: BigInt, timestamp: BigInt): void {
@@ -497,47 +485,42 @@ export function snapshotVault(vault: Vault, earnedAssets: BigInt, timestamp: Big
   vaultSnapshot.save()
 }
 
-function getVaultState(vault: Vault): Array<BigInt> {
+export function getVaultState(vault: Vault): Array<BigInt> {
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     return [BigInt.fromString(WAD), BigInt.zero(), BigInt.zero(), BigInt.zero(), BigInt.zero(), BigInt.zero()]
   }
 
   const isV2OrHigherVault = vault.version.ge(BigInt.fromI32(2))
-  const vaultAddr = Address.fromString(vault.id)
   const updateStateCall = getUpdateStateCall(vault)
-  const convertToAssetsCall = _getConvertToAssetsCall(BigInt.fromString(WAD))
-  const totalAssetsCall = Bytes.fromHexString(totalAssetsSelector)
-  const totalSharesCall = Bytes.fromHexString(totalSharesSelector)
-  const exitingAssetsCall = Bytes.fromHexString(exitingAssetsSelector)
-  const queuedSharesCall = Bytes.fromHexString(queuedSharesSelector)
 
-  const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
-  let calls: Array<ethereum.Value> = []
+  let contractCalls: Array<Bytes> = []
   if (updateStateCall) {
     const getFeeRecipientSharesCall = _getSharesCall(Address.fromBytes(vault.feeRecipient))
-    const getFeeRecipientSharesAggregateCall = getAggregateCall(vaultAddr, getFeeRecipientSharesCall)
-    calls.push(getFeeRecipientSharesAggregateCall)
-    calls.push(getAggregateCall(vaultAddr, updateStateCall))
-    calls.push(getFeeRecipientSharesAggregateCall)
+    contractCalls.push(getFeeRecipientSharesCall)
+    contractCalls.push(updateStateCall)
+    contractCalls.push(getFeeRecipientSharesCall)
   }
-  calls.push(getAggregateCall(vaultAddr, convertToAssetsCall))
-  calls.push(getAggregateCall(vaultAddr, totalAssetsCall))
-  calls.push(getAggregateCall(vaultAddr, totalSharesCall))
-  calls.push(getAggregateCall(vaultAddr, queuedSharesCall))
+  contractCalls.push(_getConvertToAssetsCall(BigInt.fromString(WAD)))
+  contractCalls.push(Bytes.fromHexString(totalAssetsSelector))
+  contractCalls.push(Bytes.fromHexString(totalSharesSelector))
+  contractCalls.push(Bytes.fromHexString(queuedSharesSelector))
   if (isV2OrHigherVault) {
-    calls.push(getAggregateCall(vaultAddr, exitingAssetsCall))
+    contractCalls.push(Bytes.fromHexString(exitingAssetsSelector))
   }
 
-  const result = multicallContract.call('tryAggregate', 'tryAggregate(bool,(address,bytes)[]):((bool,bytes)[])', [
-    ethereum.Value.fromBoolean(false),
-    ethereum.Value.fromArray(calls),
-  ])
-  let resultValue = result[0].toTupleArray<TryAggregateCallReturnDataStruct>()
+  const callsCount = contractCalls.length
+  let contractAddresses: Array<Address> = []
+  const vaultAddr = Address.fromString(vault.id)
+  for (let i = 0; i < callsCount; i++) {
+    contractAddresses[i] = vaultAddr
+  }
+
+  let results = chunkedMulticall(contractAddresses, contractCalls, false)
 
   let feeRecipientEarnedShares = BigInt.zero()
   if (updateStateCall) {
     // check whether update state call succeeded
-    if (!resultValue[1].success) {
+    if (results[1] === null) {
       log.error('[Vault] getVaultState failed for vault={} updateStateCall={}', [
         vault.id,
         updateStateCall.toHexString(),
@@ -546,21 +529,19 @@ function getVaultState(vault: Vault): Array<BigInt> {
     }
 
     // calculate fee recipient earned shares
-    const feeRecipientSharesBefore = ethereum.decode('uint256', resultValue[0].returnData)!.toBigInt()
-    const feeRecipientSharesAfter = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
+    const feeRecipientSharesBefore = ethereum.decode('uint256', results[0]!)!.toBigInt()
+    const feeRecipientSharesAfter = ethereum.decode('uint256', results[2]!)!.toBigInt()
     feeRecipientEarnedShares = feeRecipientSharesAfter.minus(feeRecipientSharesBefore)
 
     // remove responses from the result
-    resultValue = resultValue.slice(3)
+    results = results.slice(3)
   }
 
-  const newRate = ethereum.decode('uint256', resultValue[0].returnData)!.toBigInt()
-  const totalAssets = ethereum.decode('uint256', resultValue[1].returnData)!.toBigInt()
-  const totalShares = ethereum.decode('uint256', resultValue[2].returnData)!.toBigInt()
-  const queuedShares = ethereum.decode('uint128', resultValue[3].returnData)!.toBigInt()
-  const exitingAssets = isV2OrHigherVault
-    ? ethereum.decode('uint128', resultValue[4].returnData)!.toBigInt()
-    : vault.exitingAssets
+  const newRate = ethereum.decode('uint256', results[0]!)!.toBigInt()
+  const totalAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
+  const totalShares = ethereum.decode('uint256', results[2]!)!.toBigInt()
+  const queuedShares = ethereum.decode('uint128', results[3]!)!.toBigInt()
+  const exitingAssets = isV2OrHigherVault ? ethereum.decode('uint128', results[4]!)!.toBigInt() : vault.exitingAssets
   return [newRate, totalAssets, totalShares, queuedShares, exitingAssets, feeRecipientEarnedShares]
 }
 

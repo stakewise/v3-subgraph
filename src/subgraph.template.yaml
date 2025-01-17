@@ -5,6 +5,8 @@ schema:
   file: ./schema.graphql
 features:
   - ipfsOnEthereumContracts
+indexerHints:
+  prune: {{ maxRetainBlocks }}
 dataSources:
   - kind: ethereum/contract
     name: PeriodicTasks
@@ -73,11 +75,11 @@ dataSources:
       file: ./mappings/exchangeRates.ts
       entities:
         - Network
-        - ExchangeRateSnapshot
-        - ExchangeRateStats
       abis:
         - name: PriceFeed
           file: ./abis/PriceFeed.json
+        - name: Multicall
+          file: ./abis/Multicall.json
       blockHandlers:
         - handler: handleExchangeRates
           filter:
@@ -475,6 +477,8 @@ dataSources:
       eventHandlers:
         - event: StrategyProxyCreated(indexed bytes32,indexed address,indexed address,address)
           handler: handleStrategyProxyCreated
+          calls:
+            strategyProxy: AaveLeverageStrategy[event.address].getStrategyProxy(event.params.vault, event.params.user)
         - event: Deposited(indexed address,indexed address,uint256,uint256,address)
           handler: handleDeposited
         - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256,uint256,uint256)
@@ -501,8 +505,6 @@ dataSources:
       eventHandlers:
         - event: PoolCreated(indexed address,indexed address,indexed uint24,int24,address)
           handler: handlePoolCreated
-          topic1: ['{{ osToken.address }}', '{{ swiseToken.address }}']
-          topic2: ['{{ osToken.address }}', '{{ swiseToken.address }}']
   - kind: ethereum/contract
     name: UniswapPositionManager
     network: {{ network }}
@@ -534,6 +536,29 @@ dataSources:
           handler: handleTransfer
           calls:
             uniPosition: UniswapPositionManager[event.address].positions(event.params.tokenId)
+  - kind: ethereum/contract
+    name: StrategiesRegistry
+    network: {{ network }}
+    source:
+      address: '{{ strategiesRegistry.address }}'
+      abi: StrategiesRegistry
+      startBlock: {{ strategiesRegistry.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/strategiesRegistry.ts
+      entities:
+        - Aave
+        - OsTokenConfig
+        - Vault
+        - Network
+      abis:
+        - name: StrategiesRegistry
+          file: ./abis/StrategiesRegistry.json
+      eventHandlers:
+        - event: StrategyConfigUpdated(indexed bytes32,string,bytes)
+          handler: handleStrategyConfigUpdated
   - kind: ethereum/contract
     name: ValidatorsRegistry
     network: {{ network }}

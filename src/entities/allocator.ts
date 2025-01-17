@@ -7,17 +7,18 @@ import {
   ExitRequest,
   OsToken,
   OsTokenConfig,
+  RewardSplitter,
   Vault,
 } from '../../generated/schema'
 import { WAD } from '../helpers/constants'
-import { getAnnualReward } from '../helpers/utils'
+import { calculateApy, chunkedVaultMulticall, getAnnualReward } from '../helpers/utils'
 import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { convertSharesToAssets, getVaultApy, getVaultOsTokenMintApy, loadVault } from './vault'
 import { loadOsTokenConfig } from './osTokenConfig'
 import { getBoostPositionAnnualReward, loadLeverageStrategyPosition } from './leverageStrategy'
-import { Vault as VaultContract } from '../../generated/PeriodicTasks/Vault'
 import { loadNetwork } from './network'
 import { loadAave } from './aave'
+import { loadRewardSplitterShareHolder } from './rewardSplitter'
 
 const osTokenPositionsSelector = '0x4ec96b22'
 
@@ -86,6 +87,7 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.address = allocatorAddress
     vaultAllocator.vault = vaultAddress.toHex()
     vaultAllocator.apy = BigDecimal.zero()
+    vaultAllocator._periodEarnedAssets = BigInt.zero()
     vaultAllocator.save()
   }
 
@@ -116,29 +118,40 @@ export function createAllocatorAction(
   allocatorAction.save()
 }
 
-export function getAllocatorsMintedShares(vault: Vault, allocators: Array<Allocator>): Array<BigInt> {
+export function updateAllocatorsMintedOsTokenShares(
+  osToken: OsToken,
+  osTokenConfig: OsTokenConfig,
+  vault: Vault,
+): void {
   if (!vault.isOsTokenEnabled) {
-    let response = new Array<BigInt>(allocators.length)
-    for (let i = 0; i < allocators.length; i++) {
-      response[i] = BigInt.zero()
-    }
-    return response
+    return
   }
 
-  const vaultAddress = Address.fromString(vault.id)
-  const vaultContract = VaultContract.bind(vaultAddress)
-
+  // Prepare all calls for retrieving minted shares from OsToken positions
   let calls: Array<Bytes> = []
+  let allocator: Allocator
+  const allocatorsWithMintedOsTokenShares: Array<Allocator> = []
+  const allocators: Array<Allocator> = vault.allocators.load()
   for (let i = 0; i < allocators.length; i++) {
-    calls.push(_getOsTokenPositionsCall(allocators[i]))
+    allocator = allocators[i]
+    if (allocator.mintedOsTokenShares.gt(BigInt.zero())) {
+      allocatorsWithMintedOsTokenShares.push(allocator)
+      calls.push(_getOsTokenPositionsCall(allocator))
+    }
   }
 
-  const result = vaultContract.multicall(calls)
-  const mintedShares: Array<BigInt> = []
-  for (let i = 0; i < allocators.length; i++) {
-    mintedShares.push(ethereum.decode('uint256', result[i])!.toBigInt())
+  // Execute calls in chunks of size 100
+  let response = chunkedVaultMulticall(Address.fromString(vault.id), calls, 100)
+
+  // Decode the result for each allocator in the same order
+  for (let i = 0; i < response.length; i++) {
+    updateAllocatorMintedOsTokenShares(
+      osToken,
+      osTokenConfig,
+      allocatorsWithMintedOsTokenShares[i],
+      ethereum.decode('uint256', response[i])!.toBigInt(),
+    )
   }
-  return mintedShares
 }
 
 export function getAllocatorLtvStatus(allocator: Allocator, osTokenConfig: OsTokenConfig): string {
@@ -177,13 +190,12 @@ export function getAllocatorApy(
   vault: Vault,
   distributor: Distributor,
   allocator: Allocator,
-  useDayApy: boolean,
 ): BigDecimal {
   const vaultAddress = Address.fromString(allocator.vault)
   const allocatorAddress = Address.fromBytes(allocator.address)
 
-  const vaultApy = getVaultApy(vault, useDayApy)
-  const osTokenApy = getOsTokenApy(osToken, useDayApy)
+  const vaultApy = getVaultApy(vault, false)
+  const osTokenApy = getOsTokenApy(osToken, false)
 
   let totalAssets = allocator.assets
   let stakingAssets = allocator.assets
@@ -207,14 +219,14 @@ export function getAllocatorApy(
 
   const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, allocator.mintedOsTokenShares)
   totalEarnedAssets = totalEarnedAssets.minus(
-    getAnnualReward(mintedOsTokenAssets, getVaultOsTokenMintApy(osToken, osTokenConfig, useDayApy)),
+    getAnnualReward(mintedOsTokenAssets, getVaultOsTokenMintApy(osToken, osTokenConfig)),
   )
 
   const boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
   if (boostPosition !== null) {
     const aave = loadAave()!
     totalEarnedAssets = totalEarnedAssets.plus(
-      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition, distributor, useDayApy),
+      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition, distributor),
     )
     const boostedOsTokenShares = boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)
     let extraOsTokenShares: BigInt
@@ -238,7 +250,7 @@ export function getAllocatorApy(
   }
 
   const allocatorApy = totalEarnedAssets.divDecimal(totalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
-  if (!useDayApy && vault.apy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
+  if (vault.apy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
     log.warning(
       '[getAllocatorApy] Calculated APY is higher than max boost APY: maxBoostApy={} allocatorApy={} vault={} allocator={}',
       [vault.allocatorMaxBoostApy.toString(), allocatorApy.toString(), vault.id, allocator.address.toHex()],
@@ -248,7 +260,7 @@ export function getAllocatorApy(
   return allocatorApy
 }
 
-export function getAllocatorTotalAssets(osToken: OsToken, allocator: Allocator): BigInt {
+export function getAllocatorTotalAssets(osToken: OsToken, vault: Vault, allocator: Allocator): BigInt {
   let totalAssets = allocator.assets
 
   // get assets from the exit requests
@@ -278,6 +290,16 @@ export function getAllocatorTotalAssets(osToken: OsToken, allocator: Allocator):
     totalAssets = totalAssets.plus(boostPosition.assets).plus(boostPosition.exitingAssets)
   }
 
+  // get assets from the reward splitter
+  const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
+  for (let i = 0; i < rewardSplitters.length; i++) {
+    const rewardSplitterAddress = Address.fromString(rewardSplitters[i].id)
+    const shareHolder = loadRewardSplitterShareHolder(allocatorAddress, rewardSplitterAddress)
+    if (shareHolder) {
+      totalAssets = totalAssets.plus(shareHolder.earnedVaultAssets)
+    }
+  }
+
   return totalAssets
 }
 
@@ -291,7 +313,6 @@ export function updateAllocatorAssets(
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-  allocator.save()
   return allocator.assets.minus(assetsBefore)
 }
 
@@ -324,11 +345,14 @@ export function updateAllocatorMintedOsTokenShares(
   osTokenConfig: OsTokenConfig,
   allocator: Allocator,
   newMintedOsTokenShares: BigInt,
-): BigInt {
+): void {
   const mintedOsTokenSharesDiff = newMintedOsTokenShares.minus(allocator.mintedOsTokenShares)
-  if (osTokenConfig.ltvPercent.isZero()) {
-    log.error('[Allocator] ltvPercent cannot be zero for vault={}', [allocator.vault])
-    return convertOsTokenSharesToAssets(osToken, mintedOsTokenSharesDiff)
+  if (osTokenConfig.ltvPercent.isZero() || mintedOsTokenSharesDiff.lt(BigInt.zero())) {
+    log.error(
+      '[Allocator] minted OsToken shares update failed for allocator={} osTokenConfig={} mintedOsTokenSharesDiff={}',
+      [allocator.id, osTokenConfig.id, mintedOsTokenSharesDiff.toString()],
+    )
+    return
   }
 
   const mintedOsTokenAssetsDiff = convertOsTokenSharesToAssets(osToken, mintedOsTokenSharesDiff)
@@ -338,26 +362,25 @@ export function updateAllocatorMintedOsTokenShares(
   allocator.mintedOsTokenShares = newMintedOsTokenShares
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
+  allocator._periodEarnedAssets = allocator._periodEarnedAssets.minus(mintedOsTokenAssetsDiff)
   allocator.save()
-
-  return mintedOsTokenAssetsDiff
 }
 
 export function snapshotAllocator(
   osToken: OsToken,
-  osTokenConfig: OsTokenConfig,
   vault: Vault,
-  distributor: Distributor,
   allocator: Allocator,
   earnedAssets: BigInt,
+  duration: BigInt,
   timestamp: BigInt,
 ): void {
+  const totalAssets = getAllocatorTotalAssets(osToken, vault, allocator)
   const allocatorSnapshot = new AllocatorSnapshot(timestamp.toString())
   allocatorSnapshot.timestamp = timestamp.toI64()
   allocatorSnapshot.allocator = allocator.id
   allocatorSnapshot.earnedAssets = earnedAssets
-  allocatorSnapshot.totalAssets = getAllocatorTotalAssets(osToken, allocator)
-  allocatorSnapshot.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator, true)
+  allocatorSnapshot.totalAssets = totalAssets
+  allocatorSnapshot.apy = calculateApy(earnedAssets, totalAssets, duration)
   allocatorSnapshot.ltv = allocator.ltv
   allocatorSnapshot.save()
 }

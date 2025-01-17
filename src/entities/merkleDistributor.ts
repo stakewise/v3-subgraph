@@ -21,7 +21,6 @@ const distributorId = '1'
 const secondsInYear = '31536000'
 const maxPercent = '100'
 const snapshotsPerWeek = 168
-const snapshotsPerDay = 24
 const leverageStrategyDistAddress = Address.zero()
 
 export enum DistributionType {
@@ -122,26 +121,12 @@ export function getLeverageStrategyTargetApy(distData: Bytes): BigDecimal {
   return tuple[1].toBigInt().divDecimal(BigDecimal.fromString('100'))
 }
 
-export function getPeriodicDistributionApy(
-  distribution: PeriodicDistribution,
-  osToken: OsToken,
-  useDayApy: boolean,
-): BigDecimal {
-  // assumes that updates happen every hour
-  const apysCount = distribution.apys.length
-  let apy: BigDecimal
-  if (!useDayApy || apysCount < snapshotsPerDay) {
-    apy = distribution.apy
-  } else {
-    const apys: Array<BigDecimal> = distribution.apys
-    apy = calculateAverage(apys.slice(apysCount - snapshotsPerDay))
-  }
-
+export function getPeriodicDistributionApy(distribution: PeriodicDistribution, osToken: OsToken): BigDecimal {
   if (Address.fromBytes(distribution.token).equals(OS_TOKEN)) {
     // earned osToken shares earn extra staking rewards, apply compounding
-    return getCompoundedApy(apy, getOsTokenApy(osToken, useDayApy))
+    return getCompoundedApy(distribution.apy, getOsTokenApy(osToken, false))
   }
-  return apy
+  return distribution.apy
 }
 
 export function convertDistributionTypeToString(distType: DistributionType): string {

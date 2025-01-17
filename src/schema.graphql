@@ -38,6 +38,9 @@ type Allocator @entity {
 
   "The exit requests of the allocator"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "allocator")
+
+  "The period earned assets"
+  _periodEarnedAssets: BigInt!
 }
 
 """
@@ -84,6 +87,9 @@ type OsTokenHolder @entity {
 
   "The total number of OsToken transfers"
   transfersCount: BigInt!
+
+  "The period earned assets"
+  _periodEarnedAssets: BigInt!
 }
 
 """
@@ -333,6 +339,9 @@ type Vault @entity {
 
   "The total number of vault whitelisted accounts"
   whitelistCount: BigInt!
+
+  "The total amount of the accumulated unclaimed fee recipient shares"
+  _unclaimedFeeRecipientShares: BigInt!
 }
 
 """
@@ -362,9 +371,9 @@ enum AllocatorActionType {
   OsTokenBurned
   OsTokenLiquidated
   OsTokenRedeemed
-  BoostDeposited,
-  BoostExitQueueEntered,
-  BoostExitedAssetsClaimed,
+  BoostDeposited
+  BoostExitQueueEntered
+  BoostExitedAssetsClaimed
 }
 
 """
@@ -417,6 +426,9 @@ type OsToken @entity {
 
   "The OsToken holders"
   holders: [OsTokenHolder!]! @derivedFrom(field: "osToken")
+
+  "The period earned assets"
+  _periodEarnedAssets: BigInt!
 }
 
 """
@@ -479,6 +491,9 @@ type Network @entity {
 
   "The total number of non repeated vault allocators and osToken holders"
   usersCount: Int!
+
+  "The timestamp of the last snapshot"
+  lastSnapshotTimestamp: BigInt!
 }
 
 type User @entity {
@@ -653,6 +668,9 @@ type OsTokenConfig @entity {
   "The vault osToken LTV percent"
   ltvPercent: BigInt!
 
+  "The leverage strategy max OsToken minting LTV"
+  leverageMaxMintLtvPercent: BigInt!
+
   "The vault osToken liquidation threshold percent"
   liqThresholdPercent: BigInt!
 }
@@ -701,6 +719,9 @@ type Aave @entity {
 
   "The list of OsToken supply APY snapshots"
   supplyApys: [BigDecimal!]!
+
+  "The Aave leverage strategy max borrow LTV percent"
+  leverageMaxBorrowLtvPercent: BigInt!
 
   "The Aave positions in Leveraged strategy"
   positions: [AavePosition!]! @derivedFrom(field: "aave")
