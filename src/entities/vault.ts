@@ -514,19 +514,19 @@ export function getVaultState(vault: Vault): Array<BigInt> {
   let feeRecipientEarnedShares = BigInt.zero()
   if (updateStateCall) {
     // calculate fee recipient earned shares
-    const feeRecipientSharesBefore = ethereum.decode('uint256', results[0]!)!.toBigInt()
-    const feeRecipientSharesAfter = ethereum.decode('uint256', results[2]!)!.toBigInt()
+    const feeRecipientSharesBefore = ethereum.decode('uint256', results[0])!.toBigInt()
+    const feeRecipientSharesAfter = ethereum.decode('uint256', results[2])!.toBigInt()
     feeRecipientEarnedShares = feeRecipientSharesAfter.minus(feeRecipientSharesBefore)
 
     // remove responses from the result
     results = results.slice(3)
   }
 
-  const newRate = ethereum.decode('uint256', results[0]!)!.toBigInt()
-  const totalAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
-  const totalShares = ethereum.decode('uint256', results[2]!)!.toBigInt()
-  const queuedShares = ethereum.decode('uint128', results[3]!)!.toBigInt()
-  const exitingAssets = isV2OrHigherVault ? ethereum.decode('uint128', results[4]!)!.toBigInt() : vault.exitingAssets
+  const newRate = ethereum.decode('uint256', results[0])!.toBigInt()
+  const totalAssets = ethereum.decode('uint256', results[1])!.toBigInt()
+  const totalShares = ethereum.decode('uint256', results[2])!.toBigInt()
+  const queuedShares = ethereum.decode('uint128', results[3])!.toBigInt()
+  const exitingAssets = isV2OrHigherVault ? ethereum.decode('uint128', results[4])!.toBigInt() : vault.exitingAssets
   return [newRate, totalAssets, totalShares, queuedShares, exitingAssets, feeRecipientEarnedShares]
 }
 
