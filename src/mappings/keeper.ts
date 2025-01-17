@@ -1,4 +1,14 @@
-import { Address, BigInt, Bytes, DataSourceContext, ipfs, json, JSONValue, log } from '@graphprotocol/graph-ts'
+import {
+  Address,
+  BigDecimal,
+  BigInt,
+  Bytes,
+  DataSourceContext,
+  ipfs,
+  json,
+  JSONValue,
+  log,
+} from '@graphprotocol/graph-ts'
 import {
   BLOCKLIST_ERC20_VAULT_FACTORY_V2,
   BLOCKLIST_ERC20_VAULT_FACTORY_V3,
@@ -276,9 +286,14 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
     updateLeverageStrategyPositions(network, aave, osToken, vault)
 
     // update allocators apys
+    let allocatorApy: BigDecimal
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+      allocatorApy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+      if (allocatorApy.equals(allocator.apy)) {
+        continue
+      }
+      allocator.apy = allocatorApy
       allocator.save()
     }
 
@@ -287,11 +302,16 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   }
 
   // update osToken holders apys
+  let osTokenHolderApy: BigDecimal
   let osTokenHolder: OsTokenHolder
   const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
+    osTokenHolderApy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
+    if (osTokenHolderApy.equals(osTokenHolder.apy)) {
+      continue
+    }
+    osTokenHolder.apy = osTokenHolderApy
     osTokenHolder.save()
   }
 
