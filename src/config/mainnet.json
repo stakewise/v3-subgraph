@@ -106,7 +106,7 @@
     "address": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
     "startBlock": "18276054"
   },
-  "ValidatorsRegistry": {
+  "validatorsRegistry": {
     "address": "0x00000000219ab540356cBB839Cbe05303d7705Fa",
     "startBlock": "11052983"
   }

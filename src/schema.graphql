@@ -1058,8 +1058,8 @@ type DistributorClaimedAmount @entity {
   cumulativeClaimedAmount: BigInt!
 }
 
-"The distributor claimed amounts"
-type NetworkValidator @entity {
+"The network validator"
+type NetworkValidator @entity(immutable: true) {
   "Set to validator public key"
-  id: ID!
+  id: Bytes!
 }
