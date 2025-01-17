@@ -19,7 +19,7 @@ import {
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { isGnosisNetwork, loadNetwork } from './network'
 import { getV2PoolState, loadV2Pool, updatePoolApy } from './v2pool'
-import { calculateAverage, chunkedMulticall, getAnnualReward, getCompoundedApy } from '../helpers/utils'
+import { calculateAverage, chunkedVaultMulticall, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { createOrLoadOwnMevEscrow } from './mevEscrow'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
 import {
@@ -508,40 +508,25 @@ export function getVaultState(vault: Vault): Array<BigInt> {
     contractCalls.push(Bytes.fromHexString(exitingAssetsSelector))
   }
 
-  const callsCount = contractCalls.length
-  let contractAddresses: Array<Address> = []
   const vaultAddr = Address.fromString(vault.id)
-  for (let i = 0; i < callsCount; i++) {
-    contractAddresses[i] = vaultAddr
-  }
-
-  let results = chunkedMulticall(contractAddresses, contractCalls, false)
+  let results = chunkedVaultMulticall(vaultAddr, contractCalls)
 
   let feeRecipientEarnedShares = BigInt.zero()
   if (updateStateCall) {
-    // check whether update state call succeeded
-    if (results[1] === null) {
-      log.error('[Vault] getVaultState failed for vault={} updateStateCall={}', [
-        vault.id,
-        updateStateCall.toHexString(),
-      ])
-      assert(false, 'getVaultState failed')
-    }
-
     // calculate fee recipient earned shares
-    const feeRecipientSharesBefore = ethereum.decode('uint256', results[0]!)!.toBigInt()
-    const feeRecipientSharesAfter = ethereum.decode('uint256', results[2]!)!.toBigInt()
+    const feeRecipientSharesBefore = ethereum.decode('uint256', results[0])!.toBigInt()
+    const feeRecipientSharesAfter = ethereum.decode('uint256', results[2])!.toBigInt()
     feeRecipientEarnedShares = feeRecipientSharesAfter.minus(feeRecipientSharesBefore)
 
     // remove responses from the result
     results = results.slice(3)
   }
 
-  const newRate = ethereum.decode('uint256', results[0]!)!.toBigInt()
-  const totalAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
-  const totalShares = ethereum.decode('uint256', results[2]!)!.toBigInt()
-  const queuedShares = ethereum.decode('uint128', results[3]!)!.toBigInt()
-  const exitingAssets = isV2OrHigherVault ? ethereum.decode('uint128', results[4]!)!.toBigInt() : vault.exitingAssets
+  const newRate = ethereum.decode('uint256', results[0])!.toBigInt()
+  const totalAssets = ethereum.decode('uint256', results[1])!.toBigInt()
+  const totalShares = ethereum.decode('uint256', results[2])!.toBigInt()
+  const queuedShares = ethereum.decode('uint128', results[3])!.toBigInt()
+  const exitingAssets = isV2OrHigherVault ? ethereum.decode('uint128', results[4])!.toBigInt() : vault.exitingAssets
   return [newRate, totalAssets, totalShares, queuedShares, exitingAssets, feeRecipientEarnedShares]
 }
 

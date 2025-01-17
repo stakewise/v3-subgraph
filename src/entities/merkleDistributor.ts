@@ -289,8 +289,8 @@ export function distributeToSwiseAssetUniPoolUsers(
   const swiseUsdRate = network.swiseUsdRate
   const assetsUsdRate = network.assetsUsdRate
   if (
-    (pool.token0.notEqual(swiseToken) && pool.token1.notEqual(assetToken)) ||
-    (pool.token0.notEqual(assetToken) && pool.token1.notEqual(swiseToken))
+    (pool.token0.notEqual(swiseToken) || pool.token1.notEqual(assetToken)) &&
+    (pool.token0.notEqual(assetToken) || pool.token1.notEqual(swiseToken))
   ) {
     assert(false, "Pool doesn't contain SWISE and ASSET tokens")
   }
@@ -345,8 +345,8 @@ export function distributeToOsTokenUsdcUniPoolUsers(
 ): BigInt {
   const usdcToken = Address.fromString(USDC_TOKEN)
   if (
-    (pool.token0.notEqual(OS_TOKEN) && pool.token1.notEqual(usdcToken)) ||
-    (pool.token0.notEqual(usdcToken) && pool.token1.notEqual(OS_TOKEN))
+    (pool.token0.notEqual(OS_TOKEN) || pool.token1.notEqual(usdcToken)) &&
+    (pool.token0.notEqual(usdcToken) || pool.token1.notEqual(OS_TOKEN))
   ) {
     assert(false, "Pool doesn't contain USDC and OsToken tokens")
   }
