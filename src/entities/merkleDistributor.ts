@@ -18,6 +18,7 @@ import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { loadVault } from './vault'
 import { calculateAverage, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { loadAavePosition } from './aave'
+import { loadContractAddress } from './address'
 
 const distributorId = '1'
 const secondsInYear = '31536000'
@@ -313,7 +314,7 @@ export function distributeToVaultUsers(vault: Vault, token: Address, totalReward
 
   for (let i = 0; i < allocators.length; i++) {
     allocator = allocators[i]
-    if (allocator.isContract) {
+    if (loadContractAddress(Address.fromBytes(allocator.address)) != null) {
       continue
     }
     users.push(Address.fromBytes(allocator.address))
@@ -361,7 +362,7 @@ export function distributeToSwiseAssetUniPoolUsers(
       continue
     }
     const user = Address.fromBytes(uniPosition.owner)
-    if (uniPosition.ownerIsContract) {
+    if (loadContractAddress(user) != null) {
       continue
     }
 
@@ -421,7 +422,7 @@ export function distributeToOsTokenUsdcUniPoolUsers(
       continue
     }
     const user = Address.fromBytes(uniPosition.owner)
-    if (uniPosition.ownerIsContract) {
+    if (loadContractAddress(user) != null) {
       continue
     }
 
@@ -468,7 +469,7 @@ export function distributeToLeverageStrategyUsers(
       // calculate user principal
       const aavePosition = loadAavePosition(Address.fromBytes(position.proxy))!
       const user = Address.fromBytes(position.user)
-      if (position.userIsContract) {
+      if (loadContractAddress(user) != null) {
         continue
       }
 

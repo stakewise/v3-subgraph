@@ -43,7 +43,6 @@ export function createOrLoadPosition(tokenId: BigInt): UniswapPosition | null {
 
     position = new UniswapPosition(tokenId.toString())
     position.owner = Address.zero()
-    position.ownerIsContract = false
     position.pool = poolAddress.toHexString()
     position.amount0 = BigInt.zero()
     position.amount1 = BigInt.zero()

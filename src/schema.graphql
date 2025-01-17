@@ -15,9 +15,6 @@ type Allocator @entity {
   "The allocator's address"
   address: Bytes!
 
-  "Indicates if the allocator is a contract"
-  isContract: Boolean!
-
   "The allocator's shares amount"
   shares: BigInt!
 
@@ -760,9 +757,6 @@ type LeverageStrategyPosition @entity {
   "The address of the user"
   user: Bytes!
 
-  "Indicates if the user is a contract"
-  userIsContract: Boolean!
-
   "The vault used for the leverage"
   vault: Vault!
 
@@ -972,9 +966,6 @@ type UniswapPosition @entity {
   "The address of the position owner"
   owner: Bytes!
 
-  "Indicates if the owner is a contract"
-  ownerIsContract: Boolean!
-
   "The address of the pool"
   pool: UniswapPool!
 
@@ -1084,4 +1075,10 @@ type DistributorClaimedAmount @entity {
 
   "The total amount of the token claimed by the user"
   cumulativeClaimedAmount: BigInt!
+}
+
+"The address which is a contract and not an EOA (Externally Owned Account)"
+type ContractAddress @entity {
+  "Address value"
+  id: ID!
 }
