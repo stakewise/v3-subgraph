@@ -139,16 +139,12 @@ export function updatePeriodEarnedAssets(
   const userAddress = Address.fromBytes(position.user)
   const allocator = loadAllocator(userAddress, Address.fromString(vault.id))
   if (allocator) {
-    let mintedLockedOsTokenShares: BigInt
-    if (osTokenSharesAfter.gt(allocator.mintedOsTokenShares)) {
-      mintedLockedOsTokenShares = allocator.mintedOsTokenShares
-    } else {
-      mintedLockedOsTokenShares = osTokenSharesAfter
-    }
-    let allocatorEarnedAssets = earnedAssets
-    const mintedLockedOsTokenAssetsBefore = mintedLockedOsTokenShares
-      .times(osTokenAssetsBefore)
-      .div(osTokenSharesBefore)
+    const mintedLockedOsTokenShares = osTokenSharesAfter.gt(allocator.mintedOsTokenShares)
+      ? allocator.mintedOsTokenShares
+      : osTokenSharesAfter
+    const mintedLockedOsTokenAssetsBefore = osTokenSharesBefore.isZero()
+      ? convertOsTokenSharesToAssets(osToken, mintedLockedOsTokenShares)
+      : mintedLockedOsTokenShares.times(osTokenAssetsBefore).div(osTokenSharesBefore)
     const mintedLockedOsTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, mintedLockedOsTokenShares)
     if (mintedLockedOsTokenAssetsAfter.lt(mintedLockedOsTokenAssetsBefore)) {
       log.error(
@@ -162,7 +158,7 @@ export function updatePeriodEarnedAssets(
       )
       assert(false, 'invalid minted OsToken shares')
     }
-    allocatorEarnedAssets = allocatorEarnedAssets.minus(
+    const allocatorEarnedAssets = earnedAssets.minus(
       mintedLockedOsTokenAssetsAfter.minus(mintedLockedOsTokenAssetsBefore),
     )
     allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(allocatorEarnedAssets)
