@@ -7,12 +7,7 @@ import {
 import { StrategyProxyCreated } from '../../generated/Keeper/AaveLeverageStrategy'
 import { Distributor, Network, OsToken, OsTokenConfig, Vault } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
-import {
-  createOrLoadLeverageStrategyPosition,
-  loadLeverageStrategyPosition,
-  updateLeverageStrategyPosition,
-  updatePeriodEarnedAssets,
-} from '../entities/leverageStrategy'
+import { createOrLoadLeverageStrategyPosition, updateLeverageStrategyPosition } from '../entities/leverageStrategy'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import {
   AllocatorActionType,
@@ -22,12 +17,11 @@ import {
   loadAllocator,
 } from '../entities/allocator'
 import { getOsTokenHolderApy, loadOsTokenHolder } from '../entities/osTokenHolder'
-import { getIsOsTokenVault, loadNetwork } from '../entities/network'
+import { loadNetwork } from '../entities/network'
 import { loadVault } from '../entities/vault'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { createOrLoadAavePosition, loadAave, loadAavePosition, updateAavePosition } from '../entities/aave'
 import { loadDistributor } from '../entities/merkleDistributor'
-import { WAD } from '../helpers/constants'
 
 function _updateAllocatorAndOsTokenHolderApys(
   network: Network,
@@ -78,37 +72,10 @@ export function handleDeposited(event: Deposited): void {
   const vault = loadVault(vaultAddress)!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
-  let position = loadLeverageStrategyPosition(vaultAddress, userAddress)
-  let ignoreSnapshot = false
-  if (!position) {
-    // in holesky some proxies were created by untracked strategy
-    ignoreSnapshot = true
-    position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
-    log.error('[LeverageStrategy] Deposited position not found vault={} user={}', [
-      vaultAddress.toHex(),
-      userAddress.toHex(),
-    ])
-  }
-
-  const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const assetsBefore = position.assets.plus(position.exitingAssets)
-  const totalAssetsBefore = position.totalAssets
-
+  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
   updateAavePosition(createOrLoadAavePosition(Address.fromBytes(position.proxy)))
   updateLeverageStrategyPosition(aave, osToken, position)
   _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress)
-
-  if (!ignoreSnapshot && osTokenSharesBefore.gt(BigInt.zero())) {
-    updatePeriodEarnedAssets(
-      osToken,
-      vault,
-      totalAssetsBefore.plus(convertOsTokenSharesToAssets(osToken, depositedOsTokenShares)),
-      assetsBefore,
-      osTokenSharesBefore.plus(depositedOsTokenShares),
-      getIsOsTokenVault(network, vault),
-      position,
-    )
-  }
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -142,38 +109,12 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const distributor = loadDistributor()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
-  let position = loadLeverageStrategyPosition(vaultAddress, userAddress)
-  let ignoreSnapshot = false
-  if (!position) {
-    // in holesky some proxies were created by untracked strategy
-    ignoreSnapshot = true
-    position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
-    log.error('[LeverageStrategy] ExitQueueEntered position not found vault={} user={}', [
-      vaultAddress.toHex(),
-      userAddress.toHex(),
-    ])
-  }
-
-  const osTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const assetsBefore = position.assets.plus(position.exitingAssets)
-  const totalAssetsBefore = position.totalAssets
+  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
   position.exitRequest = `${vaultAddressHex}-${positionTicket}`
   position.exitingPercent = exitingPercent
 
   updateLeverageStrategyPosition(aave, osToken, position)
   _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress)
-
-  if (!ignoreSnapshot) {
-    updatePeriodEarnedAssets(
-      osToken,
-      vault,
-      totalAssetsBefore,
-      assetsBefore,
-      osTokenSharesBefore,
-      getIsOsTokenVault(network, vault),
-      position,
-    )
-  }
 
   log.info('[LeverageStrategy] ExitQueueEntered vault={} user={} positionTicket={}', [
     vaultAddressHex,
@@ -194,42 +135,13 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const vault = loadVault(vaultAddress)!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
-  let position = loadLeverageStrategyPosition(vaultAddress, userAddress)
-  let ignoreSnapshot = false
-  if (!position) {
-    // in holesky some proxies were created by untracked strategy
-    ignoreSnapshot = true
-    position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
-    log.error('[LeverageStrategy] ExitedAssetsClaimed position not found vault={} user={}', [
-      vaultAddress.toHex(),
-      userAddress.toHex(),
-    ])
-  }
-
-  const osTokenSharesBefore = position.osTokenShares
-  const assetsBefore = position.assets
-  const totalAssetsBefore = position.totalAssets.minus(
-    position.totalAssets.times(position.exitingPercent).div(BigInt.fromString(WAD)),
-  )
-
+  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
   position.exitRequest = null
   position.exitingPercent = BigInt.zero()
 
   updateAavePosition(loadAavePosition(Address.fromBytes(position.proxy))!)
   updateLeverageStrategyPosition(aave, osToken, position)
   _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress)
-
-  if (!ignoreSnapshot) {
-    updatePeriodEarnedAssets(
-      osToken,
-      vault,
-      totalAssetsBefore,
-      assetsBefore,
-      osTokenSharesBefore,
-      getIsOsTokenVault(network, vault),
-      position,
-    )
-  }
 
   createAllocatorAction(
     event,

@@ -55,7 +55,7 @@ import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 import { getVaultState, loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
 import { getOsTokenHolderApy } from '../entities/osTokenHolder'
-import { createOrLoadAave, loadAave } from '../entities/aave'
+import { createOrLoadAave, loadAave, updateAavePositions } from '../entities/aave'
 import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
 
 const IS_PRIVATE_KEY = 'isPrivate'
@@ -226,6 +226,7 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
 
   // fetch Aave data
   const aave = loadAave()!
+  updateAavePositions(aave)
 
   // update OsToken
   const osToken = loadOsToken()!
@@ -287,6 +288,8 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
 
     // update allocators apys
     let allocatorApy: BigDecimal
+    // reload allocators in case they were updated
+    allocators = vault.allocators.load()
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
       allocatorApy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
