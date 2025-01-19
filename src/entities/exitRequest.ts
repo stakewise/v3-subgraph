@@ -49,7 +49,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   }
 
   // Execute in chunks of size 10
-  let stage1Results: Array<Bytes> = chunkedVaultMulticall(Address.fromString(vault.id), allCallsStage1)
+  let stage1Results: Array<Bytes> = chunkedVaultMulticall(Address.fromString(vault.id), allCallsStage1, 100)
 
   // If we had an updateStateCall, remove its result from the front
   // so that the remainder of the results map cleanly to `pendingExitRequests`.
@@ -94,7 +94,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   }
 
   // Execute in chunks of size 10
-  let stage2Results: Array<Bytes> = chunkedVaultMulticall(Address.fromString(vault.id), allCallsStage2)
+  let stage2Results: Array<Bytes> = chunkedVaultMulticall(Address.fromString(vault.id), allCallsStage2, 100)
 
   // If we had an updateStateCall, remove its result from the front again
   if (updateStateCall) {
@@ -136,15 +136,17 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
 
     const allocator = loadAllocator(Address.fromBytes(exitRequest.owner), Address.fromString(vault.id))!
     const earnedAssets = exitRequest.totalAssets.minus(totalAssetsBefore)
-    allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
-    allocator.save()
+    if (!earnedAssets.isZero()) {
+      allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
+      allocator.save()
+    }
 
     if (!isOsTokenVault) {
       continue
     }
 
     const osTokenHolder = loadOsTokenHolder(Address.fromBytes(exitRequest.owner))
-    if (osTokenHolder) {
+    if (osTokenHolder && !earnedAssets.isZero()) {
       osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(earnedAssets)
       osTokenHolder.save()
     }

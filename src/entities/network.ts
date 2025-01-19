@@ -34,7 +34,7 @@ export function isGnosisNetwork(): boolean {
 export function getIsOsTokenVault(network: Network, vault: Vault): boolean {
   const osTokenVaultIds = network.osTokenVaultIds
   for (let i = 0; i < osTokenVaultIds.length; i++) {
-    if (vault.id === osTokenVaultIds[i]) {
+    if (vault.id == osTokenVaultIds[i]) {
       return true
     }
   }

@@ -1,20 +1,13 @@
-import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import { loadVault, snapshotVault, updateVaultMaxBoostApy } from '../entities/vault'
 import { loadOsToken, snapshotOsToken, updateOsTokenTotalAssets } from '../entities/osToken'
 import { loadNetwork } from '../entities/network'
-import { Allocator, Network, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
-import {
-  getAllocatorApy,
-  getAllocatorsMintedShares,
-  snapshotAllocator,
-  updateAllocatorMintedOsTokenShares,
-} from '../entities/allocator'
-import { updateExitRequests } from '../entities/exitRequest'
+import { Allocator, ExitRequest, Network, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
+import { getAllocatorApy, snapshotAllocator, updateAllocatorsMintedOsTokenShares } from '../entities/allocator'
 import { getOsTokenHolderApy, snapshotOsTokenHolder, updateOsTokenHolderAssets } from '../entities/osTokenHolder'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
-import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { loadAave, updateAaveApys, updateAavePositions } from '../entities/aave'
+import { loadAave, updateAaveApys } from '../entities/aave'
 import { loadDistributor, updateDistributions } from '../entities/merkleDistributor'
 import { loadExchangeRate } from '../entities/exchangeRates'
 
@@ -34,7 +27,6 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
   // update Aave
   // NB! if blocksInHour config is updated, the average apy calculation must be updated
   updateAaveApys(aave, block.number)
-  updateAavePositions(aave)
 
   // update osToken
   const osToken = loadOsToken()!
@@ -62,28 +54,41 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
     vault = loadVault(vaultAddress)!
     osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
-    // update allocators
-    let allocator: Allocator
-    let allocators: Array<Allocator> = vault.allocators.load()
-    const allocatorsMintedOsTokenShares = getAllocatorsMintedShares(vault, allocators)
-    for (let j = 0; j < allocators.length; j++) {
-      allocator = allocators[j]
-      updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocatorsMintedOsTokenShares[j])
+    // update exit requests
+    let exitRequest: ExitRequest
+    const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
+    for (let i = 0; i < exitRequests.length; i++) {
+      exitRequest = exitRequests[i]
+      if (exitRequest.exitedAssets.gt(BigInt.zero()) && !exitRequest.isClaimed && !exitRequest.isClaimable) {
+        const isClaimable = exitRequest.timestamp.plus(BigInt.fromI32(secondsInDay)).lt(timestamp)
+        if (isClaimable) {
+          exitRequest.isClaimable = isClaimable
+          exitRequest.save()
+        }
+      }
     }
 
-    // update exit requests
-    updateExitRequests(network, vault, timestamp)
+    if (!vault.isOsTokenEnabled) {
+      continue
+    }
+
+    // update allocators minted osToken shares
+    updateAllocatorsMintedOsTokenShares(osToken, osTokenConfig, vault)
 
     // update OsToken exit requests
     updateOsTokenExitRequests(osToken, vault)
 
-    // update leverage strategy positions
-    updateLeverageStrategyPositions(network, aave, osToken, vault)
-
     // update allocators apys
+    let allocator: Allocator
+    let allocatorApy: BigDecimal
+    const allocators: Array<Allocator> = vault.allocators.load()
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+      allocatorApy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+      if (allocatorApy.equals(allocator.apy)) {
+        continue
+      }
+      allocator.apy = allocatorApy
       allocator.save()
     }
 
@@ -92,9 +97,14 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
   }
 
   // update osToken holders apys
+  let osTokenHolderApy: BigDecimal
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    osTokenHolder.apy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
+    osTokenHolderApy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
+    if (osTokenHolderApy.equals(osTokenHolder.apy)) {
+      continue
+    }
+    osTokenHolder.apy = osTokenHolderApy
     osTokenHolder.save()
   }
 
