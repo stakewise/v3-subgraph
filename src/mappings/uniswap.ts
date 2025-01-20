@@ -1,4 +1,4 @@
-import { BigInt, log, ethereum, Address } from '@graphprotocol/graph-ts'
+import { BigInt, log } from '@graphprotocol/graph-ts'
 import { UniswapPool, UniswapPosition } from '../../generated/schema'
 import { PoolCreated } from '../../generated/UniswapFactory/UniswapFactory'
 import { UniswapPool as UniswapPoolTemplate } from '../../generated/templates'
@@ -9,7 +9,6 @@ import {
   Transfer,
 } from '../../generated/UniswapPositionManager/UniswapPositionManager'
 import { createOrLoadPosition, getAmount0, getAmount1, isSupportedToken, loadUniswapPool } from '../entities/uniswap'
-import { createContractAddress } from '../entities/address'
 
 export function handlePoolCreated(event: PoolCreated): void {
   let hasSupportedToken = isSupportedToken(event.params.token0) || isSupportedToken(event.params.token1)
@@ -195,10 +194,6 @@ export function handleTransfer(event: Transfer): void {
   }
 
   position.owner = event.params.to
-  const ownerAddress = Address.fromBytes(position.owner)
-  if (ethereum.hasCode(ownerAddress).inner) {
-    createContractAddress(ownerAddress)
-  }
   position.save()
 
   log.info('[UniswapPositionManager] Transfer position={} from={} to={}', [

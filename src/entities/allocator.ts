@@ -19,7 +19,6 @@ import { getBoostPositionAnnualReward, loadLeverageStrategyPosition } from './le
 import { loadNetwork } from './network'
 import { loadAave } from './aave'
 import { loadRewardSplitterShareHolder } from './rewardSplitter'
-import { createContractAddress } from './address'
 
 const osTokenPositionsSelector = '0x4ec96b22'
 
@@ -80,9 +79,6 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
 
   if (vaultAllocator === null) {
     vaultAllocator = new Allocator(vaultAllocatorAddress)
-    if (ethereum.hasCode(allocatorAddress).inner) {
-      createContractAddress(allocatorAddress)
-    }
     vaultAllocator.shares = BigInt.zero()
     vaultAllocator.assets = BigInt.zero()
     vaultAllocator.mintedOsTokenShares = BigInt.zero()

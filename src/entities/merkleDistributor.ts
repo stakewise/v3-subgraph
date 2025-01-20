@@ -1,6 +1,7 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import {
   Allocator,
+  UserIsContract,
   Distributor,
   DistributorClaim,
   DistributorReward,
@@ -18,7 +19,6 @@ import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { loadVault } from './vault'
 import { calculateAverage, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { loadAavePosition } from './aave'
-import { loadContractAddress } from './address'
 
 const distributorId = '1'
 const secondsInYear = '31536000'
@@ -314,7 +314,7 @@ export function distributeToVaultUsers(vault: Vault, token: Address, totalReward
 
   for (let i = 0; i < allocators.length; i++) {
     allocator = allocators[i]
-    if (loadContractAddress(Address.fromBytes(allocator.address)) != null) {
+    if (userIsContract(allocator.address)) {
       continue
     }
     users.push(Address.fromBytes(allocator.address))
@@ -361,10 +361,10 @@ export function distributeToSwiseAssetUniPoolUsers(
       // only full range positions receive incentives
       continue
     }
-    const user = Address.fromBytes(uniPosition.owner)
-    if (loadContractAddress(user) != null) {
+    if (userIsContract(uniPosition.owner)) {
       continue
     }
+    const user = Address.fromBytes(uniPosition.owner)
 
     // calculate user assets
     let userAssets: BigInt
@@ -421,10 +421,10 @@ export function distributeToOsTokenUsdcUniPoolUsers(
       // only in range positions receive incentives
       continue
     }
-    const user = Address.fromBytes(uniPosition.owner)
-    if (loadContractAddress(user) != null) {
+    if (userIsContract(uniPosition.owner)) {
       continue
     }
+    const user = Address.fromBytes(uniPosition.owner)
 
     // calculate user assets
     let userAssets: BigInt
@@ -465,13 +465,12 @@ export function distributeToLeverageStrategyUsers(
     const leveragePositions: Array<LeverageStrategyPosition> = vault.leveragePositions.load()
     for (let i = 0; i < leveragePositions.length; i++) {
       position = leveragePositions[i]
-
+      if (userIsContract(position.user)) {
+        continue
+      }
       // calculate user principal
       const aavePosition = loadAavePosition(Address.fromBytes(position.proxy))!
       const user = Address.fromBytes(position.user)
-      if (loadContractAddress(user) != null) {
-        continue
-      }
 
       const userPrincipalOsTokenShares = aavePosition.suppliedOsTokenShares
 
@@ -524,4 +523,15 @@ function _distributeReward(
     distributorReward.cumulativeAmount = distributorReward.cumulativeAmount.plus(userReward)
     distributorReward.save()
   }
+}
+
+export function userIsContract(address: Bytes): boolean {
+  let cache = UserIsContract.load(address)
+  if (cache === null) {
+    const isContract = ethereum.hasCode(Address.fromBytes(address)).inner
+    cache = new UserIsContract(address)
+    cache.isContract = isContract
+    cache.save()
+  }
+  return cache.isContract
 }

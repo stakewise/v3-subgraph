@@ -1077,8 +1077,11 @@ type DistributorClaimedAmount @entity {
   cumulativeClaimedAmount: BigInt!
 }
 
-"The address which is a contract and not an EOA (Externally Owned Account)"
-type ContractAddress @entity {
-  "Address value"
-  id: ID!
+"The user type info: is it a contract or an Externally Owned Account (EOA)."
+type UserIsContract @entity(immutable: true) {
+  "The address value."
+  id: Bytes!
+
+  "Indicates whether the address is a contract."
+  isContract: Boolean!
 }

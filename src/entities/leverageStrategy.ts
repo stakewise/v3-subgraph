@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, log, ethereum } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
 import {
   Aave,
   Distributor,
@@ -21,7 +21,6 @@ import { loadAavePosition } from './aave'
 import { convertStringToDistributionType, DistributionType, getPeriodicDistributionApy } from './merkleDistributor'
 import { loadOsTokenHolder } from './osTokenHolder'
 import { getIsOsTokenVault } from './network'
-import { createContractAddress } from './address'
 
 export function loadLeverageStrategyPosition(vault: Address, user: Address): LeverageStrategyPosition | null {
   const leverageStrategyPositionId = `${vault.toHex()}-${user.toHex()}`
@@ -39,9 +38,6 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
     leverageStrategyPosition = new LeverageStrategyPosition(leverageStrategyPositionId)
     leverageStrategyPosition.proxy = aaveLeverageStrategy.getStrategyProxy(vault, user)
     leverageStrategyPosition.user = user
-    if (ethereum.hasCode(user).inner) {
-      createContractAddress(user)
-    }
     leverageStrategyPosition.vault = vaultAddressHex
     leverageStrategyPosition.osTokenShares = BigInt.zero()
     leverageStrategyPosition.assets = BigInt.zero()

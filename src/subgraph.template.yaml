@@ -41,7 +41,7 @@ dataSources:
         - PeriodicDistribution
         - DistributorReward
         - DistributorClaim
-        - ContractAddress
+        - UserIsContract
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
@@ -165,7 +165,7 @@ dataSources:
         - RewardSplitter
         - RewardSplitterShareHolder
         - LeverageStrategyPosition
-        - ContractAddress
+        - UserIsContract
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
@@ -283,7 +283,7 @@ dataSources:
         - OsTokenConfig
         - AllocatorSnapshot
         - VaultSnapshot
-        - ContractAddress
+        - UserIsContract
       abis:
         - name: GenesisVault
           file: ./abis/GenesisVault.json
@@ -474,7 +474,7 @@ dataSources:
         - OsTokenHolder
         - Aave
         - AavePosition
-        - ContractAddress
+        - UserIsContract
       abis:
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
@@ -524,7 +524,7 @@ dataSources:
       entities:
         - UniswapPool
         - UniswapPosition
-        - ContractAddress
+        - UserIsContract
       abis:
         - name: UniswapPositionManager
           file: ./abis/UniswapPositionManager.json
@@ -626,7 +626,7 @@ templates:
         - ExitRequest
         - Transaction
         - LeverageStrategyPosition
-        - ContractAddress
+        - UserIsContract
       abis:
         - name: Vault
           file: ./abis/Vault.json
