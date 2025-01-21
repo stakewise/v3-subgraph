@@ -114,5 +114,6 @@
   "validatorsRegistry": {
     "address": "0xb97036A26259B7147018913bD58a774cf91acf25",
     "startBlock": "155434"
-  }
+  },
+  "genesisIpfsHash": ""
 }
