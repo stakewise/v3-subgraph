@@ -724,6 +724,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.lastXdaiSwappedTimestamp = event.block.timestamp
+  vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault.apy = BigDecimal.zero()
   vault.apys = []
   vault.allocatorMaxBoostApy = BigDecimal.zero()
@@ -798,6 +799,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.lastXdaiSwappedTimestamp = event.block.timestamp
+  vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault.apy = BigDecimal.zero()
   vault.apys = []
   vault.allocatorMaxBoostApy = BigDecimal.zero()

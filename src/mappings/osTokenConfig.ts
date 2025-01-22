@@ -29,7 +29,7 @@ export function handleOsTokenConfigV2Updated(event: OsTokenConfigV2Updated): voi
     updateOsTokenConfig('2', ltvPercent, liqThresholdPercent)
   } else {
     const vault = loadVault(vaultAddress)!
-    const osTokenConfigId = `${vaultAddress.toHex()}-2`
+    const osTokenConfigId = vaultAddress.toHex()
 
     updateOsTokenConfig(osTokenConfigId, ltvPercent, liqThresholdPercent)
 

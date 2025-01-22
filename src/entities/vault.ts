@@ -19,7 +19,7 @@ import {
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { isGnosisNetwork, loadNetwork } from './network'
 import { getV2PoolState, loadV2Pool, updatePoolApy } from './v2pool'
-import { calculateAverage, chunkedMulticall, getAnnualReward, getCompoundedApy } from '../helpers/utils'
+import { calculateAverage, chunkedVaultMulticall, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { createOrLoadOwnMevEscrow } from './mevEscrow'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
 import {
@@ -98,6 +98,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
   vault.lastXdaiSwappedTimestamp = block.timestamp
+  vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault.apy = BigDecimal.zero()
   vault.apys = []
   vault.allocatorMaxBoostApy = BigDecimal.zero()
@@ -283,7 +284,7 @@ export function updateVaults(
     // save fee recipient earned shares
     feeRecipientsEarnedShares.set(
       getAllocatorId(Address.fromBytes(vault.feeRecipient), vaultAddress),
-      feeRecipientShares,
+      feeRecipientShares.minus(vault._unclaimedFeeRecipientShares),
     )
 
     // calculate smoothing pool penalty
@@ -329,6 +330,7 @@ export function updateVaults(
     vault.rewardsTimestamp = updateTimestamp
     vault.rewardsIpfsHash = rewardsIpfsHash
     vault.canHarvest = true
+    vault._unclaimedFeeRecipientShares = feeRecipientShares
     vault.save()
 
     // update v2 pool data
@@ -449,18 +451,26 @@ export function updateVaultMaxBoostApy(
   const allocatorEarnedAssets = strategyEarnedAssets
     .plus(getAnnualReward(allocatorDepositedAssets, vaultApy))
     .minus(getAnnualReward(boostedOsTokenAssets, osTokenMintApy))
-  vault.allocatorMaxBoostApy = allocatorEarnedAssets
+  const allocatorMaxBoostApy = allocatorEarnedAssets
     .toBigDecimal()
     .times(BigDecimal.fromString('100'))
     .div(allocatorDepositedAssets.toBigDecimal())
 
   // calculate average osToken holder max boost APY
   const osTokenHolderEarnedAssets = strategyEarnedAssets.plus(getAnnualReward(boostedOsTokenAssets, osTokenApy))
-  vault.osTokenHolderMaxBoostApy = osTokenHolderEarnedAssets
+  const osTokenHolderMaxBoostApy = osTokenHolderEarnedAssets
     .toBigDecimal()
     .times(BigDecimal.fromString('100'))
     .div(boostedOsTokenAssets.toBigDecimal())
-  vault.save()
+
+  if (
+    allocatorMaxBoostApy.notEqual(vault.allocatorMaxBoostApy) ||
+    osTokenHolderMaxBoostApy.notEqual(vault.osTokenHolderMaxBoostApy)
+  ) {
+    vault.allocatorMaxBoostApy = allocatorMaxBoostApy
+    vault.osTokenHolderMaxBoostApy = osTokenHolderMaxBoostApy
+    vault.save()
+  }
 }
 
 export function snapshotVault(vault: Vault, earnedAssets: BigInt, timestamp: BigInt): void {
@@ -475,7 +485,7 @@ export function snapshotVault(vault: Vault, earnedAssets: BigInt, timestamp: Big
   vaultSnapshot.save()
 }
 
-function getVaultState(vault: Vault): Array<BigInt> {
+export function getVaultState(vault: Vault): Array<BigInt> {
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     return [BigInt.fromString(WAD), BigInt.zero(), BigInt.zero(), BigInt.zero(), BigInt.zero(), BigInt.zero()]
   }
@@ -498,40 +508,25 @@ function getVaultState(vault: Vault): Array<BigInt> {
     contractCalls.push(Bytes.fromHexString(exitingAssetsSelector))
   }
 
-  const callsCount = contractCalls.length
-  let contractAddresses: Array<Address> = []
   const vaultAddr = Address.fromString(vault.id)
-  for (let i = 0; i < callsCount; i++) {
-    contractAddresses[i] = vaultAddr
-  }
-
-  let results = chunkedMulticall(contractAddresses, contractCalls, false)
+  let results = chunkedVaultMulticall(vaultAddr, contractCalls)
 
   let feeRecipientEarnedShares = BigInt.zero()
   if (updateStateCall) {
-    // check whether update state call succeeded
-    if (results[1] === null) {
-      log.error('[Vault] getVaultState failed for vault={} updateStateCall={}', [
-        vault.id,
-        updateStateCall.toHexString(),
-      ])
-      assert(false, 'getVaultState failed')
-    }
-
     // calculate fee recipient earned shares
-    const feeRecipientSharesBefore = ethereum.decode('uint256', results[0]!)!.toBigInt()
-    const feeRecipientSharesAfter = ethereum.decode('uint256', results[2]!)!.toBigInt()
+    const feeRecipientSharesBefore = ethereum.decode('uint256', results[0])!.toBigInt()
+    const feeRecipientSharesAfter = ethereum.decode('uint256', results[2])!.toBigInt()
     feeRecipientEarnedShares = feeRecipientSharesAfter.minus(feeRecipientSharesBefore)
 
     // remove responses from the result
     results = results.slice(3)
   }
 
-  const newRate = ethereum.decode('uint256', results[0]!)!.toBigInt()
-  const totalAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
-  const totalShares = ethereum.decode('uint256', results[2]!)!.toBigInt()
-  const queuedShares = ethereum.decode('uint128', results[3]!)!.toBigInt()
-  const exitingAssets = isV2OrHigherVault ? ethereum.decode('uint128', results[4]!)!.toBigInt() : vault.exitingAssets
+  const newRate = ethereum.decode('uint256', results[0])!.toBigInt()
+  const totalAssets = ethereum.decode('uint256', results[1])!.toBigInt()
+  const totalShares = ethereum.decode('uint256', results[2])!.toBigInt()
+  const queuedShares = ethereum.decode('uint128', results[3])!.toBigInt()
+  const exitingAssets = isV2OrHigherVault ? ethereum.decode('uint128', results[4])!.toBigInt() : vault.exitingAssets
   return [newRate, totalAssets, totalShares, queuedShares, exitingAssets, feeRecipientEarnedShares]
 }
 
