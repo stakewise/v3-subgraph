@@ -9,6 +9,7 @@ import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { loadAave, updateAaveApys } from '../entities/aave'
 import { loadDistributor, updateDistributions } from '../entities/merkleDistributor'
+import { loadExchangeRate } from '../entities/exchangeRates'
 
 const secondsInHour = 3600
 const secondsInDay = 86400
@@ -17,8 +18,9 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
   const timestamp = block.timestamp
   const blockNumber = block.number
   const network = loadNetwork()
+  const exchangeRate = loadExchangeRate()
   const aave = loadAave()
-  if (!network || !aave) {
+  if (!network || !exchangeRate || !aave) {
     return
   }
 
@@ -41,7 +43,7 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
   // update distributions
   // NB! if blocksInHour config is updated, the average apy calculation must be updated
   const distributor = loadDistributor()!
-  updateDistributions(network, osToken, distributor, timestamp)
+  updateDistributions(network, exchangeRate, osToken, distributor, timestamp)
 
   const vaultIds = network.vaultIds
   let vaultAddress: Address

@@ -17,14 +17,14 @@ import {
 } from '../entities/merkleDistributor'
 import { createTransaction } from '../entities/transaction'
 import { OS_TOKEN } from '../helpers/constants'
-import { loadNetwork } from '../entities/network'
+import { loadExchangeRate } from '../entities/exchangeRates'
 
 const secondsInYear = '31536000'
 
 export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded): void {
   const token = event.params.token
   const extraData = event.params.extraData
-  const network = loadNetwork()!
+  const exchangeRate = loadExchangeRate()!
 
   const distType = getDistributionType(extraData)
   if (distType == DistributionType.UNKNOWN) {
@@ -35,13 +35,13 @@ export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded
     return
   } else if (
     distType == DistributionType.SWISE_ASSET_UNI_POOL &&
-    (network.assetsUsdRate.equals(BigDecimal.zero()) || network.swiseUsdRate.equals(BigDecimal.zero()))
+    (exchangeRate.assetsUsdRate.equals(BigDecimal.zero()) || exchangeRate.swiseUsdRate.equals(BigDecimal.zero()))
   ) {
     log.error('[MerkleDistributor] Swise asset Uni pool distribution assetsUsdRate or swiseUsdRate is zero', [])
     return
   } else if (
     distType == DistributionType.OS_TOKEN_USDC_UNI_POOL &&
-    (network.assetsUsdRate.equals(BigDecimal.zero()) || network.usdcUsdRate.equals(BigDecimal.zero()))
+    (exchangeRate.assetsUsdRate.equals(BigDecimal.zero()) || exchangeRate.usdcUsdRate.equals(BigDecimal.zero()))
   ) {
     log.error('[MerkleDistributor] OsToken USDC Uni pool distribution assetsUsdRate or usdcUsdRate is zero', [])
     return

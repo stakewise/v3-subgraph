@@ -1,4 +1,4 @@
-import { ExchangeRateSnapshot, Network, UniswapPool } from '../../generated/schema'
+import { ExchangeRateSnapshot, UniswapPool, ExchangeRate } from '../../generated/schema'
 import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import {
   ASSETS_USD_PRICE_FEED,
@@ -17,8 +17,9 @@ import { chunkedMulticall } from '../helpers/utils'
 import { isGnosisNetwork } from './network'
 
 const latestAnswerSelector = '0x50d25bcd'
+const exchangeRateId = '0'
 
-export function updateExchangeRates(network: Network, timestamp: BigInt): void {
+export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigInt): void {
   if (NETWORK == 'chiado' || NETWORK == 'holesky') {
     return
   }
@@ -119,17 +120,17 @@ export function updateExchangeRates(network: Network, timestamp: BigInt): void {
   const usdToKrwRate = krwToUsdRate.gt(zero) ? one.div(krwToUsdRate) : zero
   const usdToAudRate = audToUsdRate.gt(zero) ? one.div(audToUsdRate) : zero
 
-  network.assetsUsdRate = assetsUsdRate
-  network.swiseUsdRate = swiseUsdRate
-  network.usdToEurRate = usdToEurRate
-  network.usdToGbpRate = usdToGbpRate
-  network.usdToCnyRate = usdToCnyRate
-  network.usdToJpyRate = usdToJpyRate
-  network.usdToKrwRate = usdToKrwRate
-  network.usdToAudRate = usdToAudRate
-  network.daiUsdRate = daiUsdRate
-  network.usdcUsdRate = usdcUsdRate
-  network.save()
+  exchangeRate.assetsUsdRate = assetsUsdRate
+  exchangeRate.swiseUsdRate = swiseUsdRate
+  exchangeRate.usdToEurRate = usdToEurRate
+  exchangeRate.usdToGbpRate = usdToGbpRate
+  exchangeRate.usdToCnyRate = usdToCnyRate
+  exchangeRate.usdToJpyRate = usdToJpyRate
+  exchangeRate.usdToKrwRate = usdToKrwRate
+  exchangeRate.usdToAudRate = usdToAudRate
+  exchangeRate.daiUsdRate = daiUsdRate
+  exchangeRate.usdcUsdRate = usdcUsdRate
+  exchangeRate.save()
 
   const exchangeRateSnapshot = new ExchangeRateSnapshot(timestamp.toString())
   exchangeRateSnapshot.timestamp = timestamp.toI64()
@@ -144,4 +145,29 @@ export function updateExchangeRates(network: Network, timestamp: BigInt): void {
   exchangeRateSnapshot.usdToKrwRate = usdToKrwRate
   exchangeRateSnapshot.usdToAudRate = usdToAudRate
   exchangeRateSnapshot.save()
+}
+
+export function createOrLoadExchangeRate(): ExchangeRate {
+  let exchangeRate = loadExchangeRate()
+
+  if (exchangeRate === null) {
+    exchangeRate = new ExchangeRate(exchangeRateId)
+    exchangeRate.assetsUsdRate = BigDecimal.zero()
+    exchangeRate.swiseUsdRate = BigDecimal.zero()
+    exchangeRate.daiUsdRate = BigDecimal.zero()
+    exchangeRate.usdcUsdRate = BigDecimal.zero()
+    exchangeRate.usdToEurRate = BigDecimal.zero()
+    exchangeRate.usdToGbpRate = BigDecimal.zero()
+    exchangeRate.usdToCnyRate = BigDecimal.zero()
+    exchangeRate.usdToJpyRate = BigDecimal.zero()
+    exchangeRate.usdToKrwRate = BigDecimal.zero()
+    exchangeRate.usdToAudRate = BigDecimal.zero()
+    exchangeRate.save()
+  }
+
+  return exchangeRate
+}
+
+export function loadExchangeRate(): ExchangeRate | null {
+  return ExchangeRate.load(exchangeRateId)
 }
