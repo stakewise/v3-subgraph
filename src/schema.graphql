@@ -998,6 +998,7 @@ type Distributor @entity {
 }
 
 enum DistributionType {
+  VAULT
   SWISE_ASSET_UNI_POOL
   OS_TOKEN_USDC_UNI_POOL
   LEVERAGE_STRATEGY
@@ -1077,4 +1078,13 @@ type DistributorClaimedAmount @entity {
 
   "The total amount of the token claimed by the user"
   cumulativeClaimedAmount: BigInt!
+}
+
+"The user type info: is it a contract or an Externally Owned Account (EOA)."
+type UserIsContract @entity(immutable: true) {
+  "The address value."
+  id: Bytes!
+
+  "Indicates whether the address is a contract."
+  isContract: Boolean!
 }

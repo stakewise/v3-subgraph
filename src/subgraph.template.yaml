@@ -41,6 +41,7 @@ dataSources:
         - PeriodicDistribution
         - DistributorReward
         - DistributorClaim
+        - UserIsContract
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
@@ -56,6 +57,8 @@ dataSources:
           file: ./abis/Multicall.json
         - name: OsTokenVaultEscrow
           file: ./abis/OsTokenVaultEscrow.json
+        - name: Safe
+          file: ./abis/Safe.json
       blockHandlers:
         - handler: handlePeriodicTasks
           filter:
