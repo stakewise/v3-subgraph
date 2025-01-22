@@ -1,7 +1,6 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import {
   Allocator,
-  UserIsContract,
   Distributor,
   DistributorClaim,
   DistributorReward,
@@ -11,8 +10,10 @@ import {
   PeriodicDistribution,
   UniswapPool,
   UniswapPosition,
+  UserIsContract,
   Vault,
 } from '../../generated/schema'
+import { Safe as SafeContract } from '../../generated/PeriodicTasks/Safe'
 import { loadUniswapPool, MAX_TICK, MIN_TICK } from './uniswap'
 import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
 import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
@@ -314,7 +315,7 @@ export function distributeToVaultUsers(vault: Vault, token: Address, totalReward
 
   for (let i = 0; i < allocators.length; i++) {
     allocator = allocators[i]
-    if (userIsContract(allocator.address)) {
+    if (_userIsContract(allocator.address)) {
       continue
     }
     users.push(Address.fromBytes(allocator.address))
@@ -361,7 +362,7 @@ export function distributeToSwiseAssetUniPoolUsers(
       // only full range positions receive incentives
       continue
     }
-    if (userIsContract(uniPosition.owner)) {
+    if (_userIsContract(uniPosition.owner)) {
       continue
     }
     const user = Address.fromBytes(uniPosition.owner)
@@ -421,7 +422,7 @@ export function distributeToOsTokenUsdcUniPoolUsers(
       // only in range positions receive incentives
       continue
     }
-    if (userIsContract(uniPosition.owner)) {
+    if (_userIsContract(uniPosition.owner)) {
       continue
     }
     const user = Address.fromBytes(uniPosition.owner)
@@ -465,7 +466,7 @@ export function distributeToLeverageStrategyUsers(
     const leveragePositions: Array<LeverageStrategyPosition> = vault.leveragePositions.load()
     for (let i = 0; i < leveragePositions.length; i++) {
       position = leveragePositions[i]
-      if (userIsContract(position.user)) {
+      if (_userIsContract(position.user)) {
         continue
       }
       // calculate user principal
@@ -525,13 +526,22 @@ function _distributeReward(
   }
 }
 
-export function userIsContract(address: Bytes): boolean {
+function _userIsContract(address: Bytes): boolean {
   let cache = UserIsContract.load(address)
-  if (cache === null) {
-    const isContract = ethereum.hasCode(Address.fromBytes(address)).inner
-    cache = new UserIsContract(address)
-    cache.isContract = isContract
-    cache.save()
+  if (cache) {
+    return cache.isContract
   }
+
+  let isContract = ethereum.hasCode(Address.fromBytes(address)).inner
+  if (isContract) {
+    const safeVersion = SafeContract.bind(Address.fromBytes(address)).try_VERSION()
+    if (!safeVersion.reverted && safeVersion.value != '') {
+      // treat Safe contract as a user
+      isContract = false
+    }
+  }
+  cache = new UserIsContract(address)
+  cache.isContract = isContract
+  cache.save()
   return cache.isContract
 }
