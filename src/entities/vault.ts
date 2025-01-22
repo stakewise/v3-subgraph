@@ -28,6 +28,7 @@ import {
   GnoVault as GnoVaultTemplate,
   PrivateVault as PrivateVaultTemplate,
   Vault as VaultTemplate,
+  OwnMevEscrow as OwnMevEscrowTemplate,
 } from '../../generated/templates'
 import { createTransaction } from './transaction'
 import { getAllocatorId } from './allocator'
@@ -118,6 +119,7 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   }
 
   if (ownMevEscrow != Address.zero()) {
+    OwnMevEscrowTemplate.create(ownMevEscrow)
     vault.mevEscrow = event.params.ownMevEscrow
   }
 

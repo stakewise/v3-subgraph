@@ -4,6 +4,7 @@ import { Allocator, ExitRequest, Vault } from '../../generated/schema'
 import {
   BlocklistVault as BlocklistVaultTemplate,
   GnoVault as GnoVaultTemplate,
+  OwnMevEscrow as OwnMevEscrowTemplate,
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import {
@@ -813,6 +814,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
 
   vault.save()
   VaultTemplate.create(vaultAddress)
+  OwnMevEscrowTemplate.create(ownMevEscrow)
   BlocklistVaultTemplate.create(vaultAddress)
 
   const network = loadNetwork()!
