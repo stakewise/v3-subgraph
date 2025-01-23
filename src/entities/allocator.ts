@@ -270,6 +270,7 @@ export function getAllocatorTotalAssets(osToken: OsToken, vault: Vault, allocato
     if (
       leftAssets.gt(BigInt.zero()) &&
       !exitRequest.isClaimed &&
+      !exitRequest.isV2Position &&
       Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
     ) {
       totalAssets = totalAssets.plus(leftAssets)
