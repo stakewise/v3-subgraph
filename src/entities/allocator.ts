@@ -194,24 +194,25 @@ export function getAllocatorApy(
   const osTokenApy = getOsTokenApy(osToken, false)
 
   let totalAssets = allocator.assets
-  let stakingAssets = allocator.assets
 
   // get assets from the exit requests
+  let leftAssets: BigInt
   let exitRequest: ExitRequest
   const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
   for (let i = 0; i < exitRequests.length; i++) {
     exitRequest = exitRequests[i]
+    leftAssets = exitRequest.totalAssets.minus(exitRequest.exitedAssets)
     if (
+      leftAssets.gt(BigInt.zero()) &&
       !exitRequest.isClaimed &&
       !exitRequest.isV2Position &&
       Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
     ) {
-      stakingAssets = stakingAssets.plus(exitRequest.totalAssets.minus(exitRequest.exitedAssets))
-      totalAssets = totalAssets.plus(exitRequest.totalAssets)
+      totalAssets = totalAssets.plus(leftAssets)
     }
   }
 
-  let totalEarnedAssets = getAnnualReward(stakingAssets, vaultApy)
+  let totalEarnedAssets = getAnnualReward(totalAssets, vaultApy)
 
   const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, allocator.mintedOsTokenShares)
   totalEarnedAssets = totalEarnedAssets.minus(
@@ -260,15 +261,18 @@ export function getAllocatorTotalAssets(osToken: OsToken, vault: Vault, allocato
   let totalAssets = allocator.assets
 
   // get assets from the exit requests
+  let leftAssets: BigInt
   let exitRequest: ExitRequest
   const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
   for (let i = 0; i < exitRequests.length; i++) {
     exitRequest = exitRequests[i]
+    leftAssets = exitRequest.totalAssets.minus(exitRequest.exitedAssets)
     if (
+      leftAssets.gt(BigInt.zero()) &&
       !exitRequest.isClaimed &&
       Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
     ) {
-      totalAssets = totalAssets.plus(exitRequest.totalAssets)
+      totalAssets = totalAssets.plus(leftAssets)
     }
   }
 
