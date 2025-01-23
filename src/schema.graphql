@@ -450,36 +450,6 @@ type Network @entity {
   "Total number of vaults"
   vaultsCount: Int!
 
-  "The USD rate of the assets (e.g. ETH, GNO)"
-  assetsUsdRate: BigDecimal!
-
-  "The USD rate of the SWISE"
-  swiseUsdRate: BigDecimal!
-
-  "The USD rate of DAI"
-  daiUsdRate: BigDecimal!
-
-  "The USD rate of USDC"
-  usdcUsdRate: BigDecimal!
-
-  "The USD to EUR rate"
-  usdToEurRate: BigDecimal!
-
-  "The USD to GBP rate"
-  usdToGbpRate: BigDecimal!
-
-  "The USD to CNY rate"
-  usdToCnyRate: BigDecimal!
-
-  "The USD to JPY rate"
-  usdToJpyRate: BigDecimal!
-
-  "The USD to KRW rate"
-  usdToKrwRate: BigDecimal!
-
-  "The USD to AUD rate"
-  usdToAudRate: BigDecimal!
-
   "The non repeated addresses of all the vaults"
   vaultIds: [String!]!
 
@@ -887,6 +857,44 @@ type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
 }
 
 """
+The latest exchange rates
+"""
+type ExchangeRate @entity {
+  "Always 0"
+  id: ID!
+
+  "The USD rate of the assets (e.g. ETH, GNO)"
+  assetsUsdRate: BigDecimal!
+
+  "The USD rate of the SWISE"
+  swiseUsdRate: BigDecimal!
+
+  "The USD rate of DAI"
+  daiUsdRate: BigDecimal!
+
+  "The USD rate of USDC"
+  usdcUsdRate: BigDecimal!
+
+  "The USD to EUR rate"
+  usdToEurRate: BigDecimal!
+
+  "The USD to GBP rate"
+  usdToGbpRate: BigDecimal!
+
+  "The USD to CNY rate"
+  usdToCnyRate: BigDecimal!
+
+  "The USD to JPY rate"
+  usdToJpyRate: BigDecimal!
+
+  "The USD to KRW rate"
+  usdToKrwRate: BigDecimal!
+
+  "The USD to AUD rate"
+  usdToAudRate: BigDecimal!
+}
+
+"""
 The snapshot of the exchange rates
 """
 type ExchangeRateSnapshot @entity(timeseries: true) {
@@ -998,6 +1006,7 @@ type Distributor @entity {
 }
 
 enum DistributionType {
+  VAULT
   SWISE_ASSET_UNI_POOL
   OS_TOKEN_USDC_UNI_POOL
   LEVERAGE_STRATEGY
@@ -1077,6 +1086,15 @@ type DistributorClaimedAmount @entity {
 
   "The total amount of the token claimed by the user"
   cumulativeClaimedAmount: BigInt!
+}
+
+"The user type info: is it a contract or an Externally Owned Account (EOA)."
+type UserIsContract @entity(immutable: true) {
+  "The address value."
+  id: Bytes!
+
+  "Indicates whether the address is a contract."
+  isContract: Boolean!
 }
 
 "The network validator"

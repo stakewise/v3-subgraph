@@ -6,10 +6,10 @@ import { Allocator, ExitRequest, Network, OsTokenConfig, OsTokenHolder, Vault } 
 import { getAllocatorApy, snapshotAllocator, updateAllocatorsMintedOsTokenShares } from '../entities/allocator'
 import { getOsTokenHolderApy, snapshotOsTokenHolder, updateOsTokenHolderAssets } from '../entities/osTokenHolder'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
-import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { loadAave, updateAaveApys, updateAavePositions } from '../entities/aave'
+import { loadAave, updateAaveApys } from '../entities/aave'
 import { loadDistributor, updateDistributions } from '../entities/merkleDistributor'
+import { loadExchangeRate } from '../entities/exchangeRates'
 
 const secondsInHour = 3600
 const secondsInDay = 86400
@@ -18,15 +18,15 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
   const timestamp = block.timestamp
   const blockNumber = block.number
   const network = loadNetwork()
+  const exchangeRate = loadExchangeRate()
   const aave = loadAave()
-  if (!network || !aave) {
+  if (!network || !exchangeRate || !aave) {
     return
   }
 
   // update Aave
   // NB! if blocksInHour config is updated, the average apy calculation must be updated
   updateAaveApys(aave, block.number)
-  updateAavePositions(aave)
 
   // update osToken
   const osToken = loadOsToken()!
@@ -43,7 +43,7 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
   // update distributions
   // NB! if blocksInHour config is updated, the average apy calculation must be updated
   const distributor = loadDistributor()!
-  updateDistributions(network, osToken, distributor, timestamp)
+  updateDistributions(network, exchangeRate, osToken, distributor, timestamp)
 
   const vaultIds = network.vaultIds
   let vaultAddress: Address
@@ -53,9 +53,6 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
     vaultAddress = Address.fromString(vaultIds[i])
     vault = loadVault(vaultAddress)!
     osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
-
-    // update allocators minted osToken shares
-    updateAllocatorsMintedOsTokenShares(osToken, osTokenConfig, vault)
 
     // update exit requests
     let exitRequest: ExitRequest
@@ -71,26 +68,28 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
       }
     }
 
+    if (!vault.isOsTokenEnabled) {
+      continue
+    }
+
+    // update allocators minted osToken shares
+    updateAllocatorsMintedOsTokenShares(osToken, osTokenConfig, vault)
+
     // update OsToken exit requests
     updateOsTokenExitRequests(osToken, vault)
 
-    // update leverage strategy positions
-    updateLeverageStrategyPositions(network, aave, osToken, vault)
-
     // update allocators apys
-    if (vault.isOsTokenEnabled) {
-      let allocator: Allocator
-      let allocatorApy: BigDecimal
-      const allocators: Array<Allocator> = vault.allocators.load()
-      for (let j = 0; j < allocators.length; j++) {
-        allocator = allocators[j]
-        allocatorApy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
-        if (allocatorApy.equals(allocator.apy)) {
-          continue
-        }
-        allocator.apy = allocatorApy
-        allocator.save()
+    let allocator: Allocator
+    let allocatorApy: BigDecimal
+    const allocators: Array<Allocator> = vault.allocators.load()
+    for (let j = 0; j < allocators.length; j++) {
+      allocator = allocators[j]
+      allocatorApy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+      if (allocatorApy.equals(allocator.apy)) {
+        continue
       }
+      allocator.apy = allocatorApy
+      allocator.save()
     }
 
     // update vault max boost apys

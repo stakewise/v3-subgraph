@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, Bytes, store } from '@graphprotocol/graph-ts'
+import { Address, BigInt, Bytes, store } from '@graphprotocol/graph-ts'
 import { Network, RewardSplitter, User, Vault } from '../../generated/schema'
 import { NETWORK, V2_REWARD_TOKEN, V2_STAKED_TOKEN } from '../helpers/constants'
 
@@ -21,16 +21,6 @@ export function createOrLoadNetwork(): Network {
     network.osTokenVaultIds = []
     network.oraclesConfigIpfsHash = ''
     network.lastSnapshotTimestamp = BigInt.zero()
-    network.assetsUsdRate = BigDecimal.zero()
-    network.swiseUsdRate = BigDecimal.zero()
-    network.daiUsdRate = BigDecimal.zero()
-    network.usdcUsdRate = BigDecimal.zero()
-    network.usdToEurRate = BigDecimal.zero()
-    network.usdToGbpRate = BigDecimal.zero()
-    network.usdToCnyRate = BigDecimal.zero()
-    network.usdToJpyRate = BigDecimal.zero()
-    network.usdToKrwRate = BigDecimal.zero()
-    network.usdToAudRate = BigDecimal.zero()
     network.save()
   }
 
@@ -44,7 +34,7 @@ export function isGnosisNetwork(): boolean {
 export function getIsOsTokenVault(network: Network, vault: Vault): boolean {
   const osTokenVaultIds = network.osTokenVaultIds
   for (let i = 0; i < osTokenVaultIds.length; i++) {
-    if (vault.id === osTokenVaultIds[i]) {
+    if (vault.id == osTokenVaultIds[i]) {
       return true
     }
   }

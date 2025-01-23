@@ -123,10 +123,6 @@ export function updateAllocatorsMintedOsTokenShares(
   osTokenConfig: OsTokenConfig,
   vault: Vault,
 ): void {
-  if (!vault.isOsTokenEnabled) {
-    return
-  }
-
   // Prepare all calls for retrieving minted shares from OsToken positions
   let calls: Array<Bytes> = []
   let allocator: Allocator
