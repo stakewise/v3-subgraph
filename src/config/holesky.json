@@ -110,5 +110,10 @@
   "strategiesRegistry": {
     "address": "0xFc8E3E7c919b4392D9F5B27015688e49c80015f0",
     "startBlock": "2579173"
-  }
+  },
+  "validatorsRegistry": {
+    "address": "0x4242424242424242424242424242424242424242",
+    "startBlock": "0"
+  },
+  "genesisIpfsHash": "bafkreigeg6d7hd4pmiocm2nplq72pujqqaqsx3uu5yfjlzgnhisaqwmgrm"
 }
