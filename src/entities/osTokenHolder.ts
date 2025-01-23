@@ -152,6 +152,7 @@ export function getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, 
       if (
         leftAssets.gt(BigInt.zero()) &&
         !exitRequest.isClaimed &&
+        !exitRequest.isV2Position &&
         Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
       ) {
         totalAssets = totalAssets.plus(leftAssets)
