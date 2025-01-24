@@ -49,7 +49,7 @@ export function calculateAverage(values: Array<BigDecimal>): BigDecimal {
 }
 
 export function getAnnualReward(principal: BigInt, apy: BigDecimal): BigInt {
-  // FIXME: Add 0.000000000000000001 to the APY as there is a with BigDecimal numbers
+  // FIXME: Add 0.000000000000000001 to the APY as there is an issue with BigDecimal numbers
   // For example, apy = 3.741797575044 principal = 1000000000000000000, but the result is 3741797575044 instead of 3741797575044000000.
   return principal.toBigDecimal().times(apy.plus(wei)).div(BigDecimal.fromString('100')).truncate(0).digits
 }
