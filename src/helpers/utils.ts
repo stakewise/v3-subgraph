@@ -5,10 +5,11 @@ import {
   TryAggregateCallReturnDataOutputStruct,
 } from '../../generated/Keeper/Multicall'
 import { RewardSplitter as RewardSplitterContract } from '../../generated/Keeper/RewardSplitter'
-import { MULTICALL } from './constants'
+import { MULTICALL, WAD } from './constants'
 
 const secondsInYear = '31536000'
 const maxPercent = '100'
+const wei = BigDecimal.fromString('1').div(BigDecimal.fromString(WAD))
 
 export function calculateMedian(values: Array<BigDecimal>): BigDecimal {
   if (values.length === 0) {
@@ -48,7 +49,9 @@ export function calculateAverage(values: Array<BigDecimal>): BigDecimal {
 }
 
 export function getAnnualReward(principal: BigInt, apy: BigDecimal): BigInt {
-  return principal.toBigDecimal().times(apy).div(BigDecimal.fromString('100')).truncate(0).digits
+  // FIXME: Add 0.000000000000000001 to the APY as there is an issue with BigDecimal numbers
+  // For example, apy = 3.741797575044 principal = 1000000000000000000, but the result is 3741797575044 instead of 3741797575044000000.
+  return principal.toBigDecimal().times(apy.plus(wei)).div(BigDecimal.fromString('100')).truncate(0).digits
 }
 
 export function calculateApy(earnedAssets: BigInt, totalAssets: BigInt, durationInSeconds: BigInt): BigDecimal {
