@@ -82,20 +82,21 @@ export function getOsTokenHolderApy(
   const userAddress = Address.fromString(osTokenHolder.id)
   const allocator = loadAllocator(userAddress, vaultAddress)
   if (allocator) {
+    let leftAssets: BigInt
     let exitRequest: ExitRequest
     const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
     const vaultApy = getVaultApy(vault, false)
     for (let i = 0; i < exitRequests.length; i++) {
       exitRequest = exitRequests[i]
+      leftAssets = exitRequest.totalAssets.minus(exitRequest.exitedAssets)
       if (
+        leftAssets.gt(BigInt.zero()) &&
         !exitRequest.isClaimed &&
         !exitRequest.isV2Position &&
         Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
       ) {
-        totalEarnedAssets = totalEarnedAssets.plus(
-          getAnnualReward(exitRequest.totalAssets.minus(exitRequest.exitedAssets), vaultApy),
-        )
-        totalAssets = totalAssets.plus(exitRequest.totalAssets)
+        totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(leftAssets, vaultApy))
+        totalAssets = totalAssets.plus(leftAssets)
       }
     }
   }
@@ -142,15 +143,19 @@ export function getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, 
   // add assets in all unclaimed exit requests
   const allocator = loadAllocator(osTokenHolderAddress, vaultAddress)
   if (allocator) {
+    let leftAssets: BigInt
     let exitRequest: ExitRequest
-    const exitRequests = allocator.exitRequests.load()
+    const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
     for (let i = 0; i < exitRequests.length; i++) {
       exitRequest = exitRequests[i]
+      leftAssets = exitRequest.totalAssets.minus(exitRequest.exitedAssets)
       if (
+        leftAssets.gt(BigInt.zero()) &&
         !exitRequest.isClaimed &&
+        !exitRequest.isV2Position &&
         Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
       ) {
-        totalAssets = totalAssets.plus(exitRequest.totalAssets)
+        totalAssets = totalAssets.plus(leftAssets)
       }
     }
   }
