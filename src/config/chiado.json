@@ -113,7 +113,7 @@
   },
   "validatorsRegistry": {
     "address": "0xb97036A26259B7147018913bD58a774cf91acf25",
-    "startBlock": "155434"
+    "startBlock": "0"
   },
-  "genesisIpfsHash": ""
+  "genesisIpfsHash": "bafybeihqldb7w5uxtm7k2rhtyrvwqgmx5c45gr7bt3y4gvbmg4bjybjkma"
 }

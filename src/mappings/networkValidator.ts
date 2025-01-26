@@ -36,7 +36,7 @@ export function handleGenesisValidators(block: ethereum.Block): void {
     }
     log.info('[NetworkValidator] DepositEvent publicKey={}', [publicKey.toHex()])
   }
-  log.info('[NetworkValidator] successfully processed genesis validator for hash {}', [
+  log.info('[NetworkValidator] successfully processed genesis validators for hash {}', [
     GENESIS_IPFS_HASH
   ])
 }
