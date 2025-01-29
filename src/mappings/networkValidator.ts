@@ -23,7 +23,7 @@ export function handleGenesisValidators(block: ethereum.Block): void {
   }
   let data: Bytes | null = ipfs.cat(GENESIS_IPFS_HASH)
   while (!data) {
-    log.warning('[NetworkValidator] genesis hash ipfs.cat failed for hash={} retrying', [GENESIS_IPFS_HASH])
+    log.warning('[NetworkValidator] genesis hash ipfs.cat failed for hash={}, retrying', [GENESIS_IPFS_HASH])
     data = ipfs.cat(GENESIS_IPFS_HASH)
   }
 
