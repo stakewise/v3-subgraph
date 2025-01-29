@@ -1096,3 +1096,9 @@ type UserIsContract @entity(immutable: true) {
   "Indicates whether the address is a contract."
   isContract: Boolean!
 }
+
+"The network validator"
+type NetworkValidator @entity(immutable: true) {
+  "Set to validator public key"
+  id: Bytes!
+}
