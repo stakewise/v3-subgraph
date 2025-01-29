@@ -15,15 +15,15 @@ export function handleDepositEvent(event: DepositEvent): void {
 }
 
 export function handleGenesisValidators(block: ethereum.Block): void {
-  log.info('[NetworkValidator] start genesis validators processing...', [])
+  log.info('[NetworkValidator] Start genesis validators processing...', [])
 
   if (!GENESIS_IPFS_HASH){
-    log.info('[NetworkValidator] empty ipfs hash', [])
+    log.info('[NetworkValidator] Empty genesis validators hash', [])
     return
   }
   let data: Bytes | null = ipfs.cat(GENESIS_IPFS_HASH)
   while (!data) {
-    log.warning('[NetworkValidator] genesis hash ipfs.cat failed for hash={}, retrying', [GENESIS_IPFS_HASH])
+    log.warning('[NetworkValidator] ipfs.cat failed for genesis validators hash={}, retrying', [GENESIS_IPFS_HASH])
     data = ipfs.cat(GENESIS_IPFS_HASH)
   }
 
@@ -34,9 +34,8 @@ export function handleGenesisValidators(block: ethereum.Block): void {
       networkValidator = new NetworkValidator(publicKey)
       networkValidator.save()
     }
-    log.info('[NetworkValidator] DepositEvent publicKey={}', [publicKey.toHex()])
   }
-  log.info('[NetworkValidator] successfully processed genesis validators for hash {}', [
+  log.info('[NetworkValidator] Successfully processed genesis validators for hash {}', [
     GENESIS_IPFS_HASH
   ])
 }
