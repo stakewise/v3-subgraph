@@ -207,8 +207,14 @@ export function getBoostPositionAnnualReward(
   strategyPosition: LeverageStrategyPosition,
   distributor: Distributor,
 ): BigInt {
+  log.warning('--------getBoostPositionAnnualReward start--------', [])
   const vaultAddress = Address.fromString(strategyPosition.vault)
   const proxyAddress = Address.fromBytes(strategyPosition.proxy)
+  log.warning('getBoostPositionAnnualReward1 strategyPositionId={} proxyAddress={} vaultAddress={}', [
+    strategyPosition.id,
+    proxyAddress.toHexString(),
+    vaultAddress.toHexString(),
+  ])
 
   const vaultPosition = loadAllocator(proxyAddress, vaultAddress)!
   const aavePosition = loadAavePosition(proxyAddress)!
@@ -218,6 +224,12 @@ export function getBoostPositionAnnualReward(
   const borrowApy = aave.borrowApy
   // earned osToken shares earn extra staking rewards, apply compounding
   const supplyApy = getCompoundedApy(aave.supplyApy, osTokenApy)
+  log.warning('getBoostPositionAnnualReward2 vaultApy={} osTokenApy={} borrowApy={} supplyApy={}', [
+    vaultApy.toString(),
+    osTokenApy.toString(),
+    borrowApy.toString(),
+    supplyApy.toString(),
+  ])
 
   let totalDepositedAssets = vaultPosition.assets
   let totalMintedOsTokenShares = vaultPosition.mintedOsTokenShares
@@ -234,28 +246,62 @@ export function getBoostPositionAnnualReward(
 
   const totalSuppliedOsTokenShares = aavePosition.suppliedOsTokenShares
   const totalBorrowedAssets = aavePosition.borrowedAssets
+  const totalSuppliedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalSuppliedOsTokenShares)
+  log.warning(
+    'getBoostPositionAnnualReward3 totalDepositedAssets={} totalMintedOsTokenShares={} totalMintedOsTokenAssets={} totalSuppliedOsTokenShares={} totalSuppliedOsTokenAssets={} totalBorrowedAssets={}',
+    [
+      totalDepositedAssets.toString(),
+      totalMintedOsTokenShares.toString(),
+      totalMintedOsTokenAssets.toString(),
+      totalSuppliedOsTokenShares.toString(),
+      totalSuppliedOsTokenAssets.toString(),
+      totalBorrowedAssets.toString(),
+    ],
+  )
 
   // deposited assets earn vault APY
   let totalEarnedAssets = getAnnualReward(totalDepositedAssets, vaultApy)
+  log.warning('getBoostPositionAnnualReward4 totalEarnedAssets={}', [totalEarnedAssets.toString()])
 
   // supplied osToken shares that are not minted earn osToken APY
-  const totalSuppliedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalSuppliedOsTokenShares)
   if (totalSuppliedOsTokenAssets.gt(totalMintedOsTokenAssets)) {
-    totalEarnedAssets = totalEarnedAssets.plus(
-      getAnnualReward(totalSuppliedOsTokenAssets.minus(totalMintedOsTokenAssets), osTokenApy),
+    const notMintedOsTokenEarnedAssets = getAnnualReward(
+      totalSuppliedOsTokenAssets.minus(totalMintedOsTokenAssets),
+      osTokenApy,
     )
+    totalEarnedAssets = totalEarnedAssets.plus(notMintedOsTokenEarnedAssets)
+    log.warning('getBoostPositionAnnualReward5 notMintedOsTokenEarnedAssets={} totalEarnedAssets={}', [
+      notMintedOsTokenEarnedAssets.toString(),
+      totalEarnedAssets.toString(),
+    ])
   }
 
   // supplied osToken shares earn supply APY
   const totalEarnedOsTokenShares = getAnnualReward(totalSuppliedOsTokenShares, supplyApy)
-  totalEarnedAssets = totalEarnedAssets.plus(convertOsTokenSharesToAssets(osToken, totalEarnedOsTokenShares))
+  const totalEarnedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalEarnedOsTokenShares)
+  totalEarnedAssets = totalEarnedAssets.plus(totalEarnedOsTokenAssets)
+  log.warning(
+    'getBoostPositionAnnualReward6 totalEarnedOsTokenShares={} totalEarnedOsTokenAssets={} totalEarnedAssets={}',
+    [totalEarnedOsTokenShares.toString(), totalEarnedOsTokenAssets.toString(), totalEarnedAssets.toString()],
+  )
 
   // minted osToken shares lose mint APY
   const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig)
-  totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(totalMintedOsTokenAssets, osTokenMintApy))
+  const osTokenMintFeeAssets = getAnnualReward(totalMintedOsTokenAssets, osTokenMintApy)
+  totalEarnedAssets = totalEarnedAssets.minus(osTokenMintFeeAssets)
+  log.warning('getBoostPositionAnnualReward7 osTokenMintApy={} osTokenMintFeeAssets={} totalEarnedAssets={}', [
+    osTokenMintApy.toString(),
+    osTokenMintFeeAssets.toString(),
+    totalEarnedAssets.toString(),
+  ])
 
   // borrowed assets lose borrow APY
-  totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(totalBorrowedAssets, borrowApy))
+  const borrowFeeAssets = getAnnualReward(totalBorrowedAssets, borrowApy)
+  totalEarnedAssets = totalEarnedAssets.minus(borrowFeeAssets)
+  log.warning('getBoostPositionAnnualReward8 borrowFeeAssets={} totalEarnedAssets={}', [
+    borrowFeeAssets.toString(),
+    totalEarnedAssets.toString(),
+  ])
 
   if (totalSuppliedOsTokenAssets.le(BigInt.zero())) {
     return totalEarnedAssets
@@ -276,8 +322,14 @@ export function getBoostPositionAnnualReward(
     if (distributionApy.equals(BigDecimal.zero())) {
       continue
     }
-    totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(totalSuppliedOsTokenAssets, distributionApy))
+    const distributionEarnedAssets = getAnnualReward(totalSuppliedOsTokenAssets, distributionApy)
+    totalEarnedAssets = totalEarnedAssets.plus(distributionEarnedAssets)
+    log.warning('getBoostPositionAnnualReward9 distributionEarnedAssets={} totalEarnedAssets={}', [
+      distributionEarnedAssets.toString(),
+      totalEarnedAssets.toString(),
+    ])
   }
 
+  log.warning('--------getBoostPositionAnnualReward end--------', [])
   return totalEarnedAssets
 }

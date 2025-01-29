@@ -68,11 +68,19 @@ export function getOsTokenHolderApy(
   distributor: Distributor,
   osTokenHolder: OsTokenHolder,
 ): BigDecimal {
+  log.warning('--------getOsTokenHolderApy start--------', [])
   const osTokenApy = getOsTokenApy(osToken, false)
 
   let totalAssets = osTokenHolder.assets
   const vaultAddress = getOsTokenHolderVault(network, osTokenHolder)
+  log.warning('getOsTokenHolderApy1 totalAssets={} vaultAddress={} osTokenApy={} osTokenHolder={}', [
+    totalAssets.toString(),
+    vaultAddress ? vaultAddress.toHexString() : 'null',
+    osTokenApy.toString(),
+    osTokenHolder.id,
+  ])
   if (!vaultAddress) {
+    log.warning('--------getOsTokenHolderApy end--------', [])
     return totalAssets.isZero() ? BigDecimal.zero() : osTokenApy
   }
 
@@ -80,9 +88,14 @@ export function getOsTokenHolderApy(
   let totalEarnedAssets = getAnnualReward(totalAssets, osTokenApy)
 
   const userAddress = Address.fromString(osTokenHolder.id)
+  log.warning('getOsTokenHolderApy2 userAddress={} totalEarnedAssets={}', [
+    userAddress.toHexString(),
+    totalEarnedAssets.toString(),
+  ])
   const allocator = loadAllocator(userAddress, vaultAddress)
   if (allocator) {
     let leftAssets: BigInt
+    let leftEarnedAssets: BigInt
     let exitRequest: ExitRequest
     const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
     const vaultApy = getVaultApy(vault, false)
@@ -95,8 +108,20 @@ export function getOsTokenHolderApy(
         !exitRequest.isV2Position &&
         Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
       ) {
-        totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(leftAssets, vaultApy))
+        leftEarnedAssets = getAnnualReward(leftAssets, vaultApy)
+        totalEarnedAssets = totalEarnedAssets.plus(leftEarnedAssets)
         totalAssets = totalAssets.plus(leftAssets)
+        log.warning(
+          'getOsTokenHolderApy3 leftAssets={} leftEarnedAssets={} totalEarnedAssets={} totalAssets={} vaultApy={} exitRequest={}',
+          [
+            leftAssets.toString(),
+            leftEarnedAssets.toString(),
+            totalEarnedAssets.toString(),
+            totalAssets.toString(),
+            vaultApy.toString(),
+            exitRequest.id,
+          ],
+        )
       }
     }
   }
@@ -106,12 +131,31 @@ export function getOsTokenHolderApy(
   if (position) {
     const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
     const aave = loadAave()!
-    totalAssets = totalAssets
-      .plus(position.assets)
-      .plus(position.exitingAssets)
-      .plus(convertOsTokenSharesToAssets(osToken, position.osTokenShares.plus(position.exitingOsTokenShares)))
-    totalEarnedAssets = totalEarnedAssets.plus(
-      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, position, distributor),
+    const leveragePositionAssets = position.assets.plus(position.exitingAssets)
+    const leveragePositionOsTokenAssets = convertOsTokenSharesToAssets(
+      osToken,
+      position.osTokenShares.plus(position.exitingOsTokenShares),
+    )
+    totalAssets = totalAssets.plus(leveragePositionAssets).plus(leveragePositionOsTokenAssets)
+    const boostPositionEarnedAssets = getBoostPositionAnnualReward(
+      osToken,
+      aave,
+      vault,
+      osTokenConfig,
+      position,
+      distributor,
+    )
+    totalEarnedAssets = totalEarnedAssets.plus(boostPositionEarnedAssets)
+    log.warning(
+      'getOsTokenHolderApy4 leveragePositionAssets={} leveragePositionOsTokenAssets={} boostPositionEarnedAssets={} totalEarnedAssets={} totalAssets={} position={}',
+      [
+        leveragePositionAssets.toString(),
+        leveragePositionOsTokenAssets.toString(),
+        boostPositionEarnedAssets.toString(),
+        totalEarnedAssets.toString(),
+        totalAssets.toString(),
+        position.id,
+      ],
     )
   }
 
@@ -120,6 +164,16 @@ export function getOsTokenHolderApy(
   }
 
   const osTokenHolderApy = totalEarnedAssets.divDecimal(totalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
+  log.warning(
+    'getOsTokenHolderApy5 totalEarnedAssets={} totalAssets={} osTokenHolder={} osTokenHolderApy={} maxBoostApy={}',
+    [
+      totalEarnedAssets.toString(),
+      totalAssets.toString(),
+      osTokenHolder.id,
+      osTokenHolderApy.toString(),
+      vault.osTokenHolderMaxBoostApy.toString(),
+    ],
+  )
   if (osTokenApy.lt(vault.osTokenHolderMaxBoostApy) && osTokenHolderApy.gt(vault.osTokenHolderMaxBoostApy)) {
     log.warning(
       '[getOsTokenHolderApy] Calculated APY is higher than max boost APY: maxBoostApy={} osTokenHolderApy={} vault={} holder={}',
@@ -127,6 +181,7 @@ export function getOsTokenHolderApy(
     )
     return vault.osTokenHolderMaxBoostApy
   }
+  log.warning('--------getOsTokenHolderApy end--------', [])
   return osTokenHolderApy
 }
 
