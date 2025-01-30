@@ -189,9 +189,12 @@ export function getAllocatorApy(
 ): BigDecimal {
   const vaultAddress = Address.fromString(allocator.vault)
   const allocatorAddress = Address.fromBytes(allocator.address)
+  log.warning('--------getAllocatorApy start--------', [])
+  log.warning('getAllocatorApy1: vaultAddress={} allocatorAddress={}', [vaultAddress.toHex(), allocatorAddress.toHex()])
 
   const vaultApy = getVaultApy(vault, false)
   const osTokenApy = getOsTokenApy(osToken, false)
+  log.warning('getAllocatorApy2: vaultApy={} osTokenApy={}', [vaultApy.toString(), osTokenApy.toString()])
 
   let totalAssets = allocator.assets
 
@@ -213,18 +216,41 @@ export function getAllocatorApy(
   }
 
   let totalEarnedAssets = getAnnualReward(totalAssets, vaultApy)
+  log.warning('getAllocatorApy3: totalAssets={} totalEarnedAssets={}', [
+    totalAssets.toString(),
+    totalEarnedAssets.toString(),
+  ])
 
   const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, allocator.mintedOsTokenShares)
-  totalEarnedAssets = totalEarnedAssets.minus(
-    getAnnualReward(mintedOsTokenAssets, getVaultOsTokenMintApy(osToken, osTokenConfig)),
+  const vaultOsTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig)
+  const mintedOsTokenFeeAssets = getAnnualReward(mintedOsTokenAssets, vaultOsTokenMintApy)
+  totalEarnedAssets = totalEarnedAssets.minus(mintedOsTokenFeeAssets)
+  log.warning(
+    'getAllocatorApy4: mintedOsTokenAssets={} vaultOsTokenMintApy={} mintedOsTokenFeeAssets={} totalEarnedAssets={}',
+    [
+      mintedOsTokenAssets.toString(),
+      vaultOsTokenMintApy.toString(),
+      mintedOsTokenFeeAssets.toString(),
+      totalEarnedAssets.toString(),
+    ],
   )
 
   const boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
   if (boostPosition !== null) {
     const aave = loadAave()!
-    totalEarnedAssets = totalEarnedAssets.plus(
-      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition, distributor),
+    const boostPositionAnnualReward = getBoostPositionAnnualReward(
+      osToken,
+      aave,
+      vault,
+      osTokenConfig,
+      boostPosition,
+      distributor,
     )
+    totalEarnedAssets = totalEarnedAssets.plus(boostPositionAnnualReward)
+    log.warning('getAllocatorApy5: boostPositionAnnualReward={} totalEarnedAssets={}', [
+      boostPositionAnnualReward.toString(),
+      totalEarnedAssets.toString(),
+    ])
     const boostedOsTokenShares = boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)
     let extraOsTokenShares: BigInt
     let mintedLockedOsTokenShares: BigInt
@@ -235,11 +261,31 @@ export function getAllocatorApy(
       extraOsTokenShares = BigInt.zero()
       mintedLockedOsTokenShares = boostedOsTokenShares
     }
+    log.warning('getAllocatorApy6: extraOsTokenShares={} mintedLockedOsTokenShares={} boostedOsTokenShares={}', [
+      extraOsTokenShares.toString(),
+      mintedLockedOsTokenShares.toString(),
+      boostedOsTokenShares.toString(),
+    ])
     const mintedLockedOsTokenAssets = convertOsTokenSharesToAssets(osToken, mintedLockedOsTokenShares)
-    totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(mintedLockedOsTokenAssets, osTokenApy))
-    totalAssets = totalAssets
-      .plus(convertOsTokenSharesToAssets(osToken, extraOsTokenShares))
-      .plus(boostPosition.assets.plus(boostPosition.exitingAssets))
+    const mintedLockedOsTokenEarnedAssets = getAnnualReward(mintedLockedOsTokenAssets, osTokenApy)
+    const extraOsTokenAssets = convertOsTokenSharesToAssets(osToken, extraOsTokenShares)
+    const boostPositionAssets = boostPosition.assets.plus(boostPosition.exitingAssets)
+    log.warning(
+      'getAllocatorApy7: mintedLockedOsTokenAssets={} mintedLockedOsTokenEarnedAssets={} extraOsTokenAssets={} boostPositionAssets={}',
+      [
+        mintedLockedOsTokenAssets.toString(),
+        mintedLockedOsTokenEarnedAssets.toString(),
+        extraOsTokenAssets.toString(),
+        boostPositionAssets.toString(),
+      ],
+    )
+
+    totalEarnedAssets = totalEarnedAssets.minus(mintedLockedOsTokenEarnedAssets)
+    totalAssets = totalAssets.plus(extraOsTokenAssets).plus(boostPositionAssets)
+    log.warning('getAllocatorApy8: totalEarnedAssets={} totalAssets={}', [
+      totalEarnedAssets.toString(),
+      totalAssets.toString(),
+    ])
   }
 
   if (totalAssets.isZero()) {
@@ -247,6 +293,13 @@ export function getAllocatorApy(
   }
 
   const allocatorApy = totalEarnedAssets.divDecimal(totalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
+  log.warning('getAllocatorApy9: totalEarnedAssets={} totalAssets={} allocatorApy={} maxBoostApy={}', [
+    totalEarnedAssets.toString(),
+    totalAssets.toString(),
+    allocatorApy.toString(),
+    vault.allocatorMaxBoostApy.toString(),
+  ])
+  log.warning('--------getAllocatorApy end--------', [])
   if (vault.apy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
     log.warning(
       '[getAllocatorApy] Calculated APY is higher than max boost APY: maxBoostApy={} allocatorApy={} vault={} allocator={}',
