@@ -20,6 +20,7 @@ import { createTransaction } from '../entities/transaction'
 import { OS_TOKEN } from '../helpers/constants'
 import { convertTokenAmountToAssets, loadExchangeRate } from '../entities/exchangeRates'
 import { loadVault, snapshotVault } from '../entities/vault'
+import { loadOsToken } from '../entities/osToken'
 
 const secondsInYear = '31536000'
 
@@ -93,9 +94,11 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
   const distType = getDistributionType(extraData)
   if (distType == DistributionType.VAULT) {
     const vault = loadVault(Address.fromBytes(extraData))!
+    const distributor = loadDistributor()!
+    const osToken = loadOsToken()!
     distributeToVaultUsers(vault, token, totalAmountToDistribute)
     const distributedAssets = convertTokenAmountToAssets(loadExchangeRate()!, token, totalAmountToDistribute)
-    snapshotVault(vault, distributedAssets, event.block.timestamp)
+    snapshotVault(vault, distributor, osToken, distributedAssets, event.block.timestamp)
     log.info('[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={}', [
       vault.id,
       token.toHexString(),

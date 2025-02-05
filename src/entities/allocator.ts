@@ -190,7 +190,7 @@ export function getAllocatorApy(
   const vaultAddress = Address.fromString(allocator.vault)
   const allocatorAddress = Address.fromBytes(allocator.address)
 
-  const vaultApy = getVaultApy(vault, false)
+  const vaultApy = getVaultApy(vault, distributor, osToken, false)
   const osTokenApy = getOsTokenApy(osToken, false)
 
   let totalAssets = allocator.assets
@@ -247,7 +247,7 @@ export function getAllocatorApy(
   }
 
   const allocatorApy = totalEarnedAssets.divDecimal(totalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
-  if (vault.apy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
+  if (vaultApy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
     log.warning(
       '[getAllocatorApy] Calculated APY is higher than max boost APY: maxBoostApy={} allocatorApy={} vault={} allocator={}',
       [vault.allocatorMaxBoostApy.toString(), allocatorApy.toString(), vault.id, allocator.address.toHex()],

@@ -85,7 +85,7 @@ export function getOsTokenHolderApy(
     let leftAssets: BigInt
     let exitRequest: ExitRequest
     const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
-    const vaultApy = getVaultApy(vault, false)
+    const vaultApy = getVaultApy(vault, distributor, osToken, false)
     for (let i = 0; i < exitRequests.length; i++) {
       exitRequest = exitRequests[i]
       leftAssets = exitRequest.totalAssets.minus(exitRequest.exitedAssets)

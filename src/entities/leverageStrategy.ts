@@ -8,7 +8,6 @@ import {
   OsToken,
   OsTokenConfig,
   OsTokenExitRequest,
-  PeriodicDistribution,
   Vault,
 } from '../../generated/schema'
 import { AaveLeverageStrategy } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
@@ -18,7 +17,12 @@ import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenA
 import { getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { getVaultApy, getVaultOsTokenMintApy } from './vault'
 import { loadAavePosition } from './aave'
-import { convertStringToDistributionType, DistributionType, getPeriodicDistributionApy } from './merkleDistributor'
+import {
+  convertStringToDistributionType,
+  DistributionType,
+  getPeriodicDistributionApy,
+  loadPeriodicDistribution,
+} from './merkleDistributor'
 import { loadOsTokenHolder } from './osTokenHolder'
 import { getIsOsTokenVault } from './network'
 
@@ -213,7 +217,7 @@ export function getBoostPositionAnnualReward(
   const vaultPosition = loadAllocator(proxyAddress, vaultAddress)!
   const aavePosition = loadAavePosition(proxyAddress)!
 
-  const vaultApy = getVaultApy(vault, false)
+  const vaultApy = getVaultApy(vault, distributor, osToken, false)
   const osTokenApy = getOsTokenApy(osToken, false)
   const borrowApy = aave.borrowApy
   // earned osToken shares earn extra staking rewards, apply compounding
@@ -263,17 +267,15 @@ export function getBoostPositionAnnualReward(
 
   // all the supplied OsToken assets earn the additional incentives
   const activeDistributionIds = distributor.activeDistributionIds
-  let distribution: PeriodicDistribution
-  let distributionApy: BigDecimal
   for (let i = 0; i < activeDistributionIds.length; i++) {
-    distribution = PeriodicDistribution.load(activeDistributionIds[i])!
+    const distribution = loadPeriodicDistribution(activeDistributionIds[i])!
     if (convertStringToDistributionType(distribution.distributionType) !== DistributionType.LEVERAGE_STRATEGY) {
       continue
     }
 
     // get the distribution APY
-    distributionApy = getPeriodicDistributionApy(distribution, osToken)
-    if (distributionApy.equals(BigDecimal.zero())) {
+    const distributionApy = getPeriodicDistributionApy(distribution, osToken, false)
+    if (distributionApy.le(BigDecimal.zero())) {
       continue
     }
     totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(totalSuppliedOsTokenAssets, distributionApy))

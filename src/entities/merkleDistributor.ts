@@ -29,6 +29,7 @@ import { getIsOsTokenVault, loadNetwork } from './network'
 const distributorId = '1'
 const secondsInYear = '31536000'
 const maxPercent = '100'
+const snapshotsPerDay = 24
 const snapshotsPerWeek = 168
 const leverageStrategyDistAddress = Address.zero()
 
@@ -42,6 +43,10 @@ export enum DistributionType {
 
 export function loadDistributor(): Distributor | null {
   return Distributor.load(distributorId)
+}
+
+export function loadPeriodicDistribution(id: string): PeriodicDistribution | null {
+  return PeriodicDistribution.load(id)
 }
 
 export function createOrLoadDistributor(): Distributor {
@@ -136,12 +141,24 @@ export function getLeverageStrategyTargetApy(distData: Bytes): BigDecimal {
   return tuple[1].toBigInt().divDecimal(BigDecimal.fromString('100'))
 }
 
-export function getPeriodicDistributionApy(distribution: PeriodicDistribution, osToken: OsToken): BigDecimal {
+export function getPeriodicDistributionApy(
+  distribution: PeriodicDistribution,
+  osToken: OsToken,
+  useDayApy: boolean,
+): BigDecimal {
+  const apys: Array<BigDecimal> = distribution.apys
+
+  let distApy = distribution.apy
+  const apysCount = apys.length
+  if (useDayApy && apysCount > snapshotsPerDay) {
+    distApy = calculateAverage(apys.slice(apysCount - snapshotsPerDay))
+  }
+
   if (Address.fromBytes(distribution.token).equals(OS_TOKEN)) {
     // earned osToken shares earn extra staking rewards, apply compounding
-    return getCompoundedApy(distribution.apy, getOsTokenApy(osToken, false))
+    return getCompoundedApy(distApy, getOsTokenApy(osToken, useDayApy))
   }
-  return distribution.apy
+  return distApy
 }
 
 export function convertDistributionTypeToString(distType: DistributionType): string {
@@ -190,9 +207,8 @@ export function updateDistributions(
 
   const newActiveDistIds: Array<string> = []
 
-  let dist: PeriodicDistribution
   for (let i = 0; i < activeDistIds.length; i++) {
-    dist = PeriodicDistribution.load(activeDistIds[i])!
+    const dist = loadPeriodicDistribution(activeDistIds[i])!
     if (dist.startTimestamp.ge(currentTimestamp)) {
       // distribution hasn't started
       newActiveDistIds.push(dist.id)
@@ -250,7 +266,7 @@ export function updateDistributions(
     updatePeriodicDistributionApy(dist, distributedAssets, principalAssets, passedDuration)
 
     if (distType == DistributionType.VAULT) {
-      snapshotVault(loadVault(Address.fromBytes(dist.data))!, distributedAssets, currentTimestamp)
+      snapshotVault(loadVault(Address.fromBytes(dist.data))!, distributor, osToken, distributedAssets, currentTimestamp)
     }
 
     if (dist.amount.equals(distributedAmount)) {
