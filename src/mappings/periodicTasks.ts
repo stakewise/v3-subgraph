@@ -2,7 +2,15 @@ import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph
 import { loadVault, snapshotVault, updateVaultMaxBoostApy } from '../entities/vault'
 import { loadOsToken, snapshotOsToken, updateOsTokenTotalAssets } from '../entities/osToken'
 import { loadNetwork } from '../entities/network'
-import { Allocator, ExitRequest, Network, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
+import {
+  Allocator,
+  Distributor,
+  ExitRequest,
+  Network,
+  OsTokenConfig,
+  OsTokenHolder,
+  Vault,
+} from '../../generated/schema'
 import { getAllocatorApy, snapshotAllocator, updateAllocatorsMintedOsTokenShares } from '../entities/allocator'
 import { getOsTokenHolderApy, snapshotOsTokenHolder, updateOsTokenHolderAssets } from '../entities/osTokenHolder'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
@@ -109,12 +117,12 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
   }
 
   // Update snapshots
-  _updateSnapshots(network, timestamp)
+  _updateSnapshots(network, distributor, timestamp)
 
   log.info('[PeriodicTasks] block={} timestamp={}', [blockNumber.toString(), timestamp.toString()])
 }
 
-function _updateSnapshots(network: Network, timestamp: BigInt): void {
+function _updateSnapshots(network: Network, distributor: Distributor, timestamp: BigInt): void {
   const newSnapshotsCount = timestamp.plus(BigInt.fromI32(secondsInHour)).div(BigInt.fromI32(secondsInDay))
   const prevSnapshotsCount = network.lastSnapshotTimestamp
     .plus(BigInt.fromI32(secondsInHour))
@@ -154,7 +162,7 @@ function _updateSnapshots(network: Network, timestamp: BigInt): void {
   const vaultIds = network.vaultIds
   for (let i = 0; i < vaultIds.length; i++) {
     vault = loadVault(Address.fromString(vaultIds[i]))!
-    snapshotVault(vault, BigInt.zero(), timestamp)
+    snapshotVault(vault, distributor, osToken, BigInt.zero(), timestamp)
 
     const allocators: Array<Allocator> = vault.allocators.load()
     for (let j = 0; j < allocators.length; j++) {

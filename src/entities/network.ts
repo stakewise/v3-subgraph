@@ -31,10 +31,10 @@ export function isGnosisNetwork(): boolean {
   return NETWORK == 'chiado' || NETWORK == 'gnosis' || NETWORK == 'xdai'
 }
 
-export function getIsOsTokenVault(network: Network, vault: Vault): boolean {
+export function getIsOsTokenVault(network: Network, vaultId: string): boolean {
   const osTokenVaultIds = network.osTokenVaultIds
   for (let i = 0; i < osTokenVaultIds.length; i++) {
-    if (vault.id == osTokenVaultIds[i]) {
+    if (vaultId == osTokenVaultIds[i]) {
       return true
     }
   }
