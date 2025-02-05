@@ -22,7 +22,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     return
   }
 
-  const isOsTokenVault = getIsOsTokenVault(network, vault)
+  const isOsTokenVault = getIsOsTokenVault(network, vault.id)
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
   const updateStateCall: Bytes | null = getUpdateStateCall(vault)
 

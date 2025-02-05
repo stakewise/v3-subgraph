@@ -1,6 +1,7 @@
 import { ExchangeRateSnapshot, UniswapPool, ExchangeRate } from '../../generated/schema'
 import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import {
+  ASSET_TOKEN,
   ASSETS_USD_PRICE_FEED,
   AUD_USD_PRICE_FEED,
   CNY_USD_PRICE_FEED,
@@ -10,11 +11,16 @@ import {
   JPY_USD_PRICE_FEED,
   KRW_USD_PRICE_FEED,
   NETWORK,
+  OS_TOKEN,
   SWISE_ASSET_UNI_POOL,
+  SWISE_TOKEN,
+  USDC_TOKEN,
   USDC_USD_PRICE_FEED,
+  WAD,
 } from '../helpers/constants'
 import { chunkedMulticall } from '../helpers/utils'
 import { isGnosisNetwork } from './network'
+import { convertOsTokenSharesToAssets, loadOsToken } from './osToken'
 
 const latestAnswerSelector = '0x50d25bcd'
 const exchangeRateId = '0'
@@ -120,7 +126,11 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   const usdToKrwRate = krwToUsdRate.gt(zero) ? one.div(krwToUsdRate) : zero
   const usdToAudRate = audToUsdRate.gt(zero) ? one.div(audToUsdRate) : zero
 
-  exchangeRate.assetsUsdRate = assetsUsdRate
+  const osToken = loadOsToken()!
+  const wad = BigInt.fromString(WAD)
+  const osTokenAssetsRate = convertOsTokenSharesToAssets(osToken, wad).toBigDecimal().div(wad.toBigDecimal())
+
+  exchangeRate.osTokenAssetsRate = osTokenAssetsRate
   exchangeRate.swiseUsdRate = swiseUsdRate
   exchangeRate.usdToEurRate = usdToEurRate
   exchangeRate.usdToGbpRate = usdToGbpRate
@@ -134,6 +144,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
 
   const exchangeRateSnapshot = new ExchangeRateSnapshot(timestamp.toString())
   exchangeRateSnapshot.timestamp = timestamp.toI64()
+  exchangeRateSnapshot.osTokenAssetsRate = osTokenAssetsRate
   exchangeRateSnapshot.assetsUsdRate = assetsUsdRate
   exchangeRateSnapshot.swiseUsdRate = swiseUsdRate
   exchangeRateSnapshot.daiUsdRate = daiUsdRate
@@ -152,6 +163,7 @@ export function createOrLoadExchangeRate(): ExchangeRate {
 
   if (exchangeRate === null) {
     exchangeRate = new ExchangeRate(exchangeRateId)
+    exchangeRate.osTokenAssetsRate = BigDecimal.zero()
     exchangeRate.assetsUsdRate = BigDecimal.zero()
     exchangeRate.swiseUsdRate = BigDecimal.zero()
     exchangeRate.daiUsdRate = BigDecimal.zero()
@@ -170,4 +182,21 @@ export function createOrLoadExchangeRate(): ExchangeRate {
 
 export function loadExchangeRate(): ExchangeRate | null {
   return ExchangeRate.load(exchangeRateId)
+}
+
+export function convertTokenAmountToAssets(exchangeRate: ExchangeRate, token: Address, amount: BigInt): BigInt {
+  if (token.equals(Address.fromString(ASSET_TOKEN))) {
+    return amount
+  }
+  if (token.equals(OS_TOKEN)) {
+    return amount.toBigDecimal().times(exchangeRate.osTokenAssetsRate).digits
+  }
+  if (token.equals(SWISE_TOKEN)) {
+    return amount.toBigDecimal().times(exchangeRate.swiseUsdRate).div(exchangeRate.assetsUsdRate).digits
+  }
+  if (token.equals(Address.fromString(USDC_TOKEN))) {
+    return amount.toBigDecimal().times(exchangeRate.usdcUsdRate).div(exchangeRate.assetsUsdRate).digits
+  }
+  assert(false, 'Cannot convert to assets unsupported token=' + token.toHexString())
+  return BigInt.zero()
 }

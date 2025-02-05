@@ -18,9 +18,13 @@ import { Safe as SafeContract } from '../../generated/PeriodicTasks/Safe'
 import { loadUniswapPool, MAX_TICK, MIN_TICK } from './uniswap'
 import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
 import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
-import { loadVault } from './vault'
+import { loadVault, snapshotVault } from './vault'
 import { calculateAverage, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { loadAavePosition } from './aave'
+import { loadAllocator } from './allocator'
+import { convertTokenAmountToAssets, loadExchangeRate } from './exchangeRates'
+import { loadOsTokenHolder } from './osTokenHolder'
+import { getIsOsTokenVault, loadNetwork } from './network'
 
 const distributorId = '1'
 const secondsInYear = '31536000'
@@ -210,24 +214,16 @@ export function updateDistributions(
       const vault = loadVault(Address.fromBytes(dist.data))!
       const token = Address.fromBytes(dist.token)
       distributedAmount = dist.amount.times(passedDuration).div(totalDuration)
-      if (dist.amount.equals(distributedAmount)) {
-        // distribution is finished
-        dist.endTimestamp = currentTimestamp
-      }
       principalAssets = distributeToVaultUsers(vault, token, distributedAmount)
     } else if (distType == DistributionType.LEVERAGE_STRATEGY) {
       const targetApy = getLeverageStrategyTargetApy(dist.data)
       const response = distributeToLeverageStrategyUsers(network, targetApy, passedDuration, dist.amount)
-      principalAssets = convertOsTokenSharesToAssets(osToken, response[0])
       distributedAmount = response[1]
-      if (dist.amount.equals(distributedAmount)) {
-        // distribution is finished
-        dist.endTimestamp = currentTimestamp
-      }
+      principalAssets = convertOsTokenSharesToAssets(osToken, response[0])
     } else if (distType == DistributionType.SWISE_ASSET_UNI_POOL) {
-      distributedAmount = dist.amount.times(passedDuration).div(totalDuration)
       // dist data is the pool address
       const uniPool = loadUniswapPool(Address.fromBytes(dist.data))!
+      distributedAmount = dist.amount.times(passedDuration).div(totalDuration)
       principalAssets = distributeToSwiseAssetUniPoolUsers(
         exchangeRate,
         uniPool,
@@ -235,12 +231,11 @@ export function updateDistributions(
         distributedAmount,
       )
     } else if (distType == DistributionType.OS_TOKEN_USDC_UNI_POOL) {
-      distributedAmount = dist.amount.times(passedDuration).div(totalDuration)
       // dist data is the pool address
       const uniPool = loadUniswapPool(Address.fromBytes(dist.data))!
+      distributedAmount = dist.amount.times(passedDuration).div(totalDuration)
       principalAssets = distributeToOsTokenUsdcUniPoolUsers(
         exchangeRate,
-        osToken,
         uniPool,
         Address.fromBytes(dist.token),
         distributedAmount,
@@ -250,21 +245,18 @@ export function updateDistributions(
       return
     }
 
-    // calculate APY
-    let distributedAssets: BigInt = BigInt.zero()
-    if (dist.token.equals(OS_TOKEN)) {
-      distributedAssets = convertOsTokenSharesToAssets(osToken, distributedAmount)
-    } else if (dist.token.equals(SWISE_TOKEN) && exchangeRate.assetsUsdRate.gt(BigDecimal.zero())) {
-      distributedAssets = distributedAmount
-        .toBigDecimal()
-        .times(exchangeRate.swiseUsdRate)
-        .div(exchangeRate.assetsUsdRate).digits
-    } else {
-      log.error('[MerkleDistributor] Unknown token={} price to update APY', [dist.token.toHex()])
+    // update APY
+    const distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
+    updatePeriodicDistributionApy(dist, distributedAssets, principalAssets, passedDuration)
+
+    if (distType == DistributionType.VAULT) {
+      snapshotVault(loadVault(Address.fromBytes(dist.data))!, distributedAssets, currentTimestamp)
     }
 
-    // update distribution
-    updatePeriodicDistributionApy(dist, distributedAssets, principalAssets, passedDuration)
+    if (dist.amount.equals(distributedAmount)) {
+      // distribution is finished
+      dist.endTimestamp = currentTimestamp
+    }
     dist.amount = dist.amount.minus(distributedAmount)
     dist.startTimestamp = currentTimestamp
     dist.save()
@@ -316,7 +308,9 @@ export function distributeToVaultUsers(vault: Vault, token: Address, totalReward
 
   // collect all the users and their assets
   const users: Array<Address> = []
+  const vaults: Array<Address> = []
   const usersAssets: Array<BigInt> = []
+  const vaultAddress = Address.fromString(vault.id)
 
   for (let i = 0; i < allocators.length; i++) {
     allocator = allocators[i]
@@ -324,12 +318,13 @@ export function distributeToVaultUsers(vault: Vault, token: Address, totalReward
       continue
     }
     users.push(Address.fromBytes(allocator.address))
+    vaults.push(vaultAddress)
     usersAssets.push(allocator.assets)
     totalAssets = totalAssets.plus(allocator.assets)
   }
 
   // distribute reward to the users
-  _distributeReward(users, usersAssets, totalAssets, token, totalReward)
+  _distributeReward(users, vaults, usersAssets, totalAssets, token, totalReward)
 
   return totalAssets
 }
@@ -342,8 +337,6 @@ export function distributeToSwiseAssetUniPoolUsers(
 ): BigInt {
   const swiseToken = SWISE_TOKEN
   const assetToken = Address.fromString(ASSET_TOKEN)
-  const swiseUsdRate = exchangeRate.swiseUsdRate
-  const assetsUsdRate = exchangeRate.assetsUsdRate
   if (
     (pool.token0.notEqual(swiseToken) || pool.token1.notEqual(assetToken)) &&
     (pool.token0.notEqual(assetToken) || pool.token1.notEqual(swiseToken))
@@ -351,18 +344,17 @@ export function distributeToSwiseAssetUniPoolUsers(
     assert(false, "Pool doesn't contain SWISE and ASSET tokens")
   }
 
-  if (assetsUsdRate.equals(BigDecimal.zero()) || swiseUsdRate.equals(BigDecimal.zero())) {
+  if (exchangeRate.assetsUsdRate.equals(BigDecimal.zero()) || exchangeRate.swiseUsdRate.equals(BigDecimal.zero())) {
     assert(false, 'Missing USD rates for OsToken or SWISE token')
   }
 
   // calculate principals for all the users
-  let uniPosition: UniswapPosition
-  const uniPositions: Array<UniswapPosition> = pool.positions.load()
   let totalAssets: BigInt = BigInt.zero()
+  const uniPositions: Array<UniswapPosition> = pool.positions.load()
   const users: Array<Address> = []
   const usersAssets: Array<BigInt> = []
   for (let i = 0; i < uniPositions.length; i++) {
-    uniPosition = uniPositions[i]
+    const uniPosition = uniPositions[i]
     if (uniPosition.tickLower != MIN_TICK && uniPosition.tickUpper != MAX_TICK) {
       // only full range positions receive incentives
       continue
@@ -373,16 +365,11 @@ export function distributeToSwiseAssetUniPoolUsers(
     const user = Address.fromBytes(uniPosition.owner)
 
     // calculate user assets
-    let userAssets: BigInt
-    if (pool.token0.equals(assetToken)) {
-      userAssets = uniPosition.amount0
-        .toBigDecimal()
-        .plus(uniPosition.amount1.toBigDecimal().times(swiseUsdRate).div(assetsUsdRate)).digits
-    } else {
-      userAssets = uniPosition.amount1
-        .toBigDecimal()
-        .plus(uniPosition.amount0.toBigDecimal().times(swiseUsdRate).div(assetsUsdRate)).digits
-    }
+    const userAssets = convertTokenAmountToAssets(
+      exchangeRate,
+      Address.fromBytes(pool.token0),
+      uniPosition.amount0,
+    ).plus(convertTokenAmountToAssets(exchangeRate, Address.fromBytes(pool.token1), uniPosition.amount1))
 
     users.push(user)
     usersAssets.push(userAssets)
@@ -390,14 +377,13 @@ export function distributeToSwiseAssetUniPoolUsers(
   }
 
   // distribute reward to the users
-  _distributeReward(users, usersAssets, totalAssets, token, totalReward)
+  _distributeReward(users, [], usersAssets, totalAssets, token, totalReward)
 
   return totalAssets
 }
 
 export function distributeToOsTokenUsdcUniPoolUsers(
   exchangeRate: ExchangeRate,
-  osToken: OsToken,
   pool: UniswapPool,
   token: Address,
   totalReward: BigInt,
@@ -409,20 +395,17 @@ export function distributeToOsTokenUsdcUniPoolUsers(
   ) {
     assert(false, "Pool doesn't contain USDC and OsToken tokens")
   }
-  const assetsUsdRate = exchangeRate.assetsUsdRate
-  const usdcUsdRate = exchangeRate.usdcUsdRate
-  if (assetsUsdRate.equals(BigDecimal.zero()) || usdcUsdRate.equals(BigDecimal.zero())) {
+  if (exchangeRate.assetsUsdRate.equals(BigDecimal.zero()) || exchangeRate.usdcUsdRate.equals(BigDecimal.zero())) {
     assert(false, 'Missing USD rates for OsToken or USDC token')
   }
 
   // calculate points for all the users
-  let uniPosition: UniswapPosition
-  const uniPositions: Array<UniswapPosition> = pool.positions.load()
   let totalAssets: BigInt = BigInt.zero()
+  const uniPositions: Array<UniswapPosition> = pool.positions.load()
   const users: Array<Address> = []
   const usersAssets: Array<BigInt> = []
   for (let i = 0; i < uniPositions.length; i++) {
-    uniPosition = uniPositions[i]
+    const uniPosition = uniPositions[i]
     if (!(uniPosition.tickLower <= pool.tick && uniPosition.tickUpper > pool.tick)) {
       // only in range positions receive incentives
       continue
@@ -433,16 +416,11 @@ export function distributeToOsTokenUsdcUniPoolUsers(
     const user = Address.fromBytes(uniPosition.owner)
 
     // calculate user assets
-    let userAssets: BigInt
-    if (pool.token0.equals(OS_TOKEN)) {
-      userAssets = convertOsTokenSharesToAssets(osToken, uniPosition.amount0)
-        .toBigDecimal()
-        .plus(uniPosition.amount1.toBigDecimal().times(usdcUsdRate).div(assetsUsdRate)).digits
-    } else {
-      userAssets = convertOsTokenSharesToAssets(osToken, uniPosition.amount1)
-        .toBigDecimal()
-        .plus(uniPosition.amount0.toBigDecimal().times(usdcUsdRate).div(assetsUsdRate)).digits
-    }
+    const userAssets = convertTokenAmountToAssets(
+      exchangeRate,
+      Address.fromBytes(pool.token0),
+      uniPosition.amount0,
+    ).plus(convertTokenAmountToAssets(exchangeRate, Address.fromBytes(pool.token1), uniPosition.amount1))
 
     users.push(user)
     usersAssets.push(userAssets)
@@ -450,7 +428,7 @@ export function distributeToOsTokenUsdcUniPoolUsers(
   }
 
   // distribute reward to the users
-  _distributeReward(users, usersAssets, totalAssets, token, totalReward)
+  _distributeReward(users, [], usersAssets, totalAssets, token, totalReward)
 
   return totalAssets
 }
@@ -464,6 +442,7 @@ export function distributeToLeverageStrategyUsers(
   let position: LeverageStrategyPosition
   let totalOsTokenShares: BigInt = BigInt.zero()
   const users: Array<Address> = []
+  const vaults: Array<Address> = []
   const usersOsTokenShares: Array<BigInt> = []
   const vaultIds: Array<string> = network.vaultIds
   for (let i = 0; i < vaultIds.length; i++) {
@@ -480,6 +459,7 @@ export function distributeToLeverageStrategyUsers(
 
       const userPrincipalOsTokenShares = aavePosition.suppliedOsTokenShares
 
+      vaults.push(Address.fromString(vault.id))
       users.push(user)
       usersOsTokenShares.push(userPrincipalOsTokenShares)
       totalOsTokenShares = totalOsTokenShares.plus(userPrincipalOsTokenShares)
@@ -496,13 +476,14 @@ export function distributeToLeverageStrategyUsers(
   }
 
   // distribute reward to the users
-  _distributeReward(users, usersOsTokenShares, totalOsTokenShares, OS_TOKEN, distributedPeriodOsTokenShares)
+  _distributeReward(users, vaults, usersOsTokenShares, totalOsTokenShares, OS_TOKEN, distributedPeriodOsTokenShares)
 
   return [totalOsTokenShares, distributedPeriodOsTokenShares]
 }
 
 function _distributeReward(
   users: Array<Address>,
+  vaults: Array<Address>,
   points: Array<BigInt>,
   totalPoints: BigInt,
   token: Address,
@@ -511,12 +492,14 @@ function _distributeReward(
   if (totalPoints.le(BigInt.zero())) {
     return
   }
-  let user: Address
-  let userPoints: BigInt
+  const network = loadNetwork()!
+  const exchangeRate = loadExchangeRate()!
+  const hasVaults = vaults.length > 0
+
   let distributedAmount = BigInt.zero()
   for (let i = 0; i < users.length; i++) {
-    user = users[i]
-    userPoints = points[i]
+    const user = users[i]
+    const userPoints = points[i]
 
     let userReward: BigInt
     if (i == users.length - 1) {
@@ -524,10 +507,33 @@ function _distributeReward(
     } else {
       userReward = totalReward.times(userPoints).div(totalPoints)
     }
+    if (userReward.le(BigInt.zero())) {
+      continue
+    }
+
     distributedAmount = distributedAmount.plus(userReward)
     const distributorReward = createOrLoadDistributorReward(token, user)
     distributorReward.cumulativeAmount = distributorReward.cumulativeAmount.plus(userReward)
     distributorReward.save()
+
+    if (!hasVaults) {
+      continue
+    }
+
+    const vault = vaults[i]
+    const userRewardAssets = convertTokenAmountToAssets(exchangeRate, token, userReward)
+    const allocator = loadAllocator(user, vault)
+    if (allocator) {
+      allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(userRewardAssets)
+      allocator.save()
+    }
+    if (getIsOsTokenVault(network, vault.toHexString())) {
+      const osTokenHolder = loadOsTokenHolder(user)
+      if (osTokenHolder) {
+        osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(userRewardAssets)
+        osTokenHolder.save()
+      }
+    }
   }
 }
 

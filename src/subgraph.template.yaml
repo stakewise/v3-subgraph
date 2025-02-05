@@ -449,7 +449,7 @@ dataSources:
       eventHandlers:
         - event: PeriodicDistributionAdded(indexed address,indexed address,uint256,uint256,uint256,bytes)
           handler: handlePeriodicDistributionAdded
-        - event: OneTimeDistributionAdded(indexed address,indexed address,uint256,string)
+        - event: OneTimeDistributionAdded(indexed address,indexed address,uint256,string,bytes)
           handler: handleOneTimeDistributionAdded
         - event: RewardsRootUpdated(indexed address,indexed bytes32,string)
           handler: handleRewardsRootUpdated

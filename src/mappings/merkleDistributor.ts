@@ -10,6 +10,7 @@ import {
   convertDistributionTypeToString,
   createOrLoadDistributorClaim,
   createOrLoadDistributorReward,
+  distributeToVaultUsers,
   DistributionType,
   getDistributionType,
   loadDistributor,
@@ -17,7 +18,8 @@ import {
 } from '../entities/merkleDistributor'
 import { createTransaction } from '../entities/transaction'
 import { OS_TOKEN } from '../helpers/constants'
-import { loadExchangeRate } from '../entities/exchangeRates'
+import { convertTokenAmountToAssets, loadExchangeRate } from '../entities/exchangeRates'
+import { loadVault, snapshotVault } from '../entities/vault'
 
 const secondsInYear = '31536000'
 
@@ -86,6 +88,22 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
   const rewardsIpfsHash = event.params.rewardsIpfsHash
   const token = event.params.token
   const totalAmountToDistribute = event.params.amount
+  const extraData = event.params.extraData
+
+  const distType = getDistributionType(extraData)
+  if (distType == DistributionType.VAULT) {
+    const vault = loadVault(Address.fromBytes(extraData))!
+    distributeToVaultUsers(vault, token, totalAmountToDistribute)
+    const distributedAssets = convertTokenAmountToAssets(loadExchangeRate()!, token, totalAmountToDistribute)
+    snapshotVault(vault, distributedAssets, event.block.timestamp)
+    log.info('[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={}', [
+      vault.id,
+      token.toHexString(),
+      totalAmountToDistribute.toString(),
+    ])
+    return
+  }
+
   let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
   while (data === null) {
     log.warning('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}, retrying', [rewardsIpfsHash])
@@ -144,7 +162,7 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
     distributorReward.save()
   }
 
-  log.info('[MerkleDistributor] OneTimeDistributionAdded rewardsIpfsHash={} token={} totalAmountToDistribute={}', [
+  log.info('[MerkleDistributor] OneTimeDistributionAdded rewardsIpfsHash={} token={} amount={}', [
     rewardsIpfsHash,
     token.toHexString(),
     totalAmountToDistribute.toString(),

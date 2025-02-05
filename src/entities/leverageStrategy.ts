@@ -178,7 +178,7 @@ export function updateLeverageStrategyPositions(network: Network, aave: Aave, os
   let position: LeverageStrategyPosition
   const leveragePositions: Array<LeverageStrategyPosition> = vault.leveragePositions.load()
 
-  let isOsTokenVault = getIsOsTokenVault(network, vault)
+  let isOsTokenVault = getIsOsTokenVault(network, vault.id)
   for (let i = 0; i < leveragePositions.length; i++) {
     position = leveragePositions[i]
     const totalAssetsBefore = position.totalAssets
