@@ -2,7 +2,6 @@ import { Address, BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
 import {
   Allocator,
   Distributor,
-  ExitRequest,
   LeverageStrategyPosition,
   Network,
   OsToken,
@@ -12,7 +11,7 @@ import {
 import { calculateApy, getAnnualReward } from '../helpers/utils'
 import { convertOsTokenSharesToAssets, getOsTokenApy, osTokenId } from './osToken'
 import { getBoostPositionAnnualReward, loadLeverageStrategyPosition } from './leverageStrategy'
-import { getVaultApy, loadVault } from './vault'
+import { loadVault } from './vault'
 import { loadOsTokenConfig } from './osTokenConfig'
 import { loadAave } from './aave'
 import { loadAllocator } from './allocator'
@@ -79,30 +78,8 @@ export function getOsTokenHolderApy(
   const vault = loadVault(vaultAddress)!
   let totalEarnedAssets = getAnnualReward(totalAssets, osTokenApy)
 
-  const userAddress = Address.fromString(osTokenHolder.id)
-  const allocator = loadAllocator(userAddress, vaultAddress)
-  if (allocator) {
-    let leftAssets: BigInt
-    let exitRequest: ExitRequest
-    const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
-    const vaultApy = getVaultApy(vault, distributor, osToken, false)
-    for (let i = 0; i < exitRequests.length; i++) {
-      exitRequest = exitRequests[i]
-      leftAssets = exitRequest.totalAssets.minus(exitRequest.exitedAssets)
-      if (
-        leftAssets.gt(BigInt.zero()) &&
-        !exitRequest.isClaimed &&
-        !exitRequest.isV2Position &&
-        Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
-      ) {
-        totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(leftAssets, vaultApy))
-        totalAssets = totalAssets.plus(leftAssets)
-      }
-    }
-  }
-
   // check balances of leverage strategy position
-  const position = loadLeverageStrategyPosition(vaultAddress, userAddress)
+  const position = loadLeverageStrategyPosition(vaultAddress, Address.fromString(osTokenHolder.id))
   if (position) {
     const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
     const aave = loadAave()!
@@ -138,26 +115,6 @@ export function getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, 
   const vaultAddress = getOsTokenHolderVault(network, osTokenHolder)
   if (!vaultAddress) {
     return totalAssets
-  }
-
-  // add assets in all unclaimed exit requests
-  const allocator = loadAllocator(osTokenHolderAddress, vaultAddress)
-  if (allocator) {
-    let leftAssets: BigInt
-    let exitRequest: ExitRequest
-    const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
-    for (let i = 0; i < exitRequests.length; i++) {
-      exitRequest = exitRequests[i]
-      leftAssets = exitRequest.totalAssets.minus(exitRequest.exitedAssets)
-      if (
-        leftAssets.gt(BigInt.zero()) &&
-        !exitRequest.isClaimed &&
-        !exitRequest.isV2Position &&
-        Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
-      ) {
-        totalAssets = totalAssets.plus(leftAssets)
-      }
-    }
   }
 
   // add boost position assets

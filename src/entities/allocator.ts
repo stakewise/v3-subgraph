@@ -4,7 +4,6 @@ import {
   AllocatorAction,
   AllocatorSnapshot,
   Distributor,
-  ExitRequest,
   OsToken,
   OsTokenConfig,
   RewardSplitter,
@@ -194,24 +193,6 @@ export function getAllocatorApy(
   const osTokenApy = getOsTokenApy(osToken, false)
 
   let totalAssets = allocator.assets
-
-  // get assets from the exit requests
-  let leftAssets: BigInt
-  let exitRequest: ExitRequest
-  const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
-  for (let i = 0; i < exitRequests.length; i++) {
-    exitRequest = exitRequests[i]
-    leftAssets = exitRequest.totalAssets.minus(exitRequest.exitedAssets)
-    if (
-      leftAssets.gt(BigInt.zero()) &&
-      !exitRequest.isClaimed &&
-      !exitRequest.isV2Position &&
-      Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
-    ) {
-      totalAssets = totalAssets.plus(leftAssets)
-    }
-  }
-
   let totalEarnedAssets = getAnnualReward(totalAssets, vaultApy)
 
   const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, allocator.mintedOsTokenShares)
@@ -259,23 +240,6 @@ export function getAllocatorApy(
 
 export function getAllocatorTotalAssets(osToken: OsToken, vault: Vault, allocator: Allocator): BigInt {
   let totalAssets = allocator.assets
-
-  // get assets from the exit requests
-  let leftAssets: BigInt
-  let exitRequest: ExitRequest
-  const exitRequests: Array<ExitRequest> = allocator.exitRequests.load()
-  for (let i = 0; i < exitRequests.length; i++) {
-    exitRequest = exitRequests[i]
-    leftAssets = exitRequest.totalAssets.minus(exitRequest.exitedAssets)
-    if (
-      leftAssets.gt(BigInt.zero()) &&
-      !exitRequest.isClaimed &&
-      !exitRequest.isV2Position &&
-      Address.fromBytes(exitRequest.receiver).equals(Address.fromBytes(allocator.address))
-    ) {
-      totalAssets = totalAssets.plus(leftAssets)
-    }
-  }
 
   // get assets from the leverage strategy position
   const vaultAddress = Address.fromString(allocator.vault)
