@@ -59,6 +59,8 @@
     "address": "0x484871c6d54a3daebebbdb0ab7a54c97d72986bb",
     "startBlock": "166860"
   },
+  "ssvToken": "0x0000000000000000000000000000000000000000",
+  "ssvAssetUniPool": "0x0000000000000000000000000000000000000000",
   "osTokenConfigV1": {
     "address": "0x4483965Ed85cd5e67f2a7a0EB462aCcC37b23D72",
     "startBlock": "215390"
