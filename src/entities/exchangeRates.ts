@@ -209,7 +209,7 @@ export function convertTokenAmountToAssets(exchangeRate: ExchangeRate, token: Ad
   if (token.equals(SWISE_TOKEN)) {
     return amount.toBigDecimal().times(exchangeRate.swiseUsdRate).div(exchangeRate.assetsUsdRate).digits
   }
-  if (token.equals(SSV_TOKEN)) {
+  if (token.equals(Address.fromString(SSV_TOKEN))) {
     return amount.toBigDecimal().times(exchangeRate.ssvUsdRate).div(exchangeRate.assetsUsdRate).digits
   }
   if (token.equals(Address.fromString(USDC_TOKEN))) {
