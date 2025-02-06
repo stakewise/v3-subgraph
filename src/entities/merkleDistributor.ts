@@ -530,8 +530,6 @@ function _distributeReward(
   if (totalPoints.le(BigInt.zero())) {
     return
   }
-  const hasVaults = vaults.length > 0
-
   let distributedAmount = BigInt.zero()
   for (let i = 0; i < users.length; i++) {
     const user = users[i]
@@ -552,7 +550,7 @@ function _distributeReward(
     distributorReward.cumulativeAmount = distributorReward.cumulativeAmount.plus(userReward)
     distributorReward.save()
 
-    if (!hasVaults) {
+    if (vaults.length == 0) {
       continue
     }
 

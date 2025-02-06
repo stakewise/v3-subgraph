@@ -100,7 +100,7 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
     const distributor = loadDistributor()!
     const osToken = loadOsToken()!
     distributeToVaultUsers(network, exchangeRate, vault, token, totalAmountToDistribute)
-    const distributedAssets = convertTokenAmountToAssets(loadExchangeRate()!, token, totalAmountToDistribute)
+    const distributedAssets = convertTokenAmountToAssets(exchangeRate, token, totalAmountToDistribute)
     snapshotVault(vault, distributor, osToken, distributedAssets, event.block.timestamp)
     log.info('[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={}', [
       vault.id,
