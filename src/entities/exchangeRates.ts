@@ -13,7 +13,9 @@ import {
   NETWORK,
   OS_TOKEN,
   SWISE_ASSET_UNI_POOL,
+  SSV_ASSET_UNI_POOL,
   SWISE_TOKEN,
+  SSV_TOKEN,
   USDC_TOKEN,
   USDC_USD_PRICE_FEED,
   WAD,
@@ -43,6 +45,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   let daiUsdRate = BigDecimal.zero()
   let usdcUsdRate = BigDecimal.zero()
   let swiseUsdRate = BigDecimal.zero()
+  let ssvUsdRate = BigDecimal.zero()
 
   let contractAddresses: Array<Address>
   const isGnosis = isGnosisNetwork()
@@ -117,6 +120,15 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     }
   }
 
+  const ssvAssetUniPool = Address.fromString(SSV_ASSET_UNI_POOL)
+  if (ssvAssetUniPool.notEqual(Address.zero())) {
+    const pool = UniswapPool.load(ssvAssetUniPool.toHex())
+    if (pool !== null) {
+      const ssvAssetRate = new BigDecimal(pool.sqrtPrice.pow(2)).div(new BigDecimal(BigInt.fromI32(2).pow(192)))
+      ssvUsdRate = ssvAssetRate.times(assetsUsdRate)
+    }
+  }
+
   const zero = BigDecimal.zero()
   const one = BigDecimal.fromString('1')
   const usdToEurRate = eurToUsdRate.gt(zero) ? one.div(eurToUsdRate) : zero
@@ -139,6 +151,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   exchangeRate.usdToKrwRate = usdToKrwRate
   exchangeRate.usdToAudRate = usdToAudRate
   exchangeRate.daiUsdRate = daiUsdRate
+  exchangeRate.ssvUsdRate = ssvUsdRate
   exchangeRate.usdcUsdRate = usdcUsdRate
   exchangeRate.save()
 
@@ -148,6 +161,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   exchangeRateSnapshot.assetsUsdRate = assetsUsdRate
   exchangeRateSnapshot.swiseUsdRate = swiseUsdRate
   exchangeRateSnapshot.daiUsdRate = daiUsdRate
+  exchangeRateSnapshot.ssvUsdRate = ssvUsdRate
   exchangeRateSnapshot.usdcUsdRate = usdcUsdRate
   exchangeRateSnapshot.usdToEurRate = usdToEurRate
   exchangeRateSnapshot.usdToGbpRate = usdToGbpRate
@@ -167,6 +181,7 @@ export function createOrLoadExchangeRate(): ExchangeRate {
     exchangeRate.assetsUsdRate = BigDecimal.zero()
     exchangeRate.swiseUsdRate = BigDecimal.zero()
     exchangeRate.daiUsdRate = BigDecimal.zero()
+    exchangeRate.ssvUsdRate = BigDecimal.zero()
     exchangeRate.usdcUsdRate = BigDecimal.zero()
     exchangeRate.usdToEurRate = BigDecimal.zero()
     exchangeRate.usdToGbpRate = BigDecimal.zero()
@@ -193,6 +208,9 @@ export function convertTokenAmountToAssets(exchangeRate: ExchangeRate, token: Ad
   }
   if (token.equals(SWISE_TOKEN)) {
     return amount.toBigDecimal().times(exchangeRate.swiseUsdRate).div(exchangeRate.assetsUsdRate).digits
+  }
+  if (token.equals(SSV_TOKEN)) {
+    return amount.toBigDecimal().times(exchangeRate.ssvUsdRate).div(exchangeRate.assetsUsdRate).digits
   }
   if (token.equals(Address.fromString(USDC_TOKEN))) {
     return amount.toBigDecimal().times(exchangeRate.usdcUsdRate).div(exchangeRate.assetsUsdRate).digits
