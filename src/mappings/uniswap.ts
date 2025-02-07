@@ -9,6 +9,7 @@ import {
   Transfer,
 } from '../../generated/UniswapPositionManager/UniswapPositionManager'
 import { createOrLoadPosition, getAmount0, getAmount1, isSupportedToken, loadUniswapPool } from '../entities/uniswap'
+import { SSV_ASSET_UNI_POOL } from '../helpers/constants'
 
 export function handlePoolCreated(event: PoolCreated): void {
   let hasSupportedToken = isSupportedToken(event.params.token0) || isSupportedToken(event.params.token1)
@@ -132,13 +133,27 @@ export function handleSwap(event: Swap): void {
   pool.sqrtPrice = event.params.sqrtPriceX96
   pool.save()
 
-  let position: UniswapPosition
-  let positions: Array<UniswapPosition> = pool.positions.load()
-  for (let i = 0; i < positions.length; i++) {
-    position = positions[i]
-    position.amount0 = getAmount0(pool.tick, pool.sqrtPrice, position.tickLower, position.tickUpper, position.liquidity)
-    position.amount1 = getAmount1(pool.tick, pool.sqrtPrice, position.tickLower, position.tickUpper, position.liquidity)
-    position.save()
+  if (pool.id != SSV_ASSET_UNI_POOL) {
+    let position: UniswapPosition
+    let positions: Array<UniswapPosition> = pool.positions.load()
+    for (let i = 0; i < positions.length; i++) {
+      position = positions[i]
+      position.amount0 = getAmount0(
+        pool.tick,
+        pool.sqrtPrice,
+        position.tickLower,
+        position.tickUpper,
+        position.liquidity,
+      )
+      position.amount1 = getAmount1(
+        pool.tick,
+        pool.sqrtPrice,
+        position.tickLower,
+        position.tickUpper,
+        position.liquidity,
+      )
+      position.save()
+    }
   }
 
   log.info('[UniswapPool] Swap pool={} amount0={} amount1={}', [
