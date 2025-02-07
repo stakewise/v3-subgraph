@@ -1004,13 +1004,16 @@ type UniswapPosition @entity {
   liquidity: BigInt!
 }
 
-"Stores current active distributions"
+"Stores current active distributions and active distributors"
 type Distributor @entity {
   "Set to 1"
   id: ID!
 
   "The list of active distributions IDs"
   activeDistributionIds: [String!]!
+
+  "The list of active distributor addresses"
+  activeDistributors: [Bytes!]!
 }
 
 enum DistributionType {
