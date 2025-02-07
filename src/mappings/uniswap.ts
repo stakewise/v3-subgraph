@@ -1,4 +1,4 @@
-import { BigInt, log } from '@graphprotocol/graph-ts'
+import { Address, BigInt, log } from '@graphprotocol/graph-ts'
 import { UniswapPool, UniswapPosition } from '../../generated/schema'
 import { PoolCreated } from '../../generated/UniswapFactory/UniswapFactory'
 import { UniswapPool as UniswapPoolTemplate } from '../../generated/templates'
@@ -8,11 +8,17 @@ import {
   IncreaseLiquidity,
   Transfer,
 } from '../../generated/UniswapPositionManager/UniswapPositionManager'
-import { createOrLoadPosition, getAmount0, getAmount1, isSupportedToken, loadUniswapPool } from '../entities/uniswap'
-import { SSV_ASSET_UNI_POOL } from '../helpers/constants'
+import {
+  createOrLoadPosition,
+  getAmount0,
+  getAmount1,
+  isPositionSupportedToken,
+  isPoolSupportedToken,
+  loadUniswapPool,
+} from '../entities/uniswap'
 
 export function handlePoolCreated(event: PoolCreated): void {
-  let hasSupportedToken = isSupportedToken(event.params.token0) || isSupportedToken(event.params.token1)
+  let hasSupportedToken = isPoolSupportedToken(event.params.token0) || isPoolSupportedToken(event.params.token1)
   if (!hasSupportedToken) {
     return
   }
@@ -133,7 +139,10 @@ export function handleSwap(event: Swap): void {
   pool.sqrtPrice = event.params.sqrtPriceX96
   pool.save()
 
-  if (pool.id != SSV_ASSET_UNI_POOL) {
+  if (
+    isPositionSupportedToken(Address.fromString(pool.token0.toString())) ||
+    isPositionSupportedToken(Address.fromString(pool.token1.toString()))
+  ) {
     let position: UniswapPosition
     let positions: Array<UniswapPosition> = pool.positions.load()
     for (let i = 0; i < positions.length; i++) {
