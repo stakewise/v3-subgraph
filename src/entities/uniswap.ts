@@ -2,7 +2,7 @@ import { Address, BigInt } from '@graphprotocol/graph-ts'
 import { UniswapPool, UniswapPosition } from '../../generated/schema'
 import { UniswapPositionManager } from '../../generated/UniswapPositionManager/UniswapPositionManager'
 import { UniswapFactory } from '../../generated/UniswapFactory/UniswapFactory'
-import { OS_TOKEN, SWISE_TOKEN, UNISWAP_POSITION_MANAGER, UNISWAP_FACTORY } from '../helpers/constants'
+import { OS_TOKEN, SWISE_TOKEN, SSV_TOKEN, UNISWAP_POSITION_MANAGER, UNISWAP_FACTORY } from '../helpers/constants'
 
 export const MIN_TICK = -887272
 export const MAX_TICK = -MIN_TICK
@@ -10,8 +10,12 @@ const MAX_UINT_256 = BigInt.fromString('1157920892373161954235709850086879078532
 const Q32 = BigInt.fromI32(2).pow(32)
 const Q96 = BigInt.fromI32(2).pow(96)
 
-export function isSupportedToken(token: Address): boolean {
+export function isPositionSupportedToken(token: Address): boolean {
   return token.equals(OS_TOKEN) || token.equals(SWISE_TOKEN)
+}
+
+export function isPoolSupportedToken(token: Address): boolean {
+  return token.equals(OS_TOKEN) || token.equals(SWISE_TOKEN) || token.equals(Address.fromString(SSV_TOKEN))
 }
 
 export function loadUniswapPool(poolAddress: Address): UniswapPool | null {
@@ -32,7 +36,7 @@ export function createOrLoadPosition(tokenId: BigInt): UniswapPosition | null {
     let positionResult = positionCall.value
     let token0 = positionResult.getToken0()
     let token1 = positionResult.getToken1()
-    let hasSupportedToken = isSupportedToken(token0) || isSupportedToken(token1)
+    let hasSupportedToken = isPositionSupportedToken(token0) || isPositionSupportedToken(token1)
     if (!hasSupportedToken) {
       return null
     }
