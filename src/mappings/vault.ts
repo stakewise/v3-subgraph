@@ -726,8 +726,9 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.createdAt = event.block.timestamp
   vault.lastXdaiSwappedTimestamp = event.block.timestamp
   vault._unclaimedFeeRecipientShares = BigInt.zero()
+  vault.baseApy = BigDecimal.zero()
+  vault.baseApys = []
   vault.apy = BigDecimal.zero()
-  vault.apys = []
   vault.allocatorMaxBoostApy = BigDecimal.zero()
   vault.osTokenHolderMaxBoostApy = BigDecimal.zero()
   vault.blocklistCount = BigInt.zero()
@@ -801,8 +802,9 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.createdAt = event.block.timestamp
   vault.lastXdaiSwappedTimestamp = event.block.timestamp
   vault._unclaimedFeeRecipientShares = BigInt.zero()
+  vault.baseApy = BigDecimal.zero()
+  vault.baseApys = []
   vault.apy = BigDecimal.zero()
-  vault.apys = []
   vault.allocatorMaxBoostApy = BigDecimal.zero()
   vault.osTokenHolderMaxBoostApy = BigDecimal.zero()
   vault.isGenesis = false

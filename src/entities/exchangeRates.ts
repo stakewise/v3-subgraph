@@ -143,6 +143,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   const osTokenAssetsRate = convertOsTokenSharesToAssets(osToken, wad).toBigDecimal().div(wad.toBigDecimal())
 
   exchangeRate.osTokenAssetsRate = osTokenAssetsRate
+  exchangeRate.assetsUsdRate = assetsUsdRate
   exchangeRate.swiseUsdRate = swiseUsdRate
   exchangeRate.usdToEurRate = usdToEurRate
   exchangeRate.usdToGbpRate = usdToGbpRate

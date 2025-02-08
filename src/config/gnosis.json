@@ -86,8 +86,8 @@
     "startBlock": "36654333"
   },
   "merkleDistributor": {
-    "address": "0xA6991959FD04B23882b430555409FFb220826338",
-    "startBlock": "37493867"
+    "address": "0xFBceefdBB0ca25a4043b35EF49C2810425243710",
+    "startBlock": "38426381"
   },
   "aaveLeverageStrategy": {
     "address": "0x0000000000000000000000000000000000000000",

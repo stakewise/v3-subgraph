@@ -98,8 +98,9 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.createdAt = block.timestamp
   vault.lastXdaiSwappedTimestamp = block.timestamp
   vault._unclaimedFeeRecipientShares = BigInt.zero()
+  vault.baseApy = BigDecimal.zero()
+  vault.baseApys = []
   vault.apy = BigDecimal.zero()
-  vault.apys = []
   vault.allocatorMaxBoostApy = BigDecimal.zero()
   vault.osTokenHolderMaxBoostApy = BigDecimal.zero()
   vault.blocklistCount = BigInt.zero()
@@ -170,14 +171,14 @@ export function convertSharesToAssets(vault: Vault, shares: BigInt): BigInt {
 }
 
 export function getVaultApy(vault: Vault, distributor: Distributor, osToken: OsToken, useDayApy: boolean): BigDecimal {
-  const apys: Array<BigDecimal> = vault.apys
+  const baseApys: Array<BigDecimal> = vault.baseApys
 
   let vaultApy: BigDecimal
-  const apysCount = apys.length
-  if (useDayApy && apysCount > snapshotsPerDay) {
-    vaultApy = calculateAverage(apys.slice(apysCount - snapshotsPerDay))
+  const baseApysCount = baseApys.length
+  if (useDayApy && baseApysCount > snapshotsPerDay) {
+    vaultApy = calculateAverage(baseApys.slice(baseApysCount - snapshotsPerDay))
   } else {
-    vaultApy = calculateAverage(apys)
+    vaultApy = vault.baseApy
   }
 
   // get additional periodic incentives
@@ -585,32 +586,33 @@ export function updateVaultApy(
     return
   }
 
-  let apys = vault.apys
-  const apysCount = apys.length
-  let currentApy = rateChange
+  let baseApys = vault.baseApys
+  const baseApysCount = baseApys.length
+  let currentBaseApy = rateChange
     .toBigDecimal()
     .times(BigDecimal.fromString(secondsInYear))
     .times(BigDecimal.fromString(maxPercent))
     .div(BigDecimal.fromString(WAD))
     .div(totalDuration.toBigDecimal())
 
-  if (appendToLast && apysCount > 0) {
-    currentApy = currentApy.plus(apys[apysCount - 1])
+  if (appendToLast && baseApysCount > 0) {
+    currentBaseApy = currentBaseApy.plus(baseApys[baseApysCount - 1])
   }
   const maxApy = BigDecimal.fromString(MAX_VAULT_APY)
-  if (currentApy.gt(maxApy)) {
-    currentApy = maxApy
+  if (currentBaseApy.gt(maxApy)) {
+    currentBaseApy = maxApy
   }
 
-  if (appendToLast && apysCount > 0) {
-    apys[apysCount - 1] = currentApy
+  if (appendToLast && baseApysCount > 0) {
+    baseApys[baseApysCount - 1] = currentBaseApy
   } else {
-    apys.push(currentApy)
+    baseApys.push(currentBaseApy)
   }
-  if (apysCount > snapshotsPerWeek) {
-    apys = apys.slice(apysCount - snapshotsPerWeek)
+  if (baseApysCount > snapshotsPerWeek) {
+    baseApys = baseApys.slice(baseApysCount - snapshotsPerWeek)
   }
-  vault.apys = apys
+  vault.baseApys = baseApys
+  vault.baseApy = calculateAverage(baseApys)
   vault.apy = getVaultApy(vault, distributor, osToken, false)
 }
 

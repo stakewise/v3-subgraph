@@ -325,8 +325,11 @@ type Vault @entity {
   "The vault average weekly total APY"
   apy: BigDecimal!
 
-  "The list of vault APY snapshot"
-  apys: [BigDecimal!]!
+  "The vault average weekly base APY (without extra incentives)"
+  baseApy: BigDecimal!
+
+  "The list of vault base APY snapshots"
+  baseApys: [BigDecimal!]!
 
   "The average weekly max boost APY earned in this vault by the allocator"
   allocatorMaxBoostApy: BigDecimal!
