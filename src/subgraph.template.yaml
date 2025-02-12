@@ -455,6 +455,8 @@ dataSources:
           handler: handleRewardsRootUpdated
         - event: RewardsClaimed(indexed address,indexed address,address[],uint256[])
           handler: handleRewardsClaimed
+        - event: DistributorUpdated(indexed address,indexed address,bool)
+          handler: handleDistributorUpdated
   - kind: ethereum/contract
     name: AaveLeverageStrategy
     network: {{ network }}

@@ -5,6 +5,7 @@ import {
   PeriodicDistributionAdded,
   RewardsClaimed,
   RewardsRootUpdated,
+  DistributorUpdated,
 } from '../../generated/MerkleDistributor/MerkleDistributor'
 import {
   convertDistributionTypeToString,
@@ -290,4 +291,22 @@ export function handleRewardsClaimed(event: RewardsClaimed): void {
 
   createTransaction(event.transaction.hash.toHex())
   log.info('[MerkleDistributor] RewardsClaimed user={}', [user.toHex()])
+}
+
+export function handleDistributorUpdated(event: DistributorUpdated): void {
+  const distributor = loadDistributor()!
+  const activeDistributors = distributor.activeDistributors
+  const index = activeDistributors.indexOf(event.params.distributor)
+  if (index == -1 && event.params.isEnabled) {
+    activeDistributors.push(event.params.distributor)
+  }
+  if (index != -1 && !event.params.isEnabled) {
+    activeDistributors.splice(index, 1)
+  }
+  distributor.activeDistributors = activeDistributors
+  distributor.save()
+  log.info('[MerkleDistributor] DistributorUpdated distributor={} isEnabled={}', [
+    event.params.distributor.toHex(),
+    event.params.isEnabled ? 'true' : 'false',
+  ])
 }

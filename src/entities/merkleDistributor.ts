@@ -54,6 +54,7 @@ export function createOrLoadDistributor(): Distributor {
   if (distributor === null) {
     distributor = new Distributor(distributorId)
     distributor.activeDistributionIds = []
+    distributor.activeDistributors = []
     distributor.save()
   }
 
