@@ -36,6 +36,9 @@ type Allocator @entity {
   "The vault of the allocator"
   vault: Vault!
 
+  "Allocator's total earned assets"
+  totalEarnedAssets: BigInt!
+
   "The exit requests of the allocator"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "allocator")
 
@@ -87,6 +90,9 @@ type OsTokenHolder @entity {
 
   "The total number of OsToken transfers"
   transfersCount: BigInt!
+
+  "The osToken holder's total earned assets"
+  totalEarnedAssets: BigInt!
 
   "The period earned assets"
   _periodEarnedAssets: BigInt!
@@ -742,9 +748,6 @@ type LeverageStrategyPosition @entity {
   "The total amount of user assets"
   assets: BigInt!
 
-  "The total amount of user assets"
-  totalAssets: BigInt!
-
   "The current borrow LTV percent"
   borrowLtv: BigDecimal!
 
@@ -759,6 +762,12 @@ type LeverageStrategyPosition @entity {
 
   "The unprocessed exit request. Can be null if nothing is exiting."
   exitRequest: ExitRequest
+
+  "The total amount of user assets used for period reward calc"
+  _totalAssets: BigInt!
+
+  "The total amount of user osToken shares used for period reward calc"
+  _totalOsTokenShares: BigInt!
 }
 
 """

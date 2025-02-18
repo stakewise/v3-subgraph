@@ -23,8 +23,7 @@ import { calculateAverage, getAnnualReward, getCompoundedApy } from '../helpers/
 import { loadAavePosition } from './aave'
 import { loadAllocator } from './allocator'
 import { convertTokenAmountToAssets } from './exchangeRates'
-import { loadOsTokenHolder } from './osTokenHolder'
-import { getIsOsTokenVault } from './network'
+import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
 
 const distributorId = '1'
 const secondsInYear = '31536000'
@@ -562,12 +561,15 @@ function _distributeReward(
       allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(userRewardAssets)
       allocator.save()
     }
-    if (getIsOsTokenVault(network, vault.toHexString())) {
-      const osTokenHolder = loadOsTokenHolder(user)
-      if (osTokenHolder) {
-        osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(userRewardAssets)
-        osTokenHolder.save()
-      }
+
+    const osTokenHolder = loadOsTokenHolder(user)
+    if (!osTokenHolder) {
+      continue
+    }
+    const osTokenVault = getOsTokenHolderVault(network, osTokenHolder)
+    if (osTokenVault && osTokenVault.equals(vault)) {
+      osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(userRewardAssets)
+      osTokenHolder.save()
     }
   }
 }
