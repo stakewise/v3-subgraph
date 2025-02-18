@@ -851,6 +851,8 @@ templates:
           handler: handleSharesDecreased
         - event: RewardsWithdrawn(indexed address,uint256)
           handler: handleRewardsWithdrawn
+        - event: ClaimOnBehalfUpdated(address,bool)
+          handler: handleClaimOnBehalfUpdated
   - kind: ethereum/contract
     name: UniswapPool
     network: {{ network }}

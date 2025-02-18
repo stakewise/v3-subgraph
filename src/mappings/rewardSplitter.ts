@@ -1,6 +1,7 @@
 import { Address, BigInt, log } from '@graphprotocol/graph-ts'
 import { RewardSplitter as RewardSplitterTemplate } from '../../generated/templates'
 import {
+  ClaimOnBehalfUpdated,
   RewardsWithdrawn,
   SharesDecreased,
   SharesIncreased,
@@ -10,19 +11,42 @@ import { RewardSplitter } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
 import { createOrLoadRewardSplitterShareHolder, loadRewardSplitterShareHolder } from '../entities/rewardSplitter'
 import { convertSharesToAssets, loadVault } from '../entities/vault'
+import {
+  REWARD_SPLITTER_FACTORY_V1,
+  REWARD_SPLITTER_FACTORY_V2,
+  REWARD_SPLITTER_FACTORY_V3,
+} from '../helpers/constants'
 
 // Event emitted on RewardSplitter contract creation
 export function handleRewardSplitterCreated(event: RewardSplitterCreated): void {
   const params = event.params
   const owner = params.owner
   const txHash = event.transaction.hash.toHex()
-  const vault = params.vault.toHex()
+  const vaultAddressHex = params.vault.toHex()
   const rewardSplitterAddress = params.rewardSplitter.toHex()
+  const factoryAddress = event.address
+
+  const version = getRewardSplitterVersion(factoryAddress)
+  if (version === null) {
+    log.error('[RewardSplitterFactory] Unknown factory address={}', [factoryAddress.toHex()])
+    return
+  }
 
   const rewardSplitter = new RewardSplitter(rewardSplitterAddress)
+  rewardSplitter.version = version
+  rewardSplitter.isClaimOnBehalfEnabled = false
   rewardSplitter.totalShares = BigInt.zero()
   rewardSplitter.owner = owner
-  rewardSplitter.vault = vault
+  rewardSplitter.vault = vaultAddressHex
+
+  if (version >= BigInt.fromI32(3)) {
+    const vault = loadVault(Address.fromString(vaultAddressHex))
+    if (vault == null) {
+      log.error('[RewardSplitterFactory] Vault not found address={}', [vaultAddressHex])
+      return
+    }
+    rewardSplitter.owner = vault.admin
+  }
   rewardSplitter.save()
 
   createTransaction(txHash)
@@ -31,8 +55,27 @@ export function handleRewardSplitterCreated(event: RewardSplitterCreated): void 
 
   log.info('[RewardSplitterFactory] RewardSplitterCreated address={} vault={} owner={}', [
     rewardSplitterAddress,
-    vault,
+    vaultAddressHex,
     owner.toHex(),
+  ])
+}
+
+// Event emitted on RewardSplitter claim on behalf update
+export function handleClaimOnBehalfUpdated(event: ClaimOnBehalfUpdated): void {
+  const params = event.params
+  const rewardSplitterAddress = event.address
+  const rewardSplitterAddressHex = rewardSplitterAddress.toHex()
+
+  const rewardSplitter = RewardSplitter.load(rewardSplitterAddressHex) as RewardSplitter
+  rewardSplitter.isClaimOnBehalfEnabled = params.enabled
+  rewardSplitter.save()
+
+  const txHash = event.transaction.hash.toHex()
+  createTransaction(txHash)
+
+  log.info('[RewardSplitter] ClaimOnBehalfUpdated rewardSplitter={} enabled={}', [
+    rewardSplitterAddressHex,
+    params.enabled ? 'true' : 'false',
   ])
 }
 
@@ -115,4 +158,17 @@ export function handleRewardsWithdrawn(event: RewardsWithdrawn): void {
     account.toHex(),
     withdrawnVaultShares.toString(),
   ])
+}
+
+function getRewardSplitterVersion(factoryAddress: Address): BigInt | null {
+  if (factoryAddress == Address.fromString(REWARD_SPLITTER_FACTORY_V1)) {
+    return BigInt.fromI32(1)
+  }
+  if (factoryAddress == Address.fromString(REWARD_SPLITTER_FACTORY_V2)) {
+    return BigInt.fromI32(2)
+  }
+  if (factoryAddress == Address.fromString(REWARD_SPLITTER_FACTORY_V3)) {
+    return BigInt.fromI32(3)
+  }
+  return null
 }
