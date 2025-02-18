@@ -86,6 +86,7 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.address = allocatorAddress
     vaultAllocator.vault = vaultAddress.toHex()
     vaultAllocator.apy = BigDecimal.zero()
+    vaultAllocator.totalEarnedAssets = BigInt.zero()
     vaultAllocator._periodEarnedAssets = BigInt.zero()
     vaultAllocator.save()
   }
