@@ -3,6 +3,9 @@ import { Aave, Distributor, OsToken, OsTokenConfig, Vault, VaultSnapshot } from 
 import {
   AAVE_LEVERAGE_STRATEGY,
   AAVE_LEVERAGE_STRATEGY_START_BLOCK,
+  DEPOSIT_DATA_REGISTRY,
+  FOX_VAULT1,
+  FOX_VAULT2,
   MAX_VAULT_APY,
   VAULT_FACTORY_V2,
   VAULT_FACTORY_V3,
@@ -115,6 +118,14 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   } else {
     vault.version = BigInt.fromI32(isGnosis ? 2 : 1)
     vault.osTokenConfig = isGnosis ? '2' : '1'
+  }
+
+  if (vault.version.equals(BigInt.fromI32(1))) {
+    // there is no validators manager for v1 vaults
+    vault.validatorsManager = null
+  } else {
+    // default to deposit data registry
+    vault.validatorsManager = DEPOSIT_DATA_REGISTRY
   }
 
   if (ownMevEscrow != Address.zero()) {
@@ -599,7 +610,10 @@ export function updateVaultApy(
     currentBaseApy = currentBaseApy.plus(baseApys[baseApysCount - 1])
   }
   const maxApy = BigDecimal.fromString(MAX_VAULT_APY)
-  if (currentBaseApy.gt(maxApy)) {
+  const vaultAddr = Address.fromString(vault.id)
+  const isFoxVault =
+    vaultAddr.equals(Address.fromString(FOX_VAULT1)) || vaultAddr.equals(Address.fromString(FOX_VAULT2))
+  if (!isFoxVault && vault.version.equals(BigInt.fromI32(2)) && currentBaseApy.gt(maxApy)) {
     currentBaseApy = maxApy
   }
 

@@ -135,13 +135,14 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     }
 
     const allocator = loadAllocator(Address.fromBytes(exitRequest.receiver), vaultAddr)
-    if (allocator) {
+    // if total assets are zero, it means the vault must apply the fix to the exit queue introduced in v4 vaults
+    if (allocator && exitRequest.totalAssets.gt(BigInt.zero())) {
       allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
       allocator.save()
     }
 
     const osTokenHolder = loadOsTokenHolder(Address.fromBytes(exitRequest.receiver))
-    if (!osTokenHolder) {
+    if (!osTokenHolder || exitRequest.totalAssets.le(BigInt.zero())) {
       continue
     }
     const osTokenVault = getOsTokenHolderVault(network, osTokenHolder)
