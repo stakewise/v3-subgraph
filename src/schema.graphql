@@ -966,26 +966,11 @@ type UniswapPool @entity {
   "Fee tier"
   feeTier: BigInt!
 
-  "The in range liquidity"
-  liquidity: BigInt!
-
   "The current price tracked"
   sqrtPrice: BigInt!
 
-  "The tracker of the accumulated token0 fees"
-  feesToken0: BigInt!
-
-  "The tracker of the accumulated token1 fees"
-  feesToken1: BigInt!
-
   "The current tick"
   tick: Int
-
-  "All time token0 swapped"
-  volumeToken0: BigInt!
-
-  "All time token1 swapped"
-  volumeToken1: BigInt!
 
   "The pool positions"
   positions: [UniswapPosition!]! @derivedFrom(field: "pool")

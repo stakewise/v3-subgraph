@@ -112,9 +112,11 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
   }
 
   let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
-  while (data === null) {
+  let tries = 10
+  while (data === null && tries > 0) {
     log.warning('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}, retrying', [rewardsIpfsHash])
     data = ipfs.cat(rewardsIpfsHash)
+    tries -= 1
   }
 
   const parsedData = json.fromBytes(data as Bytes)
