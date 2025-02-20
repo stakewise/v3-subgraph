@@ -68,11 +68,17 @@ export function updatePoolApy(
     ])
     return
   }
-  const currentApy = new BigDecimal(rateChange)
+  let currentApy = new BigDecimal(rateChange)
     .times(BigDecimal.fromString(secondsInYear))
     .times(BigDecimal.fromString(maxPercent))
     .div(BigDecimal.fromString(WAD))
     .div(new BigDecimal(totalDuration))
+
+  if (pool.totalAssets.gt(BigInt.zero())) {
+    // the rate change is calculated as if only the principal assets were staked
+    // we need to include the reward assets as well
+    currentApy = currentApy.times(pool.principalAssets.toBigDecimal()).div(pool.totalAssets.toBigDecimal())
+  }
 
   let apys = pool.apys
   apys.push(currentApy)
