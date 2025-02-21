@@ -41,7 +41,13 @@ export function handleXdaiSwapped(event: XdaiSwapped): void {
     feeRecipientShares = feeRecipientAssets.times(vault.totalShares).div(vault.totalAssets.minus(feeRecipientAssets))
   }
   vault.totalShares = vault.totalShares.plus(feeRecipientShares)
-  const newRate = convertSharesToAssets(vault, BigInt.fromString(WAD))
+
+  let newRate = convertSharesToAssets(vault, BigInt.fromString(WAD))
+  // if (isDevirsifyVault(vault) && vault.feePercent.equals(10000)) {
+  //   // diversify vault have 100% fee so we calculate rate
+  //   newRate = getDiversifyVaultRate(vault, vaultRewardAssets)
+  // }
+
   updateVaultApy(
     vault,
     distributor,

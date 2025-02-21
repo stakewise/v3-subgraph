@@ -191,7 +191,7 @@ export function handleInitialized(event: Initialized): void {
     vault.osTokenConfig = '2'
     if (blockNumber.lt(BigInt.fromString(OS_TOKEN_CONFIG_V2_START_BLOCK))) {
       createOrLoadOsTokenConfig('2')
-      log.warning('[Vault] Vault vault={} is with V2 osTokenConfig before its creation', [vaultAddress.toHex()])
+      log.warning('[Vault] vault={} is with V2 osTokenConfig before its creation', [vaultAddress.toHex()])
     }
   }
   vault.version = newVersion

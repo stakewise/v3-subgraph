@@ -6,7 +6,7 @@ export function handleExchangeRates(block: ethereum.Block): void {
   updateExchangeRates(exchangeRate, block.timestamp)
 
   log.info(
-    '[ExchangeRates] assetsUsdRate={} usdToEurRate={} usdToGbpRate={} usdToCnyRate={} usdToJpyRate={} usdToKrwRate={} usdToAudRate={} daiUsdRate={} usdcUsdRate={} swiseUsdRate={} timestamp={}',
+    '[ExchangeRates] assetsUsdRate={} usdToEurRate={} usdToGbpRate={} usdToCnyRate={} usdToJpyRate={} usdToKrwRate={} usdToAudRate={} daiUsdRate={} usdcUsdRate={} swiseUsdRate={} ssvUsdRate={} timestamp={}',
     [
       exchangeRate.assetsUsdRate.toString(),
       exchangeRate.usdToEurRate.toString(),
@@ -18,6 +18,7 @@ export function handleExchangeRates(block: ethereum.Block): void {
       exchangeRate.daiUsdRate.toString(),
       exchangeRate.usdcUsdRate.toString(),
       exchangeRate.swiseUsdRate.toString(),
+      exchangeRate.ssvUsdRate.toString(),
       block.timestamp.toString(),
     ],
   )

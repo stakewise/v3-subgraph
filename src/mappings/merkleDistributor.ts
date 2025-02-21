@@ -18,8 +18,7 @@ import {
   loadDistributorClaim,
 } from '../entities/merkleDistributor'
 import { createTransaction } from '../entities/transaction'
-import { OS_TOKEN } from '../helpers/constants'
-import { convertTokenAmountToAssets, loadExchangeRate } from '../entities/exchangeRates'
+import { convertTokenAmountToAssets, isTokenSupported, loadExchangeRate } from '../entities/exchangeRates'
 import { loadVault, snapshotVault } from '../entities/vault'
 import { loadOsToken } from '../entities/osToken'
 import { loadNetwork } from '../entities/network'
@@ -29,33 +28,21 @@ const secondsInYear = '31536000'
 export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded): void {
   const token = event.params.token
   const extraData = event.params.extraData
-  const exchangeRate = loadExchangeRate()!
 
   const distType = getDistributionType(extraData)
   if (distType == DistributionType.UNKNOWN) {
     log.error('[MerkleDistributor] Unknown periodic distribution extraData={}', [extraData.toHex()])
     return
-  } else if (distType == DistributionType.LEVERAGE_STRATEGY && token.notEqual(OS_TOKEN)) {
-    log.error('[MerkleDistributor] Leverage strategy distribution token is not OsToken={}', [token.toHex()])
-    return
-  } else if (
-    distType == DistributionType.SWISE_ASSET_UNI_POOL &&
-    (exchangeRate.assetsUsdRate.equals(BigDecimal.zero()) || exchangeRate.swiseUsdRate.equals(BigDecimal.zero()))
-  ) {
-    log.error('[MerkleDistributor] Swise asset Uni pool distribution assetsUsdRate or swiseUsdRate is zero', [])
-    return
-  } else if (
-    distType == DistributionType.OS_TOKEN_USDC_UNI_POOL &&
-    (exchangeRate.assetsUsdRate.equals(BigDecimal.zero()) || exchangeRate.usdcUsdRate.equals(BigDecimal.zero()))
-  ) {
-    log.error('[MerkleDistributor] OsToken USDC Uni pool distribution assetsUsdRate or usdcUsdRate is zero', [])
+  }
+  if (!isTokenSupported(token)) {
+    log.error('[PeriodicDistribution] Unsupported token={}', [token.toHexString()])
     return
   }
 
   const startTimestamp = event.block.timestamp.plus(event.params.delayInSeconds)
   let endTimestamp: BigInt
   if (distType == DistributionType.LEVERAGE_STRATEGY) {
-    // leverage strategy distribution will continue until there is enough tokens to maintain specific APY
+    // the actual end timestamp will be calculated during first distribution
     endTimestamp = startTimestamp.plus(BigInt.fromString(secondsInYear))
   } else {
     endTimestamp = startTimestamp.plus(event.params.durationInSeconds)
@@ -93,6 +80,11 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
   const totalAmountToDistribute = event.params.amount
   const extraData = event.params.extraData
 
+  if (!isTokenSupported(token)) {
+    log.error('[OneTimeDistribution] Unsupported token ={}', [token.toHexString()])
+    return
+  }
+
   const distType = getDistributionType(extraData)
   if (distType == DistributionType.VAULT) {
     const network = loadNetwork()!
@@ -112,9 +104,15 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
   }
 
   let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
-  while (data === null) {
+  let tries = 10
+  while (data === null && tries > 0) {
     log.warning('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}, retrying', [rewardsIpfsHash])
     data = ipfs.cat(rewardsIpfsHash)
+    tries -= 1
+  }
+  if (data === null) {
+    log.error('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}', [rewardsIpfsHash])
+    return
   }
 
   const parsedData = json.fromBytes(data as Bytes)

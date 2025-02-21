@@ -55,7 +55,7 @@ export function getAnnualReward(principal: BigInt, apy: BigDecimal): BigInt {
 }
 
 export function calculateApy(earnedAssets: BigInt, totalAssets: BigInt, durationInSeconds: BigInt): BigDecimal {
-  if (durationInSeconds.isZero() || totalAssets.isZero()) {
+  if (durationInSeconds.le(BigInt.zero()) || totalAssets.le(BigInt.zero())) {
     return BigDecimal.zero()
   }
   return earnedAssets

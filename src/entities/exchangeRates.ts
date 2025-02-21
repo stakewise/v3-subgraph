@@ -28,7 +28,23 @@ const latestAnswerSelector = '0x50d25bcd'
 const exchangeRateId = '0'
 
 export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigInt): void {
+  const osToken = loadOsToken()!
+  const wad = BigInt.fromString(WAD)
+  const osTokenAssetsRate = convertOsTokenSharesToAssets(osToken, wad).toBigDecimal().div(wad.toBigDecimal())
   if (NETWORK == 'chiado' || NETWORK == 'holesky') {
+    exchangeRate.osTokenAssetsRate = osTokenAssetsRate
+    exchangeRate.assetsUsdRate = BigDecimal.fromString('2723.05')
+    exchangeRate.swiseUsdRate = BigDecimal.fromString('0.01461953570159260834000550061571017')
+    exchangeRate.daiUsdRate = BigDecimal.fromString('1.00002222')
+    exchangeRate.usdcUsdRate = BigDecimal.fromString('0.99988307')
+    exchangeRate.usdToEurRate = BigDecimal.fromString('0.9591498096087627926605856568737471')
+    exchangeRate.usdToGbpRate = BigDecimal.fromString('0.7944831092890965138081164394444974')
+    exchangeRate.usdToCnyRate = BigDecimal.fromString('7.281070055179589413178518367773401')
+    exchangeRate.usdToJpyRate = BigDecimal.fromString('151.4061849426549074529694538021878')
+    exchangeRate.usdToKrwRate = BigDecimal.fromString('1441.109077546079462754535890821576')
+    exchangeRate.usdToAudRate = BigDecimal.fromString('1.576267713308428303463060166138617')
+    exchangeRate.ssvUsdRate = BigDecimal.fromString('11.9')
+    exchangeRate.save()
     return
   }
 
@@ -138,10 +154,6 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   const usdToKrwRate = krwToUsdRate.gt(zero) ? one.div(krwToUsdRate) : zero
   const usdToAudRate = audToUsdRate.gt(zero) ? one.div(audToUsdRate) : zero
 
-  const osToken = loadOsToken()!
-  const wad = BigInt.fromString(WAD)
-  const osTokenAssetsRate = convertOsTokenSharesToAssets(osToken, wad).toBigDecimal().div(wad.toBigDecimal())
-
   exchangeRate.osTokenAssetsRate = osTokenAssetsRate
   exchangeRate.assetsUsdRate = assetsUsdRate
   exchangeRate.swiseUsdRate = swiseUsdRate
@@ -200,21 +212,34 @@ export function loadExchangeRate(): ExchangeRate | null {
   return ExchangeRate.load(exchangeRateId)
 }
 
+export function isTokenSupported(token: Address): boolean {
+  if (token.equals(Address.zero())) {
+    return false
+  }
+  return (
+    token.equals(Address.fromString(ASSET_TOKEN)) ||
+    token.equals(OS_TOKEN) ||
+    token.equals(SWISE_TOKEN) ||
+    token.equals(Address.fromString(SSV_TOKEN)) ||
+    token.equals(Address.fromString(USDC_TOKEN))
+  )
+}
+
 export function convertTokenAmountToAssets(exchangeRate: ExchangeRate, token: Address, amount: BigInt): BigInt {
   if (token.equals(Address.fromString(ASSET_TOKEN))) {
     return amount
   }
   if (token.equals(OS_TOKEN)) {
-    return amount.toBigDecimal().times(exchangeRate.osTokenAssetsRate).digits
+    return amount.toBigDecimal().times(exchangeRate.osTokenAssetsRate).truncate(0).digits
   }
   if (token.equals(SWISE_TOKEN)) {
-    return amount.toBigDecimal().times(exchangeRate.swiseUsdRate).div(exchangeRate.assetsUsdRate).digits
+    return amount.toBigDecimal().times(exchangeRate.swiseUsdRate).div(exchangeRate.assetsUsdRate).truncate(0).digits
   }
   if (token.equals(Address.fromString(SSV_TOKEN))) {
-    return amount.toBigDecimal().times(exchangeRate.ssvUsdRate).div(exchangeRate.assetsUsdRate).digits
+    return amount.toBigDecimal().times(exchangeRate.ssvUsdRate).div(exchangeRate.assetsUsdRate).truncate(0).digits
   }
   if (token.equals(Address.fromString(USDC_TOKEN))) {
-    return amount.toBigDecimal().times(exchangeRate.usdcUsdRate).div(exchangeRate.assetsUsdRate).digits
+    return amount.toBigDecimal().times(exchangeRate.usdcUsdRate).div(exchangeRate.assetsUsdRate).truncate(0).digits
   }
   assert(false, 'Cannot convert to assets unsupported token=' + token.toHexString())
   return BigInt.zero()
