@@ -446,6 +446,8 @@ dataSources:
       abis:
         - name: MerkleDistributor
           file: ./abis/MerkleDistributor.json
+        - name: Safe
+          file: ./abis/Safe.json
       eventHandlers:
         - event: PeriodicDistributionAdded(indexed address,indexed address,uint256,uint256,uint256,bytes)
           handler: handlePeriodicDistributionAdded

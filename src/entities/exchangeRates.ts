@@ -212,21 +212,34 @@ export function loadExchangeRate(): ExchangeRate | null {
   return ExchangeRate.load(exchangeRateId)
 }
 
+export function isTokenSupported(token: Address): boolean {
+  if (token.equals(Address.zero())) {
+    return false
+  }
+  return (
+    token.equals(Address.fromString(ASSET_TOKEN)) ||
+    token.equals(OS_TOKEN) ||
+    token.equals(SWISE_TOKEN) ||
+    token.equals(Address.fromString(SSV_TOKEN)) ||
+    token.equals(Address.fromString(USDC_TOKEN))
+  )
+}
+
 export function convertTokenAmountToAssets(exchangeRate: ExchangeRate, token: Address, amount: BigInt): BigInt {
   if (token.equals(Address.fromString(ASSET_TOKEN))) {
     return amount
   }
   if (token.equals(OS_TOKEN)) {
-    return amount.toBigDecimal().times(exchangeRate.osTokenAssetsRate).digits
+    return amount.toBigDecimal().times(exchangeRate.osTokenAssetsRate).truncate(0).digits
   }
   if (token.equals(SWISE_TOKEN)) {
-    return amount.toBigDecimal().times(exchangeRate.swiseUsdRate).div(exchangeRate.assetsUsdRate).digits
+    return amount.toBigDecimal().times(exchangeRate.swiseUsdRate).div(exchangeRate.assetsUsdRate).truncate(0).digits
   }
   if (token.equals(Address.fromString(SSV_TOKEN))) {
-    return amount.toBigDecimal().times(exchangeRate.ssvUsdRate).div(exchangeRate.assetsUsdRate).digits
+    return amount.toBigDecimal().times(exchangeRate.ssvUsdRate).div(exchangeRate.assetsUsdRate).truncate(0).digits
   }
   if (token.equals(Address.fromString(USDC_TOKEN))) {
-    return amount.toBigDecimal().times(exchangeRate.usdcUsdRate).div(exchangeRate.assetsUsdRate).digits
+    return amount.toBigDecimal().times(exchangeRate.usdcUsdRate).div(exchangeRate.assetsUsdRate).truncate(0).digits
   }
   assert(false, 'Cannot convert to assets unsupported token=' + token.toHexString())
   return BigInt.zero()

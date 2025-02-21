@@ -1,5 +1,14 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, JSONValue, log, TypedMap } from '@graphprotocol/graph-ts'
-import { Aave, Distributor, OsToken, OsTokenConfig, Vault, VaultSnapshot } from '../../generated/schema'
+import {
+  Aave,
+  Distributor,
+  OsToken,
+  OsTokenConfig,
+  RewardSplitter,
+  RewardSplitterShareHolder,
+  Vault,
+  VaultSnapshot,
+} from '../../generated/schema'
 import {
   AAVE_LEVERAGE_STRATEGY,
   AAVE_LEVERAGE_STRATEGY_START_BLOCK,
@@ -347,6 +356,11 @@ export function updateVaults(
       }
     }
 
+    // if (isDevirsifyVault(vault) && vault.feePercent.equals(10000)) {
+    //   // diversify vault have 100% fee so we calculate rate
+    //   newRate = getDiversifyVaultRate(vault, vaultPeriodAssets)
+    // }
+
     network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
     network.totalEarnedAssets = network.totalEarnedAssets.plus(vaultPeriodAssets)
 
@@ -628,6 +642,34 @@ export function updateVaultApy(
   vault.baseApys = baseApys
   vault.baseApy = calculateAverage(baseApys)
   vault.apy = getVaultApy(vault, distributor, osToken, false)
+}
+
+export function getDiversifyVaultRate(vault: Vault, periodAssets: BigInt): BigInt {
+  // we estimate new rate based on period rewards and total assets of the vault and deduct the fee
+  if (vault.totalAssets.isZero()) {
+    return vault.rate
+  }
+  let addedRate = periodAssets.times(BigInt.fromString(WAD)).div(vault.totalAssets)
+  const splitter = RewardSplitter.load(vault.feeRecipient.toHexString())
+  if (!splitter) {
+    return vault.rate.plus(addedRate)
+  }
+  const shareholders: Array<RewardSplitterShareHolder> = splitter.shareHolders.load()
+  // lowest shares is the fee to the operator
+  let smallestShares = BigInt.zero()
+  let totalShares = BigInt.zero()
+  for (let i = 0; i < shareholders.length; i++) {
+    const shareHolderShares = shareholders[i].shares
+    if (shareHolderShares.lt(smallestShares)) {
+      smallestShares = shareHolderShares
+    }
+    totalShares = totalShares.plus(shareHolderShares)
+  }
+  if (totalShares.isZero()) {
+    return vault.rate.plus(addedRate)
+  }
+  // deduct fee percent
+  return vault.rate.plus(addedRate).minus(addedRate.times(smallestShares).div(totalShares))
 }
 
 function _getConvertToAssetsCall(shares: BigInt): Bytes {

@@ -15,13 +15,13 @@ import {
   Vault,
 } from '../../generated/schema'
 import { Safe as SafeContract } from '../../generated/PeriodicTasks/Safe'
-import { loadUniswapPool, MAX_TICK, MIN_TICK } from './uniswap'
+import { loadUniswapPool } from './uniswap'
 import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
 import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { loadVault, snapshotVault } from './vault'
 import { calculateAverage, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { loadAavePosition } from './aave'
-import { loadAllocator } from './allocator'
+import { createOrLoadAllocator } from './allocator'
 import { convertTokenAmountToAssets } from './exchangeRates'
 import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
 
@@ -380,7 +380,7 @@ export function distributeToSwiseAssetUniPoolUsers(
   const usersAssets: Array<BigInt> = []
   for (let i = 0; i < uniPositions.length; i++) {
     const uniPosition = uniPositions[i]
-    if (uniPosition.tickLower != MIN_TICK && uniPosition.tickUpper != MAX_TICK) {
+    if (uniPosition.tickLower > -887220 || uniPosition.tickUpper < 887220) {
       // only full range positions receive incentives
       continue
     }
@@ -556,11 +556,9 @@ function _distributeReward(
 
     const vault = vaults[i]
     const userRewardAssets = convertTokenAmountToAssets(exchangeRate, token, userReward)
-    const allocator = loadAllocator(user, vault)
-    if (allocator) {
-      allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(userRewardAssets)
-      allocator.save()
-    }
+    const allocator = createOrLoadAllocator(user, vault)
+    allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(userRewardAssets)
+    allocator.save()
 
     const osTokenHolder = loadOsTokenHolder(user)
     if (!osTokenHolder) {
