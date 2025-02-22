@@ -71,8 +71,8 @@ export function handleSwap(event: Swap): void {
   pool.save()
 
   if (
-    isPositionSupportedToken(Address.fromString(pool.token0.toString())) ||
-    isPositionSupportedToken(Address.fromString(pool.token1.toString()))
+    isPositionSupportedToken(Address.fromBytes(pool.token0)) ||
+    isPositionSupportedToken(Address.fromBytes(pool.token1))
   ) {
     let position: UniswapPosition
     let positions: Array<UniswapPosition> = pool.positions.load()
