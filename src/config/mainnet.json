@@ -104,11 +104,11 @@
   },
   "uniswapFactory": {
     "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
-    "startBlock": "18276054"
+    "startBlock": "13465223"
   },
   "uniswapPositionManager": {
     "address": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
-    "startBlock": "18276054"
+    "startBlock": "13465223"
   },
   "strategiesRegistry": {
     "address": "0x90b82E4b3aa385B4A02B7EBc1892a4BeD6B5c465",
