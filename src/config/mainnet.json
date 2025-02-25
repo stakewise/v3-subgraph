@@ -5,7 +5,7 @@
   "wad": "1000000000000000000",
   "zeroAddress": "0x0000000000000000000000000000000000000000",
   "v2PoolFeePercent": "1000",
-  "maxVaultApy": "5",
+  "maxVaultApy": "15",
   "vaultFactoryV1": "0xDada5a8E3703B1e3EA2bAe5Ab704627eb2659fCC",
   "vaultFactoryV2": "0xfaa05900019f6E465086bcE16Bb3F06992715D53",
   "privVaultFactoryV1": "0x170618936cd96B1eD8112eC3D3778374B38DFe5e",

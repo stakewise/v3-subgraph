@@ -3,9 +3,8 @@ import { ExitRequest, Network, Vault } from '../../generated/schema'
 import { loadV2Pool } from './v2pool'
 import { convertSharesToAssets, getUpdateStateCall } from './vault'
 import { loadAllocator } from './allocator'
-import { loadOsTokenHolder } from './osTokenHolder'
+import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
 import { chunkedVaultMulticall } from '../helpers/utils'
-import { getIsOsTokenVault } from './network'
 
 const secondsInDay = '86400'
 const getExitQueueIndexSelector = '0x60d60e6e'
@@ -21,8 +20,8 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     return
   }
+  const vaultAddr = Address.fromString(vault.id)
 
-  const isOsTokenVault = getIsOsTokenVault(network, vault.id)
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
   const updateStateCall: Bytes | null = getUpdateStateCall(vault)
 
@@ -49,7 +48,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   }
 
   // Execute in chunks of size 10
-  let stage1Results: Array<Bytes> = chunkedVaultMulticall(Address.fromString(vault.id), allCallsStage1, 100)
+  let stage1Results: Array<Bytes> = chunkedVaultMulticall(vaultAddr, allCallsStage1, 100)
 
   // If we had an updateStateCall, remove its result from the front
   // so that the remainder of the results map cleanly to `pendingExitRequests`.
@@ -94,7 +93,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   }
 
   // Execute in chunks of size 10
-  let stage2Results: Array<Bytes> = chunkedVaultMulticall(Address.fromString(vault.id), allCallsStage2, 100)
+  let stage2Results: Array<Bytes> = chunkedVaultMulticall(vaultAddr, allCallsStage2, 100)
 
   // If we had an updateStateCall, remove its result from the front again
   if (updateStateCall) {
@@ -130,23 +129,24 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
 
     exitRequest.save()
 
-    if (exitRequest.receiver.notEqual(exitRequest.owner)) {
+    const earnedAssets = exitRequest.totalAssets.minus(totalAssetsBefore)
+    if (earnedAssets.isZero()) {
       continue
     }
 
-    const allocator = loadAllocator(Address.fromBytes(exitRequest.owner), Address.fromString(vault.id))!
-    const earnedAssets = exitRequest.totalAssets.minus(totalAssetsBefore)
-    if (!earnedAssets.isZero()) {
+    const allocator = loadAllocator(Address.fromBytes(exitRequest.receiver), vaultAddr)
+    // if total assets are zero, it means the vault must apply the fix to the exit queue introduced in v4 vaults
+    if (allocator && exitRequest.totalAssets.gt(BigInt.zero())) {
       allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
       allocator.save()
     }
 
-    if (!isOsTokenVault) {
+    const osTokenHolder = loadOsTokenHolder(Address.fromBytes(exitRequest.receiver))
+    if (!osTokenHolder || exitRequest.totalAssets.le(BigInt.zero())) {
       continue
     }
-
-    const osTokenHolder = loadOsTokenHolder(Address.fromBytes(exitRequest.owner))
-    if (osTokenHolder && !earnedAssets.isZero()) {
+    const osTokenVault = getOsTokenHolderVault(network, osTokenHolder)
+    if (osTokenVault && osTokenVault.equals(vaultAddr)) {
       osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(earnedAssets)
       osTokenHolder.save()
     }

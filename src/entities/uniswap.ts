@@ -44,6 +44,9 @@ export function createOrLoadPosition(tokenId: BigInt): UniswapPosition | null {
     let fee = positionResult.getFee()
     let factory = UniswapFactory.bind(UNISWAP_FACTORY)
     let poolAddress = factory.getPool(token0, token1, fee)
+    if (loadUniswapPool(poolAddress) == null) {
+      return null
+    }
 
     position = new UniswapPosition(tokenId.toString())
     position.owner = Address.zero()

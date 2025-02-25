@@ -395,5 +395,15 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
   network.osTokenVaultIds = osTokenVaultIds
   network.oraclesConfigIpfsHash = configIpfsHash
   network.save()
+
+  const osToken = loadOsToken()!
+  const distributor = loadDistributor()!
+  const holders: Array<OsTokenHolder> = osToken.holders.load()
+  for (let i = 0; i < holders.length; i++) {
+    const holder = holders[i]
+    holder.apy = getOsTokenHolderApy(network, osToken, distributor, holder)
+    holder.save()
+  }
+
   log.info('[Keeper] ConfigUpdated configIpfsHash={}', [configIpfsHash])
 }

@@ -2,7 +2,7 @@ import { Address, BigInt, log } from '@graphprotocol/graph-ts'
 import { UniswapPool, UniswapPosition } from '../../generated/schema'
 import { PoolCreated } from '../../generated/UniswapFactory/UniswapFactory'
 import { UniswapPool as UniswapPoolTemplate } from '../../generated/templates'
-import { Burn, Initialize, Mint, Swap } from '../../generated/templates/UniswapPool/UniswapPool'
+import { Initialize, Swap } from '../../generated/templates/UniswapPool/UniswapPool'
 import {
   DecreaseLiquidity,
   IncreaseLiquidity,
@@ -28,12 +28,7 @@ export function handlePoolCreated(event: PoolCreated): void {
   pool.token0 = event.params.token0
   pool.token1 = event.params.token1
   pool.feeTier = BigInt.fromI32(event.params.fee)
-  pool.liquidity = BigInt.zero()
   pool.sqrtPrice = BigInt.zero()
-  pool.feesToken0 = BigInt.zero()
-  pool.feesToken1 = BigInt.zero()
-  pool.volumeToken0 = BigInt.zero()
-  pool.volumeToken1 = BigInt.zero()
   pool.save()
 
   // create the tracked contract based on the template
@@ -64,84 +59,20 @@ export function handleInitialize(event: Initialize): void {
   ])
 }
 
-export function handleMint(event: Mint): void {
-  let pool = loadUniswapPool(event.address)
-  if (pool == null) {
-    return
-  }
-
-  // Pools liquidity tracks the currently active liquidity given pools current tick.
-  // We only want to update it on mint if the new position includes the current tick.
-  let tickLower = event.params.tickLower
-  let tickUpper = event.params.tickUpper
-  if (pool.tick && tickLower <= pool.tick && tickUpper > pool.tick) {
-    pool.liquidity = pool.liquidity.plus(event.params.amount)
-    pool.save()
-  }
-
-  log.info('[UniswapPool] Mint pool={} tickLower={} tickUpper={} amount={}', [
-    pool.id,
-    tickLower.toString(),
-    tickUpper.toString(),
-    event.params.amount.toString(),
-  ])
-}
-
-export function handleBurn(event: Burn): void {
-  let pool = loadUniswapPool(event.address)
-  if (pool == null) {
-    return
-  }
-
-  // Pools liquidity tracks the currently active liquidity given pools current tick.
-  // We only want to update it on burn if the position being burnt includes the current tick.
-  let tickLower = event.params.tickLower
-  let tickUpper = event.params.tickUpper
-  if (tickLower <= pool.tick && tickUpper > pool.tick) {
-    pool.liquidity = pool.liquidity.minus(event.params.amount)
-    pool.save()
-  }
-
-  log.info('[UniswapPool] Burn pool={} tickLower={} tickUpper={} amount={}', [
-    pool.id,
-    tickLower.toString(),
-    tickUpper.toString(),
-    event.params.amount.toString(),
-  ])
-}
-
 export function handleSwap(event: Swap): void {
   let pool = loadUniswapPool(event.address)
   if (pool == null) {
     return
   }
 
-  // need absolute amounts for volume
-  let amount0Abs = event.params.amount0
-  if (event.params.amount0.lt(BigInt.zero())) {
-    amount0Abs = event.params.amount0.times(BigInt.fromString('-1'))
-    pool.feesToken0 = pool.feesToken0.plus(amount0Abs.times(pool.feeTier).div(BigInt.fromI32(1000000)))
-  }
-
-  let amount1Abs = event.params.amount1
-  if (event.params.amount1.lt(BigInt.zero())) {
-    amount1Abs = event.params.amount1.times(BigInt.fromString('-1'))
-    pool.feesToken1 = pool.feesToken1.plus(amount1Abs.times(pool.feeTier).div(BigInt.fromI32(1000000)))
-  }
-
-  // pool volume
-  pool.volumeToken0 = pool.volumeToken0.plus(amount0Abs)
-  pool.volumeToken1 = pool.volumeToken1.plus(amount1Abs)
-
   // Update the pool with the new active liquidity, price, and tick.
-  pool.liquidity = event.params.liquidity
   pool.tick = event.params.tick
   pool.sqrtPrice = event.params.sqrtPriceX96
   pool.save()
 
   if (
-    isPositionSupportedToken(Address.fromString(pool.token0.toString())) ||
-    isPositionSupportedToken(Address.fromString(pool.token1.toString()))
+    isPositionSupportedToken(Address.fromBytes(pool.token0)) ||
+    isPositionSupportedToken(Address.fromBytes(pool.token1))
   ) {
     let position: UniswapPosition
     let positions: Array<UniswapPosition> = pool.positions.load()

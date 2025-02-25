@@ -72,6 +72,8 @@ export function handleDeposited(event: Deposited): void {
   const vault = loadVault(vaultAddress)!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
+  // create allocator if user wasn't depositing to the vault before
+  createOrLoadAllocator(userAddress, vaultAddress)
   const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
   updateAavePosition(createOrLoadAavePosition(Address.fromBytes(position.proxy)))
   updateLeverageStrategyPosition(aave, osToken, position)

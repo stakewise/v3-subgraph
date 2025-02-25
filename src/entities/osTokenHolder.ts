@@ -31,6 +31,7 @@ export function createOrLoadOsTokenHolder(holderAddress: Address): OsTokenHolder
     holder.osToken = osTokenId
     holder.transfersCount = BigInt.zero()
     holder.apy = BigDecimal.zero()
+    holder.totalEarnedAssets = BigInt.zero()
     holder._periodEarnedAssets = BigInt.zero()
     holder.save()
   }

@@ -154,6 +154,7 @@ function _updateSnapshots(network: Network, distributor: Distributor, timestamp:
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
     snapshotOsTokenHolder(network, osToken, osTokenHolder, osTokenHolder._periodEarnedAssets, duration, timestamp)
+    osTokenHolder.totalEarnedAssets = osTokenHolder.totalEarnedAssets.plus(osTokenHolder._periodEarnedAssets)
     osTokenHolder._periodEarnedAssets = BigInt.zero()
     osTokenHolder.save()
   }
@@ -168,6 +169,7 @@ function _updateSnapshots(network: Network, distributor: Distributor, timestamp:
     for (let j = 0; j < allocators.length; j++) {
       const allocator = allocators[j]
       snapshotAllocator(osToken, vault, allocator, allocator._periodEarnedAssets, duration, timestamp)
+      allocator.totalEarnedAssets = allocator.totalEarnedAssets.plus(allocator._periodEarnedAssets)
       allocator._periodEarnedAssets = BigInt.zero()
       allocator.save()
     }
