@@ -9,13 +9,12 @@ import {
 import { RewardSplitterCreated } from '../../generated/templates/RewardSplitterFactory/RewardSplitterFactory'
 import { RewardSplitter } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
-import { createOrLoadRewardSplitterShareHolder, loadRewardSplitterShareHolder } from '../entities/rewardSplitter'
-import { convertSharesToAssets, loadVault } from '../entities/vault'
 import {
-  REWARD_SPLITTER_FACTORY_V1,
-  REWARD_SPLITTER_FACTORY_V2,
-  REWARD_SPLITTER_FACTORY_V3,
-} from '../helpers/constants'
+  createOrLoadRewardSplitterShareHolder,
+  getRewardSplitterVersion,
+  loadRewardSplitterShareHolder,
+} from '../entities/rewardSplitter'
+import { convertSharesToAssets, loadVault } from '../entities/vault'
 
 // Event emitted on RewardSplitter contract creation
 export function handleRewardSplitterCreated(event: RewardSplitterCreated): void {
@@ -158,17 +157,4 @@ export function handleRewardsWithdrawn(event: RewardsWithdrawn): void {
     account.toHex(),
     withdrawnVaultShares.toString(),
   ])
-}
-
-function getRewardSplitterVersion(factoryAddress: Address): BigInt | null {
-  if (factoryAddress == Address.fromString(REWARD_SPLITTER_FACTORY_V1)) {
-    return BigInt.fromI32(1)
-  }
-  if (factoryAddress == Address.fromString(REWARD_SPLITTER_FACTORY_V2)) {
-    return BigInt.fromI32(2)
-  }
-  if (factoryAddress == Address.fromString(REWARD_SPLITTER_FACTORY_V3)) {
-    return BigInt.fromI32(3)
-  }
-  return null
 }
