@@ -137,7 +137,7 @@ export function updateLeverageStrategyPositions(network: Network, aave: Aave, os
     const totalOsTokenSharesAfter = position._totalOsTokenShares
 
     const earnedOsTokenShares = totalOsTokenSharesAfter.minus(totalOsTokenSharesBefore)
-    let earnedAssets = convertOsTokenSharesToAssets(osToken, earnedOsTokenShares)
+    const earnedAssets = convertOsTokenSharesToAssets(osToken, earnedOsTokenShares)
 
     // check whether we can add osToken rewards
     const userAddress = Address.fromBytes(position.user)
@@ -146,16 +146,19 @@ export function updateLeverageStrategyPositions(network: Network, aave: Aave, os
     if (extraOsTokenShares.gt(BigInt.zero()) && totalOsTokenSharesBefore.gt(BigInt.zero())) {
       const extraOsTokenAssetsBefore = extraOsTokenShares.times(totalAssetsBefore).div(totalOsTokenSharesBefore)
       const extraOsTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, extraOsTokenShares)
-      earnedAssets = earnedAssets.plus(extraOsTokenAssetsAfter.minus(extraOsTokenAssetsBefore))
+      allocator._periodEarnedAssets = allocator._periodEarnedAssets
+        .plus(extraOsTokenAssetsAfter)
+        .minus(extraOsTokenAssetsBefore)
     }
-
     allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
     allocator.save()
 
     const osTokenHolder = loadOsTokenHolder(userAddress)!
     const osTokenHolderVault = getOsTokenHolderVault(network, osTokenHolder)
     if (osTokenHolderVault && osTokenHolderVault.equals(vaultAddr)) {
-      osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(earnedAssets)
+      osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets
+        .plus(position._totalAssets)
+        .minus(totalAssetsBefore)
       osTokenHolder.save()
     }
   }
