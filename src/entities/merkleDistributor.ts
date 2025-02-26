@@ -21,9 +21,10 @@ import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { loadVault, snapshotVault } from './vault'
 import { calculateAverage, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { loadAavePosition } from './aave'
-import { createOrLoadAllocator } from './allocator'
+import { createOrLoadAllocator, loadAllocator } from './allocator'
 import { convertTokenAmountToAssets } from './exchangeRates'
 import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
+import { loadLeverageStrategyPosition } from './leverageStrategy'
 
 const distributorId = '1'
 const secondsInYear = '31536000'
@@ -341,10 +342,18 @@ export function distributeToVaultUsers(
     if (_userIsContract(allocator.address)) {
       continue
     }
-    users.push(Address.fromBytes(allocator.address))
+    const userAddress = Address.fromBytes(allocator.address)
+    let userAssets = allocator.assets
+
+    const boostPosition = loadLeverageStrategyPosition(vaultAddress, userAddress)
+    if (boostPosition) {
+      const boostAllocator = loadAllocator(Address.fromBytes(boostPosition.proxy), vaultAddress)!
+      userAssets = userAssets.plus(boostAllocator.assets)
+    }
+    users.push(userAddress)
     vaults.push(vaultAddress)
-    usersAssets.push(allocator.assets)
-    totalAssets = totalAssets.plus(allocator.assets)
+    usersAssets.push(userAssets)
+    totalAssets = totalAssets.plus(userAssets)
   }
 
   // distribute reward to the users
