@@ -13,6 +13,7 @@ import {
   AAVE_LEVERAGE_STRATEGY,
   AAVE_LEVERAGE_STRATEGY_START_BLOCK,
   DEPOSIT_DATA_REGISTRY,
+  DIVERSIFY_VAULTS,
   FOX_VAULT1,
   FOX_VAULT2,
   MAX_VAULT_APY,
@@ -316,7 +317,7 @@ export function updateVaults(
     vault.proofUnlockedMevReward = proofUnlockedMevReward
     vault.proof = proof.map<string>((proofValue: Bytes) => proofValue.toHexString())
     const newState = getVaultState(vault)
-    const newRate = newState[0]
+    let newRate = newState[0]
     const newTotalAssets = newState[1]
     const newTotalShares = newState[2]
     const newQueuedShares = newState[3]
@@ -356,10 +357,10 @@ export function updateVaults(
       }
     }
 
-    // if (isDevirsifyVault(vault) && vault.feePercent.equals(10000)) {
-    //   // diversify vault have 100% fee so we calculate rate
-    //   newRate = getDiversifyVaultRate(vault, vaultPeriodAssets)
-    // }
+    if (isDiversifyVault(vault) && vault.feePercent == 10000) {
+      // diversify vault have 100% fee so we calculate rate
+      newRate = getDiversifyVaultRate(vault, vaultPeriodAssets)
+    }
 
     network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
     network.totalEarnedAssets = network.totalEarnedAssets.plus(vaultPeriodAssets)
@@ -643,6 +644,11 @@ export function updateVaultApy(
   vault.baseApy = calculateAverage(baseApys)
   vault.apy = getVaultApy(vault, distributor, osToken, false)
 }
+
+export function isDiversifyVault(vault: Vault): boolean {
+  return DIVERSIFY_VAULTS.includes(vault.id)
+}
+
 
 export function getDiversifyVaultRate(vault: Vault, periodAssets: BigInt): BigInt {
   // we estimate new rate based on period rewards and total assets of the vault and deduct the fee

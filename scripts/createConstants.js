@@ -43,6 +43,7 @@ const createAddressConst = (name, address) =>
   `\nexport const ${name} = Address.fromString('${address || zeroAddress}')\n`
 
 const createStringConst = (name, data) => `\nexport const ${name} = '${data}'\n`
+const createArrayConst = (name, data) => `\nexport const ${name}: string[] = [${data.map((item) => "\"" + item + "\"").join(', ')}]\n`
 
 readFile(configPath, 'utf8', (error, data) => {
   if (error) {
@@ -65,6 +66,13 @@ readFile(configPath, 'utf8', (error, data) => {
 
         result += createStringConst(name, data.startBlock)
       }
+
+      if (Array.isArray(data)) {
+        const name = camelToSnakeCase(key)
+        console.log(data)
+        result += createArrayConst(name, data)
+      }
+
     }
 
     if (typeof data === 'string') {

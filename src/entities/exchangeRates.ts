@@ -1,5 +1,5 @@
 import { ExchangeRateSnapshot, UniswapPool, ExchangeRate } from '../../generated/schema'
-import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
+import {Address, BigDecimal, BigInt, Bytes, ethereum, log} from '@graphprotocol/graph-ts'
 import {
   ASSET_TOKEN,
   ASSETS_USD_PRICE_FEED,
@@ -18,13 +18,22 @@ import {
   SSV_TOKEN,
   USDC_TOKEN,
   USDC_USD_PRICE_FEED,
+  BTC_USD_PRICE_FEED,
+  SOL_USD_PRICE_FEED,
+  USDS_USD_PRICE_FEED,
+  ETH_USD_PRICE_FEED,
+  BCSPX_USD_PRICE_FEED,
+  SUSDS_TOKEN,
+  SDAI_TOKEN,
   WAD,
 } from '../helpers/constants'
 import { chunkedMulticall } from '../helpers/utils'
 import { isGnosisNetwork } from './network'
 import { convertOsTokenSharesToAssets, loadOsToken } from './osToken'
 
-const latestAnswerSelector = '0x50d25bcd'
+const latestAnswerSelector = '0x50d25bcd'  // uniswap
+const getRateSelector = '0x679aefce' // balancer
+const convertToAssetsSelector = '0x07a2d13a' // erc4626 convertToAssets
 const exchangeRateId = '0'
 
 export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigInt): void {
@@ -48,7 +57,11 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     return
   }
 
+  // chainlink oracle
   const latestAnswerCall = Bytes.fromHexString(latestAnswerSelector)
+  // balancer rate provider
+  const getRateCall = Bytes.fromHexString(getRateSelector)
+
   const decimals = BigDecimal.fromString('100000000')
 
   let assetsUsdRate = BigDecimal.zero()
@@ -62,11 +75,23 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   let usdcUsdRate = BigDecimal.zero()
   let swiseUsdRate = BigDecimal.zero()
   let ssvUsdRate = BigDecimal.zero()
+  let ethUsdRate = BigDecimal.zero()
+  let btcUsdRate = BigDecimal.zero()
+  let solUsdRate = BigDecimal.zero()
+  let usdsUsdRate = BigDecimal.zero()
+  let susdsUsdRate = BigDecimal.zero()
+  let sdaiUsdRate = BigDecimal.zero()
+  let bcspxUsdRate = BigDecimal.zero()
 
   let contractAddresses: Array<Address>
   const isGnosis = isGnosisNetwork()
-  if (isGnosis) {
-    contractAddresses = [Address.fromString(ASSETS_USD_PRICE_FEED)]
+    if (isGnosis) {
+    contractAddresses = [
+        Address.fromString(ASSETS_USD_PRICE_FEED),
+        Address.fromString(DAI_USD_PRICE_FEED),
+        Address.fromString(ETH_USD_PRICE_FEED),
+        Address.fromString(BTC_USD_PRICE_FEED),
+    ]
   } else {
     contractAddresses = [
       Address.fromString(ASSETS_USD_PRICE_FEED),
@@ -78,6 +103,9 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
       Address.fromString(AUD_USD_PRICE_FEED),
       Address.fromString(DAI_USD_PRICE_FEED),
       Address.fromString(USDC_USD_PRICE_FEED),
+      Address.fromString(BTC_USD_PRICE_FEED),
+      Address.fromString(SOL_USD_PRICE_FEED),
+      Address.fromString(USDS_USD_PRICE_FEED),
     ]
   }
   const contractCalls: Array<Bytes> = []
@@ -85,6 +113,22 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     contractCalls.push(latestAnswerCall)
   }
 
+  if (isGnosis) {
+    // sdai <-> dai conversion rate
+    contractAddresses.push(Address.fromString(SDAI_TOKEN))
+    const decimalsInt = BigInt.fromString('100000000')
+    const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(decimalsInt))
+    const convertToAssetsCall = Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs!)
+    contractCalls.push(convertToAssetsCall)
+  } else {
+    // susds <-> usds conversion rate
+    contractAddresses.push(Address.fromString(SUSDS_TOKEN))
+    const decimalsInt = BigInt.fromString('100000000')
+    const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(decimalsInt))
+    const convertToAssetsCall = Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs!)
+    contractCalls.push(convertToAssetsCall)
+
+  }
   let decodedValue: BigInt = BigInt.zero()
   const response = chunkedMulticall(contractAddresses, contractCalls, false)
   if (response[0] !== null) {
@@ -92,7 +136,25 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     assetsUsdRate = decodedValue.toBigDecimal().div(decimals)
   }
 
-  if (!isGnosis) {
+  if (isGnosis) {
+    if (response[1] !== null) {
+      decodedValue = ethereum.decode('int256', response[1]!)!.toBigInt()
+      daiUsdRate = decodedValue.toBigDecimal().div(decimals)
+    }
+    if (response[2] !== null) {
+      decodedValue = ethereum.decode('int256', response[2]!)!.toBigInt()
+      ethUsdRate = decodedValue.toBigDecimal().div(decimals)
+    }
+    if (response[3] !== null) {
+      decodedValue = ethereum.decode('int256', response[3]!)!.toBigInt()
+      btcUsdRate = decodedValue.toBigDecimal().div(decimals)
+    }
+    if (response[1] !== null && response[4] !== null) {
+      decodedValue = ethereum.decode('int256', response[4]!)!.toBigInt()
+      const sdaiDaiRate = decodedValue.toBigDecimal().div(decimals)
+      sdaiUsdRate = sdaiDaiRate.times(daiUsdRate)
+    }
+  } else {
     if (response[1] !== null) {
       decodedValue = ethereum.decode('int256', response[1]!)!.toBigInt()
       eurToUsdRate = decodedValue.toBigDecimal().div(decimals)
@@ -124,6 +186,21 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     if (response[8] !== null) {
       decodedValue = ethereum.decode('int256', response[8]!)!.toBigInt()
       usdcUsdRate = decodedValue.toBigDecimal().div(decimals)
+    }
+    if (response[9] !== null) {
+      decodedValue = ethereum.decode('int256', response[9]!)!.toBigInt()
+      btcUsdRate = decodedValue.toBigDecimal().div(decimals)
+    }
+    if (response[10] !== null) {
+      decodedValue = ethereum.decode('int256', response[10]!)!.toBigInt()
+      solUsdRate = decodedValue.toBigDecimal().div(decimals)
+    }
+    if (response[11] !== null && response[12] !== null) {
+      decodedValue = ethereum.decode('int256', response[11]!)!.toBigInt()
+      usdsUsdRate = decodedValue.toBigDecimal().div(decimals)
+      decodedValue = ethereum.decode('int256', response[12]!)!.toBigInt()
+      const susdsUsdsRate = decodedValue.toBigDecimal().div(decimals)
+      susdsUsdRate = usdsUsdRate.times(susdsUsdsRate)
     }
   }
 
@@ -165,6 +242,12 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   exchangeRate.usdToAudRate = usdToAudRate
   exchangeRate.daiUsdRate = daiUsdRate
   exchangeRate.ssvUsdRate = ssvUsdRate
+  exchangeRate.ethUsdRate = ethUsdRate
+  exchangeRate.btcUsdRate = btcUsdRate
+  exchangeRate.solUsdRate = solUsdRate
+  exchangeRate.susdsUsdRate = susdsUsdRate
+  exchangeRate.sdaiUsdRate = sdaiUsdRate  // todo
+  exchangeRate.bcspxUsdRate = bcspxUsdRate  // todo
   exchangeRate.usdcUsdRate = usdcUsdRate
   exchangeRate.save()
 
@@ -175,6 +258,12 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   exchangeRateSnapshot.swiseUsdRate = swiseUsdRate
   exchangeRateSnapshot.daiUsdRate = daiUsdRate
   exchangeRateSnapshot.ssvUsdRate = ssvUsdRate
+  exchangeRateSnapshot.ethUsdRate = ethUsdRate
+  exchangeRateSnapshot.btcUsdRate = btcUsdRate
+  exchangeRateSnapshot.solUsdRate = solUsdRate
+  exchangeRateSnapshot.susdsUsdRate = susdsUsdRate
+  exchangeRateSnapshot.sdaiUsdRate = sdaiUsdRate
+  exchangeRateSnapshot.bcspxUsdRate = bcspxUsdRate
   exchangeRateSnapshot.usdcUsdRate = usdcUsdRate
   exchangeRateSnapshot.usdToEurRate = usdToEurRate
   exchangeRateSnapshot.usdToGbpRate = usdToGbpRate
@@ -195,6 +284,12 @@ export function createOrLoadExchangeRate(): ExchangeRate {
     exchangeRate.swiseUsdRate = BigDecimal.zero()
     exchangeRate.daiUsdRate = BigDecimal.zero()
     exchangeRate.ssvUsdRate = BigDecimal.zero()
+    exchangeRate.ethUsdRate = BigDecimal.zero()
+    exchangeRate.btcUsdRate = BigDecimal.zero()
+    exchangeRate.solUsdRate = BigDecimal.zero()
+    exchangeRate.susdsUsdRate = BigDecimal.zero()
+    exchangeRate.sdaiUsdRate = BigDecimal.zero()
+    exchangeRate.btcUsdRate = BigDecimal.zero()
     exchangeRate.usdcUsdRate = BigDecimal.zero()
     exchangeRate.usdToEurRate = BigDecimal.zero()
     exchangeRate.usdToGbpRate = BigDecimal.zero()
