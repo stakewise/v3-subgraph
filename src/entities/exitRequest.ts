@@ -92,7 +92,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     )
   }
 
-  // Execute in chunks of size 10
+  // Execute in chunks of size 100
   let stage2Results: Array<Bytes> = chunkedVaultMulticall(vaultAddr, allCallsStage2, 100)
 
   // If we had an updateStateCall, remove its result from the front again
@@ -108,6 +108,10 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
 
     let leftTickets = decodedResult[0].toBigInt()
     let exitedAssets = decodedResult[2].toBigInt()
+    if (leftTickets.isZero() && exitedAssets.isZero()) {
+      // position was claimed in the current block, skip
+      continue
+    }
     let totalAssetsBefore = exitRequest.totalAssets
 
     // If multiple tickets remain, recalculate total assets. Otherwise, set total to exitedAssets.
