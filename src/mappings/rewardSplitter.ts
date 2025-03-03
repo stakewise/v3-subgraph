@@ -1,11 +1,15 @@
 import { Address, BigInt, log } from '@graphprotocol/graph-ts'
-import { RewardSplitter as RewardSplitterTemplate } from '../../generated/templates'
+import {
+  RewardSplitter as RewardSplitterTemplate,
+  RewardSplitterOwnable as RewardSplitterOwnableTemplate,
+} from '../../generated/templates'
 import {
   ClaimOnBehalfUpdated,
   RewardsWithdrawn,
   SharesDecreased,
   SharesIncreased,
 } from '../../generated/templates/RewardSplitter/RewardSplitter'
+import { OwnershipTransferred } from '../../generated/templates/RewardSplitterOwnable/RewardSplitterOwnable'
 import { RewardSplitterCreated } from '../../generated/templates/RewardSplitterFactory/RewardSplitterFactory'
 import { RewardSplitter } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
@@ -51,6 +55,7 @@ export function handleRewardSplitterCreated(event: RewardSplitterCreated): void 
   createTransaction(txHash)
 
   RewardSplitterTemplate.create(params.rewardSplitter)
+  RewardSplitterOwnableTemplate.create(params.rewardSplitter)
 
   log.info('[RewardSplitterFactory] RewardSplitterCreated address={} vault={} owner={}', [
     rewardSplitterAddress,
@@ -156,5 +161,16 @@ export function handleRewardsWithdrawn(event: RewardsWithdrawn): void {
     rewardSplitterAddressHex,
     account.toHex(),
     withdrawnVaultShares.toString(),
+  ])
+}
+
+export function handleOwnershipTransferred(event: OwnershipTransferred): void {
+  const rewardSplitter = RewardSplitter.load(event.address.toHex())!
+  rewardSplitter.owner = event.params.newOwner
+  rewardSplitter.save()
+
+  log.info('[RewardSplitter] OwnershipTransferred rewardSplitter={} newOwner={}', [
+    event.address.toHex(),
+    event.params.newOwner.toHex(),
   ])
 }
