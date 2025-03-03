@@ -868,7 +868,6 @@ templates:
       entities:
         - RewardSplitterOwnable
         - RewardSplitter
-        - Transaction
       abis:
         - name: RewardSplitterOwnable
           file: ./abis/RewardSplitterOwnable.json
