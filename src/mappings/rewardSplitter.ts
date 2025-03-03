@@ -55,7 +55,10 @@ export function handleRewardSplitterCreated(event: RewardSplitterCreated): void 
   createTransaction(txHash)
 
   RewardSplitterTemplate.create(params.rewardSplitter)
-  RewardSplitterOwnableTemplate.create(params.rewardSplitter)
+
+  if (version < BigInt.fromI32(3)) {
+    RewardSplitterOwnableTemplate.create(params.rewardSplitter)
+  }
 
   log.info('[RewardSplitterFactory] RewardSplitterCreated address={} vault={} owner={}', [
     rewardSplitterAddress,
