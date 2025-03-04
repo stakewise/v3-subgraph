@@ -84,6 +84,10 @@ dataSources:
       abis:
         - name: PriceFeed
           file: ./abis/PriceFeed.json
+        - name: Erc4626Token
+          file: ./abis/Erc4626Token.json
+        - name: BalancerQuery
+          file: ./abis/BalancerQuery.json
         - name: Multicall
           file: ./abis/Multicall.json
       blockHandlers:
