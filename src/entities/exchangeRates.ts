@@ -1,5 +1,5 @@
 import { ExchangeRateSnapshot, UniswapPool, ExchangeRate } from '../../generated/schema'
-import {Address, BigDecimal, BigInt, Bytes, ethereum, log} from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import {
   ASSET_TOKEN,
   ASSETS_USD_PRICE_FEED,
@@ -22,7 +22,9 @@ import {
   SOL_USD_PRICE_FEED,
   USDS_USD_PRICE_FEED,
   ETH_USD_PRICE_FEED,
-  BCSPX_USD_PRICE_FEED,
+  BCSPX_TOKEN,
+  BCSPX_SDAI_BALANCER_POOL,
+  BALANCER_QUERY,
   SUSDS_TOKEN,
   SDAI_TOKEN,
   WAD,
@@ -31,8 +33,8 @@ import { chunkedMulticall } from '../helpers/utils'
 import { isGnosisNetwork } from './network'
 import { convertOsTokenSharesToAssets, loadOsToken } from './osToken'
 
-const latestAnswerSelector = '0x50d25bcd'  // uniswap
-const getRateSelector = '0x679aefce' // balancer
+const latestAnswerSelector = '0x50d25bcd' // uniswap
+const querySwapSelector = '0xe969f6b3' // balancer
 const convertToAssetsSelector = '0x07a2d13a' // erc4626 convertToAssets
 const exchangeRateId = '0'
 
@@ -59,8 +61,6 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
 
   // chainlink oracle
   const latestAnswerCall = Bytes.fromHexString(latestAnswerSelector)
-  // balancer rate provider
-  const getRateCall = Bytes.fromHexString(getRateSelector)
 
   const decimals = BigDecimal.fromString('100000000')
 
@@ -85,12 +85,12 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
 
   let contractAddresses: Array<Address>
   const isGnosis = isGnosisNetwork()
-    if (isGnosis) {
+  if (isGnosis) {
     contractAddresses = [
-        Address.fromString(ASSETS_USD_PRICE_FEED),
-        Address.fromString(DAI_USD_PRICE_FEED),
-        Address.fromString(ETH_USD_PRICE_FEED),
-        Address.fromString(BTC_USD_PRICE_FEED),
+      Address.fromString(ASSETS_USD_PRICE_FEED),
+      Address.fromString(DAI_USD_PRICE_FEED),
+      Address.fromString(ETH_USD_PRICE_FEED),
+      Address.fromString(BTC_USD_PRICE_FEED),
     ]
   } else {
     contractAddresses = [
@@ -120,6 +120,19 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(decimalsInt))
     const convertToAssetsCall = Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs!)
     contractCalls.push(convertToAssetsCall)
+
+    // sdai <-> bcspx conversion rate via balancer querySwap func
+    contractAddresses.push(Address.fromString(BALANCER_QUERY))
+    const encodedQuerySwapArgs = ethereum
+      .encode(ethereum.Value.fromString(BCSPX_SDAI_BALANCER_POOL))!
+      .concat(ethereum.encode(ethereum.Value.fromI32(0))!)
+      .concat(ethereum.encode(ethereum.Value.fromAddress(Address.fromString(BCSPX_TOKEN)))!)
+      .concat(ethereum.encode(ethereum.Value.fromAddress(Address.fromString(SDAI_TOKEN)))!)
+      .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(wad))!)
+      .concat(ethereum.encode(ethereum.Value.fromBytes(Bytes.fromHexString('')))!)
+
+    const querySwapCall = Bytes.fromHexString(querySwapSelector).concat(encodedQuerySwapArgs)
+    contractCalls.push(querySwapCall)
   } else {
     // susds <-> usds conversion rate
     contractAddresses.push(Address.fromString(SUSDS_TOKEN))
@@ -127,75 +140,81 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(decimalsInt))
     const convertToAssetsCall = Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs!)
     contractCalls.push(convertToAssetsCall)
-
   }
   let decodedValue: BigInt = BigInt.zero()
   const response = chunkedMulticall(contractAddresses, contractCalls, false)
-  if (response[0] !== null) {
+  if (_isValidResponse(response[0])) {
     decodedValue = ethereum.decode('int256', response[0]!)!.toBigInt()
     assetsUsdRate = decodedValue.toBigDecimal().div(decimals)
   }
 
   if (isGnosis) {
-    if (response[1] !== null) {
+    if (_isValidResponse(response[1])) {
       decodedValue = ethereum.decode('int256', response[1]!)!.toBigInt()
       daiUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[2] !== null) {
+    if (_isValidResponse(response[2])) {
       decodedValue = ethereum.decode('int256', response[2]!)!.toBigInt()
       ethUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[3] !== null) {
+    if (_isValidResponse(response[3])) {
       decodedValue = ethereum.decode('int256', response[3]!)!.toBigInt()
       btcUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[1] !== null && response[4] !== null) {
+    if (_isValidResponse(response[1]) && _isValidResponse(response[4])) {
       decodedValue = ethereum.decode('int256', response[4]!)!.toBigInt()
       const sdaiDaiRate = decodedValue.toBigDecimal().div(decimals)
       sdaiUsdRate = sdaiDaiRate.times(daiUsdRate)
+
+      // bcspx
+      if (_isValidResponse(response[5])) {
+        decodedValue = ethereum.decode('int256', response[5]!)!.toBigInt()
+        const bcspxSdaiRate = decodedValue.toBigDecimal()
+        bcspxUsdRate = bcspxSdaiRate.times(sdaiUsdRate).times(daiUsdRate)
+      }
     }
   } else {
-    if (response[1] !== null) {
+    if (_isValidResponse(response[1])) {
       decodedValue = ethereum.decode('int256', response[1]!)!.toBigInt()
       eurToUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[2] !== null) {
+    if (_isValidResponse(response[2])) {
       decodedValue = ethereum.decode('int256', response[2]!)!.toBigInt()
       gbpToUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[3] !== null) {
+    if (_isValidResponse(response[3])) {
       decodedValue = ethereum.decode('int256', response[3]!)!.toBigInt()
       cnyToUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[4] !== null) {
+    if (_isValidResponse(response[4])) {
       decodedValue = ethereum.decode('int256', response[4]!)!.toBigInt()
       jpyToUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[5] !== null) {
+    if (_isValidResponse(response[5])) {
       decodedValue = ethereum.decode('int256', response[5]!)!.toBigInt()
       krwToUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[6] !== null) {
+    if (_isValidResponse(response[6])) {
       decodedValue = ethereum.decode('int256', response[6]!)!.toBigInt()
       audToUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[7] !== null) {
+    if (_isValidResponse(response[7])) {
       decodedValue = ethereum.decode('int256', response[7]!)!.toBigInt()
       daiUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[8] !== null) {
+    if (_isValidResponse(response[8])) {
       decodedValue = ethereum.decode('int256', response[8]!)!.toBigInt()
       usdcUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[9] !== null) {
+    if (_isValidResponse(response[9])) {
       decodedValue = ethereum.decode('int256', response[9]!)!.toBigInt()
       btcUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[10] !== null) {
+    if (_isValidResponse(response[10])) {
       decodedValue = ethereum.decode('int256', response[10]!)!.toBigInt()
       solUsdRate = decodedValue.toBigDecimal().div(decimals)
     }
-    if (response[11] !== null && response[12] !== null) {
+    if (_isValidResponse(response[11]) && _isValidResponse(response[12])) {
       decodedValue = ethereum.decode('int256', response[11]!)!.toBigInt()
       usdsUsdRate = decodedValue.toBigDecimal().div(decimals)
       decodedValue = ethereum.decode('int256', response[12]!)!.toBigInt()
@@ -246,8 +265,8 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   exchangeRate.btcUsdRate = btcUsdRate
   exchangeRate.solUsdRate = solUsdRate
   exchangeRate.susdsUsdRate = susdsUsdRate
-  exchangeRate.sdaiUsdRate = sdaiUsdRate  // todo
-  exchangeRate.bcspxUsdRate = bcspxUsdRate  // todo
+  exchangeRate.sdaiUsdRate = sdaiUsdRate
+  exchangeRate.bcspxUsdRate = bcspxUsdRate
   exchangeRate.usdcUsdRate = usdcUsdRate
   exchangeRate.save()
 
@@ -289,6 +308,7 @@ export function createOrLoadExchangeRate(): ExchangeRate {
     exchangeRate.solUsdRate = BigDecimal.zero()
     exchangeRate.susdsUsdRate = BigDecimal.zero()
     exchangeRate.sdaiUsdRate = BigDecimal.zero()
+    exchangeRate.bcspxUsdRate = BigDecimal.zero()
     exchangeRate.btcUsdRate = BigDecimal.zero()
     exchangeRate.usdcUsdRate = BigDecimal.zero()
     exchangeRate.usdToEurRate = BigDecimal.zero()
@@ -338,4 +358,8 @@ export function convertTokenAmountToAssets(exchangeRate: ExchangeRate, token: Ad
   }
   assert(false, 'Cannot convert to assets unsupported token=' + token.toHexString())
   return BigInt.zero()
+}
+
+function _isValidResponse(response: Bytes | null): boolean {
+  return response !== null && response.length > 0
 }

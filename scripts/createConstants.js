@@ -69,7 +69,6 @@ readFile(configPath, 'utf8', (error, data) => {
 
       if (Array.isArray(data)) {
         const name = camelToSnakeCase(key)
-        console.log(data)
         result += createArrayConst(name, data)
       }
 
