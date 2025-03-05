@@ -568,7 +568,7 @@ export function getVaultState(vault: Vault): Array<BigInt> {
   }
 
   const vaultAddr = Address.fromString(vault.id)
-  let results = chunkedVaultMulticall(vaultAddr, contractCalls)
+  let results = chunkedVaultMulticall(vaultAddr, null, contractCalls)
 
   let feeRecipientEarnedShares = BigInt.zero()
   if (updateStateCall) {

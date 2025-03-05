@@ -137,7 +137,7 @@ export function updateAllocatorsMintedOsTokenShares(
   }
 
   // Execute calls in chunks of size 100
-  let response = chunkedVaultMulticall(Address.fromString(vault.id), calls, 100)
+  let response = chunkedVaultMulticall(Address.fromString(vault.id), null, calls, 100)
 
   // Decode the result for each allocator in the same order
   for (let i = 0; i < response.length; i++) {

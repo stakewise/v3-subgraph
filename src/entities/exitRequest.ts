@@ -31,10 +31,6 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
 
   // Collect all the calls for the first multicall batch
   let allCallsStage1: Array<Bytes> = []
-  if (updateStateCall) {
-    allCallsStage1.push(updateStateCall)
-  }
-
   let pendingExitRequests: Array<ExitRequest> = []
   for (let i = 0; i < exitRequests.length; i++) {
     let exitRequest = exitRequests[i]
@@ -48,13 +44,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   }
 
   // Execute in chunks of size 10
-  let stage1Results: Array<Bytes> = chunkedVaultMulticall(vaultAddr, allCallsStage1, 100)
-
-  // If we had an updateStateCall, remove its result from the front
-  // so that the remainder of the results map cleanly to `pendingExitRequests`.
-  if (updateStateCall) {
-    stage1Results = stage1Results.slice(1) // remove first result
-  }
+  let stage1Results: Array<Bytes> = chunkedVaultMulticall(vaultAddr, updateStateCall, allCallsStage1, 100)
 
   // Parse exitQueueIndex results
   for (let i = 0; i < stage1Results.length; i++) {
@@ -73,10 +63,6 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
 
   // Build calls for the second multicall batch
   let allCallsStage2: Array<Bytes> = []
-  if (updateStateCall) {
-    allCallsStage2.push(updateStateCall)
-  }
-
   const maxUint255 = BigInt.fromI32(2).pow(255).minus(BigInt.fromI32(1))
   for (let i = 0; i < pendingExitRequests.length; i++) {
     let exitRequest = pendingExitRequests[i]
@@ -93,12 +79,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   }
 
   // Execute in chunks of size 100
-  let stage2Results: Array<Bytes> = chunkedVaultMulticall(vaultAddr, allCallsStage2, 100)
-
-  // If we had an updateStateCall, remove its result from the front again
-  if (updateStateCall) {
-    stage2Results = stage2Results.slice(1)
-  }
+  let stage2Results: Array<Bytes> = chunkedVaultMulticall(vaultAddr, updateStateCall, allCallsStage2, 100)
 
   // Parse and update each exitRequest
   const one = BigInt.fromI32(1)

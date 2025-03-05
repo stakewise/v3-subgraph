@@ -82,7 +82,12 @@ export function getCompoundedApy(initialApyPercent: BigDecimal, secondaryApyPerc
   return finalApy.times(hundred)
 }
 
-export function chunkedVaultMulticall(vaultAddress: Address, calls: Array<Bytes>, chunkSize: i32 = 10): Array<Bytes> {
+export function chunkedVaultMulticall(
+  vaultAddress: Address,
+  updateStateCall: Bytes | null,
+  calls: Array<Bytes>,
+  chunkSize: i32 = 10,
+): Array<Bytes> {
   const vaultContract = VaultContract.bind(vaultAddress)
   const callsCount = calls.length
 
@@ -90,7 +95,13 @@ export function chunkedVaultMulticall(vaultAddress: Address, calls: Array<Bytes>
   let chunk: Array<Bytes>
   for (let i = 0; i < callsCount; i += chunkSize) {
     chunk = calls.slice(i, i + chunkSize)
+    if (updateStateCall) {
+      chunk = [updateStateCall as Bytes].concat(chunk)
+    }
     let chunkResult = vaultContract.multicall(chunk)
+    if (updateStateCall) {
+      chunkResult = chunkResult.slice(1) // remove first result
+    }
     // Concatenate results in order
     for (let j = 0; j < chunkResult.length; j++) {
       aggregatedResults.push(chunkResult[j])
