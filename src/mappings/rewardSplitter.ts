@@ -1,15 +1,12 @@
 import { Address, BigInt, log } from '@graphprotocol/graph-ts'
-import {
-  RewardSplitter as RewardSplitterTemplate,
-  RewardSplitterOwnable as RewardSplitterOwnableTemplate,
-} from '../../generated/templates'
+import { RewardSplitter as RewardSplitterTemplate } from '../../generated/templates'
 import {
   ClaimOnBehalfUpdated,
   RewardsWithdrawn,
   SharesDecreased,
   SharesIncreased,
+  OwnershipTransferred,
 } from '../../generated/templates/RewardSplitter/RewardSplitter'
-import { OwnershipTransferred } from '../../generated/templates/RewardSplitterOwnable/RewardSplitterOwnable'
 import { RewardSplitterCreated } from '../../generated/templates/RewardSplitterFactory/RewardSplitterFactory'
 import { RewardSplitter } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
@@ -55,10 +52,6 @@ export function handleRewardSplitterCreated(event: RewardSplitterCreated): void 
   createTransaction(txHash)
 
   RewardSplitterTemplate.create(params.rewardSplitter)
-
-  if (version < BigInt.fromI32(3)) {
-    RewardSplitterOwnableTemplate.create(params.rewardSplitter)
-  }
 
   log.info('[RewardSplitterFactory] RewardSplitterCreated address={} vault={} owner={}', [
     rewardSplitterAddress,
