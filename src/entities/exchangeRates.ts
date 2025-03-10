@@ -28,6 +28,7 @@ import {
   SUSDS_TOKEN,
   SDAI_TOKEN,
   WAD,
+  ZERO_ADDRESS,
 } from '../helpers/constants'
 import { chunkedMulticall } from '../helpers/utils'
 import { isGnosisNetwork } from './network'
@@ -123,15 +124,25 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
 
     // sdai <-> bcspx conversion rate via balancer querySwap func
     contractAddresses.push(Address.fromString(BALANCER_QUERY))
+
+    const FirstTupleOffset = Bytes.fromHexString('00000000000000000000000000000000000000000000000000000000000000a0')
+    const AppBytesOffset = Bytes.fromHexString('00000000000000000000000000000000000000000000000000000000000000c0')
+    const AppBytesValue = Bytes.fromHexString('0000000000000000000000000000000000000000000000000000000000000000')
     const encodedQuerySwapArgs = ethereum
-      .encode(ethereum.Value.fromString(BCSPX_SDAI_BALANCER_POOL))!
+      .encode(ethereum.Value.fromFixedBytes(FirstTupleOffset))!
+      .concat(ethereum.encode(ethereum.Value.fromAddress(Address.fromString(ZERO_ADDRESS)))!)
+      .concat(ethereum.encode(ethereum.Value.fromI32(0))!)
+      .concat(ethereum.encode(ethereum.Value.fromAddress(Address.fromString(ZERO_ADDRESS)))!)
+      .concat(ethereum.encode(ethereum.Value.fromI32(0))!)
+      .concat(ethereum.encode(ethereum.Value.fromFixedBytes(Bytes.fromHexString(BCSPX_SDAI_BALANCER_POOL)))!)
       .concat(ethereum.encode(ethereum.Value.fromI32(0))!)
       .concat(ethereum.encode(ethereum.Value.fromAddress(Address.fromString(BCSPX_TOKEN)))!)
       .concat(ethereum.encode(ethereum.Value.fromAddress(Address.fromString(SDAI_TOKEN)))!)
-      .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(wad))!)
-      .concat(ethereum.encode(ethereum.Value.fromBytes(Bytes.fromHexString('')))!)
+      .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(decimalsInt))!)
+      .concat(ethereum.encode(ethereum.Value.fromFixedBytes(AppBytesOffset))!)
+      .concat(ethereum.encode(ethereum.Value.fromFixedBytes(AppBytesValue))!)
 
-    const querySwapCall = Bytes.fromHexString(querySwapSelector).concat(encodedQuerySwapArgs)
+    const querySwapCall = Bytes.fromHexString(querySwapSelector).concat(encodedQuerySwapArgs as Bytes)
     contractCalls.push(querySwapCall)
   } else {
     // susds <-> usds conversion rate
@@ -169,7 +180,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
       // bcspx
       if (_isValidResponse(response[5])) {
         decodedValue = ethereum.decode('int256', response[5]!)!.toBigInt()
-        const bcspxSdaiRate = decodedValue.toBigDecimal()
+        const bcspxSdaiRate = decodedValue.toBigDecimal().div(decimals)
         bcspxUsdRate = bcspxSdaiRate.times(sdaiUsdRate).times(daiUsdRate)
       }
     }
