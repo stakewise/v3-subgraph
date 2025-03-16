@@ -4,6 +4,11 @@ import { convertSharesToAssets } from './vault'
 import { loadV2Pool } from './v2pool'
 import { chunkedRewardSplitterMulticall } from '../helpers/utils'
 import { createOrLoadAllocator } from './allocator'
+import {
+  REWARD_SPLITTER_FACTORY_V1,
+  REWARD_SPLITTER_FACTORY_V2,
+  REWARD_SPLITTER_FACTORY_V3,
+} from '../helpers/constants'
 
 const vaultUpdateStateSelector = '0x79c702ad'
 const syncRewardsCallSelector = '0x72c0c211'
@@ -110,4 +115,17 @@ function _getVaultUpdateStateCall(vault: Vault): Bytes | null {
 function _getRewardsOfCall(shareHolder: Address): Bytes {
   const encodedRewardsOfArgs = ethereum.encode(ethereum.Value.fromAddress(shareHolder))
   return Bytes.fromHexString(rewardsOfSelector).concat(encodedRewardsOfArgs as Bytes)
+}
+
+export function getRewardSplitterVersion(factoryAddress: Address): BigInt | null {
+  if (factoryAddress == Address.fromString(REWARD_SPLITTER_FACTORY_V1)) {
+    return BigInt.fromI32(1)
+  }
+  if (factoryAddress == Address.fromString(REWARD_SPLITTER_FACTORY_V2)) {
+    return BigInt.fromI32(2)
+  }
+  if (factoryAddress == Address.fromString(REWARD_SPLITTER_FACTORY_V3)) {
+    return BigInt.fromI32(3)
+  }
+  return null
 }

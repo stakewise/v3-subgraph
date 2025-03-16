@@ -27,6 +27,7 @@ import {
   PRIV_VAULT_FACTORY_V3,
   REWARD_SPLITTER_FACTORY_V1,
   REWARD_SPLITTER_FACTORY_V2,
+  REWARD_SPLITTER_FACTORY_V3,
   VAULT_FACTORY_V1,
   VAULT_FACTORY_V2,
   VAULT_FACTORY_V3,
@@ -93,6 +94,7 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   const blocklistErc20VaultFactoryV3 = Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V3)
   const rewardSplitterFactoryV1 = Address.fromString(REWARD_SPLITTER_FACTORY_V1)
   const rewardSplitterFactoryV2 = Address.fromString(REWARD_SPLITTER_FACTORY_V2)
+  const rewardSplitterFactoryV3 = Address.fromString(REWARD_SPLITTER_FACTORY_V3)
   const foxVault1 = Address.fromString(FOX_VAULT1)
   const foxVault2 = Address.fromString(FOX_VAULT2)
   const zeroAddress = Address.zero()
@@ -193,6 +195,11 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   if (rewardSplitterFactoryV2.notEqual(zeroAddress)) {
     RewardSplitterFactoryTemplate.create(rewardSplitterFactoryV2)
     log.info('[Keeper] Initialize RewardSplitterFactory V2 at block={}', [blockNumber])
+  }
+
+  if (rewardSplitterFactoryV3.notEqual(zeroAddress)) {
+    RewardSplitterFactoryTemplate.create(rewardSplitterFactoryV3)
+    log.info('[Keeper] Initialize RewardSplitterFactory V3 at block={}', [blockNumber])
   }
 
   if (foxVault1.notEqual(zeroAddress)) {

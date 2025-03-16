@@ -527,6 +527,12 @@ type RewardSplitter @entity {
   "Reward splitter address"
   id: ID!
 
+  "The reward splitter version"
+  version: BigInt!
+
+  "Whether claim on behalf is enabled"
+  isClaimOnBehalfEnabled: Boolean!
+
   "The address of the account that can modify the reward splitter share holders"
   owner: Bytes!
 
