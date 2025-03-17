@@ -13,7 +13,6 @@ import {
   AAVE_LEVERAGE_STRATEGY,
   AAVE_LEVERAGE_STRATEGY_START_BLOCK,
   DEPOSIT_DATA_REGISTRY,
-  DIVERSIFY_VAULTS,
   FOX_VAULT1,
   FOX_VAULT2,
   MAX_VAULT_APY,
@@ -317,7 +316,7 @@ export function updateVaults(
     vault.proofUnlockedMevReward = proofUnlockedMevReward
     vault.proof = proof.map<string>((proofValue: Bytes) => proofValue.toHexString())
     const newState = getVaultState(vault)
-    let newRate = newState[0]
+    const newRate = newState[0]
     const newTotalAssets = newState[1]
     const newTotalShares = newState[2]
     const newQueuedShares = newState[3]
@@ -355,11 +354,6 @@ export function updateVaults(
           .minus(vault.lockedExecutionReward)
           .minus(vault.unlockedExecutionReward)
       }
-    }
-
-    if (isDiversifyVault(vault) && vault.feePercent == 10000) {
-      // diversify vault have 100% fee so we calculate rate
-      newRate = getDiversifyVaultRate(vault, vaultPeriodAssets)
     }
 
     network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
@@ -643,39 +637,6 @@ export function updateVaultApy(
   vault.baseApys = baseApys
   vault.baseApy = calculateAverage(baseApys)
   vault.apy = getVaultApy(vault, distributor, osToken, false)
-}
-
-export function isDiversifyVault(vault: Vault): boolean {
-  return DIVERSIFY_VAULTS.includes(vault.id)
-}
-
-
-export function getDiversifyVaultRate(vault: Vault, periodAssets: BigInt): BigInt {
-  // we estimate new rate based on period rewards and total assets of the vault and deduct the fee
-  if (vault.totalAssets.isZero()) {
-    return vault.rate
-  }
-  let addedRate = periodAssets.times(BigInt.fromString(WAD)).div(vault.totalAssets)
-  const splitter = RewardSplitter.load(vault.feeRecipient.toHexString())
-  if (!splitter) {
-    return vault.rate.plus(addedRate)
-  }
-  const shareholders: Array<RewardSplitterShareHolder> = splitter.shareHolders.load()
-  // lowest shares is the fee to the operator
-  let smallestShares = BigInt.zero()
-  let totalShares = BigInt.zero()
-  for (let i = 0; i < shareholders.length; i++) {
-    const shareHolderShares = shareholders[i].shares
-    if (shareHolderShares.lt(smallestShares)) {
-      smallestShares = shareHolderShares
-    }
-    totalShares = totalShares.plus(shareHolderShares)
-  }
-  if (totalShares.isZero()) {
-    return vault.rate.plus(addedRate)
-  }
-  // deduct fee percent
-  return vault.rate.plus(addedRate).minus(addedRate.times(smallestShares).div(totalShares))
 }
 
 function _getConvertToAssetsCall(shares: BigInt): Bytes {

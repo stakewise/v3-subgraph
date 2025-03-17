@@ -5,7 +5,7 @@ import { XdaiSwapped } from '../../generated/templates/GnoVault/GnoVault'
 import { WAD } from '../helpers/constants'
 import { loadNetwork } from '../entities/network'
 import { getAllocatorApy, updateAllocatorAssets } from '../entities/allocator'
-import { convertSharesToAssets, loadVault, snapshotVault, updateVaultApy, isDiversifyVault, getDiversifyVaultRate } from '../entities/vault'
+import { convertSharesToAssets, loadVault, snapshotVault, updateVaultApy } from '../entities/vault'
 import { createOrLoadV2Pool } from '../entities/v2pool'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { loadOsToken } from '../entities/osToken'
@@ -43,10 +43,6 @@ export function handleXdaiSwapped(event: XdaiSwapped): void {
   vault.totalShares = vault.totalShares.plus(feeRecipientShares)
 
   let newRate = convertSharesToAssets(vault, BigInt.fromString(WAD))
-  if (isDiversifyVault(vault) && vault.feePercent == 10000) {
-    // diversify vault have 100% fee so we calculate rate
-    newRate = getDiversifyVaultRate(vault, vaultRewardAssets)
-  }
 
   updateVaultApy(
     vault,
