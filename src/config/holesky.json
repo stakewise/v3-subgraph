@@ -127,6 +127,5 @@
     "address": "0x4242424242424242424242424242424242424242",
     "startBlock": "0"
   },
-  "genesisIpfsHash": "bafybeiccw65orntmku5zwgnhl7vk6nmqph2tgumheyphogv6m3vstklmne",
-  "diversifyVaults": []
+  "genesisIpfsHash": "bafybeiccw65orntmku5zwgnhl7vk6nmqph2tgumheyphogv6m3vstklmne"
 }
