@@ -899,6 +899,24 @@ type ExchangeRate @entity {
   "The USD rate of SSV"
   ssvUsdRate: BigDecimal!
 
+  "The USD rate of ETH"
+  ethUsdRate: BigDecimal!
+
+  "The USD rate of BTC"
+  btcUsdRate: BigDecimal!
+
+  "The USD rate of Solana"
+  solUsdRate: BigDecimal!
+
+  "The USD rate of SUSDS"
+  susdsUsdRate: BigDecimal!
+
+  "The USD rate of sDAI"
+  sdaiUsdRate: BigDecimal!
+
+  "The USD rate of bCSPX"
+  bcspxUsdRate: BigDecimal!
+
   "The USD to EUR rate"
   usdToEurRate: BigDecimal!
 
@@ -929,6 +947,12 @@ type ExchangeRateSnapshot @entity(timeseries: true) {
   swiseUsdRate: BigDecimal!
   daiUsdRate: BigDecimal!
   ssvUsdRate: BigDecimal!
+  ethUsdRate: BigDecimal!
+  btcUsdRate: BigDecimal!
+  solUsdRate: BigDecimal!
+  susdsUsdRate: BigDecimal!
+  sdaiUsdRate: BigDecimal!
+  bcspxUsdRate: BigDecimal!
   usdcUsdRate: BigDecimal!
   usdToEurRate: BigDecimal!
   usdToGbpRate: BigDecimal!
@@ -949,6 +973,12 @@ type ExchangeRateStats @aggregation(intervals: ["day"], source: "ExchangeRateSna
   swiseUsdRate: BigDecimal! @aggregate(fn: "last", arg: "swiseUsdRate")
   daiUsdRate: BigDecimal! @aggregate(fn: "last", arg: "daiUsdRate")
   ssvUsdRate: BigDecimal! @aggregate(fn: "last", arg: "ssvUsdRate")
+  ethUsdRate: BigDecimal! @aggregate(fn: "last", arg: "ethUsdRate")
+  btcUsdRate: BigDecimal! @aggregate(fn: "last", arg: "btcUsdRate")
+  solUsdRate: BigDecimal! @aggregate(fn: "last", arg: "solUsdRate")
+  susdsUsdRate: BigDecimal! @aggregate(fn: "last", arg: "susdsUsdRate")
+  sdaiUsdRate: BigDecimal! @aggregate(fn: "last", arg: "sdaiUsdRate")
+  bcspxUsdRate: BigDecimal! @aggregate(fn: "last", arg: "bcspxUsdRate")
   usdcUsdRate: BigDecimal! @aggregate(fn: "last", arg: "usdcUsdRate")
   usdToEurRate: BigDecimal! @aggregate(fn: "last", arg: "usdToEurRate")
   usdToGbpRate: BigDecimal! @aggregate(fn: "last", arg: "usdToGbpRate")
