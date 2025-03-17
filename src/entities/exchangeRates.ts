@@ -56,6 +56,12 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     exchangeRate.usdToKrwRate = BigDecimal.fromString('1441.109077546079462754535890821576')
     exchangeRate.usdToAudRate = BigDecimal.fromString('1.576267713308428303463060166138617')
     exchangeRate.ssvUsdRate = BigDecimal.fromString('11.9')
+    exchangeRate.ethUsdRate = BigDecimal.fromString('2723.05')
+    exchangeRate.btcUsdRate = BigDecimal.fromString('86354.45')
+    exchangeRate.solUsdRate = BigDecimal.fromString('154.37')
+    exchangeRate.susdsUsdRate = BigDecimal.fromString('1.04124722')
+    exchangeRate.sdaiUsdRate = BigDecimal.fromString('1.15762623')
+    exchangeRate.bcspxUsdRate = BigDecimal.fromString('625.62')
     exchangeRate.save()
     return
   }
@@ -232,6 +238,9 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
       const susdsUsdsRate = decodedValue.toBigDecimal().div(decimals)
       susdsUsdRate = usdsUsdRate.times(susdsUsdsRate)
     }
+
+    // set ethUsdRate equal to assetsUsdRate on mainnet
+    ethUsdRate = assetsUsdRate
   }
 
   const swiseAssetUniPool = Address.fromString(SWISE_ASSET_UNI_POOL)

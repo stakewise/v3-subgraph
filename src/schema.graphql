@@ -899,7 +899,7 @@ type ExchangeRate @entity {
   "The USD rate of SSV"
   ssvUsdRate: BigDecimal!
 
-  "The USD rate of ETH(on gnosis) todo here"
+  "The USD rate of ETH"
   ethUsdRate: BigDecimal!
 
   "The USD rate of BTC"
