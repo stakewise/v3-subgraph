@@ -10,7 +10,7 @@ import {
   OS_TOKEN,
   WAD,
 } from '../helpers/constants'
-import { calculateMedian, chunkedMulticall } from '../helpers/utils'
+import { calculateAverage, chunkedMulticall } from '../helpers/utils'
 
 const aaveId = '1'
 const snapshotsPerWeek = 168
@@ -87,7 +87,7 @@ export function updateAaveApys(aave: Aave, blockNumber: BigInt): void {
     apys = apys.slice(apys.length - snapshotsPerWeek)
   }
   aave.supplyApys = apys
-  aave.supplyApy = calculateMedian(apys)
+  aave.supplyApy = calculateAverage(apys)
   aave.save()
 
   apys = aave.borrowApys
@@ -97,7 +97,7 @@ export function updateAaveApys(aave: Aave, blockNumber: BigInt): void {
     apys = apys.slice(apys.length - snapshotsPerWeek)
   }
   aave.borrowApys = apys
-  aave.borrowApy = calculateMedian(apys)
+  aave.borrowApy = calculateAverage(apys)
   aave.save()
 }
 

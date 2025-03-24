@@ -11,24 +11,6 @@ const secondsInYear = '31536000'
 const maxPercent = '100'
 const wei = BigDecimal.fromString('1').div(BigDecimal.fromString(WAD))
 
-export function calculateMedian(values: Array<BigDecimal>): BigDecimal {
-  if (values.length === 0) {
-    return BigDecimal.zero()
-  }
-  // Sort the values
-  const sortedValues = values.sort((a: BigDecimal, b: BigDecimal) => (a.lt(b) ? -1 : a.gt(b) ? 1 : 0))
-  const mid = sortedValues.length / 2
-  if (sortedValues.length % 2 !== 0) {
-    // For odd number of elements, directly access the middle element
-    return sortedValues[mid]
-  } else {
-    // For even number of elements, calculate the average of the two middle elements
-    const lowerMidIndex = mid - 1
-    const upperMidIndex = mid
-    return sortedValues[lowerMidIndex].plus(sortedValues[upperMidIndex]).div(BigDecimal.fromString('2'))
-  }
-}
-
 export function calculateAverage(values: Array<BigDecimal>): BigDecimal {
   if (values.length === 0) {
     return BigDecimal.zero()
