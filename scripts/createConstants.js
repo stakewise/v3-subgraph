@@ -2,7 +2,7 @@ const { readFile, writeFileSync, existsSync, mkdirSync } = require('fs')
 const path = require('path')
 
 const isMainnet = process.argv.includes('mainnet')
-const isHolesky = process.argv.includes('holesky')
+const isHoodi = process.argv.includes('hoodi')
 const isChiado = process.argv.includes('chiado')
 const isGnosis = process.argv.includes('gnosis') || process.argv.includes('xdai')
 
@@ -12,8 +12,8 @@ if (isMainnet) {
   configName = 'mainnet'
 }
 
-if (isHolesky) {
-  configName = 'holesky'
+if (isHoodi) {
+  configName = 'hoodi'
 }
 
 if (isChiado) {
