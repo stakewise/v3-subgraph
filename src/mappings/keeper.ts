@@ -54,7 +54,7 @@ import { updateExitRequests } from '../entities/exitRequest'
 import { updateRewardSplitters } from '../entities/rewardSplitter'
 import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
-import { getVaultState, loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
+import { getVaultState, isFoxVault, loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
 import { getOsTokenHolderApy } from '../entities/osTokenHolder'
 import { createOrLoadAave, loadAave, updateAavePositions } from '../entities/aave'
 import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
@@ -270,6 +270,8 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
       feeRecipient.save()
     }
 
+    const _isFoxVault = isFoxVault(vaultAddress)
+
     // update allocators
     let earnedAssets: BigInt
     let allocator: Allocator
@@ -277,6 +279,9 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
       earnedAssets = updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
+      if (_isFoxVault) {
+        allocator.apy = allocator.assets.gt(BigInt.zero()) ? vault.apy : BigDecimal.zero()
+      }
       allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
       allocator.save()
     }
@@ -286,6 +291,10 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
 
     // update reward splitters
     updateRewardSplitters(vault)
+
+    if (_isFoxVault) {
+      continue
+    }
 
     // update OsToken exit requests
     updateOsTokenExitRequests(osToken, vault)

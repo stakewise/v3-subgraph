@@ -12,7 +12,7 @@ jobs:
       matrix:
         node: ['16.x']
         os: [ubuntu-latest]
-        network: ['holesky', 'mainnet']
+        network: ['hoodi', 'mainnet']
 
     runs-on: ${{ matrix.os }}
 

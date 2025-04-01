@@ -18,13 +18,14 @@ import { Safe as SafeContract } from '../../generated/PeriodicTasks/Safe'
 import { loadUniswapPool } from './uniswap'
 import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
 import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
-import { loadVault, snapshotVault } from './vault'
+import { getVaultApy, loadVault, snapshotVault } from './vault'
 import { calculateAverage, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { loadAavePosition } from './aave'
-import { createOrLoadAllocator, loadAllocator } from './allocator'
+import { createOrLoadAllocator, getAllocatorApy, loadAllocator } from './allocator'
 import { convertTokenAmountToAssets } from './exchangeRates'
 import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
 import { loadLeverageStrategyPosition } from './leverageStrategy'
+import { loadOsTokenConfig } from './osTokenConfig'
 
 const distributorId = '1'
 const secondsInYear = '31536000'
@@ -268,10 +269,6 @@ export function updateDistributions(
     const distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
     updatePeriodicDistributionApy(dist, distributedAssets, principalAssets, passedDuration)
 
-    if (distType == DistributionType.VAULT) {
-      snapshotVault(loadVault(Address.fromBytes(dist.data))!, distributor, osToken, distributedAssets, currentTimestamp)
-    }
-
     if (dist.amount.equals(distributedAmount)) {
       // distribution is finished
       dist.endTimestamp = currentTimestamp
@@ -281,6 +278,23 @@ export function updateDistributions(
     dist.save()
     if (dist.startTimestamp < dist.endTimestamp) {
       newActiveDistIds.push(dist.id)
+    }
+
+    if (distType == DistributionType.VAULT) {
+      const vault = loadVault(Address.fromBytes(dist.data))!
+      vault.apy = getVaultApy(vault, distributor, osToken, false)
+      vault.save()
+
+      // update allocators
+      const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
+      let allocator: Allocator
+      let allocators: Array<Allocator> = vault.allocators.load()
+      for (let j = 0; j < allocators.length; j++) {
+        allocator = allocators[j]
+        allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+        allocator.save()
+      }
+      snapshotVault(loadVault(Address.fromBytes(dist.data))!, distributor, osToken, distributedAssets, currentTimestamp)
     }
   }
 
