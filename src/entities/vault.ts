@@ -1,14 +1,5 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, JSONValue, log, TypedMap } from '@graphprotocol/graph-ts'
-import {
-  Aave,
-  Distributor,
-  OsToken,
-  OsTokenConfig,
-  RewardSplitter,
-  RewardSplitterShareHolder,
-  Vault,
-  VaultSnapshot,
-} from '../../generated/schema'
+import { Aave, Distributor, OsToken, OsTokenConfig, Vault, VaultSnapshot } from '../../generated/schema'
 import {
   AAVE_LEVERAGE_STRATEGY,
   AAVE_LEVERAGE_STRATEGY_START_BLOCK,
@@ -58,6 +49,10 @@ const queuedSharesSelector = '0xd83ad00c'
 
 export function loadVault(vaultAddress: Address): Vault | null {
   return Vault.load(vaultAddress.toHex())
+}
+
+export function isFoxVault(vaultAddress: Address): boolean {
+  return vaultAddress.equals(Address.fromString(FOX_VAULT1)) || vaultAddress.equals(Address.fromString(FOX_VAULT2))
 }
 
 export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: boolean, isBlocklist: boolean): void {
