@@ -536,7 +536,14 @@ export function snapshotVault(
 
 export function getVaultState(vault: Vault): Array<BigInt> {
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
-    return [BigInt.fromString(WAD), BigInt.zero(), BigInt.zero(), BigInt.zero(), BigInt.zero(), BigInt.zero()]
+    return [
+      BigInt.fromString(WAD),
+      vault.totalAssets,
+      vault.totalShares,
+      vault.queuedShares,
+      vault.exitingAssets,
+      BigInt.zero(),
+    ]
   }
 
   const isV2OrHigherVault = vault.version.ge(BigInt.fromI32(2))
