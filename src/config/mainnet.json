@@ -53,6 +53,14 @@
     "address": "0x41393e5e337606dc3821075Af65AeE84D7688CBD",
     "startBlock": "21288813"
   },
+  "aavePoolConfigurator": {
+    "address": "0x64b761D848206f447Fe2dd461b0c635Ec39EbB27",
+    "startBlock": "21288813"
+  },
+  "aaveToken": {
+    "address": "0x927709711794f3de5ddbf1d176bee2d55ba13c21",
+    "startBlock": "18470087"
+  },
   "vestingEscrowFactory": {
     "address": "0x7B910cc3D4B42FEFF056218bD56d7700E4ea7dD5",
     "startBlock": "12271842"

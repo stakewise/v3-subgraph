@@ -710,6 +710,12 @@ type Aave @entity {
 
   "The Aave positions in Leveraged strategy"
   positions: [AavePosition!]! @derivedFrom(field: "aave")
+
+  "osToken current supply"
+  supplyCap: BigInt!
+
+  "osToken supply limit"
+  totalSupplies: BigInt!
 }
 
 """

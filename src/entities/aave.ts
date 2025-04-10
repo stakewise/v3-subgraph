@@ -33,6 +33,8 @@ export function createOrLoadAave(): Aave {
     aave.leverageMaxBorrowLtvPercent = BigInt.zero()
     aave.borrowApys = []
     aave.supplyApys = []
+    aave.supplyCap = BigInt.zero()
+    aave.totalSupplies = BigInt.zero()
     aave.save()
   }
 
