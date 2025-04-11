@@ -597,6 +597,46 @@ dataSources:
         - handler: handleGenesisValidators
           filter:
             kind: once
+  - kind: ethereum/contract
+    name: AavePoolConfigurator
+    network: {{ network }}
+    source:
+      address: '{{ aavePoolConfigurator.address }}'
+      abi: AavePoolConfigurator
+      startBlock: {{ aavePoolConfigurator.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/aave.ts
+      entities:
+        - Aave
+      abis:
+        - name: AavePoolConfigurator
+          file: ./abis/AavePoolConfigurator.json
+      eventHandlers:
+        - event: SupplyCapChanged(indexed address,uint256,uint256)
+          handler: handleSupplyCapChanged
+  - kind: ethereum/contract
+    name: AaveToken
+    network: {{ network }}
+    source:
+      address: '{{ aaveToken.address }}'
+      abi: AaveToken
+      startBlock: {{ aaveToken.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/aave.ts
+      entities:
+        - Aave
+      abis:
+        - name: AaveToken
+          file: ./abis/AaveToken.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
 templates:
   - kind: ethereum/contract
     name: VaultFactory
