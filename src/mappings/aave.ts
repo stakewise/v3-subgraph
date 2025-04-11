@@ -1,5 +1,5 @@
 import { Address } from '@graphprotocol/graph-ts'
-import { BalanceTransfer } from '../../generated/AaveToken/AaveToken'
+import { Transfer } from '../../generated/AaveToken/AaveToken'
 import { SupplyCapChanged } from '../../generated/AavePoolConfigurator/AavePoolConfigurator'
 
 import { loadAave } from '../entities/aave'
@@ -10,7 +10,7 @@ export function handleSupplyCapChanged(event: SupplyCapChanged): void {
   aave.save()
 }
 
-export function handleBalanceTransfer(event: BalanceTransfer): void {
+export function handleTransfer(event: Transfer): void {
   const from = event.params.from
   const to = event.params.to
   const amount = event.params.value
