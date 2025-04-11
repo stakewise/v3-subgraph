@@ -712,10 +712,10 @@ type Aave @entity {
   positions: [AavePosition!]! @derivedFrom(field: "aave")
 
   "osToken current supply"
-  supplyCap: BigInt!
+  osTokenSupplyCap: BigInt!
 
   "osToken supply limit"
-  totalSupplies: BigInt!
+  osTokenTotalSupplied: BigInt!
 }
 
 """
