@@ -65,6 +65,10 @@
     "address": "0x0000000000000000000000000000000000000000",
     "startBlock": "10627588"
   },
+  "balancerPool": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "startBlock": "10627588"
+  },
   "keeper": {
     "address": "0x5f31eD13eBF81B67a9f9498F3d1D2Da553058988",
     "startBlock": "10627588"

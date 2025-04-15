@@ -65,6 +65,10 @@
     "address": "0x7B910cc3D4B42FEFF056218bD56d7700E4ea7dD5",
     "startBlock": "12271842"
   },
+  "balancerPool": {
+    "address": "0xdacf5fa19b1f720111609043ac67a9818262850c",
+    "startBlock": "18673272"
+  },
   "keeper": {
     "address": "0x6B5815467da09DaA7DC83Db21c9239d98Bb487b5",
     "startBlock": "18470089"

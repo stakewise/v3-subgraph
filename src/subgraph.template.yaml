@@ -637,6 +637,28 @@ dataSources:
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
+  - kind: ethereum/contract
+    name: BalancerPool
+    network: {{ network }}
+    source:
+      address: '{{ balancerPool.address }}'
+      abi: BalancerPool
+      startBlock: {{ balancerPool.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/balancerPool.ts
+      entities:
+        - BalancerPoolToken
+      abis:
+        - name: BalancerPool
+          file: ./abis/BalancerPool.json
+      eventHandlers:
+        - event: PoolBalanceChanged(indexed bytes32,indexed address,address[],int256[],uint256[])
+          handler: handleBalanceChange
+        - event: PoolBalanceManaged(indexed bytes32,indexed address,indexed address,int256,int256)
+          handler: handleBalanceManage
 templates:
   - kind: ethereum/contract
     name: VaultFactory

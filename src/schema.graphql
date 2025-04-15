@@ -1154,3 +1154,12 @@ type NetworkValidator @entity(immutable: true) {
   "Set to validator public key"
   id: Bytes!
 }
+
+"Balancer pool token"
+type BalancerPoolToken @entity(immutable: true) {
+  "The token address"
+  id: Bytes!
+
+  "The token balance"
+  balance: BigDecimal!
+}
