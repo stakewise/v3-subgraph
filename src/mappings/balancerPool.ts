@@ -5,6 +5,7 @@ import { createOrLoadBalancerPoolToken } from '../entities/balancerPool'
 
 const tokenAddresses: string[] = [
   '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+  '0xdacf5fa19b1f720111609043ac67a9818262850c',
   '0xf1c9acdc66974dfb6decb12aa385b9cd01190e38',
 ]
 
