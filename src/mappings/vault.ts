@@ -42,8 +42,8 @@ import {
 } from '../entities/allocator'
 import { decreaseUserVaultsCount, increaseUserVaultsCount, isGnosisNetwork, loadNetwork } from '../entities/network'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
-import { DEPOSIT_DATA_REGISTRY, OS_TOKEN_CONFIG_V2_START_BLOCK, WAD } from '../helpers/constants'
-import { createOrLoadOsTokenConfig, loadOsTokenConfig } from '../entities/osTokenConfig'
+import { DEPOSIT_DATA_REGISTRY, WAD } from '../helpers/constants'
+import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { loadExitRequest, updateExitRequests } from '../entities/exitRequest'
 import { convertSharesToAssets, loadVault } from '../entities/vault'
 import { loadDistributor } from '../entities/merkleDistributor'
@@ -178,7 +178,6 @@ export function handleMetadataUpdated(event: MetadataUpdated): void {
 
 // Event emitted on vault upgrade
 export function handleInitialized(event: Initialized): void {
-  const blockNumber = event.block.number
   const timestamp = event.block.timestamp
   const vaultAddress = event.address
   const vault = loadVault(vaultAddress)!
@@ -189,10 +188,6 @@ export function handleInitialized(event: Initialized): void {
     vault.validatorsManager = DEPOSIT_DATA_REGISTRY
     // update OsTokenConfig version
     vault.osTokenConfig = '2'
-    if (blockNumber.lt(BigInt.fromString(OS_TOKEN_CONFIG_V2_START_BLOCK))) {
-      createOrLoadOsTokenConfig('2')
-      log.warning('[Vault] vault={} is with V2 osTokenConfig before its creation', [vaultAddress.toHex()])
-    }
   }
   vault.version = newVersion
   vault.save()
