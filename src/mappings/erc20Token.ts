@@ -22,7 +22,7 @@ export function handleTransfer(event: Transfer): void {
   }
 
   createTokenTransfer(
-    event.transaction.hash.toHex(),
+    `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`,
     event.params.from,
     event.params.to,
     event.params.value,

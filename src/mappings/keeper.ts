@@ -12,25 +12,31 @@ import {
 import {
   BLOCKLIST_ERC20_VAULT_FACTORY_V2,
   BLOCKLIST_ERC20_VAULT_FACTORY_V3,
+  BLOCKLIST_ERC20_VAULT_FACTORY_V5,
   BLOCKLIST_VAULT_FACTORY_V2,
   BLOCKLIST_VAULT_FACTORY_V3,
+  BLOCKLIST_VAULT_FACTORY_V5,
   ERC20_VAULT_FACTORY_V1,
   ERC20_VAULT_FACTORY_V2,
   ERC20_VAULT_FACTORY_V3,
+  ERC20_VAULT_FACTORY_V5,
   FOX_VAULT1,
   FOX_VAULT2,
   PRIV_ERC20_VAULT_FACTORY_V1,
   PRIV_ERC20_VAULT_FACTORY_V2,
   PRIV_ERC20_VAULT_FACTORY_V3,
+  PRIV_ERC20_VAULT_FACTORY_V5,
   PRIV_VAULT_FACTORY_V1,
   PRIV_VAULT_FACTORY_V2,
   PRIV_VAULT_FACTORY_V3,
+  PRIV_VAULT_FACTORY_V5,
   REWARD_SPLITTER_FACTORY_V1,
   REWARD_SPLITTER_FACTORY_V2,
   REWARD_SPLITTER_FACTORY_V3,
   VAULT_FACTORY_V1,
   VAULT_FACTORY_V2,
   VAULT_FACTORY_V3,
+  VAULT_FACTORY_V5,
 } from '../helpers/constants'
 import {
   FoxVault as FoxVaultTemplate,
@@ -62,6 +68,7 @@ import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDist
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
 const IS_BLOCKLIST_KEY = 'isBlocklist'
+const VERSION = 'version'
 
 export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   createOrLoadV2Pool()
@@ -79,19 +86,25 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   const vaultFactoryV1 = Address.fromString(VAULT_FACTORY_V1)
   const vaultFactoryV2 = Address.fromString(VAULT_FACTORY_V2)
   const vaultFactoryV3 = Address.fromString(VAULT_FACTORY_V3)
+  const vaultFactoryV5 = Address.fromString(VAULT_FACTORY_V5)
   const privVaultFactoryV1 = Address.fromString(PRIV_VAULT_FACTORY_V1)
   const privVaultFactoryV2 = Address.fromString(PRIV_VAULT_FACTORY_V2)
   const privVaultFactoryV3 = Address.fromString(PRIV_VAULT_FACTORY_V3)
+  const privVaultFactoryV5 = Address.fromString(PRIV_VAULT_FACTORY_V5)
   const blocklistVaultFactoryV2 = Address.fromString(BLOCKLIST_VAULT_FACTORY_V2)
   const blocklistVaultFactoryV3 = Address.fromString(BLOCKLIST_VAULT_FACTORY_V3)
+  const blocklistVaultFactoryV5 = Address.fromString(BLOCKLIST_VAULT_FACTORY_V5)
   const erc20VaultFactoryV1 = Address.fromString(ERC20_VAULT_FACTORY_V1)
   const erc20VaultFactoryV2 = Address.fromString(ERC20_VAULT_FACTORY_V2)
   const erc20VaultFactoryV3 = Address.fromString(ERC20_VAULT_FACTORY_V3)
+  const erc20VaultFactoryV5 = Address.fromString(ERC20_VAULT_FACTORY_V5)
   const privErc20VaultFactoryV1 = Address.fromString(PRIV_ERC20_VAULT_FACTORY_V1)
   const privErc20VaultFactoryV2 = Address.fromString(PRIV_ERC20_VAULT_FACTORY_V2)
   const privErc20VaultFactoryV3 = Address.fromString(PRIV_ERC20_VAULT_FACTORY_V3)
+  const privErc20VaultFactoryV5 = Address.fromString(PRIV_ERC20_VAULT_FACTORY_V5)
   const blocklistErc20VaultFactoryV2 = Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V2)
   const blocklistErc20VaultFactoryV3 = Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V3)
+  const blocklistErc20VaultFactoryV5 = Address.fromString(BLOCKLIST_ERC20_VAULT_FACTORY_V5)
   const rewardSplitterFactoryV1 = Address.fromString(REWARD_SPLITTER_FACTORY_V1)
   const rewardSplitterFactoryV2 = Address.fromString(REWARD_SPLITTER_FACTORY_V2)
   const rewardSplitterFactoryV3 = Address.fromString(REWARD_SPLITTER_FACTORY_V3)
@@ -107,41 +120,64 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   context.setBoolean(IS_ERC20_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, false)
   if (vaultFactoryV1.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(1))
     VaultFactoryTemplate.createWithContext(vaultFactoryV1, context)
     log.info('[Keeper] Initialize VaultFactory V1 at block={}', [blockNumber])
   }
   if (vaultFactoryV2.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(2))
     VaultFactoryTemplate.createWithContext(vaultFactoryV2, context)
     log.info('[Keeper] Initialize VaultFactory V2 at block={}', [blockNumber])
   }
   if (vaultFactoryV3.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(3))
     VaultFactoryTemplate.createWithContext(vaultFactoryV3, context)
     log.info('[Keeper] Initialize VaultFactory V3 at block={}', [blockNumber])
+  }
+  if (vaultFactoryV5.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(5))
+    VaultFactoryTemplate.createWithContext(vaultFactoryV5, context)
+    log.info('[Keeper] Initialize VaultFactory V5 at block={}', [blockNumber])
   }
 
   context.setBoolean(IS_PRIVATE_KEY, true)
   if (privVaultFactoryV1.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(1))
     VaultFactoryTemplate.createWithContext(privVaultFactoryV1, context)
     log.info('[Keeper] Initialize PrivateVaultFactory V1 at block={}', [blockNumber])
   }
   if (privVaultFactoryV2.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(2))
     VaultFactoryTemplate.createWithContext(privVaultFactoryV2, context)
     log.info('[Keeper] Initialize PrivateVaultFactory V2 at block={}', [blockNumber])
   }
   if (privVaultFactoryV3.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(3))
     VaultFactoryTemplate.createWithContext(privVaultFactoryV3, context)
     log.info('[Keeper] Initialize PrivateVaultFactory V3 at block={}', [blockNumber])
+  }
+  if (privVaultFactoryV5.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(5))
+    VaultFactoryTemplate.createWithContext(privVaultFactoryV5, context)
+    log.info('[Keeper] Initialize PrivateVaultFactory V5 at block={}', [blockNumber])
   }
 
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, true)
   if (blocklistVaultFactoryV2.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(2))
     VaultFactoryTemplate.createWithContext(blocklistVaultFactoryV2, context)
     log.info('[Keeper] Initialize BlocklistVaultFactory V2 at block={}', [blockNumber])
   }
   if (blocklistVaultFactoryV3.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(3))
     VaultFactoryTemplate.createWithContext(blocklistVaultFactoryV3, context)
     log.info('[Keeper] Initialize BlocklistVaultFactory V3 at block={}', [blockNumber])
+  }
+  if (blocklistVaultFactoryV5.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(5))
+    VaultFactoryTemplate.createWithContext(blocklistVaultFactoryV5, context)
+    log.info('[Keeper] Initialize BlocklistVaultFactory V5 at block={}', [blockNumber])
   }
 
   // create erc20 vault factories
@@ -149,41 +185,64 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   context.setBoolean(IS_ERC20_KEY, true)
   context.setBoolean(IS_BLOCKLIST_KEY, false)
   if (erc20VaultFactoryV1.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(1))
     VaultFactoryTemplate.createWithContext(erc20VaultFactoryV1, context)
     log.info('[Keeper] Initialize ERC20VaultFactory V1 at block={}', [blockNumber])
   }
   if (erc20VaultFactoryV2.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(2))
     VaultFactoryTemplate.createWithContext(erc20VaultFactoryV2, context)
     log.info('[Keeper] Initialize ERC20VaultFactory V2 at block={}', [blockNumber])
   }
   if (erc20VaultFactoryV3.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(3))
     VaultFactoryTemplate.createWithContext(erc20VaultFactoryV3, context)
     log.info('[Keeper] Initialize ERC20VaultFactory V3 at block={}', [blockNumber])
+  }
+  if (erc20VaultFactoryV5.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(5))
+    VaultFactoryTemplate.createWithContext(erc20VaultFactoryV5, context)
+    log.info('[Keeper] Initialize ERC20VaultFactory V5 at block={}', [blockNumber])
   }
 
   context.setBoolean(IS_PRIVATE_KEY, true)
   if (privErc20VaultFactoryV1.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(1))
     VaultFactoryTemplate.createWithContext(privErc20VaultFactoryV1, context)
     log.info('[Keeper] Initialize PrivateERC20VaultFactory V1 at block={}', [blockNumber])
   }
   if (privErc20VaultFactoryV2.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(2))
     VaultFactoryTemplate.createWithContext(privErc20VaultFactoryV2, context)
     log.info('[Keeper] Initialize PrivateERC20VaultFactory V2 at block={}', [blockNumber])
   }
   if (privErc20VaultFactoryV3.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(3))
     VaultFactoryTemplate.createWithContext(privErc20VaultFactoryV3, context)
     log.info('[Keeper] Initialize PrivateERC20VaultFactory V3 at block={}', [blockNumber])
+  }
+  if (privErc20VaultFactoryV5.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(5))
+    VaultFactoryTemplate.createWithContext(privErc20VaultFactoryV5, context)
+    log.info('[Keeper] Initialize PrivateERC20VaultFactory V5 at block={}', [blockNumber])
   }
 
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, true)
   if (blocklistErc20VaultFactoryV2.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(2))
     VaultFactoryTemplate.createWithContext(blocklistErc20VaultFactoryV2, context)
     log.info('[Keeper] Initialize BlocklistERC20VaultFactory V2 at block={}', [blockNumber])
   }
   if (blocklistErc20VaultFactoryV3.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(3))
     VaultFactoryTemplate.createWithContext(blocklistErc20VaultFactoryV3, context)
     log.info('[Keeper] Initialize BlocklistERC20VaultFactory V3 at block={}', [blockNumber])
+  }
+  if (blocklistErc20VaultFactoryV5.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(5))
+    VaultFactoryTemplate.createWithContext(blocklistErc20VaultFactoryV5, context)
+    log.info('[Keeper] Initialize BlocklistERC20VaultFactory V5 at block={}', [blockNumber])
   }
 
   // create reward splitter factories
@@ -191,12 +250,10 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
     RewardSplitterFactoryTemplate.create(rewardSplitterFactoryV1)
     log.info('[Keeper] Initialize RewardSplitterFactory V1 at block={}', [blockNumber])
   }
-
   if (rewardSplitterFactoryV2.notEqual(zeroAddress)) {
     RewardSplitterFactoryTemplate.create(rewardSplitterFactoryV2)
     log.info('[Keeper] Initialize RewardSplitterFactory V2 at block={}', [blockNumber])
   }
-
   if (rewardSplitterFactoryV3.notEqual(zeroAddress)) {
     RewardSplitterFactoryTemplate.create(rewardSplitterFactoryV3)
     log.info('[Keeper] Initialize RewardSplitterFactory V3 at block={}', [blockNumber])

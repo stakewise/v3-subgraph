@@ -7,8 +7,6 @@ import {
   FOX_VAULT1,
   FOX_VAULT2,
   MAX_VAULT_APY,
-  VAULT_FACTORY_V2,
-  VAULT_FACTORY_V3,
   WAD,
 } from '../helpers/constants'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy, loadOsToken } from './osToken'
@@ -55,7 +53,13 @@ export function isFoxVault(vaultAddress: Address): boolean {
   return vaultAddress.equals(Address.fromString(FOX_VAULT1)) || vaultAddress.equals(Address.fromString(FOX_VAULT2))
 }
 
-export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: boolean, isBlocklist: boolean): void {
+export function createVault(
+  event: VaultCreated,
+  version: BigInt,
+  isPrivate: boolean,
+  isErc20: boolean,
+  isBlocklist: boolean,
+): void {
   const block = event.block
   const vaultAddress = event.params.vault
   const vaultAddressHex = vaultAddress.toHex()
@@ -113,23 +117,16 @@ export function createVault(event: VaultCreated, isPrivate: boolean, isErc20: bo
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = false
-  if (vault.factory.equals(Address.fromString(VAULT_FACTORY_V2))) {
-    vault.version = BigInt.fromI32(2)
-    vault.osTokenConfig = '2'
-  } else if (vault.factory.equals(Address.fromString(VAULT_FACTORY_V3))) {
-    vault.version = BigInt.fromI32(3)
-    vault.osTokenConfig = '2'
-  } else {
-    vault.version = BigInt.fromI32(isGnosis ? 2 : 1)
-    vault.osTokenConfig = isGnosis ? '2' : '1'
-  }
+  vault.version = version
 
   if (vault.version.equals(BigInt.fromI32(1))) {
     // there is no validators manager for v1 vaults
     vault.validatorsManager = null
+    vault.osTokenConfig = '1'
   } else {
     // default to deposit data registry
     vault.validatorsManager = DEPOSIT_DATA_REGISTRY
+    vault.osTokenConfig = '2'
   }
 
   if (ownMevEscrow != Address.zero()) {
