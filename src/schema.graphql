@@ -247,6 +247,9 @@ type Vault @entity {
   "The vault slashed MEV reward in the smoothing pool"
   slashedMevReward: BigInt!
 
+  "The timestamp of the last fee update"
+  lastFeeUpdateTimestamp: BigInt!
+
   "Defines whether the vault can harvest new rewards"
   canHarvest: Boolean!
 

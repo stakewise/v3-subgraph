@@ -6,8 +6,10 @@ import {
   handleDeposit,
   handleWithdraw,
   handleTransfer,
+  handleAdminUpdated,
   handleMetadataUpdated,
   handleExitQueueEntered,
+  handleFeePercentUpdated,
   handleExitedAssetsClaimed,
   handleValidatorsRootUpdated,
 } from '../src/mappings/vault'
@@ -17,9 +19,11 @@ import {
   createDepositEvent,
   createWithdrawEvent,
   createTransferEvent,
+  createAdminUpdatedEvent,
   createMetadataUpdatedEvent,
   createExitQueueEnteredEvent,
   createCheckpointCreatedEvent,
+  createFeePercentUpdatedEvent,
   createExitedAssetsClaimedEvent,
   createValidatorsRootUpdatedEvent,
 } from './util/events'
@@ -27,7 +31,6 @@ import { createVault } from './util/helpers'
 import { address, addressString } from './util/mock'
 
 export { updateMetadata } from '../src/entities/metadata'
-
 
 const resetVault = (): void => {
   clearStore()
@@ -47,9 +50,7 @@ afterAll(() => {
 })
 
 describe('vault', () => {
-
   describe('handleExitQueueEntered', () => {
-
     test('creates ExitRequest and increases queuedShares', () => {
       const amount = '10000'
       const exitQueueId = '0'
@@ -79,15 +80,11 @@ describe('vault', () => {
   })
 
   describe('handleDeposit', () => {
-
     test('increases totalAssets on deposit', () => {
       const amount = '10000'
       const vaultId = addressString.get('vault')
 
-      const depositEvent = createDepositEvent(
-        address.get('admin'),
-        BigInt.fromString(amount),
-      )
+      const depositEvent = createDepositEvent(address.get('admin'), BigInt.fromString(amount))
 
       handleDeposit(depositEvent)
 
@@ -99,10 +96,7 @@ describe('vault', () => {
       const amount = '10000'
       const vaultId = addressString.get('vault')
 
-      const depositEvent = createDepositEvent(
-        address.get('admin'),
-        BigInt.fromString(amount),
-      )
+      const depositEvent = createDepositEvent(address.get('admin'), BigInt.fromString(amount))
 
       handleDeposit(depositEvent)
 
@@ -113,20 +107,13 @@ describe('vault', () => {
   })
 
   describe('handleWithdraw', () => {
-
     test('decreases totalAssets on withdraw', () => {
       const amount = '10000'
       const vaultId = addressString.get('vault')
 
-      const depositEvent = createDepositEvent(
-        address.get('admin'),
-        BigInt.fromString(amount),
-      )
+      const depositEvent = createDepositEvent(address.get('admin'), BigInt.fromString(amount))
 
-      const withdrawEvent = createWithdrawEvent(
-        address.get('admin'),
-        BigInt.fromString(amount),
-      )
+      const withdrawEvent = createWithdrawEvent(address.get('admin'), BigInt.fromString(amount))
 
       handleDeposit(depositEvent)
       assert.fieldEquals('Vault', vaultId, 'totalAssets', amount)
@@ -137,15 +124,10 @@ describe('vault', () => {
   })
 
   describe('handleTransfer', () => {
-
     test('mints shares if transaction from zero address', () => {
       const amount = '10000'
 
-      const transferEvent = createTransferEvent(
-        address.get('zero'),
-        address.get('admin'),
-        BigInt.fromString(amount),
-      )
+      const transferEvent = createTransferEvent(address.get('zero'), address.get('admin'), BigInt.fromString(amount))
 
       handleTransfer(transferEvent)
 
@@ -198,11 +180,7 @@ describe('vault', () => {
         BigInt.fromString(amount),
       )
 
-      const transferEvent = createTransferEvent(
-        address.get('admin'),
-        address.get('factory'),
-        BigInt.fromString(amount),
-      )
+      const transferEvent = createTransferEvent(address.get('admin'), address.get('factory'), BigInt.fromString(amount))
 
       handleTransfer(mintTransferEvent)
       handleTransfer(transferEvent)
@@ -252,16 +230,12 @@ describe('vault', () => {
   })
 
   describe('handleExitedAssetsClaimed', () => {
-
     test('decreases queued shares and unclaimed assets', () => {
       const amount = '10000'
       const prevExitQueueId = amount
       const nextExitQueueId = '0'
 
-      const depositEvent = createDepositEvent(
-        address.get('admin'),
-        BigInt.fromString(amount),
-      )
+      const depositEvent = createDepositEvent(address.get('admin'), BigInt.fromString(amount))
 
       const exitQueueEnteredEvent = createExitQueueEnteredEvent(
         address.get('admin'),
@@ -271,10 +245,7 @@ describe('vault', () => {
         BigInt.fromString(amount),
       )
 
-      const checkpointCreatedEvent = createCheckpointCreatedEvent(
-        BigInt.fromString(amount),
-        BigInt.fromString(amount),
-      )
+      const checkpointCreatedEvent = createCheckpointCreatedEvent(BigInt.fromString(amount), BigInt.fromString(amount))
 
       const exitedAssetsClaimedEventEvent = createExitedAssetsClaimedEvent(
         address.get('admin'),
@@ -315,7 +286,6 @@ describe('vault', () => {
   })
 
   describe('handleValidatorsRootUpdated', () => {
-
     test('updates validators root', () => {
       const validatorsRoot = Bytes.fromUTF8('root')
 
@@ -330,7 +300,6 @@ describe('vault', () => {
   })
 
   describe('handleMetadataUpdated', () => {
-
     test('updates vault valid metadata', () => {
       const metadataIpfsHash = 'metadataHash'
 
@@ -363,6 +332,35 @@ describe('vault', () => {
       assert.fieldEquals('Vault', vaultId, 'displayName', 'null')
       assert.fieldEquals('Vault', vaultId, 'description', 'null')
       assert.fieldEquals('Vault', vaultId, 'imageUrl', 'null')
+    })
+  })
+
+  describe('handleAdminUpdated', () => {
+    test('updates vault admin', () => {
+      const newAdmin = address.get('admin')
+
+      const event = createAdminUpdatedEvent(newAdmin)
+
+      handleAdminUpdated(event)
+
+      const vaultId = addressString.get('vault')
+
+      assert.fieldEquals('Vault', vaultId, 'admin', newAdmin)
+    })
+  })
+
+  describe('handleFeePercentUpdated', () => {
+    test('updates vault fee percent', () => {
+      const feePercent = BigInt.fromI32(1000) // 10%
+
+      const event = createFeePercentUpdatedEvent(feePercent)
+
+      handleFeePercentUpdated(event)
+
+      const vaultId = addressString.get('vault')
+
+      assert.fieldEquals('Vault', vaultId, 'feePercent', feePercent.toString())
+      assert.fieldEquals('Vault', vaultId, 'lastFeeUpdateTimestamp', event.block.timestamp.toString())
     })
   })
 })
