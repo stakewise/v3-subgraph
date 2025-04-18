@@ -198,7 +198,10 @@ export function getVaultApy(vault: Vault, distributor: Distributor, osToken: OsT
   const activeDistributionIds = distributor.activeDistributionIds
   for (let i = 0; i < activeDistributionIds.length; i++) {
     const distribution = loadPeriodicDistribution(activeDistributionIds[i])!
-    if (convertStringToDistributionType(distribution.distributionType) !== DistributionType.VAULT) {
+    if (
+      convertStringToDistributionType(distribution.distributionType) !== DistributionType.VAULT ||
+      Address.fromBytes(distribution.data).notEqual(Address.fromString(vault.id))
+    ) {
       continue
     }
 

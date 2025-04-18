@@ -341,12 +341,19 @@ export function snapshotAllocator(
   duration: BigInt,
   timestamp: BigInt,
 ): void {
+  const boostPosition = loadLeverageStrategyPosition(Address.fromString(vault.id), Address.fromBytes(allocator.address))
+  let boostedOsTokenShares = BigInt.zero()
+  if (boostPosition !== null) {
+    boostedOsTokenShares = boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)
+  }
+
   const totalAssets = getAllocatorTotalAssets(osToken, vault, allocator)
   const allocatorSnapshot = new AllocatorSnapshot(timestamp.toString())
   allocatorSnapshot.timestamp = timestamp.toI64()
   allocatorSnapshot.allocator = allocator.id
   allocatorSnapshot.earnedAssets = earnedAssets
   allocatorSnapshot.totalAssets = totalAssets
+  allocatorSnapshot.boostedOsTokenShares = boostedOsTokenShares
   allocatorSnapshot.apy = calculateApy(earnedAssets, totalAssets, duration)
   allocatorSnapshot.ltv = allocator.ltv
   allocatorSnapshot.save()
