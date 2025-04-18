@@ -331,32 +331,6 @@
   {
     "inputs": [
       {
-        "internalType": "uint16",
-        "name": "_feePercent",
-        "type": "uint16"
-      }
-    ],
-    "name": "setFeePercent",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_keeper",
-        "type": "address"
-      }
-    ],
-    "name": "setKeeper",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "address",
         "name": "_treasury",
         "type": "address"

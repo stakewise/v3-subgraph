@@ -8,16 +8,13 @@ import {
   Deposit,
   Transfer,
   Withdraw,
-  AdminUpdated,
   MetadataUpdated,
   ExitQueueEntered,
-  FeePercentUpdated,
   ExitedAssetsClaimed,
   ValidatorsRootUpdated,
 } from '../../generated/templates/Vault/Vault'
 
 import { address } from './mock'
-
 
 const createVaultEvent = (
   caller: Address,
@@ -39,10 +36,10 @@ const createVaultEvent = (
     mockEvent.block,
     mockEvent.transaction,
     mockEvent.parameters,
-    null
+    null,
   )
 
-  mockVaultCreatedEvent.parameters = new Array()
+  mockVaultCreatedEvent.parameters = []
 
   const adminParam = new ethereum.EventParam('admin', ethereum.Value.fromAddress(admin))
   const vaultParam = new ethereum.EventParam('vault', ethereum.Value.fromAddress(vault))
@@ -50,8 +47,14 @@ const createVaultEvent = (
   const mevEscrowParam = new ethereum.EventParam('mevEscrow', ethereum.Value.fromAddress(mevEscrow))
   const nameParam = new ethereum.EventParam('name', ethereum.Value.fromString(name))
   const symbolParam = new ethereum.EventParam('symbol', ethereum.Value.fromString(symbol))
-  const capacityParam = new ethereum.EventParam('capacity', ethereum.Value.fromUnsignedBigInt(BigInt.fromString(capacity)))
-  const feePercentParam = new ethereum.EventParam('feePercent', ethereum.Value.fromUnsignedBigInt(BigInt.fromString(feePercent)))
+  const capacityParam = new ethereum.EventParam(
+    'capacity',
+    ethereum.Value.fromUnsignedBigInt(BigInt.fromString(capacity)),
+  )
+  const feePercentParam = new ethereum.EventParam(
+    'feePercent',
+    ethereum.Value.fromUnsignedBigInt(BigInt.fromString(feePercent)),
+  )
 
   mockVaultCreatedEvent.parameters.push(adminParam)
   mockVaultCreatedEvent.parameters.push(vaultParam)
@@ -65,10 +68,7 @@ const createVaultEvent = (
   return mockVaultCreatedEvent
 }
 
-const createDepositEvent = (
-  owner: Address,
-  assets: BigInt,
-): Deposit => {
+const createDepositEvent = (owner: Address, assets: BigInt): Deposit => {
   const mockEvent = newMockEvent()
 
   const mockDepositEvent = new Deposit(
@@ -79,10 +79,10 @@ const createDepositEvent = (
     mockEvent.block,
     mockEvent.transaction,
     mockEvent.parameters,
-    null
+    null,
   )
 
-  mockDepositEvent.parameters = new Array()
+  mockDepositEvent.parameters = []
 
   const callerParam = new ethereum.EventParam('caller', ethereum.Value.fromAddress(owner))
   const ownerParam = new ethereum.EventParam('owner', ethereum.Value.fromAddress(owner))
@@ -97,10 +97,7 @@ const createDepositEvent = (
   return mockDepositEvent
 }
 
-const createWithdrawEvent = (
-  owner: Address,
-  assets: BigInt,
-): Withdraw => {
+const createWithdrawEvent = (owner: Address, assets: BigInt): Withdraw => {
   const mockEvent = newMockEvent()
 
   const mockWithdrawEvent = new Withdraw(
@@ -111,10 +108,10 @@ const createWithdrawEvent = (
     mockEvent.block,
     mockEvent.transaction,
     mockEvent.parameters,
-    null
+    null,
   )
 
-  mockWithdrawEvent.parameters = new Array()
+  mockWithdrawEvent.parameters = []
 
   const callerParam = new ethereum.EventParam('caller', ethereum.Value.fromAddress(owner))
   const ownerParam = new ethereum.EventParam('owner', ethereum.Value.fromAddress(owner))
@@ -129,11 +126,7 @@ const createWithdrawEvent = (
   return mockWithdrawEvent
 }
 
-const createTransferEvent = (
-  from: Address,
-  to: Address,
-  amount: BigInt,
-): Transfer => {
+const createTransferEvent = (from: Address, to: Address, amount: BigInt): Transfer => {
   const mockEvent = newMockEvent()
 
   const mockTransferEvent = new Transfer(
@@ -144,10 +137,10 @@ const createTransferEvent = (
     mockEvent.block,
     mockEvent.transaction,
     mockEvent.parameters,
-    null
+    null,
   )
 
-  mockTransferEvent.parameters = new Array()
+  mockTransferEvent.parameters = []
 
   const fromParam = new ethereum.EventParam('from', ethereum.Value.fromAddress(from))
   const toParam = new ethereum.EventParam('to', ethereum.Value.fromAddress(to))
@@ -177,10 +170,10 @@ const createExitQueueEnteredEvent = (
     mockEvent.block,
     mockEvent.transaction,
     mockEvent.parameters,
-    null
+    null,
   )
 
-  mockExitQueueEnteredEvent.parameters = new Array()
+  mockExitQueueEnteredEvent.parameters = []
 
   const callerParam = new ethereum.EventParam('caller', ethereum.Value.fromAddress(caller))
   const receiverParam = new ethereum.EventParam('receiver', ethereum.Value.fromAddress(receiver))
@@ -197,10 +190,7 @@ const createExitQueueEnteredEvent = (
   return mockExitQueueEnteredEvent
 }
 
-const createCheckpointCreatedEvent = (
-  sharesCounter: BigInt,
-  exitedAssets: BigInt,
-): CheckpointCreated => {
+const createCheckpointCreatedEvent = (sharesCounter: BigInt, exitedAssets: BigInt): CheckpointCreated => {
   const mockEvent = newMockEvent()
 
   const mockCheckpointCreatedEvent = new CheckpointCreated(
@@ -211,10 +201,10 @@ const createCheckpointCreatedEvent = (
     mockEvent.block,
     mockEvent.transaction,
     mockEvent.parameters,
-    null
+    null,
   )
 
-  mockCheckpointCreatedEvent.parameters = new Array()
+  mockCheckpointCreatedEvent.parameters = []
 
   const sharesCounterParam = new ethereum.EventParam('sharesCounter', ethereum.Value.fromUnsignedBigInt(sharesCounter))
   const exitedAssetsParam = new ethereum.EventParam('exitedAssets', ethereum.Value.fromUnsignedBigInt(exitedAssets))
@@ -242,16 +232,25 @@ const createExitedAssetsClaimedEvent = (
     mockEvent.block,
     mockEvent.transaction,
     mockEvent.parameters,
-    null
+    null,
   )
 
-  mockExitedAssetsClaimedEvent.parameters = new Array()
+  mockExitedAssetsClaimedEvent.parameters = []
 
   const callerParam = new ethereum.EventParam('caller', ethereum.Value.fromAddress(caller))
   const receiverParam = new ethereum.EventParam('receiver', ethereum.Value.fromAddress(receiver))
-  const prevExitQueueIdParam = new ethereum.EventParam('prevExitQueueId', ethereum.Value.fromUnsignedBigInt(prevExitQueueId))
-  const nextExitQueueIdParam = new ethereum.EventParam('nextExitQueueId', ethereum.Value.fromUnsignedBigInt(nextExitQueueId))
-  const withdrawnAssetsParam = new ethereum.EventParam('withdrawnAssets', ethereum.Value.fromUnsignedBigInt(withdrawnAssets))
+  const prevExitQueueIdParam = new ethereum.EventParam(
+    'prevExitQueueId',
+    ethereum.Value.fromUnsignedBigInt(prevExitQueueId),
+  )
+  const nextExitQueueIdParam = new ethereum.EventParam(
+    'nextExitQueueId',
+    ethereum.Value.fromUnsignedBigInt(nextExitQueueId),
+  )
+  const withdrawnAssetsParam = new ethereum.EventParam(
+    'withdrawnAssets',
+    ethereum.Value.fromUnsignedBigInt(withdrawnAssets),
+  )
 
   mockExitedAssetsClaimedEvent.parameters.push(callerParam)
   mockExitedAssetsClaimedEvent.parameters.push(receiverParam)
@@ -262,9 +261,7 @@ const createExitedAssetsClaimedEvent = (
   return mockExitedAssetsClaimedEvent
 }
 
-const createMetadataUpdatedEvent = (
-  metadataIpfsHash: string,
-): MetadataUpdated => {
+const createMetadataUpdatedEvent = (metadataIpfsHash: string): MetadataUpdated => {
   const mockEvent = newMockEvent()
 
   const mockMetadataUpdatedEvent = new MetadataUpdated(
@@ -275,10 +272,10 @@ const createMetadataUpdatedEvent = (
     mockEvent.block,
     mockEvent.transaction,
     mockEvent.parameters,
-    null
+    null,
   )
 
-  mockMetadataUpdatedEvent.parameters = new Array()
+  mockMetadataUpdatedEvent.parameters = []
 
   const metadataIpfsHashParam = new ethereum.EventParam('metadataIpfsHash', ethereum.Value.fromString(metadataIpfsHash))
 
@@ -287,10 +284,7 @@ const createMetadataUpdatedEvent = (
   return mockMetadataUpdatedEvent
 }
 
-const createWhitelistUpdatedEvent = (
-  accountAddress: string,
-  approved: boolean
-): WhitelistUpdated => {
+const createWhitelistUpdatedEvent = (accountAddress: string, approved: boolean): WhitelistUpdated => {
   const mockEvent = newMockEvent()
 
   const mockWhitelistUpdatedEvent = new WhitelistUpdated(
@@ -301,13 +295,16 @@ const createWhitelistUpdatedEvent = (
     mockEvent.block,
     mockEvent.transaction,
     mockEvent.parameters,
-    null
+    null,
   )
 
-  mockWhitelistUpdatedEvent.parameters = new Array()
+  mockWhitelistUpdatedEvent.parameters = []
 
   const senderParam = new ethereum.EventParam('sender', ethereum.Value.fromAddress(address.get('admin')))
-  const accountParam = new ethereum.EventParam('account', ethereum.Value.fromAddress(Address.fromString(accountAddress)))
+  const accountParam = new ethereum.EventParam(
+    'account',
+    ethereum.Value.fromAddress(Address.fromString(accountAddress)),
+  )
   const approvedParam = new ethereum.EventParam('approved', ethereum.Value.fromBoolean(approved))
 
   mockWhitelistUpdatedEvent.parameters.push(senderParam)
@@ -317,9 +314,7 @@ const createWhitelistUpdatedEvent = (
   return mockWhitelistUpdatedEvent
 }
 
-const createValidatorsRootUpdatedEvent = (
-  validatorsRoot: Bytes,
-): ValidatorsRootUpdated => {
+const createValidatorsRootUpdatedEvent = (validatorsRoot: Bytes): ValidatorsRootUpdated => {
   const mockEvent = newMockEvent()
 
   const mockValidatorsRootUpdatedEvent = new ValidatorsRootUpdated(
@@ -330,10 +325,10 @@ const createValidatorsRootUpdatedEvent = (
     mockEvent.block,
     mockEvent.transaction,
     mockEvent.parameters,
-    null
+    null,
   )
 
-  mockValidatorsRootUpdatedEvent.parameters = new Array()
+  mockValidatorsRootUpdatedEvent.parameters = []
 
   const validatorsRootParam = new ethereum.EventParam('validatorsRoot', ethereum.Value.fromBytes(validatorsRoot))
 
@@ -342,63 +337,15 @@ const createValidatorsRootUpdatedEvent = (
   return mockValidatorsRootUpdatedEvent
 }
 
-const createAdminUpdatedEvent = (newAdmin: Address): AdminUpdated => {
-  const mockEvent = newMockEvent()
-
-  const mockAdminUpdatedEvent = new AdminUpdated(
-    address.get('vault'),
-    mockEvent.logIndex,
-    mockEvent.transactionLogIndex,
-    mockEvent.logType,
-    mockEvent.block,
-    mockEvent.transaction,
-    mockEvent.parameters,
-    null,
-  )
-
-  mockAdminUpdatedEvent.parameters = []
-
-  const newAdminParam = new ethereum.EventParam('newAdmin', ethereum.Value.fromAddress(newAdmin))
-
-  mockAdminUpdatedEvent.parameters.push(newAdminParam)
-
-  return mockAdminUpdatedEvent
-}
-
-const createFeePercentUpdatedEvent = (feePercent: BigInt): FeePercentUpdated => {
-  const mockEvent = newMockEvent()
-
-  const mockFeePercentUpdatedEvent = new FeePercentUpdated(
-    address.get('vault'),
-    mockEvent.logIndex,
-    mockEvent.transactionLogIndex,
-    mockEvent.logType,
-    mockEvent.block,
-    mockEvent.transaction,
-    mockEvent.parameters,
-    null,
-  )
-
-  mockFeePercentUpdatedEvent.parameters = []
-
-  const feePercentParam = new ethereum.EventParam('feePercent', ethereum.Value.fromUnsignedBigInt(feePercent))
-
-  mockFeePercentUpdatedEvent.parameters.push(feePercentParam)
-
-  return mockFeePercentUpdatedEvent
-}
-
 export {
   createVaultEvent,
   createDepositEvent,
   createWithdrawEvent,
   createTransferEvent,
-  createAdminUpdatedEvent,
   createMetadataUpdatedEvent,
   createWhitelistUpdatedEvent,
   createExitQueueEnteredEvent,
   createCheckpointCreatedEvent,
-  createFeePercentUpdatedEvent,
   createExitedAssetsClaimedEvent,
   createValidatorsRootUpdatedEvent,
 }
