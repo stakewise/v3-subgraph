@@ -8,10 +8,12 @@ import {
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import {
+  AdminUpdated,
   CheckpointCreated,
   Deposited,
   ExitedAssetsClaimed,
   ExitQueueEntered as V1ExitQueueEntered,
+  FeePercentUpdated,
   FeeRecipientUpdated,
   Initialized,
   KeysManagerUpdated,
@@ -234,6 +236,37 @@ export function handleValidatorsRootUpdated(event: ValidatorsRootUpdated): void 
   createTransaction(event.transaction.hash.toHex())
 
   log.info('[Vault] ValidatorsRootUpdated vault={} validatorsRoot={}', [vaultAddress.toHex(), validatorsRoot.toHex()])
+}
+
+// Event emitted on admin update
+export function handleAdminUpdated(event: AdminUpdated): void {
+  const params = event.params
+  const newAdmin = params.newAdmin
+  const vaultAddress = event.address
+
+  const vault = loadVault(vaultAddress)!
+  vault.admin = newAdmin
+  vault.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[Vault] AdminUpdated vault={} newAdmin={}', [vaultAddress.toHex(), newAdmin.toHex()])
+}
+
+// Event emitted on fee percent update
+export function handleFeePercentUpdated(event: FeePercentUpdated): void {
+  const params = event.params
+  const feePercent = params.feePercent
+  const vaultAddress = event.address
+
+  const vault = loadVault(vaultAddress)!
+  vault.feePercent = feePercent
+  vault.lastFeeUpdateTimestamp = event.block.timestamp
+  vault.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[Vault] FeePercentUpdated vault={} feePercent={}', [vaultAddress.toHex(), feePercent.toString()])
 }
 
 // Event emitted on fee recipient update

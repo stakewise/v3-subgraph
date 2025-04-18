@@ -118,6 +118,7 @@ export function createVault(
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = false
   vault.version = version
+  vault.lastFeeUpdateTimestamp = block.timestamp
 
   if (vault.version.equals(BigInt.fromI32(1))) {
     // there is no validators manager for v1 vaults

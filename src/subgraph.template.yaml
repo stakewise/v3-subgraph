@@ -735,6 +735,10 @@ templates:
           handler: handleInitialized
         - event: CheckpointCreated(uint256,uint256)
           handler: handleCheckpointCreated
+        - event: AdminUpdated(indexed address,address)
+          handler: handleAdminUpdated
+        - event: FeePercentUpdated(indexed address,uint16)
+          handler: handleFeePercentUpdated
   - kind: ethereum/contract
     name: OwnMevEscrow
     network: {{ network }}
