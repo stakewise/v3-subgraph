@@ -791,6 +791,7 @@ type AllocatorSnapshot @entity(timeseries: true) {
   allocator: Allocator!
   earnedAssets: BigInt!
   totalAssets: BigInt!
+  boostedOsTokenShares: BigInt!
   apy: BigDecimal!
   ltv: BigDecimal!
 }
