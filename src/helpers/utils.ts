@@ -10,6 +10,8 @@ import { MULTICALL, WAD } from './constants'
 const secondsInYear = '31536000'
 const maxPercent = '100'
 const wei = BigDecimal.fromString('1').div(BigDecimal.fromString(WAD))
+const RAY = BigInt.fromI32(10).pow(27)
+const halfRAY = RAY.div(BigInt.fromI32(2))
 
 export function calculateAverage(values: Array<BigDecimal>): BigDecimal {
   if (values.length === 0) {
@@ -157,4 +159,8 @@ export function chunkedMulticall(
 export function _getAggregateCall(target: Address, data: Bytes): ethereum.Value {
   const struct: Array<ethereum.Value> = [ethereum.Value.fromAddress(target), ethereum.Value.fromBytes(data)]
   return ethereum.Value.fromTuple(changetype<ethereum.Tuple>(struct))
+}
+
+export function rayMul(a: BigInt, b: BigInt): BigInt {
+  return a.times(b).plus(halfRAY).div(RAY)
 }

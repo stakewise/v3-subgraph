@@ -3,15 +3,7 @@ import { BalanceTransfer, Burn, Mint } from '../../generated/AaveToken/AaveToken
 import { SupplyCapChanged } from '../../generated/AavePoolConfigurator/AavePoolConfigurator'
 import { loadAave } from '../entities/aave'
 import { OS_TOKEN } from '../helpers/constants'
-
-export function handleSupplyCapChanged(event: SupplyCapChanged): void {
-  if (event.params.asset.equals(OS_TOKEN)) {
-    const aave = loadAave()!
-
-    aave.osTokenSupplyCap = event.params.newSupplyCap
-    aave.save()
-  }
-}
+import { rayMul } from '../helpers/utils'
 
 function mint(value: BigInt, balanceIncrease: BigInt, onBehalf: Address): void {
   const onBehalfString = onBehalf.toHexString().toLowerCase()
@@ -50,13 +42,6 @@ export function handleBurn(event: Burn): void {
   burn(event.params.value, event.params.balanceIncrease)
 }
 
-let RAY = BigInt.fromI32(10).pow(27)
-let halfRAY = RAY.div(BigInt.fromI32(2))
-
-function rayMul(a: BigInt, b: BigInt): BigInt {
-  return a.times(b).plus(halfRAY).div(RAY)
-}
-
 export function handleTransfer(event: BalanceTransfer): void {
   let balanceTransferValue = event.params.value
 
@@ -66,4 +51,13 @@ export function handleTransfer(event: BalanceTransfer): void {
 
   burn(balanceTransferValue, BigInt.zero())
   mint(balanceTransferValue, BigInt.zero(), event.params.to)
+}
+
+export function handleSupplyCapChanged(event: SupplyCapChanged): void {
+  if (event.params.asset.equals(OS_TOKEN)) {
+    const aave = loadAave()!
+
+    aave.osTokenSupplyCap = event.params.newSupplyCap
+    aave.save()
+  }
 }
