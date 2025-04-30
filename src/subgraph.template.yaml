@@ -635,7 +635,11 @@ dataSources:
         - name: AaveToken
           file: ./abis/AaveToken.json
       eventHandlers:
-        - event: Transfer(indexed address,indexed address,uint256)
+        - event: Burn(indexed address,indexed address,uint256,uint256,uint256)
+          handler: handleBurn
+        - event: Mint(indexed address,indexed address,uint256,uint256,uint256)
+          handler: handleMint
+        - event: BalanceTransfer(indexed address,indexed address,uint256,uint256)
           handler: handleTransfer
 templates:
   - kind: ethereum/contract
