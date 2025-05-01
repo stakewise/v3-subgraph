@@ -1,4 +1,4 @@
-import { Address, BigInt } from '@graphprotocol/graph-ts'
+import { Address, BigInt, Bytes } from '@graphprotocol/graph-ts'
 import { SwiseTokenHolder, TokenTransfer } from '../../generated/schema'
 
 export function createOrLoadSwiseTokenHolder(holderAddress: Address): SwiseTokenHolder {
@@ -17,6 +17,7 @@ export function createOrLoadSwiseTokenHolder(holderAddress: Address): SwiseToken
 
 export function createTokenTransfer(
   id: string,
+  hash: Bytes,
   from: Address,
   to: Address,
   amount: BigInt,
@@ -24,6 +25,7 @@ export function createTokenTransfer(
   tokenSymbol: string,
 ): void {
   const transfer = new TokenTransfer(id)
+  transfer.hash = hash
   transfer.to = to
   transfer.from = from
   transfer.amount = amount

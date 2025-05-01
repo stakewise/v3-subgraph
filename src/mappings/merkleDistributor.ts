@@ -48,9 +48,8 @@ export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded
     endTimestamp = startTimestamp.plus(event.params.durationInSeconds)
   }
 
-  const distribution = new PeriodicDistribution(
-    `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`,
-  )
+  const distribution = new PeriodicDistribution(`${event.transaction.hash.toHex()}-${event.logIndex.toString()}`)
+  distribution.hash = event.transaction.hash
   distribution.distributionType = convertDistributionTypeToString(distType)
   distribution.data = extraData
   distribution.token = token

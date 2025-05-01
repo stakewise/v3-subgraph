@@ -22,7 +22,8 @@ export function handleTransfer(event: Transfer): void {
   }
 
   createTokenTransfer(
-    `${event.transaction.hash.toHex()}-${event.transactionLogIndex.toString()}`,
+    `${event.transaction.hash.toHex()}-${event.logIndex.toString()}`,
+    event.transaction.hash,
     event.params.from,
     event.params.to,
     event.params.value,
