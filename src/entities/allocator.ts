@@ -108,7 +108,8 @@ export function createAllocatorAction(
     return
   }
   const txHash = event.transaction.hash.toHex()
-  const allocatorAction = new AllocatorAction(`${txHash}-${event.transactionLogIndex.toString()}`)
+  const allocatorAction = new AllocatorAction(`${txHash}-${event.logIndex.toString()}`)
+  allocatorAction.hash = event.transaction.hash
   allocatorAction.vault = vaultAddress.toHex()
   allocatorAction.address = owner
   allocatorAction.actionType = allocatorActionString

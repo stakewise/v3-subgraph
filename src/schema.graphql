@@ -50,8 +50,11 @@ type Allocator @entity {
 Token transfer
 """
 type TokenTransfer @entity(immutable: true) {
-  "The transfer hash"
+  "Set to `transaction hash-log index`"
   id: ID!
+
+  "The transfer hash"
+  hash: Bytes!
 
   "The transfer amount"
   amount: BigInt!
@@ -394,6 +397,9 @@ Allocator action
 type AllocatorAction @entity(immutable: true) {
   "Set to `transaction hash-log index`"
   id: ID!
+
+  "The action hash"
+  hash: Bytes!
 
   "The allocator's vault"
   vault: Vault!
@@ -1073,6 +1079,9 @@ enum DistributionType {
 type PeriodicDistribution @entity {
   "Set to `transaction hash-log index`"
   id: ID!
+
+  "The distribution hash"
+  hash: Bytes!
 
   "The distribution type"
   distributionType: DistributionType!
