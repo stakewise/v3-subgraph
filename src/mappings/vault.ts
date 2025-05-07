@@ -770,6 +770,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
     vault.version = BigInt.fromI32(1)
     vault.osTokenConfig = '1'
   }
+  vault.lastFeeUpdateTimestamp = event.block.timestamp
 
   vault.save()
   VaultTemplate.create(vaultAddress)
@@ -841,6 +842,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.whitelistCount = BigInt.zero()
   vault.version = BigInt.fromI32(1)
   vault.osTokenConfig = '1'
+  vault.lastFeeUpdateTimestamp = event.block.timestamp
 
   vault.save()
   VaultTemplate.create(vaultAddress)
