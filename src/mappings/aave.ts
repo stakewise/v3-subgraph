@@ -59,6 +59,6 @@ export function handleSupplyCapChanged(event: SupplyCapChanged): void {
 
     aave.osTokenSupplyCap = event.params.newSupplyCap.times(BigInt.fromString(WAD))
     aave.save()
-    log.info('[AavePoolConfigurator] SupplyCapChanged newSupplyCap={}', [aave.osTokenSupplyCap.toString()])
+    log.info('[Aave] SupplyCapChanged newSupplyCap={}', [aave.osTokenSupplyCap.toString()])
   }
 }
