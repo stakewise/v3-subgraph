@@ -814,6 +814,7 @@ type AllocatorStats @aggregation(intervals: ["day"], source: "AllocatorSnapshot"
   allocator: Allocator!
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
+  boostedOsTokenShares: BigInt! @aggregate(fn: "last", arg: "boostedOsTokenShares")
   apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
   ltv: BigDecimal! @aggregate(fn: "last", arg: "ltv")
 }
