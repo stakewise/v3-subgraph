@@ -2,7 +2,7 @@ import { Address, BigInt } from '@graphprotocol/graph-ts'
 import { BalanceTransfer, Burn, Mint } from '../../generated/AaveToken/AaveToken'
 import { SupplyCapChanged } from '../../generated/AavePoolConfigurator/AavePoolConfigurator'
 import { loadAave } from '../entities/aave'
-import { OS_TOKEN } from '../helpers/constants'
+import { OS_TOKEN, WAD } from '../helpers/constants'
 import { rayMul } from '../helpers/utils'
 
 function mint(value: BigInt, balanceIncrease: BigInt, onBehalf: Address): void {
@@ -57,7 +57,7 @@ export function handleSupplyCapChanged(event: SupplyCapChanged): void {
   if (event.params.asset.equals(OS_TOKEN)) {
     const aave = loadAave()!
 
-    aave.osTokenSupplyCap = event.params.newSupplyCap
+    aave.osTokenSupplyCap = event.params.newSupplyCap.times(BigInt.fromString(WAD))
     aave.save()
   }
 }
