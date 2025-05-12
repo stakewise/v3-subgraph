@@ -1,4 +1,4 @@
-import { Address, BigInt } from '@graphprotocol/graph-ts'
+import { Address, BigInt, log } from '@graphprotocol/graph-ts'
 import { BalanceTransfer, Burn, Mint } from '../../generated/AaveToken/AaveToken'
 import { SupplyCapChanged } from '../../generated/AavePoolConfigurator/AavePoolConfigurator'
 import { loadAave } from '../entities/aave'
@@ -59,5 +59,6 @@ export function handleSupplyCapChanged(event: SupplyCapChanged): void {
 
     aave.osTokenSupplyCap = event.params.newSupplyCap.times(BigInt.fromString(WAD))
     aave.save()
+    log.info('[AavePoolConfigurator] SupplyCapChanged newSupplyCap={}', [aave.osTokenSupplyCap.toString()])
   }
 }
