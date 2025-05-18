@@ -1,10 +1,8 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
-import { Vault as VaultContract } from '../../generated/Keeper/Vault'
 import {
   Multicall as MulticallContract,
   TryAggregateCallReturnDataOutputStruct,
 } from '../../generated/Keeper/Multicall'
-import { RewardSplitter as RewardSplitterContract } from '../../generated/Keeper/RewardSplitter'
 import { MULTICALL, WAD } from './constants'
 
 const secondsInYear = '31536000'
@@ -66,86 +64,31 @@ export function getCompoundedApy(initialApyPercent: BigDecimal, secondaryApyPerc
   return finalApy.times(hundred)
 }
 
-export function chunkedVaultMulticall(
-  vaultAddress: Address,
-  updateStateCall: Bytes | null,
-  calls: Array<Bytes>,
-  chunkSize: i32 = 10,
-): Array<Bytes> {
-  const vaultContract = VaultContract.bind(vaultAddress)
-  const callsCount = calls.length
-
-  let aggregatedResults: Array<Bytes> = []
-  let chunk: Array<Bytes>
-  for (let i = 0; i < callsCount; i += chunkSize) {
-    chunk = calls.slice(i, i + chunkSize)
-    if (updateStateCall) {
-      chunk = [updateStateCall as Bytes].concat(chunk)
-    }
-    let chunkResult = vaultContract.multicall(chunk)
-    if (updateStateCall) {
-      chunkResult = chunkResult.slice(1) // remove first result
-    }
-    // Concatenate results in order
-    for (let j = 0; j < chunkResult.length; j++) {
-      aggregatedResults.push(chunkResult[j])
-    }
-  }
-  return aggregatedResults
-}
-
-export function chunkedRewardSplitterMulticall(
-  rewardSplitter: Address,
-  calls: Array<Bytes>,
-  chunkSize: i32 = 10,
-): Array<Bytes> {
-  const rewardSplitterContract = RewardSplitterContract.bind(rewardSplitter)
-  const callsCount = calls.length
-
-  let aggregatedResults: Array<Bytes> = []
-  let chunk: Array<Bytes>
-  for (let i = 0; i < callsCount; i += chunkSize) {
-    chunk = calls.slice(i, i + chunkSize)
-    let chunkResult = rewardSplitterContract.multicall(chunk)
-    // Concatenate results in order
-    for (let j = 0; j < chunkResult.length; j++) {
-      aggregatedResults.push(chunkResult[j])
-    }
-  }
-  return aggregatedResults
-}
-
 export function chunkedMulticall(
-  contractAddresses: Array<Address>,
-  contractCalls: Array<Bytes>,
+  updateStateCalls: Array<ethereum.Value>,
+  contractCalls: Array<ethereum.Value>,
   requireSuccess: boolean = true,
   chunkSize: i32 = 10,
 ): Array<Bytes | null> {
-  const callsCount = contractAddresses.length
-  if (callsCount !== contractCalls.length) {
-    assert(false, 'contractAddresses and calls must have the same length')
-  }
+  const callsCount = contractCalls.length
   if (callsCount == 0) {
     return []
   }
-
-  const aggregateCalls: Array<ethereum.Value> = []
-  for (let i = 0; i < callsCount; i++) {
-    aggregateCalls.push(_getAggregateCall(contractAddresses[i], contractCalls[i]))
-  }
+  const updateStateCallsCount = updateStateCalls.length
 
   const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
   const encodedRequireSuccess = ethereum.Value.fromBoolean(requireSuccess)
+
   let callResults: Array<TryAggregateCallReturnDataOutputStruct> = []
   for (let i = 0; i < callsCount; i += chunkSize) {
-    const chunkCalls = aggregateCalls.slice(i, i + chunkSize)
+    const chunkCalls = contractCalls.slice(i, i + chunkSize)
     const chunkResult = multicallContract
       .call('tryAggregate', 'tryAggregate(bool,(address,bytes)[]):((bool,bytes)[])', [
         encodedRequireSuccess,
-        ethereum.Value.fromArray(chunkCalls),
+        ethereum.Value.fromArray(updateStateCalls.concat(chunkCalls)),
       ])[0]
       .toTupleArray<TryAggregateCallReturnDataOutputStruct>()
-    callResults = callResults.concat(chunkResult)
+    callResults = callResults.concat(chunkResult.slice(updateStateCallsCount))
   }
 
   const results: Array<Bytes | null> = []
@@ -156,7 +99,7 @@ export function chunkedMulticall(
   return results
 }
 
-export function _getAggregateCall(target: Address, data: Bytes): ethereum.Value {
+export function encodeContractCall(target: Address, data: Bytes): ethereum.Value {
   const struct: Array<ethereum.Value> = [ethereum.Value.fromAddress(target), ethereum.Value.fromBytes(data)]
   return ethereum.Value.fromTuple(changetype<ethereum.Tuple>(struct))
 }

@@ -1,10 +1,10 @@
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import { ExitRequest, Network, Vault } from '../../generated/schema'
 import { loadV2Pool } from './v2pool'
-import { convertSharesToAssets, getUpdateStateCall } from './vault'
+import { convertSharesToAssets, getUpdateStateCalls } from './vault'
 import { loadAllocator } from './allocator'
 import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
-import { chunkedVaultMulticall } from '../helpers/utils'
+import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 
 const secondsInDay = '86400'
 const getExitQueueIndexSelector = '0x60d60e6e'
@@ -23,33 +23,33 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   const vaultAddr = Address.fromString(vault.id)
 
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
-  const updateStateCall: Bytes | null = getUpdateStateCall(vault)
+  const updateStateCalls = getUpdateStateCalls(vault)
 
   // ─────────────────────────────────────────────────────────────────────
   // STAGE 1: Query exitQueueIndex for all pending exit requests
   // ─────────────────────────────────────────────────────────────────────
 
   // Collect all the calls for the first multicall batch
-  let allCallsStage1: Array<Bytes> = []
+  let allCallsStage1: Array<ethereum.Value> = []
   let pendingExitRequests: Array<ExitRequest> = []
   for (let i = 0; i < exitRequests.length; i++) {
     let exitRequest = exitRequests[i]
     if (!exitRequest.isClaimed) {
       pendingExitRequests.push(exitRequest)
-      allCallsStage1.push(getExitQueueIndexCall(exitRequest.positionTicket))
+      allCallsStage1.push(encodeContractCall(vaultAddr, getExitQueueIndexCall(exitRequest.positionTicket)))
     }
   }
   if (pendingExitRequests.length == 0) {
     return
   }
 
-  // Execute in chunks of size 10
-  let stage1Results: Array<Bytes> = chunkedVaultMulticall(vaultAddr, updateStateCall, allCallsStage1, 100)
+  // Execute in chunks of size 100
+  let stage1Results = chunkedMulticall(updateStateCalls, allCallsStage1, true, 100)
 
   // Parse exitQueueIndex results
   for (let i = 0; i < stage1Results.length; i++) {
     let exitRequest = pendingExitRequests[i]
-    let index = ethereum.decode('int256', stage1Results[i])!.toBigInt()
+    let index = ethereum.decode('int256', stage1Results[i]!)!.toBigInt()
     if (index.lt(BigInt.zero())) {
       exitRequest.exitQueueIndex = null
     } else {
@@ -61,31 +61,33 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   // STAGE 2: Query exited assets for all pending exit requests
   // ─────────────────────────────────────────────────────────────────────
 
-  // Build calls for the second multicall batch
-  let allCallsStage2: Array<Bytes> = []
+  // Build calls for calculating exited assets
+  let allCallsStage2: Array<ethereum.Value> = []
   const maxUint255 = BigInt.fromI32(2).pow(255).minus(BigInt.fromI32(1))
   for (let i = 0; i < pendingExitRequests.length; i++) {
     let exitRequest = pendingExitRequests[i]
     let exitQueueIndex = exitRequest.exitQueueIndex !== null ? exitRequest.exitQueueIndex! : maxUint255
-
     allCallsStage2.push(
-      getCalculateExitedAssetsCall(
-        Address.fromBytes(exitRequest.receiver),
-        exitRequest.positionTicket,
-        exitRequest.timestamp,
-        exitQueueIndex,
+      encodeContractCall(
+        vaultAddr,
+        getCalculateExitedAssetsCall(
+          Address.fromBytes(exitRequest.receiver),
+          exitRequest.positionTicket,
+          exitRequest.timestamp,
+          exitQueueIndex,
+        ),
       ),
     )
   }
 
   // Execute in chunks of size 100
-  let stage2Results: Array<Bytes> = chunkedVaultMulticall(vaultAddr, updateStateCall, allCallsStage2, 100)
+  let stage2Results = chunkedMulticall(updateStateCalls, allCallsStage2, true, 100)
 
   // Parse and update each exitRequest
   const one = BigInt.fromI32(1)
   for (let i = 0; i < stage2Results.length; i++) {
     let exitRequest = pendingExitRequests[i]
-    let decodedResult = ethereum.decode('(uint256,uint256,uint256)', stage2Results[i])!.toTuple()
+    let decodedResult = ethereum.decode('(uint256,uint256,uint256)', stage2Results[i]!)!.toTuple()
 
     let leftTickets = decodedResult[0].toBigInt()
     let exitedAssets = decodedResult[2].toBigInt()

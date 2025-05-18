@@ -1,36 +1,36 @@
-import { ExchangeRateSnapshot, UniswapPool, ExchangeRate } from '../../generated/schema'
+import { ExchangeRate, ExchangeRateSnapshot, UniswapPool } from '../../generated/schema'
 import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import {
   ASSET_TOKEN,
   ASSETS_USD_PRICE_FEED,
   AUD_USD_PRICE_FEED,
+  BALANCER_QUERY,
+  BCSPX_SDAI_BALANCER_POOL,
+  BCSPX_TOKEN,
+  BTC_USD_PRICE_FEED,
   CNY_USD_PRICE_FEED,
   DAI_USD_PRICE_FEED,
+  ETH_USD_PRICE_FEED,
   EUR_USD_PRICE_FEED,
   GBP_USD_PRICE_FEED,
   JPY_USD_PRICE_FEED,
   KRW_USD_PRICE_FEED,
   NETWORK,
   OS_TOKEN,
-  SWISE_ASSET_UNI_POOL,
+  SDAI_TOKEN,
+  SOL_USD_PRICE_FEED,
   SSV_ASSET_UNI_POOL,
-  SWISE_TOKEN,
   SSV_TOKEN,
+  SUSDS_TOKEN,
+  SWISE_ASSET_UNI_POOL,
+  SWISE_TOKEN,
   USDC_TOKEN,
   USDC_USD_PRICE_FEED,
-  BTC_USD_PRICE_FEED,
-  SOL_USD_PRICE_FEED,
   USDS_USD_PRICE_FEED,
-  ETH_USD_PRICE_FEED,
-  BCSPX_TOKEN,
-  BCSPX_SDAI_BALANCER_POOL,
-  BALANCER_QUERY,
-  SUSDS_TOKEN,
-  SDAI_TOKEN,
   WAD,
   ZERO_ADDRESS,
 } from '../helpers/constants'
-import { chunkedMulticall } from '../helpers/utils'
+import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 import { isGnosisNetwork } from './network'
 import { convertOsTokenSharesToAssets, loadOsToken } from './osToken'
 
@@ -63,6 +63,28 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     exchangeRate.sdaiUsdRate = BigDecimal.fromString('1.15762623')
     exchangeRate.bcspxUsdRate = BigDecimal.fromString('625.62')
     exchangeRate.save()
+
+    const exchangeRateSnapshot = new ExchangeRateSnapshot(timestamp.toString())
+    exchangeRateSnapshot.timestamp = timestamp.toI64()
+    exchangeRateSnapshot.osTokenAssetsRate = osTokenAssetsRate
+    exchangeRateSnapshot.assetsUsdRate = exchangeRate.assetsUsdRate
+    exchangeRateSnapshot.swiseUsdRate = exchangeRate.swiseUsdRate
+    exchangeRateSnapshot.daiUsdRate = exchangeRate.daiUsdRate
+    exchangeRateSnapshot.usdcUsdRate = exchangeRate.usdcUsdRate
+    exchangeRateSnapshot.usdToEurRate = exchangeRate.usdToEurRate
+    exchangeRateSnapshot.usdToGbpRate = exchangeRate.usdToGbpRate
+    exchangeRateSnapshot.usdToCnyRate = exchangeRate.usdToCnyRate
+    exchangeRateSnapshot.usdToJpyRate = exchangeRate.usdToJpyRate
+    exchangeRateSnapshot.usdToKrwRate = exchangeRate.usdToKrwRate
+    exchangeRateSnapshot.usdToAudRate = exchangeRate.usdToAudRate
+    exchangeRateSnapshot.ssvUsdRate = exchangeRate.ssvUsdRate
+    exchangeRateSnapshot.ethUsdRate = exchangeRate.ethUsdRate
+    exchangeRateSnapshot.btcUsdRate = exchangeRate.btcUsdRate
+    exchangeRateSnapshot.solUsdRate = exchangeRate.solUsdRate
+    exchangeRateSnapshot.susdsUsdRate = exchangeRate.susdsUsdRate
+    exchangeRateSnapshot.sdaiUsdRate = exchangeRate.sdaiUsdRate
+    exchangeRateSnapshot.bcspxUsdRate = exchangeRate.bcspxUsdRate
+    exchangeRateSnapshot.save()
     return
   }
 
@@ -90,47 +112,40 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   let sdaiUsdRate = BigDecimal.zero()
   let bcspxUsdRate = BigDecimal.zero()
 
-  let contractAddresses: Array<Address>
+  let contractCalls: Array<ethereum.Value>
   const isGnosis = isGnosisNetwork()
   if (isGnosis) {
-    contractAddresses = [
-      Address.fromString(ASSETS_USD_PRICE_FEED),
-      Address.fromString(DAI_USD_PRICE_FEED),
-      Address.fromString(ETH_USD_PRICE_FEED),
-      Address.fromString(BTC_USD_PRICE_FEED),
+    contractCalls = [
+      encodeContractCall(Address.fromString(ASSETS_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(DAI_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(ETH_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(BTC_USD_PRICE_FEED), latestAnswerCall),
     ]
   } else {
-    contractAddresses = [
-      Address.fromString(ASSETS_USD_PRICE_FEED),
-      Address.fromString(EUR_USD_PRICE_FEED),
-      Address.fromString(GBP_USD_PRICE_FEED),
-      Address.fromString(CNY_USD_PRICE_FEED),
-      Address.fromString(JPY_USD_PRICE_FEED),
-      Address.fromString(KRW_USD_PRICE_FEED),
-      Address.fromString(AUD_USD_PRICE_FEED),
-      Address.fromString(DAI_USD_PRICE_FEED),
-      Address.fromString(USDC_USD_PRICE_FEED),
-      Address.fromString(BTC_USD_PRICE_FEED),
-      Address.fromString(SOL_USD_PRICE_FEED),
-      Address.fromString(USDS_USD_PRICE_FEED),
+    contractCalls = [
+      encodeContractCall(Address.fromString(ASSETS_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(EUR_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(GBP_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(CNY_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(JPY_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(KRW_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(AUD_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(DAI_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(USDC_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(BTC_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(SOL_USD_PRICE_FEED), latestAnswerCall),
+      encodeContractCall(Address.fromString(USDS_USD_PRICE_FEED), latestAnswerCall),
     ]
-  }
-  const contractCalls: Array<Bytes> = []
-  for (let i = 0; i < contractAddresses.length; i++) {
-    contractCalls.push(latestAnswerCall)
   }
 
   if (isGnosis) {
     // sdai <-> dai conversion rate
-    contractAddresses.push(Address.fromString(SDAI_TOKEN))
     const decimalsInt = BigInt.fromString('100000000')
     const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(decimalsInt))
     const convertToAssetsCall = Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs!)
-    contractCalls.push(convertToAssetsCall)
+    contractCalls.push(encodeContractCall(Address.fromString(SDAI_TOKEN), convertToAssetsCall))
 
     // sdai <-> bcspx conversion rate via balancer querySwap func
-    contractAddresses.push(Address.fromString(BALANCER_QUERY))
-
     const FirstTupleOffset = Bytes.fromHexString('00000000000000000000000000000000000000000000000000000000000000a0')
     const AppBytesOffset = Bytes.fromHexString('00000000000000000000000000000000000000000000000000000000000000c0')
     const AppBytesValue = Bytes.fromHexString('0000000000000000000000000000000000000000000000000000000000000000')
@@ -149,17 +164,17 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
       .concat(ethereum.encode(ethereum.Value.fromFixedBytes(AppBytesValue))!)
 
     const querySwapCall = Bytes.fromHexString(querySwapSelector).concat(encodedQuerySwapArgs as Bytes)
-    contractCalls.push(querySwapCall)
+    contractCalls.push(encodeContractCall(Address.fromString(BALANCER_QUERY), querySwapCall))
   } else {
     // susds <-> usds conversion rate
-    contractAddresses.push(Address.fromString(SUSDS_TOKEN))
     const decimalsInt = BigInt.fromString('100000000')
     const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(decimalsInt))
     const convertToAssetsCall = Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs!)
-    contractCalls.push(convertToAssetsCall)
+    contractCalls.push(encodeContractCall(Address.fromString(SUSDS_TOKEN), convertToAssetsCall))
   }
+
   let decodedValue: BigInt = BigInt.zero()
-  const response = chunkedMulticall(contractAddresses, contractCalls, false)
+  const response = chunkedMulticall([], contractCalls, false)
   if (_isValidResponse(response[0])) {
     decodedValue = ethereum.decode('int256', response[0]!)!.toBigInt()
     assetsUsdRate = decodedValue.toBigDecimal().div(decimals)
