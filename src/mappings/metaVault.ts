@@ -1,6 +1,6 @@
-import { Address, BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, log, store } from '@graphprotocol/graph-ts'
 import { Allocator, SubVault } from '../../generated/schema'
-import { SubVaultsHarvested } from '../../generated/templates/MetaVault/MetaVault'
+import { SubVaultsHarvested, SubVaultAdded, SubVaultEjected } from '../../generated/templates/MetaVault/MetaVault'
 import { loadVault, snapshotVault, updateVaultApy, updateVaultMaxBoostApy } from '../entities/vault'
 import { loadOsToken } from '../entities/osToken'
 import { loadDistributor } from '../entities/merkleDistributor'
@@ -13,6 +13,45 @@ import { updateExitRequests } from '../entities/exitRequest'
 import { updateRewardSplitters } from '../entities/rewardSplitter'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
+
+export function handleSubVaultAdded(event: SubVaultAdded): void {
+  const metaVaultAddress = event.address
+  const subVaultAddress = event.params.vault
+  const subVaultId = `${metaVaultAddress.toHex()}-${subVaultAddress.toHex()}`
+
+  const subVault = new SubVault(subVaultId)
+  subVault.metaVault = metaVaultAddress.toHex()
+  subVault.subVault = subVaultAddress
+  subVault.save()
+
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.isCollateralized = true
+  metaVault.save()
+
+  log.info('[MetaVault] SubVaultAdded metaVault={} subVault={}', [metaVaultAddress.toHex(), subVaultAddress.toHex()])
+}
+
+export function handleSubVaultEjected(event: SubVaultEjected): void {
+  const metaVaultAddress = event.address
+  const subVaultAddress = event.params.vault
+  const subVaultId = `${metaVaultAddress.toHex()}-${subVaultAddress.toHex()}`
+
+  // Check if the SubVault entity exists before removing it
+  const subVault = SubVault.load(subVaultId)
+  if (subVault) {
+    store.remove('SubVault', subVaultId)
+
+    log.info('[MetaVault] SubVaultEjected metaVault={} subVault={}', [
+      metaVaultAddress.toHex(),
+      subVaultAddress.toHex(),
+    ])
+  } else {
+    log.warning('[MetaVault] SubVaultEjected for non-existent subVault metaVault={} subVault={}', [
+      metaVaultAddress.toHex(),
+      subVaultAddress.toHex(),
+    ])
+  }
+}
 
 export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
   const vaultPeriodAssets = event.params.totalAssetsDelta

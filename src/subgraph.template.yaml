@@ -915,6 +915,7 @@ templates:
       entities:
         - Network
         - Vault
+        - SubVault
         - OsToken
         - OsTokenConfig
         - VaultSnapshot
@@ -927,6 +928,10 @@ templates:
       eventHandlers:
         - event: SubVaultsHarvested(int256)
           handler: handleSubVaultsHarvested
+        - event: SubVaultAdded(indexed address,indexed address)
+          handler: handleSubVaultAdded
+        - event: SubVaultEjected(indexed address,indexed address)
+          handler: handleSubVaultEjected
   - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}
