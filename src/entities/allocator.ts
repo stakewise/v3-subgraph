@@ -350,7 +350,7 @@ export function snapshotAllocator(
   }
 
   const totalAssets = getAllocatorTotalAssets(osToken, vault, allocator)
-  const allocatorSnapshot = new AllocatorSnapshot(timestamp.toString())
+  const allocatorSnapshot = new AllocatorSnapshot(1)
   allocatorSnapshot.timestamp = timestamp.toI64()
   allocatorSnapshot.allocator = allocator.id
   allocatorSnapshot.earnedAssets = earnedAssets

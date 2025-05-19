@@ -8,7 +8,7 @@ enum LtvStatus {
 """
 Vault allocator
 """
-type Allocator @entity {
+type Allocator @entity(immutable: false) {
   "<Vault ID>-<Allocator address>"
   id: ID!
 
@@ -75,7 +75,7 @@ type TokenTransfer @entity(immutable: true) {
 """
 OsToken holder
 """
-type OsTokenHolder @entity {
+type OsTokenHolder @entity(immutable: false) {
   "<OsToken holder address>"
   id: ID!
 
@@ -104,7 +104,7 @@ type OsTokenHolder @entity {
 """
 SwiseToken holder
 """
-type SwiseTokenHolder @entity {
+type SwiseTokenHolder @entity(immutable: false) {
   "<SwiseToken holder address>"
   id: ID!
 
@@ -118,7 +118,7 @@ type SwiseTokenHolder @entity {
 """
 Vault exit request
 """
-type ExitRequest @entity {
+type ExitRequest @entity(immutable: false) {
   "<Vault ID>-<Exit queue id>"
   id: ID!
 
@@ -168,7 +168,7 @@ type ExitRequest @entity {
 """
 Vault
 """
-type Vault @entity {
+type Vault @entity(immutable: false) {
   "Vault address"
   id: ID!
 
@@ -368,7 +368,7 @@ type Vault @entity {
 """
 Sub vault
 """
-type SubVault @entity {
+type SubVault @entity(immutable: false) {
   "Set to `meta vault address-sub vault address`"
   id: ID!
 
@@ -382,7 +382,7 @@ type SubVault @entity {
 """
 Own MEV escrow
 """
-type OwnMevEscrow @entity {
+type OwnMevEscrow @entity(immutable: false) {
   "The address of the Own MEV escrow"
   id: ID!
 
@@ -443,7 +443,7 @@ type AllocatorAction @entity(immutable: true) {
 """
 OsToken data
 """
-type OsToken @entity {
+type OsToken @entity(immutable: false) {
   "Set to 1"
   id: ID!
 
@@ -472,7 +472,7 @@ type OsToken @entity {
 """
 Network data
 """
-type Network @entity {
+type Network @entity(immutable: false) {
   "Always 0"
   id: ID!
 
@@ -504,7 +504,7 @@ type Network @entity {
   lastSnapshotTimestamp: BigInt!
 }
 
-type User @entity {
+type User @entity(immutable: false) {
   "User address"
   id: ID!
 
@@ -518,7 +518,7 @@ type User @entity {
 """
 Account that is whitelisted in the private Vault
 """
-type PrivateVaultAccount @entity {
+type PrivateVaultAccount @entity(immutable: false) {
   "<Vault ID>-<address>"
   id: ID!
 
@@ -535,7 +535,7 @@ type PrivateVaultAccount @entity {
 """
 Account that is blocked in the Vault
 """
-type VaultBlockedAccount @entity {
+type VaultBlockedAccount @entity(immutable: false) {
   "<Vault ID>-<address>"
   id: ID!
 
@@ -552,7 +552,7 @@ type VaultBlockedAccount @entity {
 """
 Reward splitter used to distribute fee accumulated in the vault
 """
-type RewardSplitter @entity {
+type RewardSplitter @entity(immutable: false) {
   "Reward splitter address"
   id: ID!
 
@@ -578,7 +578,7 @@ type RewardSplitter @entity {
 """
 Reward splitter shareholder
 """
-type RewardSplitterShareHolder @entity {
+type RewardSplitterShareHolder @entity(immutable: false) {
   "<RewardSplitter ID>-<holder address>"
   id: ID!
 
@@ -612,7 +612,7 @@ type Transaction @entity(immutable: true) {
 """
 StakeWise V2 pool data
 """
-type V2Pool @entity {
+type V2Pool @entity(immutable: false) {
   "1"
   id: ID!
 
@@ -650,7 +650,7 @@ type V2Pool @entity {
 """
 StakeWise V2 pool user
 """
-type V2PoolUser @entity {
+type V2PoolUser @entity(immutable: false) {
   "The address of the user"
   id: ID!
 
@@ -675,7 +675,7 @@ type VestingEscrow @entity(immutable: true) {
 """
 The OsToken config
 """
-type OsTokenConfig @entity {
+type OsTokenConfig @entity(immutable: false) {
   "The ID of the OsTokenConfig"
   id: ID!
 
@@ -692,7 +692,7 @@ type OsTokenConfig @entity {
 """
 The OsToken vault exit request
 """
-type OsTokenExitRequest @entity {
+type OsTokenExitRequest @entity(immutable: false) {
   "<Vault ID>-<Exit queue id>"
   id: ID!
 
@@ -718,7 +718,7 @@ type OsTokenExitRequest @entity {
 """
 The Aave supplying and borrowing data
 """
-type Aave @entity {
+type Aave @entity(immutable: false) {
   "Set to 1"
   id: ID!
 
@@ -750,7 +750,7 @@ type Aave @entity {
 """
 The Aave position in Leverage strategy
 """
-type AavePosition @entity {
+type AavePosition @entity(immutable: false) {
   "Set to user address"
   id: ID!
 
@@ -770,7 +770,7 @@ type AavePosition @entity {
 """
 The LeverageStrategy position
 """
-type LeverageStrategyPosition @entity {
+type LeverageStrategyPosition @entity(immutable: false) {
   "Set to `vault ID-user address`"
   id: ID!
 
@@ -914,7 +914,7 @@ type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
 """
 The latest exchange rates
 """
-type ExchangeRate @entity {
+type ExchangeRate @entity(immutable: false) {
   "Always 0"
   id: ID!
 
@@ -1026,7 +1026,7 @@ type ExchangeRateStats @aggregation(intervals: ["day"], source: "ExchangeRateSna
 }
 
 "Uniswap V3 pool data"
-type UniswapPool @entity {
+type UniswapPool @entity(immutable: false) {
   "The address of the pool"
   id: ID!
 
@@ -1050,7 +1050,7 @@ type UniswapPool @entity {
 }
 
 "Positions created through UniswapPositionManager"
-type UniswapPosition @entity {
+type UniswapPosition @entity(immutable: false) {
   "NFT Token ID"
   id: ID!
 
@@ -1077,7 +1077,7 @@ type UniswapPosition @entity {
 }
 
 "Stores current active distributions and active distributors"
-type Distributor @entity {
+type Distributor @entity(immutable: false) {
   "Set to 1"
   id: ID!
 
@@ -1097,7 +1097,7 @@ enum DistributionType {
 }
 
 "The periodic distribution of additional incentives"
-type PeriodicDistribution @entity {
+type PeriodicDistribution @entity(immutable: false) {
   "Set to `transaction hash-log index`"
   id: ID!
 
@@ -1130,7 +1130,7 @@ type PeriodicDistribution @entity {
 }
 
 "The distributor reward"
-type DistributorReward @entity {
+type DistributorReward @entity(immutable: false) {
   "Set to `token address-user address`"
   id: ID!
 
@@ -1145,7 +1145,7 @@ type DistributorReward @entity {
 }
 
 "The distributor claim"
-type DistributorClaim @entity {
+type DistributorClaim @entity(immutable: false) {
   "Set to `user address`"
   id: ID!
 
@@ -1166,7 +1166,7 @@ type DistributorClaim @entity {
 }
 
 "The distributor claimed amounts"
-type DistributorClaimedAmount @entity {
+type DistributorClaimedAmount @entity(immutable: false) {
   "Set to `token-address-user address`"
   id: ID!
 

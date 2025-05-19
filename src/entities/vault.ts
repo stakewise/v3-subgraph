@@ -543,7 +543,7 @@ export function snapshotVault(
   timestamp: BigInt,
 ): void {
   let apy = getVaultApy(vault, distributor, osToken, true)
-  const vaultSnapshot = new VaultSnapshot(timestamp.toString())
+  const vaultSnapshot = new VaultSnapshot(1)
   vaultSnapshot.timestamp = timestamp.toI64()
   vaultSnapshot.vault = vault.id
   vaultSnapshot.earnedAssets = earnedAssets

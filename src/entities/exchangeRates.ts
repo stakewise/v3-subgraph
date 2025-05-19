@@ -64,7 +64,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     exchangeRate.bcspxUsdRate = BigDecimal.fromString('625.62')
     exchangeRate.save()
 
-    const exchangeRateSnapshot = new ExchangeRateSnapshot(timestamp.toString())
+    const exchangeRateSnapshot = new ExchangeRateSnapshot(1)
     exchangeRateSnapshot.timestamp = timestamp.toI64()
     exchangeRateSnapshot.osTokenAssetsRate = osTokenAssetsRate
     exchangeRateSnapshot.assetsUsdRate = exchangeRate.assetsUsdRate
@@ -305,7 +305,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   exchangeRate.usdcUsdRate = usdcUsdRate
   exchangeRate.save()
 
-  const exchangeRateSnapshot = new ExchangeRateSnapshot(timestamp.toString())
+  const exchangeRateSnapshot = new ExchangeRateSnapshot(1)
   exchangeRateSnapshot.timestamp = timestamp.toI64()
   exchangeRateSnapshot.osTokenAssetsRate = osTokenAssetsRate
   exchangeRateSnapshot.assetsUsdRate = assetsUsdRate
