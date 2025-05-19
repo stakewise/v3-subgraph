@@ -301,20 +301,11 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const vaultIds = network.vaultIds
   for (let i = 0; i < vaultIds.length; i++) {
     const vaultAddress = Address.fromString(vaultIds[i])
-    const vault = loadVault(vaultAddress)
-    if (!vault) {
-      log.error('[Keeper] RewardsUpdated vault={} not found', [vaultAddress.toHex()])
+    const vault = loadVault(vaultAddress)!
+    if (vault.rewardsRoot === null || vault.isMetaVault) {
       continue
     }
-
-    const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)
-    if (!osTokenConfig) {
-      log.error('[Keeper] RewardsUpdated osTokenConfig={} not found for vault={}', [
-        vault.osTokenConfig,
-        vaultAddress.toHex(),
-      ])
-      continue
-    }
+    const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
     // process fee recipient earned shares
     const feeRecipient = createOrLoadAllocator(Address.fromBytes(vault.feeRecipient), vaultAddress)
