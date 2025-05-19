@@ -664,6 +664,27 @@ templates:
         - event: VaultCreated(indexed address,indexed address,address,bytes)
           handler: handleVaultCreated
   - kind: ethereum/contract
+    name: MetaVaultFactory
+    network: {{ network }}
+    source:
+      abi: MetaVaultFactory
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/metaVaultFactory.ts
+      entities:
+        - Vault
+        - Network
+        - Transaction
+        - OsTokenConfig
+      abis:
+        - name: MetaVaultFactory
+          file: ./abis/MetaVaultFactory.json
+      eventHandlers:
+        - event: MetaVaultCreated(indexed address,indexed address,indexed address,bytes)
+          handler: handleMetaVaultCreated
+  - kind: ethereum/contract
     name: RewardSplitterFactory
     network: {{ network }}
     source:
@@ -881,6 +902,31 @@ templates:
       eventHandlers:
         - event: XdaiSwapped(uint256,uint256)
           handler: handleXdaiSwapped
+  - kind: ethereum/contract
+    name: MetaVault
+    network: {{ network }}
+    source:
+      abi: MetaVault
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/metaVault.ts
+      entities:
+        - Network
+        - Vault
+        - OsToken
+        - OsTokenConfig
+        - VaultSnapshot
+        - Allocator
+        - AllocatorSnapshot
+        - LeverageStrategyPosition
+      abis:
+        - name: MetaVault
+          file: ./abis/MetaVault.json
+      eventHandlers:
+        - event: SubVaultsHarvested(int256)
+          handler: handleSubVaultsHarvested
   - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}

@@ -211,7 +211,7 @@ type Vault @entity {
   "The MEV and priority fees escrow address. If it's null, then the vault uses shared MEV escrow."
   mevEscrow: Bytes
 
-  "The vault deposit data merkle tree root"
+  "The vault deposit data merkle tree root. It's modified by the deposit data manager."
   depositDataRoot: Bytes
 
   "The vault metadata IPFS hash"
@@ -271,6 +271,9 @@ type Vault @entity {
   "The vault OsToken exit request positions"
   osTokenExitRequests: [OsTokenExitRequest!]! @derivedFrom(field: "vault")
 
+  "The list of sub vaults"
+  subVaults: [SubVault!]! @derivedFrom(field: "metaVault")
+
   "The total number of shares"
   totalShares: BigInt!
 
@@ -303,6 +306,9 @@ type Vault @entity {
 
   "Indicates whether the Vault supports minting OsToken"
   isOsTokenEnabled: Boolean!
+
+  "Indicates whether the Vault is a meta vault and has sub vaults"
+  isMetaVault: Boolean!
 
   "Indicates whether the Vault has registered validators"
   isCollateralized: Boolean!
@@ -357,6 +363,20 @@ type Vault @entity {
 
   "The total amount of the accumulated unclaimed fee recipient shares"
   _unclaimedFeeRecipientShares: BigInt!
+}
+
+"""
+Sub vault
+"""
+type SubVault @entity {
+  "Set to `meta vault address-sub vault address`"
+  id: ID!
+
+  "The meta vault"
+  metaVault: Vault!
+
+  "The address of the sub vault"
+  subVault: Bytes!
 }
 
 """

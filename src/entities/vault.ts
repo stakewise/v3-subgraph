@@ -80,9 +80,11 @@ export function createVault(
     ).toTuple()
     vault.tokenName = decodedParams[2].toString()
     vault.tokenSymbol = decodedParams[3].toString()
+    vault.metadataIpfsHash = decodedParams[4].toString()
     Erc20VaultTemplate.create(vaultAddress)
   } else {
     decodedParams = (ethereum.decode('(uint256,uint16,string)', event.params.params) as ethereum.Value).toTuple()
+    vault.metadataIpfsHash = decodedParams[2].toString()
   }
   const capacity = decodedParams[0].toBigInt()
   const feePercent = decodedParams[1].toI32()
@@ -110,6 +112,7 @@ export function createVault(
   vault.isPrivate = isPrivate
   vault.isBlocklist = isBlocklist
   vault.isErc20 = isErc20
+  vault.isMetaVault = false
   vault.isOsTokenEnabled = true
   vault.isCollateralized = false
   vault.addressString = vaultAddressHex
@@ -238,6 +241,7 @@ export function getVaultOsTokenMintApy(osToken: OsToken, osTokenConfig: OsTokenC
 export function getUpdateStateCalls(vault: Vault): Array<ethereum.Value> {
   let updateStateCalls: Array<ethereum.Value> = []
   if (
+    vault.isMetaVault ||
     vault.rewardsRoot === null ||
     vault.proofReward === null ||
     vault.proofUnlockedMevReward === null ||

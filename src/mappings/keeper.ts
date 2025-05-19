@@ -37,11 +37,14 @@ import {
   VAULT_FACTORY_V2,
   VAULT_FACTORY_V3,
   VAULT_FACTORY_V5,
+  META_VAULT_FACTORY_V3,
+  META_VAULT_FACTORY_V5,
 } from '../helpers/constants'
 import {
   FoxVault as FoxVaultTemplate,
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
   VaultFactory as VaultFactoryTemplate,
+  MetaVaultFactory as MetaVaultFactoryTemplate,
 } from '../../generated/templates'
 import { Allocator, OsTokenHolder } from '../../generated/schema'
 import { createOrLoadOsToken, loadOsToken, updateOsTokenApy } from '../entities/osToken'
@@ -110,6 +113,8 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   const rewardSplitterFactoryV3 = Address.fromString(REWARD_SPLITTER_FACTORY_V3)
   const foxVault1 = Address.fromString(FOX_VAULT1)
   const foxVault2 = Address.fromString(FOX_VAULT2)
+  const metaVaultFactoryV3 = Address.fromString(META_VAULT_FACTORY_V3)
+  const metaVaultFactoryV5 = Address.fromString(META_VAULT_FACTORY_V5)
   const zeroAddress = Address.zero()
   const blockNumber = event.block.number.toString()
 
@@ -243,6 +248,17 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
     context.setBigInt(VERSION, BigInt.fromI32(5))
     VaultFactoryTemplate.createWithContext(blocklistErc20VaultFactoryV5, context)
     log.info('[Keeper] Initialize BlocklistERC20VaultFactory V5 at block={}', [blockNumber])
+  }
+
+  if (metaVaultFactoryV3.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(3))
+    MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV3, context)
+    log.info('[Keeper] Initialize MetaVaultFactory V3 at block={}', [blockNumber])
+  }
+  if (metaVaultFactoryV5.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(5))
+    MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV5, context)
+    log.info('[Keeper] Initialize MetaVaultFactory V5 at block={}', [blockNumber])
   }
 
   // create reward splitter factories

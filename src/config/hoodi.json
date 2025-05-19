@@ -28,6 +28,7 @@
   "erc20VaultFactoryV5": "0x35Ed6a770D772dd40E97AACF7B04268d368Cd603",
   "privErc20VaultFactoryV5": "0x197C9CDc85B555787a4b7CA719aeB2c4197b4059",
   "blocklistErc20VaultFactoryV5": "0xD65DB6c716019D21b27b29D72cc105b805A9660e",
+  "metaVaultFactoryV5": "0x0000000000000000000000000000000000000000",
   "rewardSplitterFactoryV1": "0xC8AdBaAC832b5CcB0C85C35D45Bc0d335db6fB29",
   "rewardSplitterFactoryV2": "0x80353898B72417AC5701a9809A9eF63F691BdE86",
   "rewardSplitterFactoryV3": "0xd32431f2e75A0eC53d6DF2D1Bc2AfdbFA736686C",
@@ -141,5 +142,6 @@
     "address": "0x00000000219ab540356cBB839Cbe05303d7705Fa",
     "startBlock": "0"
   },
-  "genesisIpfsHash": "bafybeibnb7ttpd55qsdpar5yfhxz45vkcmomplf266bqlvdy4hyji7gtsq"
+  "genesisIpfsHash": "bafybeibnb7ttpd55qsdpar5yfhxz45vkcmomplf266bqlvdy4hyji7gtsq",
+  "metaVaultFactoryV3": "0x0000000000000000000000000000000000000000"
 }
