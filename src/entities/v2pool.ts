@@ -1,6 +1,6 @@
 import { BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { V2Pool, V2PoolUser, Vault } from '../../generated/schema'
-import { V2_POOL_FEE_PERCENT, V2_STAKED_TOKEN, WAD } from '../helpers/constants'
+import { V2_POOL_FEE_PERCENT, V2_REWARD_TOKEN, V2_STAKED_TOKEN, WAD } from '../helpers/constants'
 import { calculateAverage, chunkedMulticall, encodeContractCall } from '../helpers/utils'
 import { getUpdateStateCalls } from './vault'
 
@@ -94,13 +94,13 @@ export function getV2PoolState(vault: Vault): Array<BigInt> {
   const wad = BigInt.fromString(WAD)
 
   let contractCalls: Array<ethereum.Value> = [
-    encodeContractCall(V2_STAKED_TOKEN, Bytes.fromHexString(poolRewardAssetsSelector)),
-    encodeContractCall(V2_STAKED_TOKEN, Bytes.fromHexString(poolPenaltyAssetsSelector)),
+    encodeContractCall(V2_REWARD_TOKEN, Bytes.fromHexString(poolRewardAssetsSelector)),
+    encodeContractCall(V2_REWARD_TOKEN, Bytes.fromHexString(poolPenaltyAssetsSelector)),
     encodeContractCall(V2_STAKED_TOKEN, Bytes.fromHexString(poolPrincipalAssetsSelector)),
-    encodeContractCall(V2_STAKED_TOKEN, Bytes.fromHexString(rewardPerTokenSelector)),
+    encodeContractCall(V2_REWARD_TOKEN, Bytes.fromHexString(rewardPerTokenSelector)),
   ]
 
-  const results = chunkedMulticall(updateStateCalls, contractCalls, true)
+  const results = chunkedMulticall(updateStateCalls, contractCalls)
   const rewardAssets = ethereum.decode('uint256', results[0]!)!.toBigInt()
   const penaltyAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
   const principalAssets = ethereum.decode('uint256', results[2]!)!.toBigInt()
