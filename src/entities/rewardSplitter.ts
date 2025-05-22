@@ -1,6 +1,6 @@
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import { RewardSplitter, RewardSplitterShareHolder, Vault } from '../../generated/schema'
-import { convertSharesToAssets, getUpdateStateCalls } from './vault'
+import { convertSharesToAssets, getUpdateStateCall } from './vault'
 import { loadV2Pool } from './v2pool'
 import { createOrLoadAllocator } from './allocator'
 import {
@@ -51,7 +51,7 @@ export function updateRewardSplitters(vault: Vault): void {
   }
 
   const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
-  const updateStateCalls = getUpdateStateCalls(vault)
+  const updateStateCalls = getUpdateStateCall(vault)
 
   let rewardSplitter: RewardSplitter
   const syncRewardsCall = Bytes.fromHexString(syncRewardsCallSelector)

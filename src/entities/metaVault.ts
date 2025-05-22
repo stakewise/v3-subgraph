@@ -100,7 +100,7 @@ export function getMetaVaultState(vault: Vault): Array<BigInt> {
     encodeContractCall(vaultAddr, Bytes.fromHexString(exitQueueDataSelector)),
   ]
 
-  let results = chunkedMulticall([], calls)
+  let results = chunkedMulticall(null, calls)
   const newRate = ethereum.decode('uint256', results[0]!)!.toBigInt()
   const totalAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
   const totalShares = ethereum.decode('uint256', results[2]!)!.toBigInt()

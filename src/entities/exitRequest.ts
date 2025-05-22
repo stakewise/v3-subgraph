@@ -1,7 +1,7 @@
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import { ExitRequest, Network, Vault } from '../../generated/schema'
 import { loadV2Pool } from './v2pool'
-import { convertSharesToAssets, getUpdateStateCalls } from './vault'
+import { convertSharesToAssets, getUpdateStateCall } from './vault'
 import { loadAllocator } from './allocator'
 import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
 import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
@@ -23,7 +23,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   const vaultAddr = Address.fromString(vault.id)
 
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
-  const updateStateCalls = getUpdateStateCalls(vault)
+  const updateStateCalls = getUpdateStateCall(vault)
 
   // ─────────────────────────────────────────────────────────────────────
   // STAGE 1: Query exitQueueIndex for all pending exit requests

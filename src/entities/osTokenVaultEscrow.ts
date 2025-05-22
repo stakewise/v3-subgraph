@@ -4,7 +4,7 @@ import { convertOsTokenSharesToAssets } from './osToken'
 import { OS_TOKEN_VAULT_ESCROW } from '../helpers/constants'
 import { loadV2Pool } from './v2pool'
 import { loadExitRequest } from './exitRequest'
-import { getUpdateStateCalls } from './vault'
+import { getUpdateStateCall } from './vault'
 import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 
 const getPositionSelector = '0x3adbb5af'
@@ -52,7 +52,7 @@ export function updateOsTokenExitRequests(osToken: OsToken, vault: Vault): void 
     return
   }
   const vaultAddress = Address.fromString(vault.id)
-  const updateStateCalls = getUpdateStateCalls(vault)
+  const updateStateCall = getUpdateStateCall(vault)
 
   const contractCalls: Array<ethereum.Value> = []
   let osTokenExitRequest: OsTokenExitRequest
@@ -72,7 +72,7 @@ export function updateOsTokenExitRequests(osToken: OsToken, vault: Vault): void 
     return
   }
 
-  let result = chunkedMulticall(updateStateCalls, contractCalls, true, 100)
+  let result = chunkedMulticall(updateStateCall, contractCalls, true, 100)
 
   // process result
   for (let i = 0; i < unprocessedExitRequests.length; i++) {

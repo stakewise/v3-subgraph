@@ -174,7 +174,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   }
 
   let decodedValue: BigInt = BigInt.zero()
-  const response = chunkedMulticall([], contractCalls, false)
+  const response = chunkedMulticall(null, contractCalls, false)
   if (_isValidResponse(response[0])) {
     decodedValue = ethereum.decode('int256', response[0]!)!.toBigInt()
     assetsUsdRate = decodedValue.toBigDecimal().div(decimals)

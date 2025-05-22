@@ -65,7 +65,7 @@ export function getCompoundedApy(initialApyPercent: BigDecimal, secondaryApyPerc
 }
 
 export function chunkedMulticall(
-  updateStateCalls: Array<ethereum.Value>,
+  updateStateCall: ethereum.Value | null,
   contractCalls: Array<ethereum.Value>,
   requireSuccess: boolean = true,
   chunkSize: i32 = 10,
@@ -74,12 +74,12 @@ export function chunkedMulticall(
   if (callsCount == 0) {
     return []
   }
-  const updateStateCallsCount = updateStateCalls.length
-
   const multicallContract = MulticallContract.bind(Address.fromString(MULTICALL))
   const encodedRequireSuccess = ethereum.Value.fromBoolean(requireSuccess)
 
   let callResults: Array<TryAggregateCallReturnDataOutputStruct> = []
+  const updateStateCalls: Array<ethereum.Value> = updateStateCall ? [updateStateCall] : []
+  const updateStateCallsCount = updateStateCalls.length
   for (let i = 0; i < callsCount; i += chunkSize) {
     const chunkCalls = contractCalls.slice(i, i + chunkSize)
     const chunkResult = multicallContract

@@ -238,8 +238,7 @@ export function getVaultOsTokenMintApy(osToken: OsToken, osTokenConfig: OsTokenC
     .div(osTokenConfig.ltvPercent.toBigDecimal())
 }
 
-export function getUpdateStateCalls(vault: Vault): Array<ethereum.Value> {
-  let updateStateCalls: Array<ethereum.Value> = []
+export function getUpdateStateCall(vault: Vault): ethereum.Value | null {
   if (
     vault.isMetaVault ||
     vault.rewardsRoot === null ||
@@ -247,7 +246,7 @@ export function getUpdateStateCalls(vault: Vault): Array<ethereum.Value> {
     vault.proofUnlockedMevReward === null ||
     vault.proof === null
   ) {
-    return updateStateCalls
+    return null
   }
 
   const updateStateArray: Array<ethereum.Value> = [
@@ -258,13 +257,10 @@ export function getUpdateStateCalls(vault: Vault): Array<ethereum.Value> {
   ]
   // Encode the tuple
   const encodedUpdateStateArgs = ethereum.encode(ethereum.Value.fromTuple(changetype<ethereum.Tuple>(updateStateArray)))
-  updateStateCalls.push(
-    encodeContractCall(
-      Address.fromString(vault.id),
-      Bytes.fromHexString(updateStateSelector).concat(encodedUpdateStateArgs!),
-    ),
+  return encodeContractCall(
+    Address.fromString(vault.id),
+    Bytes.fromHexString(updateStateSelector).concat(encodedUpdateStateArgs!),
   )
-  return updateStateCalls
 }
 
 export function updateVaults(
@@ -568,10 +564,10 @@ export function getVaultState(vault: Vault): Array<BigInt> {
 
   // fetch fee recipient shares before state update
   const getFeeRecipientSharesCall = _getSharesCall(Address.fromBytes(vault.feeRecipient))
-  let results = chunkedMulticall([], [encodeContractCall(vaultAddr, getFeeRecipientSharesCall)])
+  let results = chunkedMulticall(null, [encodeContractCall(vaultAddr, getFeeRecipientSharesCall)])
   const feeRecipientSharesBefore = ethereum.decode('uint256', results[0]!)!.toBigInt()
 
-  const updateStateCalls = getUpdateStateCalls(vault)
+  const updateStateCalls = getUpdateStateCall(vault)
   const calls: Array<ethereum.Value> = [
     encodeContractCall(vaultAddr, getFeeRecipientSharesCall),
     encodeContractCall(vaultAddr, _getConvertToAssetsCall(BigInt.fromString(WAD))),

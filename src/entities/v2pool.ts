@@ -2,7 +2,7 @@ import { BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-t
 import { V2Pool, V2PoolUser, Vault } from '../../generated/schema'
 import { V2_POOL_FEE_PERCENT, V2_REWARD_TOKEN, V2_STAKED_TOKEN, WAD } from '../helpers/constants'
 import { calculateAverage, chunkedMulticall, encodeContractCall } from '../helpers/utils'
-import { getUpdateStateCalls } from './vault'
+import { getUpdateStateCall } from './vault'
 
 const snapshotsPerWeek = 14
 const secondsInYear = '31536000'
@@ -90,7 +90,7 @@ export function updatePoolApy(
 }
 
 export function getV2PoolState(vault: Vault): Array<BigInt> {
-  const updateStateCalls = getUpdateStateCalls(vault)
+  const updateStateCalls = getUpdateStateCall(vault)
   const wad = BigInt.fromString(WAD)
 
   let contractCalls: Array<ethereum.Value> = [

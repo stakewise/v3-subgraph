@@ -116,7 +116,7 @@ export function updateAavePositions(aave: Aave): void {
     )
   }
 
-  const result = chunkedMulticall([], contractCalls)
+  const result = chunkedMulticall(null, contractCalls)
   for (let i = 0; i < positionsCount; i++) {
     position = positions[i]
     let decodedResult = ethereum.decode('(uint256,uint256)', result[i]!)!.toTuple()

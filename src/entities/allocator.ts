@@ -139,7 +139,7 @@ export function updateAllocatorsMintedOsTokenShares(
   }
 
   // Execute calls in chunks of size 100
-  let response = chunkedMulticall([], calls, true, 100)
+  let response = chunkedMulticall(null, calls, true, 100)
 
   // Decode the result for each allocator in the same order
   for (let i = 0; i < response.length; i++) {
