@@ -725,6 +725,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   const capacity = params.capacity
   const feePercent = params.feePercent
   const admin = params.admin
+  const metadataIpfsHash = event.params.metadataIpfsHash
 
   const vault = new Vault(vaultAddressHex)
   vault.admin = admin
@@ -748,6 +749,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.isPrivate = false
   vault.isBlocklist = false
   vault.isErc20 = false
+  vault.isMetaVault = false
   vault.isOsTokenEnabled = true
   vault.isCollateralized = true
   vault.addressString = vaultAddressHex
@@ -771,6 +773,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
     vault.osTokenConfig = '1'
   }
   vault.lastFeeUpdateTimestamp = event.block.timestamp
+  vault.metadataIpfsHash = metadataIpfsHash
 
   vault.save()
   VaultTemplate.create(vaultAddress)
@@ -801,6 +804,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   const feePercent = params.feePercent
   const admin = params.admin
   const ownMevEscrow = params.ownMevEscrow
+  const metadataIpfsHash = params.metadataIpfsHash
 
   const vault = new Vault(vaultAddressHex)
   vault.admin = admin
@@ -824,6 +828,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.isPrivate = false
   vault.isBlocklist = true
   vault.isErc20 = false
+  vault.isMetaVault = false
   vault.isOsTokenEnabled = false
   vault.isCollateralized = false
   vault.mevEscrow = ownMevEscrow
@@ -843,6 +848,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.version = BigInt.fromI32(1)
   vault.osTokenConfig = '1'
   vault.lastFeeUpdateTimestamp = event.block.timestamp
+  vault.metadataIpfsHash = metadataIpfsHash
 
   vault.save()
   VaultTemplate.create(vaultAddress)

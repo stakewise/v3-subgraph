@@ -91,7 +91,7 @@ export function getOsTokenApy(osToken: OsToken, useDayApy: boolean): BigDecimal 
 
 export function snapshotOsToken(osToken: OsToken, earnedAssets: BigInt, timestamp: BigInt): void {
   let apy = getOsTokenApy(osToken, true)
-  const osTokenSnapshot = new OsTokenSnapshot(timestamp.toString())
+  const osTokenSnapshot = new OsTokenSnapshot(1)
   osTokenSnapshot.timestamp = timestamp.toI64()
   osTokenSnapshot.earnedAssets = earnedAssets
   osTokenSnapshot.totalAssets = osToken.totalAssets

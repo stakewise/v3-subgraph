@@ -10,7 +10,7 @@ import {
   OS_TOKEN,
   WAD,
 } from '../helpers/constants'
-import { calculateAverage, chunkedMulticall } from '../helpers/utils'
+import { calculateAverage, chunkedMulticall, encodeContractCall } from '../helpers/utils'
 
 const aaveId = '1'
 const snapshotsPerWeek = 168
@@ -108,15 +108,15 @@ export function updateAavePositions(aave: Aave): void {
   const positionsCount = positions.length
 
   let position: AavePosition
-  const contractAddresses: Array<Address> = []
-  const contractCalls: Array<Bytes> = []
+  const contractCalls: Array<ethereum.Value> = []
   for (let i = 0; i < positionsCount; i++) {
     position = positions[i]
-    contractAddresses.push(AAVE_LEVERAGE_STRATEGY)
-    contractCalls.push(_getBorrowStateCall(Address.fromBytes(position.user)))
+    contractCalls.push(
+      encodeContractCall(AAVE_LEVERAGE_STRATEGY, _getBorrowStateCall(Address.fromBytes(position.user))),
+    )
   }
 
-  const result = chunkedMulticall(contractAddresses, contractCalls)
+  const result = chunkedMulticall([], contractCalls)
   for (let i = 0; i < positionsCount; i++) {
     position = positions[i]
     let decodedResult = ethereum.decode('(uint256,uint256)', result[i]!)!.toTuple()

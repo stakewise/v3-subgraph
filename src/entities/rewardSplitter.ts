@@ -1,16 +1,15 @@
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import { RewardSplitter, RewardSplitterShareHolder, Vault } from '../../generated/schema'
-import { convertSharesToAssets } from './vault'
+import { convertSharesToAssets, getUpdateStateCalls } from './vault'
 import { loadV2Pool } from './v2pool'
-import { chunkedRewardSplitterMulticall } from '../helpers/utils'
 import { createOrLoadAllocator } from './allocator'
 import {
   REWARD_SPLITTER_FACTORY_V1,
   REWARD_SPLITTER_FACTORY_V2,
   REWARD_SPLITTER_FACTORY_V3,
 } from '../helpers/constants'
+import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 
-const vaultUpdateStateSelector = '0x79c702ad'
 const syncRewardsCallSelector = '0x72c0c211'
 const rewardsOfSelector = '0x479ba7ae'
 
@@ -52,7 +51,7 @@ export function updateRewardSplitters(vault: Vault): void {
   }
 
   const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
-  const updateStateCall: Bytes | null = _getVaultUpdateStateCall(vault)
+  const updateStateCalls = getUpdateStateCalls(vault)
 
   let rewardSplitter: RewardSplitter
   const syncRewardsCall = Bytes.fromHexString(syncRewardsCallSelector)
@@ -62,24 +61,26 @@ export function updateRewardSplitters(vault: Vault): void {
     if (shareHolders.length == 0) {
       continue
     }
-    let calls: Array<Bytes> = []
-    if (updateStateCall) {
-      calls.push(updateStateCall)
-    }
-    calls.push(syncRewardsCall)
+    let calls: Array<ethereum.Value> = [encodeContractCall(Address.fromString(rewardSplitter.id), syncRewardsCall)]
     for (let j = 0; j < shareHolders.length; j++) {
-      calls.push(_getRewardsOfCall(Address.fromBytes(shareHolders[j].address)))
+      calls.push(
+        encodeContractCall(
+          Address.fromString(rewardSplitter.id),
+          _getRewardsOfCall(Address.fromBytes(shareHolders[j].address)),
+        ),
+      )
     }
 
-    let result = chunkedRewardSplitterMulticall(Address.fromString(rewardSplitter.id), calls)
-    result = result.slice(updateStateCall ? 2 : 1)
+    let result = chunkedMulticall(updateStateCalls, calls)
+    // remove the first element (syncRewardsCall result)
+    result = result.slice(1)
 
     let shareHolder: RewardSplitterShareHolder
     let earnedVaultAssetsBefore: BigInt
     for (let j = 0; j < shareHolders.length; j++) {
       shareHolder = shareHolders[j]
       earnedVaultAssetsBefore = shareHolder.earnedVaultAssets
-      shareHolder.earnedVaultShares = ethereum.decode('uint256', result[j])!.toBigInt()
+      shareHolder.earnedVaultShares = ethereum.decode('uint256', result[j]!)!.toBigInt()
       shareHolder.earnedVaultAssets = convertSharesToAssets(vault, shareHolder.earnedVaultShares)
       shareHolder.save()
 
@@ -90,26 +91,6 @@ export function updateRewardSplitters(vault: Vault): void {
       allocator.save()
     }
   }
-}
-
-function _getVaultUpdateStateCall(vault: Vault): Bytes | null {
-  if (
-    vault.rewardsRoot === null ||
-    vault.proofReward === null ||
-    vault.proofUnlockedMevReward === null ||
-    vault.proof === null
-  ) {
-    return null
-  }
-  const updateStateArray: Array<ethereum.Value> = [
-    ethereum.Value.fromFixedBytes(vault.rewardsRoot!),
-    ethereum.Value.fromSignedBigInt(vault.proofReward!),
-    ethereum.Value.fromUnsignedBigInt(vault.proofUnlockedMevReward!),
-    ethereum.Value.fromFixedBytesArray(vault.proof!.map<Bytes>((p: string) => Bytes.fromHexString(p))),
-  ]
-  // Encode the tuple
-  const encodedUpdateStateArgs = ethereum.encode(ethereum.Value.fromTuple(changetype<ethereum.Tuple>(updateStateArray)))
-  return Bytes.fromHexString(vaultUpdateStateSelector).concat(encodedUpdateStateArgs as Bytes)
 }
 
 function _getRewardsOfCall(shareHolder: Address): Bytes {
