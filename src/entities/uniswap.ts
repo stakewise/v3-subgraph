@@ -2,7 +2,14 @@ import { Address, BigInt } from '@graphprotocol/graph-ts'
 import { UniswapPool, UniswapPosition } from '../../generated/schema'
 import { UniswapPositionManager } from '../../generated/UniswapPositionManager/UniswapPositionManager'
 import { UniswapFactory } from '../../generated/UniswapFactory/UniswapFactory'
-import { OS_TOKEN, SWISE_TOKEN, SSV_TOKEN, UNISWAP_POSITION_MANAGER, UNISWAP_FACTORY } from '../helpers/constants'
+import {
+  OS_TOKEN,
+  SWISE_TOKEN,
+  SSV_TOKEN,
+  OBOL_TOKEN,
+  UNISWAP_POSITION_MANAGER,
+  UNISWAP_FACTORY,
+} from '../helpers/constants'
 
 export const MIN_TICK = -887272
 export const MAX_TICK = -MIN_TICK
@@ -15,7 +22,12 @@ export function isPositionSupportedToken(token: Address): boolean {
 }
 
 export function isPoolSupportedToken(token: Address): boolean {
-  return token.equals(OS_TOKEN) || token.equals(SWISE_TOKEN) || token.equals(Address.fromString(SSV_TOKEN))
+  return (
+    token.equals(OS_TOKEN) ||
+    token.equals(SWISE_TOKEN) ||
+    token.equals(Address.fromString(SSV_TOKEN)) ||
+    token.equals(Address.fromString(OBOL_TOKEN))
+  )
 }
 
 export function loadUniswapPool(poolAddress: Address): UniswapPool | null {

@@ -21,6 +21,8 @@ import {
   SOL_USD_PRICE_FEED,
   SSV_ASSET_UNI_POOL,
   SSV_TOKEN,
+  OBOL_ASSET_UNI_POOL,
+  OBOL_TOKEN,
   SUSDS_TOKEN,
   SWISE_ASSET_UNI_POOL,
   SWISE_TOKEN,
@@ -56,6 +58,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     exchangeRate.usdToKrwRate = BigDecimal.fromString('1471.627030845302566517541794207676')
     exchangeRate.usdToAudRate = BigDecimal.fromString('1.594184415253156485142201249840582')
     exchangeRate.ssvUsdRate = BigDecimal.fromString('6.718973139778290779340878068066559')
+    exchangeRate.obolUsdRate = BigDecimal.fromString('0.1443')
     exchangeRate.ethUsdRate = BigDecimal.fromString('1905.012302')
     exchangeRate.btcUsdRate = BigDecimal.fromString('85111.59')
     exchangeRate.solUsdRate = BigDecimal.fromString('128.23')
@@ -78,6 +81,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     exchangeRateSnapshot.usdToKrwRate = exchangeRate.usdToKrwRate
     exchangeRateSnapshot.usdToAudRate = exchangeRate.usdToAudRate
     exchangeRateSnapshot.ssvUsdRate = exchangeRate.ssvUsdRate
+    exchangeRateSnapshot.obolUsdRate = exchangeRate.obolUsdRate
     exchangeRateSnapshot.ethUsdRate = exchangeRate.ethUsdRate
     exchangeRateSnapshot.btcUsdRate = exchangeRate.btcUsdRate
     exchangeRateSnapshot.solUsdRate = exchangeRate.solUsdRate
@@ -104,6 +108,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   let usdcUsdRate = BigDecimal.zero()
   let swiseUsdRate = BigDecimal.zero()
   let ssvUsdRate = BigDecimal.zero()
+  let obolUsdRate = BigDecimal.zero()
   let ethUsdRate = BigDecimal.zero()
   let btcUsdRate = BigDecimal.zero()
   let solUsdRate = BigDecimal.zero()
@@ -250,8 +255,8 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
       decodedValue = ethereum.decode('int256', response[11]!)!.toBigInt()
       usdsUsdRate = decodedValue.toBigDecimal().div(decimals)
       decodedValue = ethereum.decode('int256', response[12]!)!.toBigInt()
-      const susdsUsdsRate = decodedValue.toBigDecimal().div(decimals)
-      susdsUsdRate = usdsUsdRate.times(susdsUsdsRate)
+      const sUsdsUsdsRate = decodedValue.toBigDecimal().div(decimals)
+      susdsUsdRate = usdsUsdRate.times(sUsdsUsdsRate)
     }
 
     // set ethUsdRate equal to assetsUsdRate on mainnet
@@ -276,6 +281,15 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     }
   }
 
+  const obolAssetUniPool = Address.fromString(OBOL_ASSET_UNI_POOL)
+  if (obolAssetUniPool.notEqual(Address.zero())) {
+    const pool = UniswapPool.load(obolAssetUniPool.toHex())
+    if (pool !== null) {
+      const obolAssetRate = new BigDecimal(pool.sqrtPrice.pow(2)).div(new BigDecimal(BigInt.fromI32(2).pow(192)))
+      obolUsdRate = obolAssetRate.times(assetsUsdRate)
+    }
+  }
+
   const zero = BigDecimal.zero()
   const one = BigDecimal.fromString('1')
   const usdToEurRate = eurToUsdRate.gt(zero) ? one.div(eurToUsdRate) : zero
@@ -296,6 +310,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   exchangeRate.usdToAudRate = usdToAudRate
   exchangeRate.daiUsdRate = daiUsdRate
   exchangeRate.ssvUsdRate = ssvUsdRate
+  exchangeRate.obolUsdRate = obolUsdRate
   exchangeRate.ethUsdRate = ethUsdRate
   exchangeRate.btcUsdRate = btcUsdRate
   exchangeRate.solUsdRate = solUsdRate
@@ -312,6 +327,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   exchangeRateSnapshot.swiseUsdRate = swiseUsdRate
   exchangeRateSnapshot.daiUsdRate = daiUsdRate
   exchangeRateSnapshot.ssvUsdRate = ssvUsdRate
+  exchangeRateSnapshot.obolUsdRate = obolUsdRate
   exchangeRateSnapshot.ethUsdRate = ethUsdRate
   exchangeRateSnapshot.btcUsdRate = btcUsdRate
   exchangeRateSnapshot.solUsdRate = solUsdRate
@@ -338,6 +354,7 @@ export function createOrLoadExchangeRate(): ExchangeRate {
     exchangeRate.swiseUsdRate = BigDecimal.zero()
     exchangeRate.daiUsdRate = BigDecimal.zero()
     exchangeRate.ssvUsdRate = BigDecimal.zero()
+    exchangeRate.obolUsdRate = BigDecimal.zero()
     exchangeRate.ethUsdRate = BigDecimal.zero()
     exchangeRate.btcUsdRate = BigDecimal.zero()
     exchangeRate.solUsdRate = BigDecimal.zero()
@@ -371,6 +388,7 @@ export function isTokenSupported(token: Address): boolean {
     token.equals(OS_TOKEN) ||
     token.equals(SWISE_TOKEN) ||
     token.equals(Address.fromString(SSV_TOKEN)) ||
+    token.equals(Address.fromString(OBOL_TOKEN)) ||
     token.equals(Address.fromString(USDC_TOKEN))
   )
 }
@@ -387,6 +405,9 @@ export function convertTokenAmountToAssets(exchangeRate: ExchangeRate, token: Ad
   }
   if (token.equals(Address.fromString(SSV_TOKEN))) {
     return amount.toBigDecimal().times(exchangeRate.ssvUsdRate).div(exchangeRate.assetsUsdRate).truncate(0).digits
+  }
+  if (token.equals(Address.fromString(OBOL_TOKEN))) {
+    return amount.toBigDecimal().times(exchangeRate.obolUsdRate).div(exchangeRate.assetsUsdRate).truncate(0).digits
   }
   if (token.equals(Address.fromString(USDC_TOKEN))) {
     return amount.toBigDecimal().times(exchangeRate.usdcUsdRate).div(exchangeRate.assetsUsdRate).truncate(0).digits

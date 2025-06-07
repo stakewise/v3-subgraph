@@ -936,6 +936,9 @@ type ExchangeRate @entity(immutable: false) {
   "The USD rate of SSV"
   ssvUsdRate: BigDecimal!
 
+  "The USD rate of OBOL"
+  obolUsdRate: BigDecimal!
+
   "The USD rate of ETH"
   ethUsdRate: BigDecimal!
 
@@ -984,6 +987,7 @@ type ExchangeRateSnapshot @entity(timeseries: true) {
   swiseUsdRate: BigDecimal!
   daiUsdRate: BigDecimal!
   ssvUsdRate: BigDecimal!
+  obolUsdRate: BigDecimal!
   ethUsdRate: BigDecimal!
   btcUsdRate: BigDecimal!
   solUsdRate: BigDecimal!
@@ -1010,6 +1014,7 @@ type ExchangeRateStats @aggregation(intervals: ["day"], source: "ExchangeRateSna
   swiseUsdRate: BigDecimal! @aggregate(fn: "last", arg: "swiseUsdRate")
   daiUsdRate: BigDecimal! @aggregate(fn: "last", arg: "daiUsdRate")
   ssvUsdRate: BigDecimal! @aggregate(fn: "last", arg: "ssvUsdRate")
+  obolUsdRate: BigDecimal! @aggregate(fn: "last", arg: "obolUsdRate")
   ethUsdRate: BigDecimal! @aggregate(fn: "last", arg: "ethUsdRate")
   btcUsdRate: BigDecimal! @aggregate(fn: "last", arg: "btcUsdRate")
   solUsdRate: BigDecimal! @aggregate(fn: "last", arg: "solUsdRate")

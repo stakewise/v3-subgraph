@@ -86,6 +86,8 @@
   },
   "ssvToken": "0x9d65ff81a3c488d585bbfb0bfe3c7707c7917f54",
   "ssvAssetUniPool": "0x0A55882F4E1117ADc54aFbbac4A39079AD52fB89",
+  "obolToken": "0x0b010000b7624eb9b3dfbc279673c76e9d29d5f7",
+  "obolAssetUniPool": "0x57F52C9faa6D40c5163D76b8D7dD81ddB7c95434",
   "osTokenConfigV1": {
     "address": "0xE8822246F8864DA92015813A39ae776087Fb1Cd5",
     "startBlock": "18470082"
