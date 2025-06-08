@@ -5,7 +5,7 @@ import { OS_TOKEN_VAULT_ESCROW } from '../helpers/constants'
 import { loadV2Pool } from './v2pool'
 import { loadExitRequest } from './exitRequest'
 import { getUpdateStateCall } from './vault'
-import { chunkedMulticall } from '../helpers/utils'
+import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 
 const getPositionSelector = '0x3adbb5af'
 
@@ -52,15 +52,9 @@ export function updateOsTokenExitRequests(osToken: OsToken, vault: Vault): void 
     return
   }
   const vaultAddress = Address.fromString(vault.id)
-  const updateStateCall: Bytes | null = getUpdateStateCall(vault)
+  const updateStateCall = getUpdateStateCall(vault)
 
-  let contractAddresses: Array<Address> = []
-  let contractCalls: Array<Bytes> = []
-  if (updateStateCall) {
-    contractAddresses.push(vaultAddress)
-    contractCalls.push(updateStateCall)
-  }
-
+  const contractCalls: Array<ethereum.Value> = []
   let osTokenExitRequest: OsTokenExitRequest
   const osTokenExitRequests: Array<OsTokenExitRequest> = vault.osTokenExitRequests.load()
   const unprocessedExitRequests: Array<OsTokenExitRequest> = []
@@ -70,17 +64,15 @@ export function updateOsTokenExitRequests(osToken: OsToken, vault: Vault): void 
       continue
     }
     unprocessedExitRequests.push(osTokenExitRequest)
-    contractAddresses.push(OS_TOKEN_VAULT_ESCROW)
-    contractCalls.push(_getPositionCall(vaultAddress, osTokenExitRequest.positionTicket))
+    contractCalls.push(
+      encodeContractCall(OS_TOKEN_VAULT_ESCROW, _getPositionCall(vaultAddress, osTokenExitRequest.positionTicket)),
+    )
   }
   if (unprocessedExitRequests.length == 0) {
     return
   }
 
-  let result = chunkedMulticall(contractAddresses, contractCalls)
-  if (updateStateCall) {
-    result = result.slice(1)
-  }
+  let result = chunkedMulticall(updateStateCall, contractCalls, true, 100)
 
   // process result
   for (let i = 0; i < unprocessedExitRequests.length; i++) {

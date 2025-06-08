@@ -37,11 +37,15 @@ import {
   VAULT_FACTORY_V2,
   VAULT_FACTORY_V3,
   VAULT_FACTORY_V5,
+  META_VAULT_FACTORY_V3,
+  META_VAULT_FACTORY_V5,
+  NETWORK,
 } from '../helpers/constants'
 import {
   FoxVault as FoxVaultTemplate,
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
   VaultFactory as VaultFactoryTemplate,
+  MetaVaultFactory as MetaVaultFactoryTemplate,
 } from '../../generated/templates'
 import { Allocator, OsTokenHolder } from '../../generated/schema'
 import { createOrLoadOsToken, loadOsToken, updateOsTokenApy } from '../entities/osToken'
@@ -110,6 +114,8 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   const rewardSplitterFactoryV3 = Address.fromString(REWARD_SPLITTER_FACTORY_V3)
   const foxVault1 = Address.fromString(FOX_VAULT1)
   const foxVault2 = Address.fromString(FOX_VAULT2)
+  const metaVaultFactoryV3 = Address.fromString(META_VAULT_FACTORY_V3)
+  const metaVaultFactoryV5 = Address.fromString(META_VAULT_FACTORY_V5)
   const zeroAddress = Address.zero()
   const blockNumber = event.block.number.toString()
 
@@ -245,6 +251,17 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
     log.info('[Keeper] Initialize BlocklistERC20VaultFactory V5 at block={}', [blockNumber])
   }
 
+  if (metaVaultFactoryV3.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(3))
+    MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV3, context)
+    log.info('[Keeper] Initialize MetaVaultFactory V3 at block={}', [blockNumber])
+  }
+  if (metaVaultFactoryV5.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(5))
+    MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV5, context)
+    log.info('[Keeper] Initialize MetaVaultFactory V5 at block={}', [blockNumber])
+  }
+
   // create reward splitter factories
   if (rewardSplitterFactoryV1.notEqual(zeroAddress)) {
     RewardSplitterFactoryTemplate.create(rewardSplitterFactoryV1)
@@ -301,20 +318,11 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const vaultIds = network.vaultIds
   for (let i = 0; i < vaultIds.length; i++) {
     const vaultAddress = Address.fromString(vaultIds[i])
-    const vault = loadVault(vaultAddress)
-    if (!vault) {
-      log.error('[Keeper] RewardsUpdated vault={} not found', [vaultAddress.toHex()])
+    const vault = loadVault(vaultAddress)!
+    if (vault.rewardsRoot === null || vault.isMetaVault) {
       continue
     }
-
-    const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)
-    if (!osTokenConfig) {
-      log.error('[Keeper] RewardsUpdated osTokenConfig={} not found for vault={}', [
-        vault.osTokenConfig,
-        vaultAddress.toHex(),
-      ])
-      continue
-    }
+    const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
     // process fee recipient earned shares
     const feeRecipient = createOrLoadAllocator(Address.fromBytes(vault.feeRecipient), vaultAddress)
@@ -448,6 +456,10 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
 
   let data: Bytes | null = ipfs.cat(configIpfsHash)
   while (data === null) {
+    if (NETWORK == 'chiado' || NETWORK == 'hoodi') {
+      log.warning('[Keeper] ConfigUpdated ipfs.cat failed for hash={} on chiado/hoodi, skipping', [configIpfsHash])
+      return
+    }
     log.warning('[Keeper] ConfigUpdated ipfs.cat failed for hash={}, retrying', [configIpfsHash])
     data = ipfs.cat(configIpfsHash)
   }

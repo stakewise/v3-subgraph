@@ -146,7 +146,7 @@ export function snapshotOsTokenHolder(
   timestamp: BigInt,
 ): void {
   const totalAssets = getOsTokenHolderTotalAssets(network, osToken, osTokenHolder)
-  const snapshot = new OsTokenHolderSnapshot(timestamp.toString())
+  const snapshot = new OsTokenHolderSnapshot(1)
   snapshot.timestamp = timestamp.toI64()
   snapshot.osTokenHolder = osTokenHolder.id
   snapshot.earnedAssets = earnedAssets

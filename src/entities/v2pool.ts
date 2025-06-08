@@ -1,7 +1,7 @@
-import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
+import { BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { V2Pool, V2PoolUser, Vault } from '../../generated/schema'
 import { V2_POOL_FEE_PERCENT, V2_REWARD_TOKEN, V2_STAKED_TOKEN, WAD } from '../helpers/constants'
-import { calculateAverage, chunkedMulticall } from '../helpers/utils'
+import { calculateAverage, chunkedMulticall, encodeContractCall } from '../helpers/utils'
 import { getUpdateStateCall } from './vault'
 
 const snapshotsPerWeek = 14
@@ -90,42 +90,17 @@ export function updatePoolApy(
 }
 
 export function getV2PoolState(vault: Vault): Array<BigInt> {
-  const rewardAssetsCall = Bytes.fromHexString(poolRewardAssetsSelector)
-  const principalAssetsCall = Bytes.fromHexString(poolPrincipalAssetsSelector)
-  const penaltyAssetsCall = Bytes.fromHexString(poolPenaltyAssetsSelector)
-  const rewardPerTokenCall = Bytes.fromHexString(rewardPerTokenSelector)
-  const updateStateCall = getUpdateStateCall(vault)
-  const vaultAddress = Address.fromString(vault.id)
+  const updateStateCalls = getUpdateStateCall(vault)
   const wad = BigInt.fromString(WAD)
 
-  const contractAddresses: Array<Address> = []
-  let contractCalls: Array<Bytes> = []
-  if (updateStateCall) {
-    contractAddresses.push(vaultAddress)
-    contractCalls.push(updateStateCall)
-  }
-  contractAddresses.push(V2_REWARD_TOKEN)
-  contractCalls.push(rewardAssetsCall)
+  let contractCalls: Array<ethereum.Value> = [
+    encodeContractCall(V2_REWARD_TOKEN, Bytes.fromHexString(poolRewardAssetsSelector)),
+    encodeContractCall(V2_REWARD_TOKEN, Bytes.fromHexString(poolPenaltyAssetsSelector)),
+    encodeContractCall(V2_STAKED_TOKEN, Bytes.fromHexString(poolPrincipalAssetsSelector)),
+    encodeContractCall(V2_REWARD_TOKEN, Bytes.fromHexString(rewardPerTokenSelector)),
+  ]
 
-  contractAddresses.push(V2_REWARD_TOKEN)
-  contractCalls.push(penaltyAssetsCall)
-
-  contractAddresses.push(V2_STAKED_TOKEN)
-  contractCalls.push(principalAssetsCall)
-
-  contractAddresses.push(V2_REWARD_TOKEN)
-  contractCalls.push(rewardPerTokenCall)
-
-  let results = chunkedMulticall(contractAddresses, contractCalls, false)
-  if (updateStateCall) {
-    // check whether update state call succeeded
-    if (results[0] === null) {
-      log.error('[Vault] getV2PoolState failed updateStateCall={}', [updateStateCall.toHexString()])
-      assert(false, 'getV2PoolState failed')
-    }
-    results = results.slice(1)
-  }
-
+  const results = chunkedMulticall(updateStateCalls, contractCalls)
   const rewardAssets = ethereum.decode('uint256', results[0]!)!.toBigInt()
   const penaltyAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
   const principalAssets = ethereum.decode('uint256', results[2]!)!.toBigInt()

@@ -4,13 +4,14 @@ import {
   AllocatorAction,
   AllocatorSnapshot,
   Distributor,
+  LeverageStrategyPosition,
   OsToken,
   OsTokenConfig,
   RewardSplitter,
   Vault,
 } from '../../generated/schema'
 import { WAD } from '../helpers/constants'
-import { calculateApy, chunkedVaultMulticall, getAnnualReward } from '../helpers/utils'
+import { calculateApy, chunkedMulticall, encodeContractCall, getAnnualReward } from '../helpers/utils'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { convertSharesToAssets, getVaultApy, getVaultOsTokenMintApy, loadVault } from './vault'
 import { loadOsTokenConfig } from './osTokenConfig'
@@ -125,20 +126,21 @@ export function updateAllocatorsMintedOsTokenShares(
   vault: Vault,
 ): void {
   // Prepare all calls for retrieving minted shares from OsToken positions
-  let calls: Array<Bytes> = []
+  let calls: Array<ethereum.Value> = []
   let allocator: Allocator
   const allocatorsWithMintedOsTokenShares: Array<Allocator> = []
   const allocators: Array<Allocator> = vault.allocators.load()
+  const vaultAddress = Address.fromString(vault.id)
   for (let i = 0; i < allocators.length; i++) {
     allocator = allocators[i]
     if (allocator.mintedOsTokenShares.gt(BigInt.zero())) {
       allocatorsWithMintedOsTokenShares.push(allocator)
-      calls.push(_getOsTokenPositionsCall(allocator))
+      calls.push(encodeContractCall(vaultAddress, _getOsTokenPositionsCall(allocator)))
     }
   }
 
   // Execute calls in chunks of size 100
-  let response = chunkedVaultMulticall(Address.fromString(vault.id), null, calls, 100)
+  let response = chunkedMulticall(null, calls, true, 100)
 
   // Decode the result for each allocator in the same order
   for (let i = 0; i < response.length; i++) {
@@ -146,7 +148,7 @@ export function updateAllocatorsMintedOsTokenShares(
       osToken,
       osTokenConfig,
       allocatorsWithMintedOsTokenShares[i],
-      ethereum.decode('uint256', response[i])!.toBigInt(),
+      ethereum.decode('uint256', response[i]!)!.toBigInt(),
     )
   }
 }
@@ -240,13 +242,15 @@ export function getAllocatorApy(
   return allocatorApy
 }
 
-export function getAllocatorTotalAssets(osToken: OsToken, vault: Vault, allocator: Allocator): BigInt {
+export function getAllocatorTotalAssets(
+  osToken: OsToken,
+  vault: Vault,
+  allocator: Allocator,
+  boostPosition: LeverageStrategyPosition | null,
+): BigInt {
   let totalAssets = allocator.assets
 
   // get assets from the leverage strategy position
-  const vaultAddress = Address.fromString(allocator.vault)
-  const allocatorAddress = Address.fromBytes(allocator.address)
-  const boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
   if (boostPosition !== null) {
     const boostedOsTokenShares = boostPosition.osTokenShares
       .plus(boostPosition.exitingOsTokenShares)
@@ -260,6 +264,7 @@ export function getAllocatorTotalAssets(osToken: OsToken, vault: Vault, allocato
 
   // get assets from the reward splitter
   const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
+  const allocatorAddress = Address.fromBytes(allocator.address)
   for (let i = 0; i < rewardSplitters.length; i++) {
     const rewardSplitterAddress = Address.fromString(rewardSplitters[i].id)
     const shareHolder = loadRewardSplitterShareHolder(allocatorAddress, rewardSplitterAddress)
@@ -348,8 +353,8 @@ export function snapshotAllocator(
     boostedOsTokenShares = boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)
   }
 
-  const totalAssets = getAllocatorTotalAssets(osToken, vault, allocator)
-  const allocatorSnapshot = new AllocatorSnapshot(timestamp.toString())
+  const totalAssets = getAllocatorTotalAssets(osToken, vault, allocator, boostPosition)
+  const allocatorSnapshot = new AllocatorSnapshot(1)
   allocatorSnapshot.timestamp = timestamp.toI64()
   allocatorSnapshot.allocator = allocator.id
   allocatorSnapshot.earnedAssets = earnedAssets
