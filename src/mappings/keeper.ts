@@ -39,6 +39,7 @@ import {
   VAULT_FACTORY_V5,
   META_VAULT_FACTORY_V3,
   META_VAULT_FACTORY_V5,
+  NETWORK,
 } from '../helpers/constants'
 import {
   FoxVault as FoxVaultTemplate,
@@ -455,6 +456,10 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
 
   let data: Bytes | null = ipfs.cat(configIpfsHash)
   while (data === null) {
+    if (NETWORK == 'chiado' || NETWORK == 'hoodi') {
+      log.warning('[Keeper] ConfigUpdated ipfs.cat failed for hash={} on chiado/hoodi, skipping', [configIpfsHash])
+      return
+    }
     log.warning('[Keeper] ConfigUpdated ipfs.cat failed for hash={}, retrying', [configIpfsHash])
     data = ipfs.cat(configIpfsHash)
   }
