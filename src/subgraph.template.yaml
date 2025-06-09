@@ -727,6 +727,8 @@ templates:
       abis:
         - name: Vault
           file: ./abis/Vault.json
+        - name: Multicall
+          file: ./abis/Multicall.json
       eventHandlers:
         - event: Deposited(indexed address,indexed address,uint256,uint256,address)
           handler: handleDeposited
