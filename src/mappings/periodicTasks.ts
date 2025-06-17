@@ -2,15 +2,7 @@ import { Address, BigDecimal, BigInt, ethereum, log } from '@graphprotocol/graph
 import { loadVault, snapshotVault, updateVaultMaxBoostApy } from '../entities/vault'
 import { loadOsToken, snapshotOsToken, updateOsTokenTotalAssets } from '../entities/osToken'
 import { loadNetwork } from '../entities/network'
-import {
-  Allocator,
-  Distributor,
-  ExitRequest,
-  Network,
-  OsTokenConfig,
-  OsTokenHolder,
-  Vault,
-} from '../../generated/schema'
+import { Allocator, ExitRequest, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
 import { getAllocatorApy, snapshotAllocator, updateAllocatorsMintedOsTokenShares } from '../entities/allocator'
 import { getOsTokenHolderApy, snapshotOsTokenHolder, updateOsTokenHolderAssets } from '../entities/osTokenHolder'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
@@ -19,10 +11,11 @@ import { loadAave, updateAaveApys } from '../entities/aave'
 import { loadDistributor, updateDistributions } from '../entities/merkleDistributor'
 import { loadExchangeRate } from '../entities/exchangeRates'
 
+const secondsInMinute = 60
 const secondsInHour = 3600
 const secondsInDay = 86400
 
-export function handlePeriodicTasks(block: ethereum.Block): void {
+export function handlePeriodicSync(block: ethereum.Block): void {
   const timestamp = block.timestamp
   const blockNumber = block.number
   const network = loadNetwork()
@@ -116,14 +109,18 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
     osTokenHolder.save()
   }
 
-  // Update snapshots
-  _updateSnapshots(network, distributor, timestamp)
-
-  log.info('[PeriodicTasks] block={} timestamp={}', [blockNumber.toString(), timestamp.toString()])
+  log.info('[PeriodicSync] block={} timestamp={}', [blockNumber.toString(), timestamp.toString()])
 }
 
-function _updateSnapshots(network: Network, distributor: Distributor, timestamp: BigInt): void {
-  const newSnapshotsCount = timestamp.plus(BigInt.fromI32(secondsInHour)).div(BigInt.fromI32(secondsInDay))
+export function handlePeriodicSnapshot(block: ethereum.Block): void {
+  const network = loadNetwork()
+  const distributor = loadDistributor()
+  if (!network || !distributor) {
+    return
+  }
+
+  const timestamp = block.timestamp
+  const newSnapshotsCount = timestamp.plus(BigInt.fromI32(secondsInMinute)).div(BigInt.fromI32(secondsInDay))
   const prevSnapshotsCount = network.lastSnapshotTimestamp
     .plus(BigInt.fromI32(secondsInHour))
     .div(BigInt.fromI32(secondsInDay))
@@ -166,13 +163,14 @@ function _updateSnapshots(network: Network, distributor: Distributor, timestamp:
     snapshotVault(vault, distributor, osToken, BigInt.zero(), timestamp)
 
     const allocators: Array<Allocator> = vault.allocators.load()
+    const rewardSplitters = vault.rewardSplitters.load()
     for (let j = 0; j < allocators.length; j++) {
       const allocator = allocators[j]
-      snapshotAllocator(osToken, vault, allocator, allocator._periodEarnedAssets, duration, timestamp)
+      snapshotAllocator(osToken, vault, rewardSplitters, allocator, allocator._periodEarnedAssets, duration, timestamp)
       allocator.totalEarnedAssets = allocator.totalEarnedAssets.plus(allocator._periodEarnedAssets)
       allocator._periodEarnedAssets = BigInt.zero()
       allocator.save()
     }
   }
-  log.info('[PeriodicTasks] snapshots updated timestamp={}', [timestamp.toString()])
+  log.info('[PeriodicSnapshot] block={} timestamp={}', [block.number.toString(), timestamp.toString()])
 }

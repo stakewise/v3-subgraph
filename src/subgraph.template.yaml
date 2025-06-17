@@ -9,7 +9,7 @@ indexerHints:
   prune: {{ maxRetainBlocks }}
 dataSources:
   - kind: ethereum/contract
-    name: PeriodicTasks
+    name: PeriodicSync
     network: {{ network }}
     source:
       address: '{{ keeper.address }}'
@@ -27,14 +27,10 @@ dataSources:
         - AavePosition
         - OsToken
         - OsTokenConfig
-        - OsTokenSnapshot
         - OsTokenHolder
         - OsTokenExitRequest
-        - OsTokenHolderSnapshot
         - Vault
-        - VaultSnapshot
         - Allocator
-        - AllocatorSnapshot
         - ExitRequest
         - V2Pool
         - LeverageStrategyPosition
@@ -61,10 +57,40 @@ dataSources:
         - name: Safe
           file: ./abis/Safe.json
       blockHandlers:
-        - handler: handlePeriodicTasks
+        - handler: handlePeriodicSync
           filter:
             kind: polling
             every: {{ blocksInHour }}
+  - kind: ethereum/contract
+    name: PeriodicSnapshot
+    network: {{ network }}
+    source:
+      address: '{{ keeper.address }}'
+      abi: Keeper
+      startBlock: {{ keeper.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/periodicTasks.ts
+      entities:
+        - Network
+        - Distributor
+        - OsToken
+        - OsTokenSnapshot
+        - OsTokenHolder
+        - OsTokenHolderSnapshot
+        - Vault
+        - VaultSnapshot
+        - Allocator
+        - LeverageStrategyPosition
+        - AllocatorSnapshot
+        - RewardSplitter
+      abis:
+        - name: Keeper
+          file: ./abis/Keeper.json
+      blockHandlers:
+        - handler: handlePeriodicSnapshot
   - kind: ethereum/contract
     name: ExchangeRates
     network: {{ network }}
@@ -927,6 +953,8 @@ templates:
       abis:
         - name: MetaVault
           file: ./abis/MetaVault.json
+        - name: Multicall
+          file: ./abis/Multicall.json
       eventHandlers:
         - event: SubVaultsHarvested(int256)
           handler: handleSubVaultsHarvested
