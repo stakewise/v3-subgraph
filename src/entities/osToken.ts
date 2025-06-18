@@ -1,6 +1,6 @@
 import { BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
 import { OsToken, OsTokenSnapshot } from '../../generated/schema'
-import { OsTokenVaultController as OsTokenVaultControllerContact } from '../../generated/PeriodicSync/OsTokenVaultController'
+import { OsTokenVaultController as OsTokenVaultControllerContact } from '../../generated/PeriodicTasks/OsTokenVaultController'
 import { OS_TOKEN_VAULT_CONTROLLER, WAD } from '../helpers/constants'
 import { calculateAverage } from '../helpers/utils'
 

@@ -10,7 +10,7 @@ import {
   OsTokenExitRequest,
   Vault,
 } from '../../generated/schema'
-import { AaveLeverageStrategy } from '../../generated/PeriodicSync/AaveLeverageStrategy'
+import { AaveLeverageStrategy } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
 import { AAVE_LEVERAGE_STRATEGY, WAD } from '../helpers/constants'
 import { createOrLoadAllocator, loadAllocator } from './allocator'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'

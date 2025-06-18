@@ -14,7 +14,7 @@ import {
   UserIsContract,
   Vault,
 } from '../../generated/schema'
-import { Safe as SafeContract } from '../../generated/PeriodicSync/Safe'
+import { Safe as SafeContract } from '../../generated/PeriodicTasks/Safe'
 import { loadUniswapPool } from './uniswap'
 import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
 import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
