@@ -244,8 +244,8 @@ export function getAllocatorApy(
 
 export function getAllocatorTotalAssets(
   osToken: OsToken,
-  vault: Vault,
   allocator: Allocator,
+  rewardSplitters: Array<RewardSplitter>,
   boostPosition: LeverageStrategyPosition | null,
 ): BigInt {
   let totalAssets = allocator.assets
@@ -263,7 +263,6 @@ export function getAllocatorTotalAssets(
   }
 
   // get assets from the reward splitter
-  const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
   const allocatorAddress = Address.fromBytes(allocator.address)
   for (let i = 0; i < rewardSplitters.length; i++) {
     const rewardSplitterAddress = Address.fromString(rewardSplitters[i].id)
@@ -342,18 +341,22 @@ export function updateAllocatorMintedOsTokenShares(
 export function snapshotAllocator(
   osToken: OsToken,
   vault: Vault,
+  rewardSplitters: Array<RewardSplitter>,
   allocator: Allocator,
   earnedAssets: BigInt,
   duration: BigInt,
   timestamp: BigInt,
 ): void {
-  const boostPosition = loadLeverageStrategyPosition(Address.fromString(vault.id), Address.fromBytes(allocator.address))
   let boostedOsTokenShares = BigInt.zero()
-  if (boostPosition !== null) {
-    boostedOsTokenShares = boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)
+  let boostPosition: LeverageStrategyPosition | null = null
+  if (vault.isOsTokenEnabled) {
+    boostPosition = loadLeverageStrategyPosition(Address.fromString(vault.id), Address.fromBytes(allocator.address))
+    if (boostPosition !== null) {
+      boostedOsTokenShares = boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)
+    }
   }
 
-  const totalAssets = getAllocatorTotalAssets(osToken, vault, allocator, boostPosition)
+  const totalAssets = getAllocatorTotalAssets(osToken, allocator, rewardSplitters, boostPosition)
   const allocatorSnapshot = new AllocatorSnapshot(1)
   allocatorSnapshot.timestamp = timestamp.toI64()
   allocatorSnapshot.allocator = allocator.id

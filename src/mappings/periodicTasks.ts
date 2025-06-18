@@ -21,6 +21,7 @@ import { loadExchangeRate } from '../entities/exchangeRates'
 
 const secondsInHour = 3600
 const secondsInDay = 86400
+const extraSecondsGap = 30
 
 export function handlePeriodicTasks(block: ethereum.Block): void {
   const timestamp = block.timestamp
@@ -123,7 +124,9 @@ export function handlePeriodicTasks(block: ethereum.Block): void {
 }
 
 function _updateSnapshots(network: Network, distributor: Distributor, timestamp: BigInt): void {
-  const newSnapshotsCount = timestamp.plus(BigInt.fromI32(secondsInHour)).div(BigInt.fromI32(secondsInDay))
+  const newSnapshotsCount = timestamp
+    .plus(BigInt.fromI32(secondsInHour + extraSecondsGap))
+    .div(BigInt.fromI32(secondsInDay))
   const prevSnapshotsCount = network.lastSnapshotTimestamp
     .plus(BigInt.fromI32(secondsInHour))
     .div(BigInt.fromI32(secondsInDay))
@@ -166,9 +169,10 @@ function _updateSnapshots(network: Network, distributor: Distributor, timestamp:
     snapshotVault(vault, distributor, osToken, BigInt.zero(), timestamp)
 
     const allocators: Array<Allocator> = vault.allocators.load()
+    const rewardSplitters = vault.rewardSplitters.load()
     for (let j = 0; j < allocators.length; j++) {
       const allocator = allocators[j]
-      snapshotAllocator(osToken, vault, allocator, allocator._periodEarnedAssets, duration, timestamp)
+      snapshotAllocator(osToken, vault, rewardSplitters, allocator, allocator._periodEarnedAssets, duration, timestamp)
       allocator.totalEarnedAssets = allocator.totalEarnedAssets.plus(allocator._periodEarnedAssets)
       allocator._periodEarnedAssets = BigInt.zero()
       allocator.save()

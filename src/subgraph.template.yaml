@@ -927,6 +927,8 @@ templates:
       abis:
         - name: MetaVault
           file: ./abis/MetaVault.json
+        - name: Multicall
+          file: ./abis/Multicall.json
       eventHandlers:
         - event: SubVaultsHarvested(int256)
           handler: handleSubVaultsHarvested
