@@ -15,11 +15,31 @@ export function loadExitRequest(vault: Address, positionTicket: BigInt): ExitReq
   return ExitRequest.load(exitRequestId)
 }
 
+export function updateClaimableExitRequests(vault: Vault, timestamp: BigInt): void {
+  let exitRequest: ExitRequest
+  const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
+  for (let i = 0; i < exitRequests.length; i++) {
+    exitRequest = exitRequests[i]
+    if (exitRequest.exitedAssets.gt(BigInt.zero()) && !exitRequest.isClaimed && !exitRequest.isClaimable) {
+      const isClaimable = exitRequest.timestamp.plus(BigInt.fromString(secondsInDay)).lt(timestamp)
+      if (isClaimable) {
+        exitRequest.isClaimable = isClaimable
+        exitRequest.save()
+      }
+    }
+  }
+}
+
 export function updateExitRequests(network: Network, vault: Vault, timestamp: BigInt): void {
   // If vault is in "genesis" mode, we need to wait for legacy migration
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     return
   }
+  if (!vault.isCollateralized) {
+    // If vault is not collateralized, there are no exit requests to process
+    return
+  }
+
   const vaultAddr = Address.fromString(vault.id)
 
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()

@@ -1,7 +1,7 @@
 import { ethereum, log } from '@graphprotocol/graph-ts'
 import { createOrLoadExchangeRate, updateExchangeRates } from '../entities/exchangeRates'
 
-export function handleExchangeRates(block: ethereum.Block): void {
+export function syncExchangeRates(block: ethereum.Block): void {
   const exchangeRate = createOrLoadExchangeRate()
   updateExchangeRates(exchangeRate, block.timestamp)
 

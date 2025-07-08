@@ -9,7 +9,7 @@ indexerHints:
   prune: {{ maxRetainBlocks }}
 dataSources:
   - kind: ethereum/contract
-    name: PeriodicTasks
+    name: Snapshots
     network: {{ network }}
     source:
       address: '{{ keeper.address }}'
@@ -19,52 +19,24 @@ dataSources:
       kind: ethereum/events
       apiVersion: 0.0.9
       language: wasm/assemblyscript
-      file: ./mappings/periodicTasks.ts
+      file: ./mappings/snapshots.ts
       entities:
+        - Checkpoint
         - Network
-        - ExchangeRate
-        - Aave
-        - AavePosition
         - OsToken
-        - OsTokenConfig
+        - Distributor
         - OsTokenSnapshot
         - OsTokenHolder
-        - OsTokenExitRequest
-        - OsTokenHolderSnapshot
         - Vault
-        - VaultSnapshot
         - Allocator
-        - AllocatorSnapshot
-        - ExitRequest
-        - V2Pool
+        - VaultSnapshot
+        - RewardSplitter
         - LeverageStrategyPosition
-        - Distributor
-        - PeriodicDistribution
-        - DistributorReward
-        - DistributorClaim
-        - UserIsContract
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
-        - name: AaveProtocolDataProvider
-          file: ./abis/AaveProtocolDataProvider.json
-        - name: AaveLeverageStrategy
-          file: ./abis/AaveLeverageStrategy.json
-        - name: OsTokenVaultController
-          file: ./abis/OsTokenVaultController.json
-        - name: Vault
-          file: ./abis/Vault.json
-        - name: Multicall
-          file: ./abis/Multicall.json
-        - name: OsTokenVaultEscrow
-          file: ./abis/OsTokenVaultEscrow.json
-        - name: Safe
-          file: ./abis/Safe.json
       blockHandlers:
-        - handler: handlePeriodicTasks
-          filter:
-            kind: polling
-            every: {{ blocksInHour }}
+        - handler: syncSnapshots
   - kind: ethereum/contract
     name: ExchangeRates
     network: {{ network }}
@@ -91,7 +63,7 @@ dataSources:
         - name: Multicall
           file: ./abis/Multicall.json
       blockHandlers:
-        - handler: handleExchangeRates
+        - handler: syncExchangeRates
           filter:
             kind: polling
             every: {{ blocksInHour }}
@@ -174,6 +146,7 @@ dataSources:
         - RewardSplitter
         - RewardSplitterShareHolder
         - LeverageStrategyPosition
+        - Checkpoint
       abis:
         - name: Keeper
           file: ./abis/Keeper.json
@@ -187,6 +160,8 @@ dataSources:
           file: ./abis/RewardSplitter.json
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
+        - name: AaveProtocolDataProvider
+          file: ./abis/AaveProtocolDataProvider.json
         - name: OsTokenVaultEscrow
           file: ./abis/OsTokenVaultEscrow.json
       eventHandlers:
@@ -200,6 +175,11 @@ dataSources:
           handler: handleValidatorsApproval
         - event: ConfigUpdated(string)
           handler: handleConfigUpdated
+      blockHandlers:
+        - handler: syncApys
+          filter:
+            kind: polling
+            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: OsTokenVaultController
     network: {{ network }}
@@ -214,14 +194,22 @@ dataSources:
       file: ./mappings/osToken.ts
       entities:
         - OsToken
+        - Checkpoint
       abis:
         - name: OsTokenVaultController
           file: ./abis/OsTokenVaultController.json
+        - name: Multicall
+          file: ./abis/Multicall.json
       eventHandlers:
         - event: StateUpdated(uint256,uint256,uint256)
           handler: handleStateUpdated
         - event: FeePercentUpdated(uint16)
           handler: handleFeePercentUpdated
+      blockHandlers:
+        - handler: syncOsToken
+          filter:
+            kind: polling
+            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: OsTokenConfigV1
     network: {{ network }}
@@ -291,14 +279,19 @@ dataSources:
         - OsTokenConfig
         - AllocatorSnapshot
         - VaultSnapshot
+        - Checkpoint
       abis:
         - name: GenesisVault
           file: ./abis/GenesisVault.json
+        - name: Multicall
+          file: ./abis/Multicall.json
       eventHandlers:
         - event: GenesisVaultCreated(address,uint256,uint16,string)
           handler: handleGenesisVaultCreated
         - event: Migrated(address,uint256,uint256)
           handler: handleMigrated
+      blockHandlers:
+        - handler: syncVaults
   - kind: ethereum/contract
     name: V2RewardToken
     network: {{ network }}
@@ -447,11 +440,14 @@ dataSources:
         - DistributorReward
         - DistributorClaim
         - DistributorClaimedAmount
+        - Checkpoint
       abis:
         - name: MerkleDistributor
           file: ./abis/MerkleDistributor.json
         - name: Safe
           file: ./abis/Safe.json
+        - name: Multicall
+          file: ./abis/Multicall.json
       eventHandlers:
         - event: PeriodicDistributionAdded(indexed address,indexed address,uint256,uint256,uint256,bytes)
           handler: handlePeriodicDistributionAdded
@@ -463,6 +459,11 @@ dataSources:
           handler: handleRewardsClaimed
         - event: DistributorUpdated(indexed address,indexed address,bool)
           handler: handleDistributorUpdated
+      blockHandlers:
+        - handler: syncDistributor
+          filter:
+            kind: polling
+            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: AaveLeverageStrategy
     network: {{ network }}
@@ -485,9 +486,12 @@ dataSources:
         - OsTokenHolder
         - Aave
         - AavePosition
+        - Checkpoint
       abis:
         - name: AaveLeverageStrategy
           file: ./abis/AaveLeverageStrategy.json
+        - name: Multicall
+          file: ./abis/Multicall.json
       eventHandlers:
         - event: StrategyProxyCreated(indexed bytes32,indexed address,indexed address,address)
           handler: handleStrategyProxyCreated
@@ -499,6 +503,11 @@ dataSources:
           handler: handleExitQueueEntered
         - event: ExitedAssetsClaimed(indexed address,indexed address,uint256,uint256)
           handler: handleExitedAssetsClaimed
+      blockHandlers:
+        - handler: syncLeverageStrategyPositions
+          filter:
+            kind: polling
+            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: UniswapFactory
     network: {{ network }}
@@ -880,31 +889,6 @@ templates:
         - event: EthFoxVaultCreated(address,address,uint256,uint16,string)
           handler: handleFoxVaultCreated
   - kind: ethereum/contract
-    name: GnoVault
-    network: {{ network }}
-    source:
-      abi: GnoVault
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.9
-      language: wasm/assemblyscript
-      file: ./mappings/gnoVault.ts
-      entities:
-        - Network
-        - Vault
-        - OsToken
-        - OsTokenConfig
-        - VaultSnapshot
-        - Allocator
-        - AllocatorSnapshot
-        - LeverageStrategyPosition
-      abis:
-        - name: GnoVault
-          file: ./abis/GnoVault.json
-      eventHandlers:
-        - event: XdaiSwapped(uint256,uint256)
-          handler: handleXdaiSwapped
-  - kind: ethereum/contract
     name: MetaVault
     network: {{ network }}
     source:
@@ -960,8 +944,6 @@ templates:
           handler: handleSharesDecreased
         - event: RewardsWithdrawn(indexed address,uint256)
           handler: handleRewardsWithdrawn
-        - event: ClaimOnBehalfUpdated(address,bool)
-          handler: handleClaimOnBehalfUpdated
         - event: OwnershipTransferred(indexed address,indexed address)
           handler: handleOwnershipTransferred
   - kind: ethereum/contract

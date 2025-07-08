@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import {
   Allocator,
   Distributor,
@@ -14,18 +14,17 @@ import {
   UserIsContract,
   Vault,
 } from '../../generated/schema'
-import { Safe as SafeContract } from '../../generated/PeriodicTasks/Safe'
+import { Safe as SafeContract } from '../../generated/MerkleDistributor/Safe'
 import { loadUniswapPool } from './uniswap'
 import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
 import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
-import { getVaultApy, loadVault, snapshotVault } from './vault'
+import { loadVault } from './vault'
 import { calculateAverage, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { loadAavePosition } from './aave'
-import { createOrLoadAllocator, getAllocatorApy, loadAllocator } from './allocator'
+import { createOrLoadAllocator, loadAllocator } from './allocator'
 import { convertTokenAmountToAssets } from './exchangeRates'
 import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
 import { loadLeverageStrategyPosition } from './leverageStrategy'
-import { loadOsTokenConfig } from './osTokenConfig'
 
 const distributorId = '1'
 const secondsInYear = '31536000'
@@ -226,18 +225,25 @@ export function updateDistributions(
 
     let distributedAmount: BigInt
     let principalAssets: BigInt
+    let distributedAssets: BigInt
     const distType = convertStringToDistributionType(dist.distributionType)
 
     if (distType == DistributionType.VAULT) {
       const vault = loadVault(Address.fromBytes(dist.data))!
       const token = Address.fromBytes(dist.token)
+
       distributedAmount = dist.amount.times(passedDuration).div(totalDuration)
       principalAssets = distributeToVaultUsers(network, exchangeRate, vault, token, distributedAmount)
+      distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
+
+      vault._periodEarnedAssets = vault._periodEarnedAssets.plus(distributedAssets)
+      vault.save()
     } else if (distType == DistributionType.LEVERAGE_STRATEGY) {
       const targetApy = getLeverageStrategyTargetApy(dist.data)
       const response = distributeToLeverageStrategyUsers(network, exchangeRate, targetApy, passedDuration, dist.amount)
       distributedAmount = response[1]
       principalAssets = convertOsTokenSharesToAssets(osToken, response[0])
+      distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
     } else if (distType == DistributionType.SWISE_ASSET_UNI_POOL) {
       // dist data is the pool address
       const uniPool = loadUniswapPool(Address.fromBytes(dist.data))!
@@ -249,6 +255,7 @@ export function updateDistributions(
         Address.fromBytes(dist.token),
         distributedAmount,
       )
+      distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
     } else if (distType == DistributionType.OS_TOKEN_USDC_UNI_POOL) {
       // dist data is the pool address
       const uniPool = loadUniswapPool(Address.fromBytes(dist.data))!
@@ -260,13 +267,13 @@ export function updateDistributions(
         Address.fromBytes(dist.token),
         distributedAmount,
       )
+      distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
     } else {
       assert(false, `Unknown distribution type=${dist.id}`)
       return
     }
 
     // update APY
-    const distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
     updatePeriodicDistributionApy(dist, distributedAssets, principalAssets, passedDuration)
 
     if (dist.amount.equals(distributedAmount)) {
@@ -279,29 +286,11 @@ export function updateDistributions(
     if (dist.startTimestamp < dist.endTimestamp) {
       newActiveDistIds.push(dist.id)
     }
-
-    if (distType == DistributionType.VAULT) {
-      const vault = loadVault(Address.fromBytes(dist.data))!
-      vault.apy = getVaultApy(vault, distributor, osToken, false)
-      vault.save()
-
-      // update allocators
-      const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
-      let allocator: Allocator
-      let allocators: Array<Allocator> = vault.allocators.load()
-      for (let j = 0; j < allocators.length; j++) {
-        allocator = allocators[j]
-        allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
-        allocator.save()
-      }
-      snapshotVault(loadVault(Address.fromBytes(dist.data))!, distributor, osToken, distributedAssets, currentTimestamp)
-    }
   }
 
   // update new active distributions
   distributor.activeDistributionIds = newActiveDistIds
   distributor.save()
-  log.info('[MerkleDistributor] Distributions updated timestamp={}', [currentTimestamp.toString()])
 }
 
 export function updatePeriodicDistributionApy(

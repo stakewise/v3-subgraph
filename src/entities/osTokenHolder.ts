@@ -108,49 +108,49 @@ export function getOsTokenHolderApy(
   return osTokenHolderApy
 }
 
-export function getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, osTokenHolder: OsTokenHolder): BigInt {
+export function snapshotOsTokenHolder(
+  network: Network,
+  osToken: OsToken,
+  osTokenHolder: OsTokenHolder,
+  duration: BigInt,
+  timestamp: BigInt,
+): void {
+  const totalAssets = _getOsTokenHolderTotalAssets(network, osToken, osTokenHolder)
+  const snapshot = new OsTokenHolderSnapshot(1)
+  snapshot.timestamp = timestamp.toI64()
+  snapshot.osTokenHolder = osTokenHolder.id
+  snapshot.earnedAssets = osTokenHolder._periodEarnedAssets
+  snapshot.totalAssets = totalAssets
+  snapshot.apy = calculateApy(osTokenHolder._periodEarnedAssets, totalAssets, duration)
+  snapshot.save()
+}
+
+function _getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, osTokenHolder: OsTokenHolder): BigInt {
   const osTokenHolderAddress = Address.fromString(osTokenHolder.id)
   let totalAssets = osTokenHolder.assets
 
   // find OsToken holder vault
-  const vaultAddress = getOsTokenHolderVault(network, osTokenHolder)
-  if (!vaultAddress) {
-    return totalAssets
+  let boostPosition: LeverageStrategyPosition | null = null
+
+  let allocator: Allocator | null = null
+  let osTokenVaultAddress: Address
+  const osTokenVaultIds = network.osTokenVaultIds
+  for (let i = 0; i < osTokenVaultIds.length; i++) {
+    osTokenVaultAddress = Address.fromString(osTokenVaultIds[i])
+    allocator = loadAllocator(osTokenHolderAddress, osTokenVaultAddress)
+    boostPosition = loadLeverageStrategyPosition(osTokenVaultAddress, osTokenHolderAddress)
+    if (allocator || boostPosition) {
+      break
+    }
   }
 
   // add boost position assets
-  const boostPosition = loadLeverageStrategyPosition(vaultAddress, osTokenHolderAddress)
   if (boostPosition) {
-    totalAssets = totalAssets
+    return totalAssets
       .plus(boostPosition.assets)
       .plus(boostPosition.exitingAssets)
       .plus(convertOsTokenSharesToAssets(osToken, boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)))
   }
 
   return totalAssets
-}
-
-export function updateOsTokenHolderAssets(osToken: OsToken, osTokenHolder: OsTokenHolder): void {
-  const assetsBefore = osTokenHolder.assets
-  osTokenHolder.assets = convertOsTokenSharesToAssets(osToken, osTokenHolder.balance)
-  osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(osTokenHolder.assets.minus(assetsBefore))
-  osTokenHolder.save()
-}
-
-export function snapshotOsTokenHolder(
-  network: Network,
-  osToken: OsToken,
-  osTokenHolder: OsTokenHolder,
-  earnedAssets: BigInt,
-  duration: BigInt,
-  timestamp: BigInt,
-): void {
-  const totalAssets = getOsTokenHolderTotalAssets(network, osToken, osTokenHolder)
-  const snapshot = new OsTokenHolderSnapshot(1)
-  snapshot.timestamp = timestamp.toI64()
-  snapshot.osTokenHolder = osTokenHolder.id
-  snapshot.earnedAssets = earnedAssets
-  snapshot.totalAssets = totalAssets
-  snapshot.apy = calculateApy(earnedAssets, totalAssets, duration)
-  snapshot.save()
 }

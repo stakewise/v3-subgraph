@@ -250,9 +250,6 @@ type Vault @entity(immutable: false) {
   "The vault slashed MEV reward in the smoothing pool"
   slashedMevReward: BigInt!
 
-  "The timestamp of the last fee update"
-  lastFeeUpdateTimestamp: BigInt!
-
   "Defines whether the vault can harvest new rewards"
   canHarvest: Boolean!
 
@@ -328,9 +325,6 @@ type Vault @entity(immutable: false) {
   "The timestamp the vault was created at"
   createdAt: BigInt!
 
-  "The timestamp the vault last time swapped xDAI to GNO on gnosis"
-  lastXdaiSwappedTimestamp: BigInt!
-
   "The vault version"
   version: BigInt!
 
@@ -361,8 +355,8 @@ type Vault @entity(immutable: false) {
   "The total number of vault whitelisted accounts"
   whitelistCount: BigInt!
 
-  "The total amount of the accumulated unclaimed fee recipient shares"
-  _unclaimedFeeRecipientShares: BigInt!
+  "The period earned assets"
+  _periodEarnedAssets: BigInt!
 }
 
 """
@@ -499,9 +493,6 @@ type Network @entity(immutable: false) {
 
   "The total number of non repeated vault allocators and osToken holders"
   usersCount: Int!
-
-  "The timestamp of the last snapshot"
-  lastSnapshotTimestamp: BigInt!
 }
 
 type User @entity(immutable: false) {
@@ -558,9 +549,6 @@ type RewardSplitter @entity(immutable: false) {
 
   "The reward splitter version"
   version: BigInt!
-
-  "Whether claim on behalf is enabled"
-  isClaimOnBehalfEnabled: Boolean!
 
   "The address of the account that can modify the reward splitter share holders"
   owner: Bytes!
@@ -1192,4 +1180,12 @@ type UserIsContract @entity(immutable: true) {
 type NetworkValidator @entity(immutable: true) {
   "Set to validator public key"
   id: Bytes!
+}
+
+"The checkpoint to track periodic synchronization"
+type Checkpoint @entity(immutable: false) {
+  "Set to `sync checkpoint ID`"
+  id: Bytes!
+  "The timestamp of the checkpoint"
+  timestamp: BigInt!
 }

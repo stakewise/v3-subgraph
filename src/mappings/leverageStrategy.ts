@@ -1,4 +1,4 @@
-import { Address, BigInt, log } from '@graphprotocol/graph-ts'
+import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import {
   Deposited,
   ExitedAssetsClaimed,
@@ -7,7 +7,11 @@ import {
 import { StrategyProxyCreated } from '../../generated/Keeper/AaveLeverageStrategy'
 import { Distributor, Network, OsToken, OsTokenConfig, Vault } from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
-import { createOrLoadLeverageStrategyPosition, updateLeverageStrategyPosition } from '../entities/leverageStrategy'
+import {
+  createOrLoadLeverageStrategyPosition,
+  updateLeverageStrategyPosition,
+  updateLeverageStrategyPositions,
+} from '../entities/leverageStrategy'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import {
   AllocatorActionType,
@@ -20,8 +24,15 @@ import { getOsTokenHolderApy, loadOsTokenHolder } from '../entities/osTokenHolde
 import { loadNetwork } from '../entities/network'
 import { loadVault } from '../entities/vault'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { createOrLoadAavePosition, loadAave, loadAavePosition, updateAavePosition } from '../entities/aave'
+import {
+  createOrLoadAavePosition,
+  loadAave,
+  loadAavePosition,
+  updateAavePosition,
+  updateAavePositions,
+} from '../entities/aave'
 import { loadDistributor } from '../entities/merkleDistributor'
+import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 
 function _updateAllocatorAndOsTokenHolderApys(
   network: Network,
@@ -157,4 +168,46 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   createTransaction(event.transaction.hash.toHex())
 
   log.info('[LeverageStrategy] ExitedAssetsClaimed vault={} user={}', [vaultAddress.toHex(), userAddress.toHex()])
+}
+
+export function syncLeverageStrategyPositions(block: ethereum.Block): void {
+  const osTokenCheckpoint = createOrLoadCheckpoint(CheckpointType.OS_TOKEN)
+  const leverageStrategyCheckpoint = createOrLoadCheckpoint(CheckpointType.LEVERAGE_STRATEGY)
+  if (osTokenCheckpoint.timestamp.lt(leverageStrategyCheckpoint.timestamp)) {
+    return
+  }
+
+  const network = loadNetwork()
+  const osToken = loadOsToken()
+  const aave = loadAave()
+
+  if (!network || !osToken || !aave) {
+    log.warning('[SyncLeverageStrategyPositions] OsToken or Network or Aave not found', [])
+    return
+  }
+
+  // update Aave positions
+  updateAavePositions(aave)
+
+  let vault: Vault
+  const vaultIds = network.vaultIds
+  const totalVaults = vaultIds.length
+  for (let i = 0; i < totalVaults; i++) {
+    vault = loadVault(Address.fromString(vaultIds[i]))!
+    if (!vault.isOsTokenEnabled) {
+      continue
+    }
+
+    // update leverage strategy positions
+    updateLeverageStrategyPositions(network, aave, osToken, vault)
+  }
+
+  const newTimestamp = block.timestamp
+  leverageStrategyCheckpoint.timestamp = newTimestamp
+  leverageStrategyCheckpoint.save()
+
+  log.info('[SyncLeverageStrategyPositions] Leverage strategy positions synced totalVaults={} timestamp={}', [
+    totalVaults.toString(),
+    newTimestamp.toString(),
+  ])
 }

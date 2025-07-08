@@ -1,7 +1,7 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { Aave, AavePosition } from '../../generated/schema'
-import { AaveProtocolDataProvider as AaveProtocolDataProviderContract } from '../../generated/PeriodicTasks/AaveProtocolDataProvider'
-import { AaveLeverageStrategy } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
+import { AaveProtocolDataProvider as AaveProtocolDataProviderContract } from '../../generated/Keeper/AaveProtocolDataProvider'
+import { AaveLeverageStrategy } from '../../generated/AaveLeverageStrategy/AaveLeverageStrategy'
 import {
   AAVE_LEVERAGE_STRATEGY,
   AAVE_PROTOCOL_DATA_PROVIDER,
