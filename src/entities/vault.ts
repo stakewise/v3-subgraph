@@ -422,7 +422,9 @@ export function updateVaults(
       feeRecipient.shares = feeRecipient.shares.plus(feeRecipientShares.minus(vault._unclaimedFeeRecipientShares))
       const assetsBefore = feeRecipient.assets
       feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
-      feeRecipient._periodEarnedAssets = feeRecipient._periodEarnedAssets.plus(feeRecipient.assets.minus(assetsBefore))
+      feeRecipient._periodExtraEarnedAssets = feeRecipient._periodExtraEarnedAssets.plus(
+        feeRecipient.assets.minus(assetsBefore),
+      )
       if (vault.isOsTokenEnabled) {
         feeRecipient.ltv = getAllocatorLtv(feeRecipient, osToken)
         feeRecipient.ltvStatus = getAllocatorLtvStatus(feeRecipient, loadOsTokenConfig(vault.osTokenConfig)!)
@@ -713,7 +715,7 @@ export function syncVault(network: Network, osToken: OsToken, vault: Vault, newT
       allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
     }
 
-    allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(allocator.assets.minus(assetsBefore))
+    allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(allocator.assets.minus(assetsBefore))
     allocator.save()
   }
 

@@ -144,18 +144,18 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     const allocator = loadAllocator(Address.fromBytes(exitRequest.receiver), vaultAddr)
     // if total assets are zero, it means the vault must apply the fix to the exit queue introduced in v4 vaults
     if (allocator && exitRequest.totalAssets.gt(BigInt.zero())) {
-      allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
+      allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(earnedAssets)
       allocator.save()
     }
 
     const osTokenHolder = loadOsTokenHolder(Address.fromBytes(exitRequest.receiver))
-    if (!osTokenHolder || exitRequest.totalAssets.le(BigInt.zero())) {
-      continue
-    }
-    const osTokenVault = getOsTokenHolderVault(network, osTokenHolder)
-    if (osTokenVault && osTokenVault.equals(vaultAddr)) {
-      osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(earnedAssets)
-      osTokenHolder.save()
+    // if total assets are zero, it means the vault must apply the fix to the exit queue introduced in v4 vaults
+    if (osTokenHolder && exitRequest.totalAssets.gt(BigInt.zero())) {
+      const osTokenVault = getOsTokenHolderVault(network, osTokenHolder)
+      if (osTokenVault && osTokenVault.equals(vaultAddr)) {
+        osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(earnedAssets)
+        osTokenHolder.save()
+      }
     }
   }
 }

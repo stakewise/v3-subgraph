@@ -114,15 +114,17 @@ export function snapshotOsTokenHolder(
   osTokenHolder: OsTokenHolder,
   duration: BigInt,
   timestamp: BigInt,
-): void {
+): OsTokenHolderSnapshot {
   const totalAssets = _getOsTokenHolderTotalAssets(network, osToken, osTokenHolder)
   const snapshot = new OsTokenHolderSnapshot(1)
   snapshot.timestamp = timestamp.toI64()
   snapshot.osTokenHolder = osTokenHolder.id
   snapshot.earnedAssets = osTokenHolder._periodEarnedAssets
   snapshot.totalAssets = totalAssets
-  snapshot.apy = calculateApy(osTokenHolder._periodEarnedAssets, totalAssets, duration)
+  snapshot.apy = calculateApy(snapshot.earnedAssets, totalAssets, duration)
   snapshot.save()
+
+  return snapshot
 }
 
 function _getOsTokenHolderTotalAssets(network: Network, osToken: OsToken, osTokenHolder: OsTokenHolder): BigInt {

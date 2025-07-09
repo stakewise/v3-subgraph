@@ -42,8 +42,17 @@ type Allocator @entity(immutable: false) {
   "The exit requests of the allocator"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "allocator")
 
-  "The period earned assets"
-  _periodEarnedAssets: BigInt!
+  "The total period assets earned from staking"
+  _periodStakeEarnedAssets: BigInt!
+
+  "The total period assets earned from boost"
+  _periodBoostEarnedAssets: BigInt!
+
+  "The total period extra earned assets (e.g. reward splitter, extra incentives)"
+  _periodExtraEarnedAssets: BigInt!
+
+  "The total period OsToken shares minted as a fee"
+  _periodOsTokenFeeShares: BigInt!
 }
 
 """
@@ -809,9 +818,12 @@ type AllocatorSnapshot @entity(timeseries: true) {
   id: Int8!
   timestamp: Timestamp!
   allocator: Allocator!
+  stakeEarnedAssets: BigInt!
+  boostEarnedAssets: BigInt!
+  extraEarnedAssets: BigInt!
+  osTokenFeeAssets: BigInt!
   earnedAssets: BigInt!
   totalAssets: BigInt!
-  boostedOsTokenShares: BigInt!
   apy: BigDecimal!
   ltv: BigDecimal!
 }
@@ -823,9 +835,12 @@ type AllocatorStats @aggregation(intervals: ["day"], source: "AllocatorSnapshot"
   id: Int8!
   timestamp: Timestamp!
   allocator: Allocator!
+  stakeEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "stakeEarnedAssets")
+  boostEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "boostEarnedAssets")
+  extraEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "extraEarnedAssets")
+  osTokenFeeAssets: BigInt! @aggregate(fn: "sum", arg: "osTokenFeeAssets")
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
-  boostedOsTokenShares: BigInt! @aggregate(fn: "last", arg: "boostedOsTokenShares")
   apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
   ltv: BigDecimal! @aggregate(fn: "last", arg: "ltv")
 }

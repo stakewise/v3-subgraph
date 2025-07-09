@@ -58,8 +58,8 @@ export function syncSnapshots(block: ethereum.Block): void {
   const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
   for (let i = 0; i < osTokenHolders.length; i++) {
     osTokenHolder = osTokenHolders[i]
-    osTokenHolder.totalEarnedAssets = osTokenHolder.totalEarnedAssets.plus(osTokenHolder._periodEarnedAssets)
-    snapshotOsTokenHolder(network, osToken, osTokenHolder, duration, newTimestamp)
+    const osTokenHolderSnapshot = snapshotOsTokenHolder(network, osToken, osTokenHolder, duration, newTimestamp)
+    osTokenHolder.totalEarnedAssets = osTokenHolder.totalEarnedAssets.plus(osTokenHolderSnapshot.earnedAssets)
     osTokenHolder._periodEarnedAssets = BigInt.zero()
     osTokenHolder.save()
   }
@@ -93,9 +93,19 @@ export function syncSnapshots(block: ethereum.Block): void {
       // get assets from the reward splitters
       let rewardSplitterAssets = _getRewardSplitterAssets(allocatorAddress, rewardSplitters)
 
-      snapshotAllocator(osToken, allocator, boostedOsTokenShares, rewardSplitterAssets, duration, newTimestamp)
-      allocator.totalEarnedAssets = allocator.totalEarnedAssets.plus(allocator._periodEarnedAssets)
-      allocator._periodEarnedAssets = BigInt.zero()
+      const allocatorSnapshot = snapshotAllocator(
+        osToken,
+        allocator,
+        boostedOsTokenShares,
+        rewardSplitterAssets,
+        duration,
+        newTimestamp,
+      )
+      allocator.totalEarnedAssets = allocator.totalEarnedAssets.plus(allocatorSnapshot.earnedAssets)
+      allocator._periodBoostEarnedAssets = BigInt.zero()
+      allocator._periodStakeEarnedAssets = BigInt.zero()
+      allocator._periodExtraEarnedAssets = BigInt.zero()
+      allocator._periodOsTokenFeeShares = BigInt.zero()
       allocator.save()
     }
   }

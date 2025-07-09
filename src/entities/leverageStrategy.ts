@@ -146,11 +146,11 @@ export function updateLeverageStrategyPositions(network: Network, aave: Aave, os
     if (extraOsTokenShares.gt(BigInt.zero()) && totalOsTokenSharesBefore.gt(BigInt.zero())) {
       const extraOsTokenAssetsBefore = extraOsTokenShares.times(totalAssetsBefore).div(totalOsTokenSharesBefore)
       const extraOsTokenAssetsAfter = convertOsTokenSharesToAssets(osToken, extraOsTokenShares)
-      allocator._periodEarnedAssets = allocator._periodEarnedAssets
+      allocator._periodBoostEarnedAssets = allocator._periodBoostEarnedAssets
         .plus(extraOsTokenAssetsAfter)
         .minus(extraOsTokenAssetsBefore)
     }
-    allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
+    allocator._periodBoostEarnedAssets = allocator._periodBoostEarnedAssets.plus(earnedAssets)
     allocator.save()
 
     const osTokenHolder = loadOsTokenHolder(userAddress)!

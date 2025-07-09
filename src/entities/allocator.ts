@@ -85,7 +85,10 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.vault = vaultAddress.toHex()
     vaultAllocator.apy = BigDecimal.zero()
     vaultAllocator.totalEarnedAssets = BigInt.zero()
-    vaultAllocator._periodEarnedAssets = BigInt.zero()
+    vaultAllocator._periodStakeEarnedAssets = BigInt.zero()
+    vaultAllocator._periodBoostEarnedAssets = BigInt.zero()
+    vaultAllocator._periodOsTokenFeeShares = BigInt.zero()
+    vaultAllocator._periodExtraEarnedAssets = BigInt.zero()
     vaultAllocator.save()
   }
 
@@ -140,14 +143,13 @@ export function updateVaultMintedOsTokenShares(osToken: OsToken, osTokenConfig: 
   let response = chunkedMulticall(null, calls, true, 100)
 
   let mintedOsTokenSharesDiff: BigInt
-  let mintedOsTokenAssetsDiff: BigInt
   let allocatorNewMintedOsTokenShares: BigInt
   for (let i = 0; i < response.length; i++) {
     allocator = allocatorsToUpdate[i]
     allocatorNewMintedOsTokenShares = ethereum.decode('uint256', response[i]!)!.toBigInt()
 
     mintedOsTokenSharesDiff = allocatorNewMintedOsTokenShares.minus(allocator.mintedOsTokenShares)
-    if (osTokenConfig.ltvPercent.isZero() || mintedOsTokenSharesDiff.lt(BigInt.zero())) {
+    if (mintedOsTokenSharesDiff.lt(BigInt.zero())) {
       log.error(
         '[Allocator] minted OsToken shares update failed for allocator={} osTokenConfig={} mintedOsTokenSharesDiff={}',
         [allocator.id, osTokenConfig.id, mintedOsTokenSharesDiff.toString()],
@@ -155,14 +157,10 @@ export function updateVaultMintedOsTokenShares(osToken: OsToken, osTokenConfig: 
       return
     }
 
-    mintedOsTokenAssetsDiff = convertOsTokenSharesToAssets(osToken, mintedOsTokenSharesDiff)
-      .times(BigInt.fromString(WAD))
-      .div(osTokenConfig.ltvPercent)
-
     allocator.mintedOsTokenShares = allocatorNewMintedOsTokenShares
     allocator.ltv = getAllocatorLtv(allocator, osToken)
     allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
-    allocator._periodEarnedAssets = allocator._periodEarnedAssets.minus(mintedOsTokenAssetsDiff)
+    allocator._periodOsTokenFeeShares = allocator._periodOsTokenFeeShares.plus(mintedOsTokenSharesDiff)
     allocator.save()
   }
 }
@@ -256,12 +254,6 @@ export function getAllocatorApy(
   return allocatorApy
 }
 
-export function syncAllocatorPeriodEarnedAssets(vault: Vault, allocator: Allocator): void {
-  const assetsBefore = allocator.assets
-  const assetsAfter = convertSharesToAssets(vault, allocator.shares)
-  allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(assetsAfter.minus(assetsBefore))
-}
-
 export function increaseAllocatorShares(
   osToken: OsToken,
   osTokenConfig: OsTokenConfig,
@@ -269,7 +261,7 @@ export function increaseAllocatorShares(
   allocator: Allocator,
   shares: BigInt,
 ): void {
-  syncAllocatorPeriodEarnedAssets(vault, allocator)
+  _syncAllocatorPeriodStakeEarnedAssets(vault, allocator)
 
   if (allocator.shares.isZero() && !shares.isZero()) {
     increaseUserVaultsCount(allocator.address)
@@ -289,7 +281,7 @@ export function decreaseAllocatorShares(
   allocator: Allocator,
   shares: BigInt,
 ): void {
-  syncAllocatorPeriodEarnedAssets(vault, allocator)
+  _syncAllocatorPeriodStakeEarnedAssets(vault, allocator)
 
   allocator.shares = allocator.shares.minus(shares)
   if (allocator.shares.le(BigInt.zero())) {
@@ -358,7 +350,7 @@ export function snapshotAllocator(
   rewardSplitterAssets: BigInt,
   duration: BigInt,
   timestamp: BigInt,
-): void {
+): AllocatorSnapshot {
   // calculate allocator total assets
   let totalAssets = allocator.assets.plus(rewardSplitterAssets)
 
@@ -372,15 +364,29 @@ export function snapshotAllocator(
   const allocatorSnapshot = new AllocatorSnapshot(1)
   allocatorSnapshot.timestamp = timestamp.toI64()
   allocatorSnapshot.allocator = allocator.id
-  allocatorSnapshot.earnedAssets = allocator._periodEarnedAssets
+  allocatorSnapshot.stakeEarnedAssets = allocator._periodStakeEarnedAssets
+  allocatorSnapshot.boostEarnedAssets = allocator._periodBoostEarnedAssets
+  allocatorSnapshot.extraEarnedAssets = allocator._periodExtraEarnedAssets
+  allocatorSnapshot.osTokenFeeAssets = convertOsTokenSharesToAssets(osToken, allocator._periodOsTokenFeeShares)
+  allocatorSnapshot.earnedAssets = allocatorSnapshot.stakeEarnedAssets
+    .plus(allocatorSnapshot.boostEarnedAssets)
+    .plus(allocatorSnapshot.extraEarnedAssets)
+    .minus(allocatorSnapshot.osTokenFeeAssets)
   allocatorSnapshot.totalAssets = totalAssets
-  allocatorSnapshot.boostedOsTokenShares = boostedOsTokenShares
-  allocatorSnapshot.apy = calculateApy(allocator._periodEarnedAssets, totalAssets, duration)
+  allocatorSnapshot.apy = calculateApy(allocatorSnapshot.earnedAssets, totalAssets, duration)
   allocatorSnapshot.ltv = allocator.ltv
   allocatorSnapshot.save()
+
+  return allocatorSnapshot
 }
 
 function _getOsTokenPositionsCall(allocator: Allocator): Bytes {
   const encodedArgs = ethereum.encode(ethereum.Value.fromAddress(Address.fromBytes(allocator.address)))
   return Bytes.fromHexString(osTokenPositionsSelector).concat(encodedArgs as Bytes)
+}
+
+function _syncAllocatorPeriodStakeEarnedAssets(vault: Vault, allocator: Allocator): void {
+  const assetsBefore = allocator.assets
+  const assetsAfter = convertSharesToAssets(vault, allocator.shares)
+  allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(assetsAfter.minus(assetsBefore))
 }

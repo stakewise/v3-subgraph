@@ -569,7 +569,7 @@ function _distributeReward(
     const vault = vaults[i]
     const userRewardAssets = convertTokenAmountToAssets(exchangeRate, token, userReward)
     const allocator = createOrLoadAllocator(user, vault)
-    allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(userRewardAssets)
+    allocator._periodExtraEarnedAssets = allocator._periodExtraEarnedAssets.plus(userRewardAssets)
     allocator.save()
 
     const osTokenHolder = loadOsTokenHolder(user)
