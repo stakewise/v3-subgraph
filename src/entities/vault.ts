@@ -137,6 +137,7 @@ export function createVault(
   vault.isGenesis = false
   vault.version = version
   vault._periodEarnedAssets = BigInt.zero()
+  vault._unclaimedFeeRecipientShares = BigInt.zero()
 
   if (vault.version.equals(BigInt.fromI32(1))) {
     // there is no validators manager for v1 vaults
@@ -411,7 +412,6 @@ export function updateVaults(
     }
 
     vault._periodEarnedAssets = vault._periodEarnedAssets.plus(vaultPeriodAssets)
-    vault.save()
 
     // save fee recipient earned shares
     if (feeRecipientShares.gt(BigInt.zero())) {
@@ -419,7 +419,7 @@ export function updateVaults(
       if (feeRecipient.shares.isZero()) {
         increaseUserVaultsCount(feeRecipient.address)
       }
-      feeRecipient.shares = feeRecipient.shares.plus(feeRecipientShares)
+      feeRecipient.shares = feeRecipient.shares.plus(feeRecipientShares.minus(vault._unclaimedFeeRecipientShares))
       const assetsBefore = feeRecipient.assets
       feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
       feeRecipient._periodEarnedAssets = feeRecipient._periodEarnedAssets.plus(feeRecipient.assets.minus(assetsBefore))
@@ -429,6 +429,8 @@ export function updateVaults(
       }
       feeRecipient.save()
     }
+    vault._unclaimedFeeRecipientShares = feeRecipientShares
+    vault.save()
   }
 
   network.save()

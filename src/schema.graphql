@@ -357,6 +357,9 @@ type Vault @entity(immutable: false) {
 
   "The period earned assets"
   _periodEarnedAssets: BigInt!
+
+  "The total amount of the accumulated unclaimed fee recipient shares"
+  _unclaimedFeeRecipientShares: BigInt!
 }
 
 """
