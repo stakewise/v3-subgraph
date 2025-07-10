@@ -207,9 +207,6 @@ dataSources:
           handler: handleFeePercentUpdated
       blockHandlers:
         - handler: syncOsToken
-          filter:
-            kind: polling
-            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: OsTokenConfigV1
     network: {{ network }}
@@ -505,9 +502,6 @@ dataSources:
           handler: handleExitedAssetsClaimed
       blockHandlers:
         - handler: syncLeverageStrategyPositions
-          filter:
-            kind: polling
-            every: {{ blocksInHour }}
   - kind: ethereum/contract
     name: UniswapFactory
     network: {{ network }}

@@ -121,7 +121,7 @@ export function snapshotOsTokenHolder(
   snapshot.osTokenHolder = osTokenHolder.id
   snapshot.earnedAssets = osTokenHolder._periodEarnedAssets
   snapshot.totalAssets = totalAssets
-  snapshot.apy = calculateApy(snapshot.earnedAssets, totalAssets, duration)
+  snapshot.apy = calculateApy(snapshot.earnedAssets, totalAssets.minus(snapshot.earnedAssets), duration)
   snapshot.save()
 
   return snapshot

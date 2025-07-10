@@ -48,6 +48,9 @@ type Allocator @entity(immutable: false) {
   "The total period assets earned from boost"
   _periodBoostEarnedAssets: BigInt!
 
+  "The total period OsToken shares earned from boost"
+  _periodBoostEarnedOsTokenShares: BigInt!
+
   "The total period extra earned assets (e.g. reward splitter, extra incentives)"
   _periodExtraEarnedAssets: BigInt!
 

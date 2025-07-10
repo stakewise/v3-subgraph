@@ -103,6 +103,7 @@ export function syncSnapshots(block: ethereum.Block): void {
       )
       allocator.totalEarnedAssets = allocator.totalEarnedAssets.plus(allocatorSnapshot.earnedAssets)
       allocator._periodBoostEarnedAssets = BigInt.zero()
+      allocator._periodBoostEarnedOsTokenShares = BigInt.zero()
       allocator._periodStakeEarnedAssets = BigInt.zero()
       allocator._periodExtraEarnedAssets = BigInt.zero()
       allocator._periodOsTokenFeeShares = BigInt.zero()

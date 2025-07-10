@@ -1,4 +1,4 @@
-import { Address, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import { FeePercentUpdated, StateUpdated } from '../../generated/OsTokenVaultController/OsTokenVaultController'
 import {
   convertOsTokenSharesToAssets,
@@ -13,6 +13,9 @@ import { loadVault } from '../entities/vault'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { updateVaultMintedOsTokenShares } from '../entities/allocator'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
+
+const secondsInDay = 86400
+const extraSecondsGap = 60
 
 export function handleStateUpdated(event: StateUpdated): void {
   const shares = event.params.treasuryShares
@@ -37,6 +40,19 @@ export function syncOsToken(block: ethereum.Block): void {
   const network = loadNetwork()
   if (!network || !osToken) {
     log.warning('[SyncOsToken] OsToken or Network not found', [])
+    return
+  }
+
+  const newTimestamp = block.timestamp
+  const osTokenCheckpoint = createOrLoadCheckpoint(CheckpointType.OS_TOKEN)
+  const hasHourPassed = osTokenCheckpoint.timestamp.plus(BigInt.fromI32(3600)).lt(newTimestamp)
+  const isCloseToDayEnd = newTimestamp
+    .plus(BigInt.fromI32(extraSecondsGap))
+    .div(BigInt.fromI32(secondsInDay))
+    .gt(osTokenCheckpoint.timestamp.plus(BigInt.fromI32(extraSecondsGap)).div(BigInt.fromI32(secondsInDay)))
+
+  if (!(hasHourPassed || isCloseToDayEnd)) {
+    // update OsToken only once per hour or close to day end
     return
   }
 
@@ -75,8 +91,6 @@ export function syncOsToken(block: ethereum.Block): void {
     vault.save()
   }
 
-  const newTimestamp = block.timestamp
-  const osTokenCheckpoint = createOrLoadCheckpoint(CheckpointType.OS_TOKEN)
   osTokenCheckpoint.timestamp = newTimestamp
   osTokenCheckpoint.save()
 

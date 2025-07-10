@@ -38,7 +38,12 @@ import {
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import { createTransaction } from './transaction'
-import { createOrLoadAllocator, getAllocatorLtv, getAllocatorLtvStatus } from './allocator'
+import {
+  createOrLoadAllocator,
+  getAllocatorLtv,
+  getAllocatorLtvStatus,
+  syncAllocatorPeriodStakeEarnedAssets,
+} from './allocator'
 import {
   convertStringToDistributionType,
   DistributionType,
@@ -419,8 +424,12 @@ export function updateVaults(
       if (feeRecipient.shares.isZero()) {
         increaseUserVaultsCount(feeRecipient.address)
       }
+      // update stake earned assets for the current stake shares
+      syncAllocatorPeriodStakeEarnedAssets(vault, feeRecipient)
+      const assetsBefore = convertSharesToAssets(vault, feeRecipient.shares)
+
+      // update fee recipient shares and assets
       feeRecipient.shares = feeRecipient.shares.plus(feeRecipientShares.minus(vault._unclaimedFeeRecipientShares))
-      const assetsBefore = feeRecipient.assets
       feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
       feeRecipient._periodExtraEarnedAssets = feeRecipient._periodExtraEarnedAssets.plus(
         feeRecipient.assets.minus(assetsBefore),
