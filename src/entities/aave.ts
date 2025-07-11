@@ -7,6 +7,7 @@ import {
   AAVE_PROTOCOL_DATA_PROVIDER,
   AAVE_PROTOCOL_DATA_PROVIDER_START_BLOCK,
   ASSET_TOKEN,
+  NETWORK,
   OS_TOKEN,
   WAD,
 } from '../helpers/constants'
@@ -15,6 +16,7 @@ import { calculateAverage, chunkedMulticall, encodeContractCall } from '../helpe
 const aaveId = '1'
 const snapshotsPerWeek = 168
 const getBorrowStateSelector = '0xe70631bc'
+const MAX_UINT_256 = BigInt.fromString('115792089237316195423570985008687907853269984665640564039457584007913129639935')
 
 export function loadAave(): Aave | null {
   return Aave.load(aaveId)
@@ -33,7 +35,10 @@ export function createOrLoadAave(): Aave {
     aave.leverageMaxBorrowLtvPercent = BigInt.zero()
     aave.borrowApys = []
     aave.supplyApys = []
-    aave.osTokenSupplyCap = BigInt.zero()
+    if (NETWORK == 'chiado' || NETWORK == 'hoodi') {
+      // OsToken supply cap cannot be set on Chiado or Hoodi
+      aave.osTokenSupplyCap = MAX_UINT_256
+    }
     aave.osTokenTotalSupplied = BigInt.zero()
     aave.save()
   }
