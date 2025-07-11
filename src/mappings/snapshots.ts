@@ -102,6 +102,10 @@ export function syncSnapshots(block: ethereum.Block): void {
         newTimestamp,
       )
       allocator.totalEarnedAssets = allocator.totalEarnedAssets.plus(allocatorSnapshot.earnedAssets)
+      allocator.totalStakeEarnedAssets = allocator.totalStakeEarnedAssets.plus(allocatorSnapshot.stakeEarnedAssets)
+      allocator.totalBoostEarnedAssets = allocator.totalBoostEarnedAssets.plus(allocatorSnapshot.boostEarnedAssets)
+      allocator.totalExtraEarnedAssets = allocator.totalExtraEarnedAssets.plus(allocatorSnapshot.extraEarnedAssets)
+      allocator.totalOsTokenFeeAssets = allocator.totalOsTokenFeeAssets.plus(allocatorSnapshot.osTokenFeeAssets)
       allocator._periodBoostEarnedAssets = BigInt.zero()
       allocator._periodBoostEarnedOsTokenShares = BigInt.zero()
       allocator._periodStakeEarnedAssets = BigInt.zero()

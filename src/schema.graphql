@@ -39,6 +39,18 @@ type Allocator @entity(immutable: false) {
   "Allocator's total earned assets"
   totalEarnedAssets: BigInt!
 
+  "Allocator's total earned assets from staking"
+  totalStakeEarnedAssets: BigInt!
+
+  "Allocator's total earned assets from boost"
+  totalBoostEarnedAssets: BigInt!
+
+  "Allocator's total earned assets from extra incentives, rewards"
+  totalExtraEarnedAssets: BigInt!
+
+  "Allocator's total OsToken fee assets"
+  totalOsTokenFeeAssets: BigInt!
+
   "The exit requests of the allocator"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "allocator")
 
