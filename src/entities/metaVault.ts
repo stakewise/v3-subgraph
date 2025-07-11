@@ -66,7 +66,6 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt): void 
   vault.osTokenConfig = '2'
   vault.metadataIpfsHash = metadataIpfsHash
   vault._periodEarnedAssets = BigInt.zero()
-  // TODO: check howit's handled for meta vault
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault.save()
 
