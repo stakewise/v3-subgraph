@@ -39,11 +39,35 @@ type Allocator @entity(immutable: false) {
   "Allocator's total earned assets"
   totalEarnedAssets: BigInt!
 
+  "Allocator's total earned assets from staking"
+  totalStakeEarnedAssets: BigInt!
+
+  "Allocator's total earned assets from boost"
+  totalBoostEarnedAssets: BigInt!
+
+  "Allocator's total earned assets from extra incentives, rewards"
+  totalExtraEarnedAssets: BigInt!
+
+  "Allocator's total OsToken fee assets"
+  totalOsTokenFeeAssets: BigInt!
+
   "The exit requests of the allocator"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "allocator")
 
-  "The period earned assets"
-  _periodEarnedAssets: BigInt!
+  "The total period assets earned from staking"
+  _periodStakeEarnedAssets: BigInt!
+
+  "The total period assets earned from boost"
+  _periodBoostEarnedAssets: BigInt!
+
+  "The total period OsToken shares earned from boost"
+  _periodBoostEarnedOsTokenShares: BigInt!
+
+  "The total period extra earned assets (e.g. reward splitter, extra incentives)"
+  _periodExtraEarnedAssets: BigInt!
+
+  "The total period OsToken shares minted as a fee"
+  _periodOsTokenFeeShares: BigInt!
 }
 
 """
@@ -250,9 +274,6 @@ type Vault @entity(immutable: false) {
   "The vault slashed MEV reward in the smoothing pool"
   slashedMevReward: BigInt!
 
-  "The timestamp of the last fee update"
-  lastFeeUpdateTimestamp: BigInt!
-
   "Defines whether the vault can harvest new rewards"
   canHarvest: Boolean!
 
@@ -328,9 +349,6 @@ type Vault @entity(immutable: false) {
   "The timestamp the vault was created at"
   createdAt: BigInt!
 
-  "The timestamp the vault last time swapped xDAI to GNO on gnosis"
-  lastXdaiSwappedTimestamp: BigInt!
-
   "The vault version"
   version: BigInt!
 
@@ -360,6 +378,9 @@ type Vault @entity(immutable: false) {
 
   "The total number of vault whitelisted accounts"
   whitelistCount: BigInt!
+
+  "The period earned assets"
+  _periodEarnedAssets: BigInt!
 
   "The total amount of the accumulated unclaimed fee recipient shares"
   _unclaimedFeeRecipientShares: BigInt!
@@ -499,9 +520,6 @@ type Network @entity(immutable: false) {
 
   "The total number of non repeated vault allocators and osToken holders"
   usersCount: Int!
-
-  "The timestamp of the last snapshot"
-  lastSnapshotTimestamp: BigInt!
 }
 
 type User @entity(immutable: false) {
@@ -558,9 +576,6 @@ type RewardSplitter @entity(immutable: false) {
 
   "The reward splitter version"
   version: BigInt!
-
-  "Whether claim on behalf is enabled"
-  isClaimOnBehalfEnabled: Boolean!
 
   "The address of the account that can modify the reward splitter share holders"
   owner: Bytes!
@@ -818,9 +833,12 @@ type AllocatorSnapshot @entity(timeseries: true) {
   id: Int8!
   timestamp: Timestamp!
   allocator: Allocator!
+  stakeEarnedAssets: BigInt!
+  boostEarnedAssets: BigInt!
+  extraEarnedAssets: BigInt!
+  osTokenFeeAssets: BigInt!
   earnedAssets: BigInt!
   totalAssets: BigInt!
-  boostedOsTokenShares: BigInt!
   apy: BigDecimal!
   ltv: BigDecimal!
 }
@@ -832,9 +850,12 @@ type AllocatorStats @aggregation(intervals: ["day"], source: "AllocatorSnapshot"
   id: Int8!
   timestamp: Timestamp!
   allocator: Allocator!
+  stakeEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "stakeEarnedAssets")
+  boostEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "boostEarnedAssets")
+  extraEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "extraEarnedAssets")
+  osTokenFeeAssets: BigInt! @aggregate(fn: "sum", arg: "osTokenFeeAssets")
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
-  boostedOsTokenShares: BigInt! @aggregate(fn: "last", arg: "boostedOsTokenShares")
   apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
   ltv: BigDecimal! @aggregate(fn: "last", arg: "ltv")
 }
@@ -1192,4 +1213,12 @@ type UserIsContract @entity(immutable: true) {
 type NetworkValidator @entity(immutable: true) {
   "Set to validator public key"
   id: Bytes!
+}
+
+"The checkpoint to track periodic synchronization"
+type Checkpoint @entity(immutable: false) {
+  "Set to `sync checkpoint ID`"
+  id: Bytes!
+  "The timestamp of the checkpoint"
+  timestamp: BigInt!
 }

@@ -1,11 +1,22 @@
-import { Address, BigDecimal, BigInt, Bytes, ipfs, json, JSONValue, JSONValueKind, log } from '@graphprotocol/graph-ts'
+import {
+  Address,
+  BigDecimal,
+  BigInt,
+  Bytes,
+  ethereum,
+  ipfs,
+  json,
+  JSONValue,
+  JSONValueKind,
+  log,
+} from '@graphprotocol/graph-ts'
 import { DistributorClaimedAmount, PeriodicDistribution } from '../../generated/schema'
 import {
+  DistributorUpdated,
   OneTimeDistributionAdded,
   PeriodicDistributionAdded,
   RewardsClaimed,
   RewardsRootUpdated,
-  DistributorUpdated,
 } from '../../generated/MerkleDistributor/MerkleDistributor'
 import {
   convertDistributionTypeToString,
@@ -16,12 +27,14 @@ import {
   getDistributionType,
   loadDistributor,
   loadDistributorClaim,
+  updateDistributions,
 } from '../entities/merkleDistributor'
 import { createTransaction } from '../entities/transaction'
 import { convertTokenAmountToAssets, isTokenSupported, loadExchangeRate } from '../entities/exchangeRates'
-import { loadVault, snapshotVault } from '../entities/vault'
-import { loadOsToken } from '../entities/osToken'
+import { loadVault } from '../entities/vault'
 import { loadNetwork } from '../entities/network'
+import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
+import { loadOsToken } from '../entities/osToken'
 
 const secondsInYear = '31536000'
 
@@ -89,11 +102,12 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
     const network = loadNetwork()!
     const exchangeRate = loadExchangeRate()!
     const vault = loadVault(Address.fromBytes(extraData))!
-    const distributor = loadDistributor()!
-    const osToken = loadOsToken()!
+
     distributeToVaultUsers(network, exchangeRate, vault, token, totalAmountToDistribute)
     const distributedAssets = convertTokenAmountToAssets(exchangeRate, token, totalAmountToDistribute)
-    snapshotVault(vault, distributor, osToken, distributedAssets, event.block.timestamp)
+
+    vault._periodEarnedAssets = vault._periodEarnedAssets.plus(distributedAssets)
+    vault.save()
     log.info('[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={}', [
       vault.id,
       token.toHexString(),
@@ -306,4 +320,24 @@ export function handleDistributorUpdated(event: DistributorUpdated): void {
     event.params.distributor.toHex(),
     event.params.isEnabled ? 'true' : 'false',
   ])
+}
+
+export function syncDistributor(block: ethereum.Block): void {
+  const distributor = loadDistributor()
+  const network = loadNetwork()
+  const exchangeRate = loadExchangeRate()
+  const osToken = loadOsToken()
+
+  if (!network || !osToken || !distributor || !exchangeRate) {
+    log.warning('[SyncDistributor] OsToken or Network or Distributor or ExchangeRate not found', [])
+    return
+  }
+
+  const newTimestamp = block.timestamp
+  const distributorCheckpoint = createOrLoadCheckpoint(CheckpointType.DISTRIBUTOR)
+  updateDistributions(network, exchangeRate, osToken, distributor, newTimestamp)
+
+  distributorCheckpoint.timestamp = newTimestamp
+  distributorCheckpoint.save()
+  log.info('[SyncDistributor] Distributions synced timestamp={}', [newTimestamp.toString()])
 }

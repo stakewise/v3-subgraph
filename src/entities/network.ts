@@ -20,7 +20,6 @@ export function createOrLoadNetwork(): Network {
     network.vaultIds = []
     network.osTokenVaultIds = []
     network.oraclesConfigIpfsHash = ''
-    network.lastSnapshotTimestamp = BigInt.zero()
     network.save()
   }
 
