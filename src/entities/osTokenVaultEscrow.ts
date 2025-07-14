@@ -51,6 +51,10 @@ export function updateOsTokenExitRequests(osToken: OsToken, vault: Vault): void 
     // wait for the migration
     return
   }
+  if (!vault.isOsTokenEnabled) {
+    return
+  }
+
   const vaultAddress = Address.fromString(vault.id)
   const updateStateCall = getUpdateStateCall(vault)
 
