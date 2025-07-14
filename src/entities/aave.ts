@@ -38,6 +38,8 @@ export function createOrLoadAave(): Aave {
     if (NETWORK == 'chiado' || NETWORK == 'hoodi') {
       // OsToken supply cap cannot be set on Chiado or Hoodi
       aave.osTokenSupplyCap = MAX_UINT_256
+    } else {
+      aave.osTokenSupplyCap = BigInt.zero()
     }
     aave.osTokenTotalSupplied = BigInt.zero()
     aave.save()
