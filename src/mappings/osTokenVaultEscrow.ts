@@ -12,6 +12,7 @@ import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { createOrLoadOsTokenExitRequest, getExitRequestLtv } from '../entities/osTokenVaultEscrow'
 import { loadVault } from '../entities/vault'
 import { loadDistributor } from '../entities/merkleDistributor'
+import { loadAave } from '../entities/aave'
 
 export function handlePositionCreated(event: PositionCreated): void {
   const vaultAddress = event.params.vault
@@ -19,6 +20,7 @@ export function handlePositionCreated(event: PositionCreated): void {
   const osTokenShares = event.params.osTokenShares
   const exitPositionTicket = event.params.exitPositionTicket
 
+  const aave = loadAave()!
   const vault = loadVault(vaultAddress)!
   const osToken = loadOsToken()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
@@ -26,7 +28,7 @@ export function handlePositionCreated(event: PositionCreated): void {
   const allocator = loadAllocator(owner, vaultAddress)!
 
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, osTokenShares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)

@@ -5,7 +5,15 @@ import {
   ExitQueueEntered,
 } from '../../generated/AaveLeverageStrategy/AaveLeverageStrategy'
 import { StrategyProxyCreated } from '../../generated/Keeper/AaveLeverageStrategy'
-import { Distributor, LeverageStrategyPosition, Network, OsToken, OsTokenConfig, Vault } from '../../generated/schema'
+import {
+  Distributor,
+  LeverageStrategyPosition,
+  Network,
+  OsToken,
+  OsTokenConfig,
+  Vault,
+  Aave,
+} from '../../generated/schema'
 import { createTransaction } from '../entities/transaction'
 import {
   createOrLoadLeverageStrategyPosition,
@@ -35,6 +43,7 @@ import { loadDistributor } from '../entities/merkleDistributor'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 
 function _updateAllocatorAndOsTokenHolderApys(
+  aave: Aave,
   network: Network,
   osToken: OsToken,
   osTokenConfig: OsTokenConfig,
@@ -44,7 +53,7 @@ function _updateAllocatorAndOsTokenHolderApys(
 ): void {
   const allocator = loadAllocator(userAddress, Address.fromString(vault.id))
   if (allocator) {
-    allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+    allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
     allocator.save()
   }
   const osTokenHolder = loadOsTokenHolder(userAddress)!
@@ -91,7 +100,7 @@ export function handleDeposited(event: Deposited): void {
   // update position with new shares and assets
   updateAavePosition(createOrLoadAavePosition(Address.fromBytes(position.proxy)))
   updateLeveragePositionOsTokenSharesAndAssets(aave, osToken, position)
-  _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress)
+  _updateAllocatorAndOsTokenHolderApys(aave, network, osToken, osTokenConfig, distributor, vault, userAddress)
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -132,7 +141,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   position.exitRequest = `${vaultAddressHex}-${positionTicket}`
   position.exitingPercent = exitingPercent
   updateLeveragePositionOsTokenSharesAndAssets(aave, osToken, position)
-  _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress)
+  _updateAllocatorAndOsTokenHolderApys(aave, network, osToken, osTokenConfig, distributor, vault, userAddress)
 
   log.info('[LeverageStrategy] ExitQueueEntered vault={} user={} positionTicket={}', [
     vaultAddressHex,
@@ -161,7 +170,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   position.exitingPercent = BigInt.zero()
   updateAavePosition(loadAavePosition(Address.fromBytes(position.proxy))!)
   updateLeveragePositionOsTokenSharesAndAssets(aave, osToken, position)
-  _updateAllocatorAndOsTokenHolderApys(network, osToken, osTokenConfig, distributor, vault, userAddress)
+  _updateAllocatorAndOsTokenHolderApys(aave, network, osToken, osTokenConfig, distributor, vault, userAddress)
 
   createAllocatorAction(
     event,

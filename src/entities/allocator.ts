@@ -1,5 +1,6 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import {
+  Aave,
   Allocator,
   AllocatorAction,
   AllocatorSnapshot,
@@ -10,12 +11,11 @@ import {
 } from '../../generated/schema'
 import { WAD } from '../helpers/constants'
 import { calculateApy, chunkedMulticall, encodeContractCall, getAnnualReward } from '../helpers/utils'
-import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
-import { convertSharesToAssets, getVaultApy, getVaultOsTokenMintApy, loadVault } from './vault'
+import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets } from './osToken'
+import { convertSharesToAssets, getVaultOsTokenMintApy, loadVault } from './vault'
 import { loadOsTokenConfig } from './osTokenConfig'
 import { getBoostPositionAnnualReward, loadLeverageStrategyPosition } from './leverageStrategy'
 import { decreaseUserVaultsCount, increaseUserVaultsCount, loadNetwork } from './network'
-import { loadAave } from './aave'
 
 const osTokenPositionsSelector = '0x4ec96b22'
 
@@ -201,6 +201,7 @@ export function getAllocatorLtv(allocator: Allocator, osToken: OsToken): BigDeci
 }
 
 export function getAllocatorApy(
+  aave: Aave,
   osToken: OsToken,
   osTokenConfig: OsTokenConfig,
   vault: Vault,
@@ -210,11 +211,11 @@ export function getAllocatorApy(
   const vaultAddress = Address.fromString(allocator.vault)
   const allocatorAddress = Address.fromBytes(allocator.address)
 
-  const vaultApy = getVaultApy(vault, distributor, osToken, false)
-  const osTokenApy = getOsTokenApy(osToken, false)
-
   let totalAssets = allocator.assets
-  let totalEarnedAssets = getAnnualReward(totalAssets, vaultApy)
+  if (!vault.isOsTokenEnabled) {
+    return totalAssets.isZero() ? BigDecimal.zero() : vault.apy
+  }
+  let totalEarnedAssets = getAnnualReward(totalAssets, vault.apy)
 
   const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, allocator.mintedOsTokenShares)
   totalEarnedAssets = totalEarnedAssets.minus(
@@ -223,7 +224,6 @@ export function getAllocatorApy(
 
   const boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
   if (boostPosition !== null) {
-    const aave = loadAave()!
     totalEarnedAssets = totalEarnedAssets.plus(
       getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition, distributor),
     )
@@ -240,7 +240,7 @@ export function getAllocatorApy(
       mintedLockedOsTokenShares = boostedOsTokenShares
     }
     const mintedLockedOsTokenAssets = convertOsTokenSharesToAssets(osToken, mintedLockedOsTokenShares)
-    totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(mintedLockedOsTokenAssets, osTokenApy))
+    totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(mintedLockedOsTokenAssets, osToken.apy))
     totalAssets = totalAssets.plus(convertOsTokenSharesToAssets(osToken, extraOsTokenShares))
   }
 
@@ -249,7 +249,7 @@ export function getAllocatorApy(
   }
 
   const allocatorApy = totalEarnedAssets.divDecimal(totalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
-  if (vaultApy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
+  if (vault.apy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
     log.warning(
       '[getAllocatorApy] Calculated APY is higher than max boost APY: maxBoostApy={} allocatorApy={} vault={} allocator={}',
       [vault.allocatorMaxBoostApy.toString(), allocatorApy.toString(), vault.id, allocator.address.toHex()],

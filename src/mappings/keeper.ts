@@ -448,7 +448,7 @@ export function syncApys(block: ethereum.Block): void {
     const allocators: Array<Allocator> = vault.allocators.load()
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocatorApy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+      allocatorApy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
       if (allocatorApy.equals(allocator.apy)) {
         continue
       }

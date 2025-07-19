@@ -51,6 +51,7 @@ import { loadExitRequest, updateClaimableExitRequests, updateExitRequests } from
 import { convertSharesToAssets, loadVault, syncVault } from '../entities/vault'
 import { loadDistributor } from '../entities/merkleDistributor'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
+import { loadAave } from '../entities/aave'
 
 // Event emitted on assets transfer from allocator to vault
 export function handleDeposited(event: Deposited): void {
@@ -73,10 +74,11 @@ export function handleDeposited(event: Deposited): void {
   const osToken = loadOsToken()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
+  const aave = loadAave()!
   const distributor = loadDistributor()!
   const allocator = createOrLoadAllocator(receiver, vaultAddress)
   increaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
@@ -117,10 +119,11 @@ export function handleRedeemed(event: Redeemed): void {
   network.totalAssets = network.totalAssets.minus(assets)
   network.save()
 
+  const aave = loadAave()!
   const distributor = loadDistributor()!
   const allocator = loadAllocator(owner, vaultAddress)!
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
@@ -362,6 +365,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   exitRequest.isClaimed = false
   exitRequest.save()
 
+  const aave = loadAave()!
   const osToken = loadOsToken()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const distributor = loadDistributor()!
@@ -372,7 +376,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
     decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
   }
 
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   log.info('[Vault] V1ExitQueueEntered vault={} owner={} shares={}', [
@@ -438,12 +442,13 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   exitRequest.save()
 
   // Update allocator shares
+  const aave = loadAave()!
   const osToken = loadOsToken()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const distributor = loadDistributor()!
   const allocator = loadAllocator(owner, vaultAddress)!
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   log.info('[Vault] V2ExitQueueEntered vault={} owner={} shares={} assets={}', [
@@ -512,12 +517,13 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   prevExitRequest.save()
 
   // update allocator APY
+  const aave = loadAave()!
   const vault = loadVault(vaultAddress)!
   const osToken = loadOsToken()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const distributor = loadDistributor()!
   const allocator = loadAllocator(Address.fromBytes(prevExitRequest.owner), vaultAddress)!
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   log.info('[Vault] ExitedAssetsClaimed vault={} prevPositionTicket={} newPositionTicket={} claimedAssets={}', [
@@ -547,10 +553,11 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   } else {
     allocator = loadAllocator(holder, vaultAddress)!
   }
+  const aave = loadAave()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const distributor = loadDistributor()!
   increaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, shares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   createAllocatorAction(event, vaultAddress, AllocatorActionType.OsTokenMinted, holder, assets, shares)
@@ -575,12 +582,13 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
   osToken.totalSupply = osToken.totalSupply.minus(shares)
   osToken.save()
 
+  const aave = loadAave()!
   const vault = loadVault(vaultAddress)!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const distributor = loadDistributor()!
   const allocator = loadAllocator(holder, vaultAddress)!
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, shares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
@@ -617,11 +625,12 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   osToken.totalSupply = osToken.totalSupply.minus(shares)
   osToken.save()
 
+  const aave = loadAave()!
   const distributor = loadDistributor()!
   const allocator = loadAllocator(holder, vaultAddress)!
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, shares)
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, withdrawnShares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
@@ -657,11 +666,12 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   osToken.totalSupply = osToken.totalSupply.minus(shares)
   osToken.save()
 
+  const aave = loadAave()!
   const distributor = loadDistributor()!
   const allocator = loadAllocator(holder, vaultAddress)!
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, shares)
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, withdrawnShares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
@@ -846,12 +856,13 @@ export function handleMigrated(event: Migrated): void {
   network.totalAssets = network.totalAssets.plus(assets)
   network.save()
 
+  const aave = loadAave()!
   const osToken = loadOsToken()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const distributor = loadDistributor()!
   const allocator = createOrLoadAllocator(receiver, vaultAddress)
   increaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   const txHash = event.transaction.hash.toHex()
