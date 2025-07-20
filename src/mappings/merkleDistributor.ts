@@ -21,9 +21,10 @@ import {
 import {
   convertDistributionTypeToString,
   createOrLoadDistributorClaim,
-  createOrLoadDistributorReward,
+  distributeToVaultSelectedUsers,
   distributeToVaultUsers,
   DistributionType,
+  fetchRewardsData,
   getDistributionType,
   loadDistributor,
   loadDistributorClaim,
@@ -89,101 +90,62 @@ export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded
 export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded): void {
   const rewardsIpfsHash = event.params.rewardsIpfsHash
   const token = event.params.token
-  const totalAmountToDistribute = event.params.amount
+  let totalAmountToDistribute = event.params.amount
   const extraData = event.params.extraData
 
   if (!isTokenSupported(token)) {
-    log.error('[OneTimeDistribution] Unsupported token ={}', [token.toHexString()])
+    log.error('[OneTimeDistribution] Unsupported token={}', [token.toHexString()])
     return
   }
 
   const distType = getDistributionType(extraData)
-  if (distType == DistributionType.VAULT) {
-    const network = loadNetwork()!
-    const exchangeRate = loadExchangeRate()!
-    const vault = loadVault(Address.fromBytes(extraData))!
-
-    distributeToVaultUsers(network, exchangeRate, vault, token, totalAmountToDistribute)
-    const distributedAssets = convertTokenAmountToAssets(exchangeRate, token, totalAmountToDistribute)
-
-    vault._periodEarnedAssets = vault._periodEarnedAssets.plus(distributedAssets)
-    vault.save()
-    log.info('[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={}', [
-      vault.id,
-      token.toHexString(),
-      totalAmountToDistribute.toString(),
-    ])
+  if (distType != DistributionType.VAULT) {
+    log.error('[OneTimeDistribution] Only vault distributions are supported', [])
     return
   }
 
-  let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
-  let tries = 10
-  while (data === null && tries > 0) {
-    log.warning('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}, retrying', [rewardsIpfsHash])
-    data = ipfs.cat(rewardsIpfsHash)
-    tries -= 1
-  }
-  if (data === null) {
-    log.error('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}', [rewardsIpfsHash])
+  const userRewards = fetchRewardsData(rewardsIpfsHash)
+  if (rewardsIpfsHash !== '' && userRewards === null) {
+    log.error('[MerkleDistributor] OneTimeDistributionAdded rewardsIpfsHash={} not found', [rewardsIpfsHash])
     return
   }
 
-  const parsedData = json.fromBytes(data as Bytes)
-  if (parsedData.kind != JSONValueKind.ARRAY) {
-    log.error('[MerkleDistributor] OneTimeDistributionAdded data is not an array for hash={}', [rewardsIpfsHash])
-    return
-  }
-
-  let totalDistributedAmount = BigInt.zero()
-  const userRewards = parsedData.toArray()
-  for (let i = 0; i < userRewards.length; i++) {
-    const _userReward = userRewards[i]
-    if (_userReward.kind != JSONValueKind.OBJECT) {
-      log.error('[MerkleDistributor] OneTimeDistributionAdded user data is not an object for hash={} index={}', [
-        rewardsIpfsHash,
-        i.toString(),
-      ])
-      continue
-    }
-    const userReward = _userReward.toObject()
-    const _user = userReward.get('address')
-    const _amount = userReward.get('amount')
-    if (!_user || _user.kind != JSONValueKind.STRING || !_amount || _amount.kind != JSONValueKind.STRING) {
-      log.error('[MerkleDistributor] OneTimeDistributionAdded user or amount is invalid for hash={} index={}', [
-        rewardsIpfsHash,
-        i.toString(),
-      ])
-      continue
-    }
-
-    const user = Address.fromString(_user.toString())
-    const amount = BigInt.fromString(_amount.toString())
-    if (amount.lt(BigInt.zero())) {
-      log.error('[MerkleDistributor] OneTimeDistributionAdded amount is negative for hash={} index={}', [
-        rewardsIpfsHash,
-        i.toString(),
-      ])
-      continue
-    }
-
-    totalDistributedAmount = totalDistributedAmount.plus(amount)
-    if (totalDistributedAmount.gt(totalAmountToDistribute)) {
-      log.error(
-        '[MerkleDistributor] OneTimeDistributionAdded total distributed amount is greater than total amount for hash={} index={}',
-        [rewardsIpfsHash, i.toString()],
-      )
+  // distribute to all vault users
+  const network = loadNetwork()!
+  const exchangeRate = loadExchangeRate()!
+  const vault = loadVault(Address.fromBytes(extraData))!
+  let selectedUsers = false
+  if (userRewards !== null) {
+    selectedUsers = true
+    totalAmountToDistribute = distributeToVaultSelectedUsers(
+      network,
+      exchangeRate,
+      vault,
+      token,
+      totalAmountToDistribute,
+      userRewards,
+    )
+    if (totalAmountToDistribute.isZero()) {
+      log.error('[MerkleDistributor] No users found for vault={} rewardsIpfsHash={}', [vault.id, rewardsIpfsHash])
       return
     }
-
-    const distributorReward = createOrLoadDistributorReward(token, user)
-    distributorReward.cumulativeAmount = distributorReward.cumulativeAmount.plus(amount)
-    distributorReward.save()
+  } else {
+    const principalAssets = distributeToVaultUsers(network, exchangeRate, vault, token, totalAmountToDistribute)
+    if (principalAssets.isZero()) {
+      log.error('[MerkleDistributor] No users found for vault={}', [vault.id])
+      return
+    }
   }
 
-  log.info('[MerkleDistributor] OneTimeDistributionAdded rewardsIpfsHash={} token={} amount={}', [
-    rewardsIpfsHash,
+  const distributedAssets = convertTokenAmountToAssets(exchangeRate, token, totalAmountToDistribute)
+
+  vault._periodEarnedAssets = vault._periodEarnedAssets.plus(distributedAssets)
+  vault.save()
+  log.info('[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={} selectedUsers={}', [
+    vault.id,
     token.toHexString(),
     totalAmountToDistribute.toString(),
+    selectedUsers.toString(),
   ])
 }
 

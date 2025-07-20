@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, ethereum, ipfs, json, JSONValueKind, log } from '@graphprotocol/graph-ts'
 import {
   Allocator,
   Distributor,
@@ -25,6 +25,7 @@ import { createOrLoadAllocator, loadAllocator } from './allocator'
 import { convertTokenAmountToAssets } from './exchangeRates'
 import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
 import { loadLeverageStrategyPosition } from './leverageStrategy'
+import { JSONValue } from '@graphprotocol/graph-ts/common/value'
 
 const distributorId = '1'
 const secondsInYear = '31536000'
@@ -365,6 +366,69 @@ export function distributeToVaultUsers(
   return totalAssets
 }
 
+export function distributeToVaultSelectedUsers(
+  network: Network,
+  exchangeRate: ExchangeRate,
+  vault: Vault,
+  token: Address,
+  totalReward: BigInt,
+  allocations: Array<JSONValue>,
+): BigInt {
+  const vaultAddress = Address.fromString(vault.id)
+
+  let totalDistributedAmount = BigInt.zero()
+  for (let i = 0; i < allocations.length; i++) {
+    const _userReward = allocations[i]
+    if (_userReward.kind != JSONValueKind.OBJECT) {
+      log.error('[MerkleDistributor] OneTimeDistributionAdded user data is not an object index={}', [i.toString()])
+      continue
+    }
+    const userRewardData = _userReward.toObject()
+    const _user = userRewardData.get('address')
+    const _amount = userRewardData.get('amount')
+    if (!_user || _user.kind != JSONValueKind.STRING || !_amount || _amount.kind != JSONValueKind.STRING) {
+      log.error('[MerkleDistributor] OneTimeDistributionAdded user or amount is invalid for index={}', [i.toString()])
+      continue
+    }
+
+    const user = Address.fromString(_user.toString())
+    const amount = BigInt.fromString(_amount.toString())
+    if (amount.lt(BigInt.zero())) {
+      log.error('[MerkleDistributor] OneTimeDistributionAdded amount is negative for index={}', [i.toString()])
+      continue
+    }
+
+    totalDistributedAmount = totalDistributedAmount.plus(amount)
+    if (totalDistributedAmount.gt(totalReward)) {
+      log.error(
+        '[MerkleDistributor] OneTimeDistributionAdded total distributed amount is greater than total amount for index={}',
+        [i.toString()],
+      )
+      return totalDistributedAmount.minus(amount)
+    }
+
+    const distributorReward = createOrLoadDistributorReward(token, user)
+    distributorReward.cumulativeAmount = distributorReward.cumulativeAmount.plus(amount)
+    distributorReward.save()
+
+    const userRewardAssets = convertTokenAmountToAssets(exchangeRate, token, amount)
+    const allocator = createOrLoadAllocator(user, vaultAddress)
+    allocator._periodExtraEarnedAssets = allocator._periodExtraEarnedAssets.plus(userRewardAssets)
+    allocator.save()
+
+    const osTokenHolder = loadOsTokenHolder(user)
+    if (!osTokenHolder) {
+      continue
+    }
+    const osTokenVault = getOsTokenHolderVault(network, osTokenHolder)
+    if (osTokenVault && osTokenVault.equals(vaultAddress)) {
+      osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(userRewardAssets)
+      osTokenHolder.save()
+    }
+  }
+  return totalDistributedAmount
+}
+
 export function distributeToSwiseAssetUniPoolUsers(
   network: Network,
   exchangeRate: ExchangeRate,
@@ -527,6 +591,31 @@ export function distributeToLeverageStrategyUsers(
   )
 
   return [totalOsTokenShares, distributedPeriodOsTokenShares]
+}
+
+export function fetchRewardsData(rewardsIpfsHash: string): Array<JSONValue> | null {
+  if (rewardsIpfsHash === '') {
+    return null
+  }
+
+  let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
+  let tries = 10
+  while (data === null && tries > 0) {
+    log.warning('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}, retrying', [rewardsIpfsHash])
+    data = ipfs.cat(rewardsIpfsHash)
+    tries -= 1
+  }
+  if (data === null) {
+    log.error('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}', [rewardsIpfsHash])
+    return null
+  }
+
+  const parsedData = json.fromBytes(data as Bytes)
+  if (parsedData.kind != JSONValueKind.ARRAY) {
+    log.error('[MerkleDistributor] OneTimeDistributionAdded data is not an array for hash={}', [rewardsIpfsHash])
+    return null
+  }
+  return parsedData.toArray()
 }
 
 function _distributeReward(
