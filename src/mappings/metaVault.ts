@@ -79,7 +79,6 @@ export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
     vault.rewardsTimestamp,
     subVault.rewardsTimestamp!,
     newRate.minus(vault.rate),
-    false,
   )
   vault.totalAssets = newTotalAssets
   vault.totalShares = newTotalShares
@@ -89,7 +88,7 @@ export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
   vault.rewardsRoot = subVault.rewardsRoot
   vault.rewardsIpfsHash = subVault.rewardsIpfsHash
   vault.rewardsTimestamp = subVault.rewardsTimestamp
-  vault._periodEarnedAssets = vault._periodEarnedAssets.plus(vaultPeriodAssets)
+  vault._periodStakeEarnedAssets = vault._periodStakeEarnedAssets.plus(vaultPeriodAssets)
   vault.save()
 
   // update vault allocators, exit requests, reward splitters

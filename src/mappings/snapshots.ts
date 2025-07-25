@@ -73,8 +73,9 @@ export function syncSnapshots(block: ethereum.Block): void {
       continue
     }
 
-    snapshotVault(vault, distributor, osToken, newTimestamp)
-    vault._periodEarnedAssets = BigInt.zero()
+    snapshotVault(vault, newTimestamp, duration)
+    vault._periodStakeEarnedAssets = BigInt.zero()
+    vault._periodExtraEarnedAssets = BigInt.zero()
     vault.save()
 
     const allocators: Array<Allocator> = vault.allocators.load()

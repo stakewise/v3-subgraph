@@ -388,7 +388,7 @@ export function snapshotAllocator(
   allocatorSnapshot.totalAssets = totalAssets
   allocatorSnapshot.apy = calculateApy(
     allocatorSnapshot.earnedAssets,
-    totalAssets.minus(allocatorSnapshot.earnedAssets),
+    totalAssets.minus(allocatorSnapshot.stakeEarnedAssets),
     duration,
   )
   allocatorSnapshot.ltv = allocator.ltv

@@ -64,8 +64,10 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt): void 
   vault.version = version
   vault.validatorsManager = Address.zero()
   vault.osTokenConfig = '2'
+  vault.lastFeeUpdateTimestamp = block.timestamp
   vault.metadataIpfsHash = metadataIpfsHash
-  vault._periodEarnedAssets = BigInt.zero()
+  vault._periodStakeEarnedAssets = BigInt.zero()
+  vault._periodExtraEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault.save()
 

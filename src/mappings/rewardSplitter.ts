@@ -5,6 +5,7 @@ import {
   SharesDecreased,
   SharesIncreased,
   OwnershipTransferred,
+  ClaimerUpdated,
 } from '../../generated/templates/RewardSplitter/RewardSplitter'
 import { RewardSplitterCreated } from '../../generated/templates/RewardSplitterFactory/RewardSplitterFactory'
 import { RewardSplitter } from '../../generated/schema'
@@ -45,6 +46,7 @@ export function handleRewardSplitterCreated(event: RewardSplitterCreated): void 
       return
     }
     rewardSplitter.owner = vault.admin
+    rewardSplitter.claimer = Address.zero()
   }
   rewardSplitter.save()
 
@@ -150,5 +152,16 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   log.info('[RewardSplitter] OwnershipTransferred rewardSplitter={} newOwner={}', [
     event.address.toHex(),
     event.params.newOwner.toHex(),
+  ])
+}
+
+export function handleClaimerUpdated(event: ClaimerUpdated): void {
+  const rewardSplitter = RewardSplitter.load(event.address.toHex())!
+  rewardSplitter.claimer = event.params.claimer
+  rewardSplitter.save()
+
+  log.info('[RewardSplitter] ClaimerUpdated rewardSplitter={} newClaimer={}', [
+    event.address.toHex(),
+    event.params.claimer.toHex(),
   ])
 }

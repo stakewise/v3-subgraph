@@ -274,6 +274,9 @@ type Vault @entity(immutable: false) {
   "The vault slashed MEV reward in the smoothing pool"
   slashedMevReward: BigInt!
 
+  "The timestamp of the last fee update"
+  lastFeeUpdateTimestamp: BigInt!
+
   "Defines whether the vault can harvest new rewards"
   canHarvest: Boolean!
 
@@ -379,8 +382,11 @@ type Vault @entity(immutable: false) {
   "The total number of vault whitelisted accounts"
   whitelistCount: BigInt!
 
-  "The period earned assets"
-  _periodEarnedAssets: BigInt!
+  "The total period assets earned from staking"
+  _periodStakeEarnedAssets: BigInt!
+
+  "The total period extra earned assets (e.g. extra incentives)"
+  _periodExtraEarnedAssets: BigInt!
 
   "The total amount of the accumulated unclaimed fee recipient shares"
   _unclaimedFeeRecipientShares: BigInt!
@@ -579,6 +585,9 @@ type RewardSplitter @entity(immutable: false) {
 
   "The address of the account that can modify the reward splitter share holders"
   owner: Bytes!
+
+  "The address of the account that can claim the rewards. Will be null for the reward splitters with version < 3."
+  claimer: Bytes
 
   "The total number of shares"
   totalShares: BigInt!

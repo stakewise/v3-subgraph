@@ -581,5 +581,24 @@
     ],
     "name": "OwnershipTransferred",
     "type": "event"
+  },
+  {
+    "type": "event",
+    "name": "ClaimerUpdated",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "claimer",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
   }
 ]

@@ -237,7 +237,7 @@ export function updateDistributions(
       principalAssets = distributeToVaultUsers(network, exchangeRate, vault, token, distributedAmount)
       distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
 
-      vault._periodEarnedAssets = vault._periodEarnedAssets.plus(distributedAssets)
+      vault._periodExtraEarnedAssets = vault._periodExtraEarnedAssets.plus(distributedAssets)
       vault.save()
     } else if (distType == DistributionType.LEVERAGE_STRATEGY) {
       const targetApy = getLeverageStrategyTargetApy(dist.data)

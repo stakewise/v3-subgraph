@@ -129,18 +129,17 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
       log.error('[MerkleDistributor] No users found for vault={} rewardsIpfsHash={}', [vault.id, rewardsIpfsHash])
       return
     }
+    // do not update vault._periodExtraEarnedAssets here as the reward was distributed to selected users only
   } else {
     const principalAssets = distributeToVaultUsers(network, exchangeRate, vault, token, totalAmountToDistribute)
     if (principalAssets.isZero()) {
       log.error('[MerkleDistributor] No users found for vault={}', [vault.id])
       return
     }
+    const distributedAssets = convertTokenAmountToAssets(exchangeRate, token, totalAmountToDistribute)
+    vault._periodExtraEarnedAssets = vault._periodExtraEarnedAssets.plus(distributedAssets)
+    vault.save()
   }
-
-  const distributedAssets = convertTokenAmountToAssets(exchangeRate, token, totalAmountToDistribute)
-
-  vault._periodEarnedAssets = vault._periodEarnedAssets.plus(distributedAssets)
-  vault.save()
   log.info('[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={} selectedUsers={}', [
     vault.id,
     token.toHexString(),

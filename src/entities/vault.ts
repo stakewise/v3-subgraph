@@ -22,6 +22,7 @@ import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenA
 import { increaseUserVaultsCount, isGnosisNetwork, loadNetwork } from './network'
 import { getV2PoolState, loadV2Pool, updatePoolApy } from './v2pool'
 import {
+  calculateApy,
   calculateAverage,
   chunkedMulticall,
   encodeContractCall,
@@ -141,7 +142,9 @@ export function createVault(
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = false
   vault.version = version
-  vault._periodEarnedAssets = BigInt.zero()
+  vault.lastFeeUpdateTimestamp = block.timestamp
+  vault._periodStakeEarnedAssets = BigInt.zero()
+  vault._periodExtraEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
 
   if (vault.version.equals(BigInt.fromI32(1))) {
@@ -372,15 +375,7 @@ export function updateVaults(
     network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
     network.totalEarnedAssets = network.totalEarnedAssets.plus(vaultPeriodAssets)
 
-    updateVaultApy(
-      vault,
-      distributor,
-      osToken,
-      vault.rewardsTimestamp,
-      updateTimestamp,
-      newRate.minus(vault.rate),
-      false,
-    )
+    updateVaultApy(vault, distributor, osToken, vault.rewardsTimestamp, updateTimestamp, newRate.minus(vault.rate))
     vault.totalAssets = newTotalAssets
     vault.totalShares = newTotalShares
     vault.queuedShares = newQueuedShares
@@ -416,7 +411,7 @@ export function updateVaults(
       v2Pool.save()
     }
 
-    vault._periodEarnedAssets = vault._periodEarnedAssets.plus(vaultPeriodAssets)
+    vault._periodStakeEarnedAssets = vault._periodStakeEarnedAssets.plus(vaultPeriodAssets)
 
     // save fee recipient earned shares
     if (feeRecipientShares.gt(BigInt.zero())) {
@@ -557,15 +552,18 @@ export function updateVaultMaxBoostApy(
   }
 }
 
-export function snapshotVault(vault: Vault, distributor: Distributor, osToken: OsToken, timestamp: BigInt): void {
-  let apy = getVaultApy(vault, distributor, osToken, true)
+export function snapshotVault(vault: Vault, timestamp: BigInt, duration: BigInt): void {
   const vaultSnapshot = new VaultSnapshot(1)
   vaultSnapshot.timestamp = timestamp.toI64()
   vaultSnapshot.vault = vault.id
-  vaultSnapshot.earnedAssets = vault._periodEarnedAssets
+  vaultSnapshot.earnedAssets = vault._periodStakeEarnedAssets.plus(vault._periodExtraEarnedAssets)
   vaultSnapshot.totalAssets = vault.totalAssets
   vaultSnapshot.totalShares = vault.totalShares
-  vaultSnapshot.apy = apy
+  vaultSnapshot.apy = calculateApy(
+    vaultSnapshot.earnedAssets,
+    vault.totalAssets.minus(vault._periodStakeEarnedAssets),
+    duration,
+  )
   vaultSnapshot.save()
 }
 
@@ -659,7 +657,6 @@ export function updateVaultApy(
   fromTimestamp: BigInt | null,
   toTimestamp: BigInt,
   rateChange: BigInt,
-  appendToLast: boolean,
 ): void {
   if (!fromTimestamp) {
     // it's the first update, skip
@@ -683,9 +680,6 @@ export function updateVaultApy(
     .div(BigDecimal.fromString(WAD))
     .div(totalDuration.toBigDecimal())
 
-  if (appendToLast && baseApysCount > 0) {
-    currentBaseApy = currentBaseApy.plus(baseApys[baseApysCount - 1])
-  }
   const maxApy = BigDecimal.fromString(MAX_VAULT_APY)
   const vaultAddr = Address.fromString(vault.id)
   const isFoxVault =
@@ -693,12 +687,7 @@ export function updateVaultApy(
   if (!isFoxVault && vault.version.equals(BigInt.fromI32(2)) && currentBaseApy.gt(maxApy)) {
     currentBaseApy = maxApy
   }
-
-  if (appendToLast && baseApysCount > 0) {
-    baseApys[baseApysCount - 1] = currentBaseApy
-  } else {
-    baseApys.push(currentBaseApy)
-  }
+  baseApys.push(currentBaseApy)
   if (baseApysCount > snapshotsPerWeek) {
     baseApys = baseApys.slice(baseApysCount - snapshotsPerWeek)
   }

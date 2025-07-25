@@ -257,6 +257,7 @@ export function handleFeePercentUpdated(event: FeePercentUpdated): void {
 
   const vault = loadVault(vaultAddress)!
   vault.feePercent = feePercent
+  vault.lastFeeUpdateTimestamp = event.block.timestamp
   vault.save()
 
   createTransaction(event.transaction.hash.toHex())
@@ -738,8 +739,10 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
     vault.version = BigInt.fromI32(1)
     vault.osTokenConfig = '1'
   }
+  vault.lastFeeUpdateTimestamp = event.block.timestamp
   vault.metadataIpfsHash = metadataIpfsHash
-  vault._periodEarnedAssets = BigInt.zero()
+  vault._periodExtraEarnedAssets = BigInt.zero()
+  vault._periodStakeEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
 
   vault.save()
@@ -813,7 +816,9 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.version = BigInt.fromI32(1)
   vault.osTokenConfig = '1'
   vault.metadataIpfsHash = metadataIpfsHash
-  vault._periodEarnedAssets = BigInt.zero()
+  vault.lastFeeUpdateTimestamp = event.block.timestamp
+  vault._periodStakeEarnedAssets = BigInt.zero()
+  vault._periodExtraEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
 
   vault.save()
