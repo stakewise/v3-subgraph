@@ -383,14 +383,24 @@ export function isTokenSupported(token: Address): boolean {
   if (token.equals(Address.zero())) {
     return false
   }
-  return (
-    token.equals(Address.fromString(ASSET_TOKEN)) ||
-    token.equals(OS_TOKEN) ||
-    token.equals(SWISE_TOKEN) ||
-    token.equals(Address.fromString(SSV_TOKEN)) ||
-    token.equals(Address.fromString(OBOL_TOKEN)) ||
-    token.equals(Address.fromString(USDC_TOKEN))
-  )
+  const supportedTokens = getSupportedTokens()
+  for (let i = 0; i < supportedTokens.length; i++) {
+    if (token.equals(supportedTokens[i])) {
+      return true
+    }
+  }
+  return false
+}
+
+export function getSupportedTokens(): Array<Address> {
+  return [
+    Address.fromString(ASSET_TOKEN),
+    OS_TOKEN,
+    SWISE_TOKEN,
+    Address.fromString(SSV_TOKEN),
+    Address.fromString(OBOL_TOKEN),
+    Address.fromString(USDC_TOKEN),
+  ]
 }
 
 export function convertTokenAmountToAssets(exchangeRate: ExchangeRate, token: Address, amount: BigInt): BigInt {

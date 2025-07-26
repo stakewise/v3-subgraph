@@ -28,6 +28,7 @@ import {
   getDistributionType,
   loadDistributor,
   loadDistributorClaim,
+  redistributeMetaVaultsRewards,
   updateDistributions,
 } from '../entities/merkleDistributor'
 import { createTransaction } from '../entities/transaction'
@@ -140,6 +141,8 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
     vault._periodExtraEarnedAssets = vault._periodExtraEarnedAssets.plus(distributedAssets)
     vault.save()
   }
+  // as meta-vaults are allocators in the vault, we need to redistribute rewards to their users
+  redistributeMetaVaultsRewards(network, exchangeRate)
   log.info('[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={} selectedUsers={}', [
     vault.id,
     token.toHexString(),

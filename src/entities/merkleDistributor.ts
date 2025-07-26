@@ -1,4 +1,15 @@
-import { Address, BigDecimal, BigInt, Bytes, ethereum, ipfs, json, JSONValueKind, log } from '@graphprotocol/graph-ts'
+import {
+  Address,
+  BigDecimal,
+  BigInt,
+  Bytes,
+  ethereum,
+  ipfs,
+  json,
+  JSONValueKind,
+  log,
+  store,
+} from '@graphprotocol/graph-ts'
 import {
   Allocator,
   Distributor,
@@ -22,7 +33,7 @@ import { loadVault } from './vault'
 import { calculateAverage, getAnnualReward, getCompoundedApy } from '../helpers/utils'
 import { loadAavePosition } from './aave'
 import { createOrLoadAllocator, loadAllocator } from './allocator'
-import { convertTokenAmountToAssets } from './exchangeRates'
+import { convertTokenAmountToAssets, getSupportedTokens } from './exchangeRates'
 import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
 import { loadLeverageStrategyPosition } from './leverageStrategy'
 import { JSONValue } from '@graphprotocol/graph-ts/common/value'
@@ -343,7 +354,7 @@ export function distributeToVaultUsers(
 
   for (let i = 0; i < allocators.length; i++) {
     allocator = allocators[i]
-    if (_userIsContract(allocator.address)) {
+    if (_userIsContract(allocator.address) && !_isMetaVault(allocator.address)) {
       continue
     }
     const userAddress = Address.fromBytes(allocator.address)
@@ -618,6 +629,34 @@ export function fetchRewardsData(rewardsIpfsHash: string): Array<JSONValue> | nu
   return parsedData.toArray()
 }
 
+export function redistributeMetaVaultsRewards(network: Network, exchangeRate: ExchangeRate): void {
+  const vaultIds = network.vaultIds
+  const supportedTokens = getSupportedTokens()
+  for (let i = 0; i < vaultIds.length; i++) {
+    const vault = loadVault(Address.fromString(vaultIds[i]))!
+    if (!vault.isMetaVault) {
+      continue
+    }
+
+    const vaultAddress = Address.fromString(vault.id)
+    for (let j = 0; j < supportedTokens.length; j++) {
+      const token = supportedTokens[j]
+      const distRewardId = `${token.toHex()}-${vaultAddress.toHex()}`
+      const distributorReward = DistributorReward.load(distRewardId)
+      if (!distributorReward) {
+        continue
+      }
+      store.remove('DistributorReward', distRewardId)
+
+      const totalReward = distributorReward.cumulativeAmount
+      if (totalReward.le(BigInt.zero())) {
+        continue
+      }
+      distributeToVaultUsers(network, exchangeRate, vault, token, totalReward)
+    }
+  }
+}
+
 function _distributeReward(
   network: Network,
   exchangeRate: ExchangeRate,
@@ -691,4 +730,12 @@ function _userIsContract(address: Bytes): boolean {
   cache.isContract = isContract
   cache.save()
   return cache.isContract
+}
+
+function _isMetaVault(address: Bytes): boolean {
+  let vault = loadVault(Address.fromBytes(address))
+  if (vault) {
+    return vault.isMetaVault
+  }
+  return false
 }
