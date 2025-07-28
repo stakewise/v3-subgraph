@@ -411,8 +411,6 @@ export function updateVaults(
       v2Pool.save()
     }
 
-    vault._periodStakeEarnedAssets = vault._periodStakeEarnedAssets.plus(vaultPeriodAssets)
-
     // save fee recipient earned shares
     if (feeRecipientShares.gt(BigInt.zero())) {
       const feeRecipient = createOrLoadAllocator(Address.fromBytes(vault.feeRecipient), vaultAddress)
@@ -426,19 +424,20 @@ export function updateVaults(
       // update fee recipient shares and assets
       feeRecipient.shares = feeRecipient.shares.plus(feeRecipientShares.minus(vault._unclaimedFeeRecipientShares))
       feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
-      feeRecipient._periodExtraEarnedAssets = feeRecipient._periodExtraEarnedAssets.plus(
-        feeRecipient.assets.minus(assetsBefore),
-      )
+
+      const feeRecipientEarnedAssets = feeRecipient.assets.minus(assetsBefore)
+      feeRecipient._periodExtraEarnedAssets = feeRecipient._periodExtraEarnedAssets.plus(feeRecipientEarnedAssets)
       if (vault.isOsTokenEnabled) {
         feeRecipient.ltv = getAllocatorLtv(feeRecipient, osToken)
         feeRecipient.ltvStatus = getAllocatorLtvStatus(feeRecipient, loadOsTokenConfig(vault.osTokenConfig)!)
       }
       feeRecipient.save()
+      vaultPeriodAssets = vaultPeriodAssets.minus(feeRecipientEarnedAssets)
     }
+    vault._periodStakeEarnedAssets = vault._periodStakeEarnedAssets.plus(vaultPeriodAssets)
     vault._unclaimedFeeRecipientShares = feeRecipientShares
     vault.save()
   }
-
   network.save()
 }
 
@@ -556,6 +555,8 @@ export function snapshotVault(vault: Vault, timestamp: BigInt, duration: BigInt)
   const vaultSnapshot = new VaultSnapshot(1)
   vaultSnapshot.timestamp = timestamp.toI64()
   vaultSnapshot.vault = vault.id
+  vaultSnapshot.stakeEarnedAssets = vault._periodStakeEarnedAssets
+  vaultSnapshot.extraEarnedAssets = vault._periodExtraEarnedAssets
   vaultSnapshot.earnedAssets = vault._periodStakeEarnedAssets.plus(vault._periodExtraEarnedAssets)
   vaultSnapshot.totalAssets = vault.totalAssets
   vaultSnapshot.totalShares = vault.totalShares

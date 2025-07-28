@@ -79,6 +79,7 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.shares = BigInt.zero()
     vaultAllocator.assets = BigInt.zero()
     vaultAllocator.mintedOsTokenShares = BigInt.zero()
+    vaultAllocator.exitingAssets = BigInt.zero()
     vaultAllocator.ltv = BigDecimal.zero()
     vaultAllocator.ltvStatus = LtvStatusStrings[LtvStatus.Healthy]
     vaultAllocator.address = allocatorAddress
@@ -363,7 +364,7 @@ export function snapshotAllocator(
   timestamp: BigInt,
 ): AllocatorSnapshot {
   // calculate allocator total assets
-  let totalAssets = allocator.assets.plus(rewardSplitterAssets)
+  let totalAssets = allocator.assets.plus(rewardSplitterAssets).plus(allocator.exitingAssets)
 
   // add extra assets from boosted OsToken shares
   if (boostedOsTokenShares.gt(allocator.mintedOsTokenShares)) {

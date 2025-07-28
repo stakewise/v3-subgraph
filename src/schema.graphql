@@ -21,6 +21,9 @@ type Allocator @entity(immutable: false) {
   "The allocator's assets amount"
   assets: BigInt!
 
+  "The allocator's assets amount that are exiting"
+  exitingAssets: BigInt!
+
   "The allocator's minted OsToken shares amount"
   mintedOsTokenShares: BigInt!
 
@@ -922,6 +925,8 @@ type VaultSnapshot @entity(timeseries: true) {
   id: Int8!
   timestamp: Timestamp!
   vault: Vault!
+  stakeEarnedAssets: BigInt!
+  extraEarnedAssets: BigInt!
   earnedAssets: BigInt!
   totalAssets: BigInt!
   totalShares: BigInt!
@@ -935,6 +940,8 @@ type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
   id: Int8!
   timestamp: Timestamp!
   vault: Vault!
+  stakeEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "stakeEarnedAssets")
+  extraEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "extraEarnedAssets")
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
   totalShares: BigInt! @aggregate(fn: "last", arg: "totalShares")

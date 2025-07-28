@@ -377,6 +377,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
     decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
   }
 
+  allocator.exitingAssets = allocator.exitingAssets.plus(assets)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
@@ -449,6 +450,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   const distributor = loadDistributor()!
   const allocator = loadAllocator(owner, vaultAddress)!
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
+  allocator.exitingAssets = allocator.exitingAssets.plus(assets)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
@@ -524,6 +526,14 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const distributor = loadDistributor()!
   const allocator = loadAllocator(Address.fromBytes(prevExitRequest.owner), vaultAddress)!
+  allocator.exitingAssets = allocator.exitingAssets.minus(claimedAssets)
+  if (allocator.exitingAssets.lt(BigInt.zero())) {
+    log.warning('[Vault] Exiting assets for allocator {} in vault {} is negative after claim', [
+      allocator.address.toHex(),
+      vaultAddressHex,
+    ])
+    allocator.exitingAssets = BigInt.zero()
+  }
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 

@@ -145,6 +145,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     // if total assets are zero, it means the vault must apply the fix to the exit queue introduced in v4 vaults
     if (allocator && exitRequest.totalAssets.gt(BigInt.zero())) {
       allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(earnedAssets)
+      allocator.exitingAssets = allocator.exitingAssets.plus(earnedAssets)
       allocator.save()
     }
 
