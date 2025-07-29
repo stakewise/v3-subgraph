@@ -527,12 +527,20 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const distributor = loadDistributor()!
   const allocator = loadAllocator(Address.fromBytes(prevExitRequest.owner), vaultAddress)!
   allocator.exitingAssets = allocator.exitingAssets.minus(claimedAssets)
+  allocator.unclaimedAssets = allocator.unclaimedAssets.minus(claimedAssets)
   if (allocator.exitingAssets.lt(BigInt.zero())) {
     log.warning('[Vault] Exiting assets for allocator {} in vault {} is negative after claim', [
       allocator.address.toHex(),
       vaultAddressHex,
     ])
     allocator.exitingAssets = BigInt.zero()
+  }
+  if (allocator.unclaimedAssets.lt(BigInt.zero())) {
+    log.warning('[Vault] Unclaimed assets for allocator {} in vault {} is negative after claim', [
+      allocator.address.toHex(),
+      vaultAddressHex,
+    ])
+    allocator.unclaimedAssets = BigInt.zero()
   }
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()

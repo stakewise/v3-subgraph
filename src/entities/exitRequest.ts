@@ -116,6 +116,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
       continue
     }
     let totalAssetsBefore = exitRequest.totalAssets
+    let exitedAssetsBefore = exitRequest.exitedAssets
 
     // If multiple tickets remain, recalculate total assets. Otherwise, set total to exitedAssets.
     if (leftTickets.gt(one)) {
@@ -136,16 +137,18 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
 
     exitRequest.save()
 
-    const earnedAssets = exitRequest.totalAssets.minus(totalAssetsBefore)
-    if (earnedAssets.isZero()) {
+    const totalAssetsDelta = exitRequest.totalAssets.minus(totalAssetsBefore)
+    const exitedAssetsDelta = exitRequest.exitedAssets.minus(exitedAssetsBefore)
+    if (totalAssetsDelta.isZero() && exitedAssetsDelta.isZero()) {
       continue
     }
 
     const allocator = loadAllocator(Address.fromBytes(exitRequest.receiver), vaultAddr)
     // if total assets are zero, it means the vault must apply the fix to the exit queue introduced in v4 vaults
     if (allocator && exitRequest.totalAssets.gt(BigInt.zero())) {
-      allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(earnedAssets)
-      allocator.exitingAssets = allocator.exitingAssets.plus(earnedAssets)
+      allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(totalAssetsDelta)
+      allocator.exitingAssets = allocator.exitingAssets.plus(totalAssetsDelta)
+      allocator.unclaimedAssets = allocator.unclaimedAssets.plus(exitedAssetsDelta)
       allocator.save()
     }
 
@@ -154,7 +157,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     if (osTokenHolder && exitRequest.totalAssets.gt(BigInt.zero())) {
       const osTokenVault = getOsTokenHolderVault(network, osTokenHolder)
       if (osTokenVault && osTokenVault.equals(vaultAddr)) {
-        osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(earnedAssets)
+        osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(totalAssetsDelta)
         osTokenHolder.save()
       }
     }

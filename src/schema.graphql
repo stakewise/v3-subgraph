@@ -24,6 +24,9 @@ type Allocator @entity(immutable: false) {
   "The allocator's assets amount that are exiting"
   exitingAssets: BigInt!
 
+  "The allocator's assets amount that are unclaimed"
+  unclaimedAssets: BigInt!
+
   "The allocator's minted OsToken shares amount"
   mintedOsTokenShares: BigInt!
 
