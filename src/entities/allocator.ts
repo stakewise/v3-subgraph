@@ -80,7 +80,6 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.assets = BigInt.zero()
     vaultAllocator.mintedOsTokenShares = BigInt.zero()
     vaultAllocator.exitingAssets = BigInt.zero()
-    vaultAllocator.unclaimedAssets = BigInt.zero()
     vaultAllocator.ltv = BigDecimal.zero()
     vaultAllocator.ltvStatus = LtvStatusStrings[LtvStatus.Healthy]
     vaultAllocator.address = allocatorAddress
@@ -390,7 +389,7 @@ export function snapshotAllocator(
   allocatorSnapshot.totalAssets = totalAssets
   allocatorSnapshot.apy = calculateApy(
     allocatorSnapshot.earnedAssets,
-    totalAssets.minus(allocatorSnapshot.stakeEarnedAssets).minus(allocator.unclaimedAssets),
+    totalAssets.minus(allocatorSnapshot.stakeEarnedAssets),
     duration,
   )
   allocatorSnapshot.ltv = allocator.ltv

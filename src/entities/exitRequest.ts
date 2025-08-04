@@ -116,7 +116,6 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
       continue
     }
     let totalAssetsBefore = exitRequest.totalAssets
-    let exitedAssetsBefore = exitRequest.exitedAssets
 
     // If multiple tickets remain, recalculate total assets. Otherwise, set total to exitedAssets.
     if (leftTickets.gt(one)) {
@@ -138,8 +137,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     exitRequest.save()
 
     const totalAssetsDelta = exitRequest.totalAssets.minus(totalAssetsBefore)
-    const exitedAssetsDelta = exitRequest.exitedAssets.minus(exitedAssetsBefore)
-    if (totalAssetsDelta.isZero() && exitedAssetsDelta.isZero()) {
+    if (totalAssetsDelta.isZero()) {
       continue
     }
 
@@ -148,7 +146,6 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     if (allocator && exitRequest.totalAssets.gt(BigInt.zero())) {
       allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(totalAssetsDelta)
       allocator.exitingAssets = allocator.exitingAssets.plus(totalAssetsDelta)
-      allocator.unclaimedAssets = allocator.unclaimedAssets.plus(exitedAssetsDelta)
       allocator.save()
     }
 
