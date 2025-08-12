@@ -940,7 +940,7 @@ templates:
           handler: handleRewardsWithdrawn
         - event: OwnershipTransferred(indexed address,indexed address)
           handler: handleOwnershipTransferred
-        - event: ClaimerUpdated(address,address)
+        - event: ClaimerUpdated(indexed address,indexed address)
           handler: handleClaimerUpdated
   - kind: ethereum/contract
     name: UniswapPool

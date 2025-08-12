@@ -20,7 +20,7 @@ import {
   updateLeveragePositionOsTokenSharesAndAssets,
   updateLeveragePositionPeriodEarnedAssets,
 } from '../entities/leverageStrategy'
-import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
+import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import {
   AllocatorActionType,
   createAllocatorAction,
@@ -177,6 +177,17 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
     totalAssetsAfter.minus(totalAssetsBefore),
   )
   _updateAllocatorAndOsTokenHolderApys(aave, network, osToken, osTokenConfig, distributor, vault, userAddress)
+
+  createAllocatorAction(
+    event,
+    vaultAddress,
+    AllocatorActionType.BoostExitQueueEntered,
+    userAddress,
+    null,
+    position.exitingOsTokenShares.plus(convertAssetsToOsTokenShares(osToken, position.exitingAssets)),
+  )
+
+  createTransaction(event.transaction.hash.toHex())
 
   log.info('[LeverageStrategy] ExitQueueEntered vault={} user={} positionTicket={}', [
     vaultAddressHex,
