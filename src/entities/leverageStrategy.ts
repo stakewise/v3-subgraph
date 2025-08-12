@@ -48,8 +48,6 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
     leverageStrategyPosition.exitingPercent = BigInt.zero()
     leverageStrategyPosition.exitingOsTokenShares = BigInt.zero()
     leverageStrategyPosition.exitingAssets = BigInt.zero()
-    leverageStrategyPosition._totalAssets = BigInt.zero()
-    leverageStrategyPosition._totalOsTokenShares = BigInt.zero()
     leverageStrategyPosition.save()
   }
 
@@ -128,20 +126,12 @@ export function updateLeveragePositionOsTokenSharesAndAssets(
 
 export function updateLeveragePositionPeriodEarnedAssets(
   network: Network,
-  aave: Aave,
   osToken: OsToken,
   vault: Vault,
   position: LeverageStrategyPosition,
+  earnedOsTokenShares: BigInt,
+  earnedAssets: BigInt,
 ): void {
-  const totalOsTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const totalAssetsBefore = position.assets.plus(position.exitingAssets)
-  updateLeveragePositionOsTokenSharesAndAssets(aave, osToken, position)
-  const totalOsTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
-  const totalAssetsAfter = position.assets.plus(position.exitingAssets)
-
-  const earnedOsTokenShares = totalOsTokenSharesAfter.minus(totalOsTokenSharesBefore)
-  const earnedAssets = totalAssetsAfter.minus(totalAssetsBefore)
-
   // update allocator
   const userAddress = Address.fromBytes(position.user)
   const vaultAddr = Address.fromString(vault.id)
@@ -169,6 +159,14 @@ export function getBoostPositionAnnualReward(
   strategyPosition: LeverageStrategyPosition,
   distributor: Distributor,
 ): BigInt {
+  if (
+    strategyPosition.osTokenShares.isZero() &&
+    strategyPosition.assets.isZero() &&
+    strategyPosition.exitingOsTokenShares.isZero() &&
+    strategyPosition.exitingAssets.isZero()
+  ) {
+    return BigInt.zero()
+  }
   const vaultAddress = Address.fromString(strategyPosition.vault)
   const proxyAddress = Address.fromBytes(strategyPosition.proxy)
 

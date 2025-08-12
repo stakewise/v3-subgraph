@@ -41,7 +41,7 @@ export function handleRewardSplitterCreated(event: RewardSplitterCreated): void 
 
   if (version >= BigInt.fromI32(3)) {
     const vault = loadVault(Address.fromString(vaultAddressHex))
-    if (vault == null) {
+    if (!vault) {
       log.error('[RewardSplitterFactory] Vault not found address={}', [vaultAddressHex])
       return
     }
@@ -122,7 +122,11 @@ export function handleRewardsWithdrawn(event: RewardsWithdrawn): void {
   const rewardSplitterAddressHex = rewardSplitterAddress.toHex()
 
   const rewardSplitter = RewardSplitter.load(rewardSplitterAddressHex)!
-  const vault = loadVault(Address.fromString(rewardSplitter.vault))!
+  const vault = loadVault(Address.fromString(rewardSplitter.vault))
+  if (!vault) {
+    log.error('[RewardSplitter] Vault not found for address={}', [rewardSplitter.vault])
+    return
+  }
 
   const shareHolder = loadRewardSplitterShareHolder(account, rewardSplitterAddress)!
   syncEarnedVaultAssets(vault, shareHolder)

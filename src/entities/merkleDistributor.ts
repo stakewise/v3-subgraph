@@ -28,10 +28,9 @@ import {
 import { Safe as SafeContract } from '../../generated/MerkleDistributor/Safe'
 import { loadUniswapPool } from './uniswap'
 import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
-import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
+import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { loadVault } from './vault'
 import { calculateAverage, getAnnualReward, getCompoundedApy } from '../helpers/utils'
-import { loadAavePosition } from './aave'
 import { createOrLoadAllocator, loadAllocator } from './allocator'
 import { convertTokenAmountToAssets, getSupportedTokens } from './exchangeRates'
 import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
@@ -241,7 +240,11 @@ export function updateDistributions(
     const distType = convertStringToDistributionType(dist.distributionType)
 
     if (distType == DistributionType.VAULT) {
-      const vault = loadVault(Address.fromBytes(dist.data))!
+      const vault = loadVault(Address.fromBytes(dist.data))
+      if (!vault) {
+        log.error('[MerkleDistributor] updateDistributions vault not found for id={}', [dist.id])
+        continue
+      }
       const token = Address.fromBytes(dist.token)
 
       distributedAmount = dist.amount.times(passedDuration).div(totalDuration)
@@ -252,7 +255,14 @@ export function updateDistributions(
       vault.save()
     } else if (distType == DistributionType.LEVERAGE_STRATEGY) {
       const targetApy = getLeverageStrategyTargetApy(dist.data)
-      const response = distributeToLeverageStrategyUsers(network, exchangeRate, targetApy, passedDuration, dist.amount)
+      const response = distributeToLeverageStrategyUsers(
+        network,
+        osToken,
+        exchangeRate,
+        targetApy,
+        passedDuration,
+        dist.amount,
+      )
       distributedAmount = response[1]
       principalAssets = convertOsTokenSharesToAssets(osToken, response[0])
       distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
@@ -548,6 +558,7 @@ export function distributeToOsTokenUsdcUniPoolUsers(
 
 export function distributeToLeverageStrategyUsers(
   network: Network,
+  osToken: OsToken,
   exchangeRate: ExchangeRate,
   targetApy: BigDecimal,
   totalDuration: BigInt,
@@ -568,13 +579,12 @@ export function distributeToLeverageStrategyUsers(
         continue
       }
       // calculate user principal
-      const aavePosition = loadAavePosition(Address.fromBytes(position.proxy))!
-      const user = Address.fromBytes(position.user)
-
-      const userPrincipalOsTokenShares = aavePosition.suppliedOsTokenShares
+      const userPrincipalOsTokenShares = position.osTokenShares
+        .plus(position.exitingOsTokenShares)
+        .plus(convertAssetsToOsTokenShares(osToken, position.assets.plus(position.exitingAssets)))
 
       vaults.push(Address.fromString(vault.id))
-      users.push(user)
+      users.push(Address.fromBytes(position.user))
       usersOsTokenShares.push(userPrincipalOsTokenShares)
       totalOsTokenShares = totalOsTokenShares.plus(userPrincipalOsTokenShares)
     }
@@ -674,6 +684,9 @@ function _distributeReward(
   for (let i = 0; i < users.length; i++) {
     const user = users[i]
     const userPoints = points[i]
+    if (userPoints.le(BigInt.zero())) {
+      continue
+    }
 
     let userReward: BigInt
     if (i == users.length - 1) {

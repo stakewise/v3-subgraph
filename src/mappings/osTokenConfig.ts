@@ -28,7 +28,11 @@ export function handleOsTokenConfigV2Updated(event: OsTokenConfigV2Updated): voi
   if (vaultAddress.equals(Address.zero())) {
     updateOsTokenConfig('2', ltvPercent, liqThresholdPercent)
   } else {
-    const vault = loadVault(vaultAddress)!
+    const vault = loadVault(vaultAddress)
+    if (vault === null) {
+      log.error('[OsTokenConfig] OsTokenConfigUpdated vault={} not found', [vaultAddress.toHex()])
+      return
+    }
     const osTokenConfigId = vaultAddress.toHex()
 
     updateOsTokenConfig(osTokenConfigId, ltvPercent, liqThresholdPercent)

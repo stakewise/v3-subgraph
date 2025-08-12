@@ -324,7 +324,7 @@ export function handleHarvested(event: Harvested): void {
   const totalAssetsDelta = event.params.totalAssetsDelta
 
   const vault = loadVault(vaultAddress)
-  if (vault == null) {
+  if (!vault) {
     log.error('[Keeper] Harvested vault={} not found', [vaultAddress.toHex()])
     return
   }
@@ -350,7 +350,7 @@ export function handleValidatorsApproval(event: ValidatorsApproval): void {
   const vaultAddress = event.params.vault
   const vault = loadVault(vaultAddress)
 
-  if (vault === null) {
+  if (!vault) {
     log.error('[Keeper] ValidatorsApproval vault={} not found', [vaultAddress.toHex()])
     return
   }

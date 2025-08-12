@@ -114,7 +114,11 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
   // distribute to all vault users
   const network = loadNetwork()!
   const exchangeRate = loadExchangeRate()!
-  const vault = loadVault(Address.fromBytes(extraData))!
+  const vault = loadVault(Address.fromBytes(extraData))
+  if (vault === null) {
+    log.error('[MerkleDistributor] OneTimeDistributionAdded vault={} not found', [extraData.toHex()])
+    return
+  }
   let selectedUsers = false
   if (userRewards !== null) {
     selectedUsers = true
@@ -219,10 +223,17 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
     for (let j = 0; j < tokens.length; j++) {
       const claimedAmountId = `${tokens[j].toHex()}-${user.toHex()}`
       const claimedAmount = DistributorClaimedAmount.load(claimedAmountId)
+      const amount = amounts[j]
       if (claimedAmount == null) {
-        unclaimedAmounts.push(amounts[j])
+        unclaimedAmounts.push(amount)
+      } else if (claimedAmount.cumulativeClaimedAmount.gt(amount)) {
+        log.error(
+          '[MerkleDistributor] RewardsRootUpdated claimed amount is greater than total amount for user={} token={} delta={}',
+          [user.toHex(), tokens[j].toHex(), claimedAmount.cumulativeClaimedAmount.minus(amount).toString()],
+        )
+        unclaimedAmounts.push(BigInt.zero())
       } else {
-        unclaimedAmounts.push(amounts[j].minus(claimedAmount.cumulativeClaimedAmount))
+        unclaimedAmounts.push(amount.minus(claimedAmount.cumulativeClaimedAmount))
       }
     }
 

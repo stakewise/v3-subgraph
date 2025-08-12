@@ -21,7 +21,11 @@ export function handlePositionCreated(event: PositionCreated): void {
   const exitPositionTicket = event.params.exitPositionTicket
 
   const aave = loadAave()!
-  const vault = loadVault(vaultAddress)!
+  const vault = loadVault(vaultAddress)
+  if (!vault) {
+    log.error('[OsTokenVaultEscrow] PositionCreated vault={} not found', [vaultAddress.toHex()])
+    return
+  }
   const osToken = loadOsToken()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const distributor = loadDistributor()!

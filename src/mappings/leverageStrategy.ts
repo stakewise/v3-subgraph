@@ -89,17 +89,35 @@ export function handleDeposited(event: Deposited): void {
   const network = loadNetwork()!
   const osToken = loadOsToken()!
   const distributor = loadDistributor()!
-  const vault = loadVault(vaultAddress)!
+  const vault = loadVault(vaultAddress)
+  if (!vault) {
+    log.error('[LeverageStrategy] Vault not found for address={}', [vaultAddress.toHex()])
+    return
+  }
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
   // create allocator if user wasn't depositing to the vault before
   createOrLoadAllocator(userAddress, vaultAddress)
   const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
-  updateLeveragePositionPeriodEarnedAssets(network, aave, osToken, vault, position)
+
+  const totalOsTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
+  const totalAssetsBefore = position.assets.plus(position.exitingAssets)
 
   // update position with new shares and assets
   updateAavePosition(createOrLoadAavePosition(Address.fromBytes(position.proxy)))
   updateLeveragePositionOsTokenSharesAndAssets(aave, osToken, position)
+
+  const totalOsTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
+  const totalAssetsAfter = position.assets.plus(position.exitingAssets)
+
+  updateLeveragePositionPeriodEarnedAssets(
+    network,
+    osToken,
+    vault,
+    position,
+    totalOsTokenSharesAfter.minus(totalOsTokenSharesBefore).minus(depositedOsTokenShares),
+    totalAssetsAfter.minus(totalAssetsBefore),
+  )
   _updateAllocatorAndOsTokenHolderApys(aave, network, osToken, osTokenConfig, distributor, vault, userAddress)
 
   createTransaction(event.transaction.hash.toHex())
@@ -130,17 +148,34 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const aave = loadAave()!
   const osToken = loadOsToken()!
   const network = loadNetwork()!
-  const vault = loadVault(vaultAddress)!
+  const vault = loadVault(vaultAddress)
+  if (!vault) {
+    log.error('[LeverageStrategy] Vault not found for address={}', [vaultAddressHex])
+    return
+  }
   const distributor = loadDistributor()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
   const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
-  updateLeveragePositionPeriodEarnedAssets(network, aave, osToken, vault, position)
+
+  const totalOsTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
+  const totalAssetsBefore = position.assets.plus(position.exitingAssets)
 
   // update position with new shares and assets
   position.exitRequest = `${vaultAddressHex}-${positionTicket}`
   position.exitingPercent = exitingPercent
   updateLeveragePositionOsTokenSharesAndAssets(aave, osToken, position)
+
+  const totalOsTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
+  const totalAssetsAfter = position.assets.plus(position.exitingAssets)
+  updateLeveragePositionPeriodEarnedAssets(
+    network,
+    osToken,
+    vault,
+    position,
+    totalOsTokenSharesAfter.minus(totalOsTokenSharesBefore),
+    totalAssetsAfter.minus(totalAssetsBefore),
+  )
   _updateAllocatorAndOsTokenHolderApys(aave, network, osToken, osTokenConfig, distributor, vault, userAddress)
 
   log.info('[LeverageStrategy] ExitQueueEntered vault={} user={} positionTicket={}', [
@@ -154,22 +189,40 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const vaultAddress = event.params.vault
   const userAddress = event.params.user
   const claimedOsTokenShares = event.params.osTokenShares
+  const claimedAssets = event.params.assets
 
   const osToken = loadOsToken()!
   const network = loadNetwork()!
   const aave = loadAave()!
   const distributor = loadDistributor()!
-  const vault = loadVault(vaultAddress)!
+  const vault = loadVault(vaultAddress)
+  if (!vault) {
+    log.error('[LeverageStrategy] Vault not found for address={}', [vaultAddress.toHex()])
+    return
+  }
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
   const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
-  updateLeveragePositionPeriodEarnedAssets(network, aave, osToken, vault, position)
+
+  const totalOsTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
+  const totalAssetsBefore = position.assets.plus(position.exitingAssets)
 
   // update position with new shares and assets
   position.exitRequest = null
   position.exitingPercent = BigInt.zero()
   updateAavePosition(loadAavePosition(Address.fromBytes(position.proxy))!)
   updateLeveragePositionOsTokenSharesAndAssets(aave, osToken, position)
+
+  const totalOsTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
+  const totalAssetsAfter = position.assets.plus(position.exitingAssets)
+  updateLeveragePositionPeriodEarnedAssets(
+    network,
+    osToken,
+    vault,
+    position,
+    totalOsTokenSharesAfter.plus(claimedOsTokenShares).minus(totalOsTokenSharesBefore),
+    totalAssetsAfter.plus(claimedAssets).minus(totalAssetsBefore),
+  )
   _updateAllocatorAndOsTokenHolderApys(aave, network, osToken, osTokenConfig, distributor, vault, userAddress)
 
   createAllocatorAction(
@@ -217,7 +270,24 @@ export function syncLeverageStrategyPositions(block: ethereum.Block): void {
     // update leverage strategy positions
     const leveragePositions: Array<LeverageStrategyPosition> = vault.leveragePositions.load()
     for (let j = 0; j < leveragePositions.length; j++) {
-      updateLeveragePositionPeriodEarnedAssets(network, aave, osToken, vault, leveragePositions[j])
+      const position = leveragePositions[j]
+
+      const totalOsTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
+      const totalAssetsBefore = position.assets.plus(position.exitingAssets)
+
+      // update position with new shares and assets
+      updateLeveragePositionOsTokenSharesAndAssets(aave, osToken, position)
+
+      const totalOsTokenSharesAfter = position.osTokenShares.plus(position.exitingOsTokenShares)
+      const totalAssetsAfter = position.assets.plus(position.exitingAssets)
+      updateLeveragePositionPeriodEarnedAssets(
+        network,
+        osToken,
+        vault,
+        position,
+        totalOsTokenSharesAfter.minus(totalOsTokenSharesBefore),
+        totalAssetsAfter.minus(totalAssetsBefore),
+      )
     }
   }
 
