@@ -110,3 +110,11 @@ export function encodeContractCall(target: Address, data: Bytes): ethereum.Value
 export function rayMul(a: BigInt, b: BigInt): BigInt {
   return a.times(b).plus(halfRAY).div(RAY)
 }
+
+export function parseIpfsHash(ipfsHash: string): string | null {
+  const _hash = ipfsHash.trim()
+  if (_hash.length !== 46 && _hash.length !== 52) {
+    return null
+  }
+  return _hash
+}

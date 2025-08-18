@@ -110,7 +110,11 @@
     "address": "0xd0747320d5457256D0203dfe61209Afbb90d22D7",
     "startBlock": "14192260"
   },
-  "aaveLeverageStrategy": {
+  "aaveLeverageStrategyV1": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "startBlock": "10627614"
+  },
+  "aaveLeverageStrategyV2": {
     "address": "0x0000000000000000000000000000000000000000",
     "startBlock": "10627614"
   },

@@ -830,6 +830,9 @@ type LeverageStrategyPosition @entity(immutable: false) {
 
   "The unprocessed exit request. Can be null if nothing is exiting."
   exitRequest: ExitRequest
+
+  "The version of the leverage strategy contract"
+  version: BigInt!
 }
 
 """

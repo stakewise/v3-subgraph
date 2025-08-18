@@ -615,25 +615,26 @@ export function distributeToLeverageStrategyUsers(
 }
 
 export function fetchRewardsData(rewardsIpfsHash: string): Array<JSONValue> | null {
-  if (rewardsIpfsHash === '') {
+  const ipfsHash = rewardsIpfsHash.trim()
+  if (ipfsHash.length !== 46 && ipfsHash.length !== 52) {
     return null
   }
 
-  let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
+  let data: Bytes | null = ipfs.cat(ipfsHash)
   let tries = 10
   while (data === null && tries > 0) {
-    log.warning('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}, retrying', [rewardsIpfsHash])
+    log.warning('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}, retrying', [ipfsHash])
     data = ipfs.cat(rewardsIpfsHash)
     tries -= 1
   }
   if (data === null) {
-    log.error('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}', [rewardsIpfsHash])
+    log.error('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}', [ipfsHash])
     return null
   }
 
   const parsedData = json.fromBytes(data as Bytes)
   if (parsedData.kind != JSONValueKind.ARRAY) {
-    log.error('[MerkleDistributor] OneTimeDistributionAdded data is not an array for hash={}', [rewardsIpfsHash])
+    log.error('[MerkleDistributor] OneTimeDistributionAdded data is not an array for hash={}', [ipfsHash])
     return null
   }
   return parsedData.toArray()

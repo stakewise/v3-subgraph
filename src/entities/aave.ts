@@ -1,9 +1,9 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { Aave, AavePosition } from '../../generated/schema'
 import { AaveProtocolDataProvider as AaveProtocolDataProviderContract } from '../../generated/Keeper/AaveProtocolDataProvider'
-import { AaveLeverageStrategy } from '../../generated/AaveLeverageStrategy/AaveLeverageStrategy'
+import { AaveLeverageStrategy } from '../../generated/AaveLeverageStrategyV1/AaveLeverageStrategy'
 import {
-  AAVE_LEVERAGE_STRATEGY,
+  AAVE_LEVERAGE_STRATEGY_V1,
   AAVE_PROTOCOL_DATA_PROVIDER,
   AAVE_PROTOCOL_DATA_PROVIDER_START_BLOCK,
   ASSET_TOKEN,
@@ -119,7 +119,7 @@ export function updateAavePositions(aave: Aave): void {
   for (let i = 0; i < positionsCount; i++) {
     position = positions[i]
     contractCalls.push(
-      encodeContractCall(AAVE_LEVERAGE_STRATEGY, _getBorrowStateCall(Address.fromBytes(position.user))),
+      encodeContractCall(AAVE_LEVERAGE_STRATEGY_V1, _getBorrowStateCall(Address.fromBytes(position.user))),
     )
   }
 
@@ -134,7 +134,7 @@ export function updateAavePositions(aave: Aave): void {
 }
 
 export function updateAavePosition(position: AavePosition): void {
-  const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
+  const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY_V1)
   const borrowState = aaveLeverageStrategy.getBorrowState(Address.fromBytes(position.user))
   position.borrowedAssets = borrowState.getBorrowedAssets()
   position.suppliedOsTokenShares = borrowState.getSuppliedOsTokenShares()

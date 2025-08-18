@@ -153,6 +153,8 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   rewardSplitter.owner = event.params.newOwner
   rewardSplitter.save()
 
+  createTransaction(event.transaction.hash.toHex())
+
   log.info('[RewardSplitter] OwnershipTransferred rewardSplitter={} newOwner={}', [
     event.address.toHex(),
     event.params.newOwner.toHex(),
@@ -163,6 +165,8 @@ export function handleClaimerUpdated(event: ClaimerUpdated): void {
   const rewardSplitter = RewardSplitter.load(event.address.toHex())!
   rewardSplitter.claimer = event.params.claimer
   rewardSplitter.save()
+
+  createTransaction(event.transaction.hash.toHex())
 
   log.info('[RewardSplitter] ClaimerUpdated rewardSplitter={} newClaimer={}', [
     event.address.toHex(),

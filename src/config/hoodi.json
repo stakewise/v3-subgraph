@@ -116,9 +116,13 @@
     "address": "0xc61847d6fc1f64162ff9f1d06205d9c4cdb2f239",
     "startBlock": "99438"
   },
-  "aaveLeverageStrategy": {
+  "aaveLeverageStrategyV1": {
     "address": "0x154628AC72533aad39aBdcaE2055Dced0b4Eef4D",
     "startBlock": "99343"
+  },
+  "aaveLeverageStrategyV2": {
+    "address": "0x6A2911F94da08Da01158d645Bf85152b338E015D",
+    "startBlock": "994010"
   },
   "v2RewardToken": {
     "address": "0x75c57bd50A3EB7291Da3429956D3566E0153A38f",

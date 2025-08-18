@@ -10,8 +10,8 @@ import {
   VaultSnapshot,
 } from '../../generated/schema'
 import {
-  AAVE_LEVERAGE_STRATEGY,
-  AAVE_LEVERAGE_STRATEGY_START_BLOCK,
+  AAVE_LEVERAGE_STRATEGY_V1,
+  AAVE_LEVERAGE_STRATEGY_V1_START_BLOCK,
   DEPOSIT_DATA_REGISTRY,
   FOX_VAULT1,
   FOX_VAULT2,
@@ -450,8 +450,8 @@ export function updateVaultMaxBoostApy(
   blockNumber: BigInt,
 ): void {
   if (
-    AAVE_LEVERAGE_STRATEGY.equals(Address.zero()) ||
-    blockNumber.lt(BigInt.fromString(AAVE_LEVERAGE_STRATEGY_START_BLOCK)) ||
+    AAVE_LEVERAGE_STRATEGY_V1.equals(Address.zero()) ||
+    blockNumber.lt(BigInt.fromString(AAVE_LEVERAGE_STRATEGY_V1_START_BLOCK)) ||
     !vault.isOsTokenEnabled ||
     !vault.isCollateralized
   ) {

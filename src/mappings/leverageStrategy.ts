@@ -3,7 +3,8 @@ import {
   Deposited,
   ExitedAssetsClaimed,
   ExitQueueEntered,
-} from '../../generated/AaveLeverageStrategy/AaveLeverageStrategy'
+  StrategyProxyUpgraded,
+} from '../../generated/AaveLeverageStrategyV1/AaveLeverageStrategy'
 import { StrategyProxyCreated } from '../../generated/Keeper/AaveLeverageStrategy'
 import {
   Distributor,
@@ -41,6 +42,7 @@ import {
 } from '../entities/aave'
 import { loadDistributor } from '../entities/merkleDistributor'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
+import { AAVE_LEVERAGE_STRATEGY_V1 } from '../helpers/constants'
 
 function _updateAllocatorAndOsTokenHolderApys(
   aave: Aave,
@@ -69,7 +71,7 @@ export function handleStrategyProxyCreated(event: StrategyProxyCreated): void {
   createOrLoadAavePosition(proxyAddress)
   createOrLoadAllocator(proxyAddress, vaultAddress)
 
-  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
+  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress, event.address)
   position.proxy = proxyAddress
   position.save()
 
@@ -98,7 +100,7 @@ export function handleDeposited(event: Deposited): void {
 
   // create allocator if user wasn't depositing to the vault before
   createOrLoadAllocator(userAddress, vaultAddress)
-  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
+  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress, event.address)
 
   const totalOsTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
   const totalAssetsBefore = position.assets.plus(position.exitingAssets)
@@ -156,7 +158,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
   const distributor = loadDistributor()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
-  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
+  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress, event.address)
 
   const totalOsTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
   const totalAssetsBefore = position.assets.plus(position.exitingAssets)
@@ -213,7 +215,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   }
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
-  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress)
+  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress, event.address)
 
   const totalOsTokenSharesBefore = position.osTokenShares.plus(position.exitingOsTokenShares)
   const totalAssetsBefore = position.assets.plus(position.exitingAssets)
@@ -248,6 +250,23 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   createTransaction(event.transaction.hash.toHex())
 
   log.info('[LeverageStrategy] ExitedAssetsClaimed vault={} user={}', [vaultAddress.toHex(), userAddress.toHex()])
+}
+
+export function handleStrategyProxyUpgraded(event: StrategyProxyUpgraded): void {
+  const newStrategy = event.params.strategy
+  const vaultAddress = event.params.vault
+  const userAddress = event.params.user
+
+  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress, event.address)
+  position.version = newStrategy.equals(AAVE_LEVERAGE_STRATEGY_V1) ? BigInt.fromI32(1) : BigInt.fromI32(2)
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[LeverageStrategy] StrategyProxyUpgraded vault={} user={} newStrategy={}', [
+    vaultAddress.toHex(),
+    userAddress.toHex(),
+    newStrategy.toHex(),
+  ])
 }
 
 export function syncLeverageStrategyPositions(block: ethereum.Block): void {

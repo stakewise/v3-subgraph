@@ -10,8 +10,8 @@ import {
   OsTokenExitRequest,
   Vault,
 } from '../../generated/schema'
-import { AaveLeverageStrategy } from '../../generated/AaveLeverageStrategy/AaveLeverageStrategy'
-import { AAVE_LEVERAGE_STRATEGY, WAD } from '../helpers/constants'
+import { AaveLeverageStrategy } from '../../generated/AaveLeverageStrategyV1/AaveLeverageStrategy'
+import { AAVE_LEVERAGE_STRATEGY_V2, WAD } from '../helpers/constants'
 import { createOrLoadAllocator, loadAllocator } from './allocator'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
 import { getAnnualReward, getCompoundedApy } from '../helpers/utils'
@@ -30,14 +30,18 @@ export function loadLeverageStrategyPosition(vault: Address, user: Address): Lev
   return LeverageStrategyPosition.load(leverageStrategyPositionId)
 }
 
-export function createOrLoadLeverageStrategyPosition(vault: Address, user: Address): LeverageStrategyPosition {
+export function createOrLoadLeverageStrategyPosition(
+  vault: Address,
+  user: Address,
+  leverageStrategy: Address,
+): LeverageStrategyPosition {
   const vaultAddressHex = vault.toHex()
   const leverageStrategyPositionId = `${vaultAddressHex}-${user.toHex()}`
 
   let leverageStrategyPosition = LeverageStrategyPosition.load(leverageStrategyPositionId)
 
   if (leverageStrategyPosition === null) {
-    const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
+    const aaveLeverageStrategy = AaveLeverageStrategy.bind(leverageStrategy)
     leverageStrategyPosition = new LeverageStrategyPosition(leverageStrategyPositionId)
     leverageStrategyPosition.proxy = aaveLeverageStrategy.getStrategyProxy(vault, user)
     leverageStrategyPosition.user = user
@@ -48,6 +52,9 @@ export function createOrLoadLeverageStrategyPosition(vault: Address, user: Addre
     leverageStrategyPosition.exitingPercent = BigInt.zero()
     leverageStrategyPosition.exitingOsTokenShares = BigInt.zero()
     leverageStrategyPosition.exitingAssets = BigInt.zero()
+    leverageStrategyPosition.version = leverageStrategy.equals(AAVE_LEVERAGE_STRATEGY_V2)
+      ? BigInt.fromI32(2)
+      : BigInt.fromI32(1)
     leverageStrategyPosition.save()
   }
 

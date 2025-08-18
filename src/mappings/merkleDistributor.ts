@@ -37,6 +37,7 @@ import { loadVault } from '../entities/vault'
 import { loadNetwork } from '../entities/network'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { loadOsToken } from '../entities/osToken'
+import { parseIpfsHash } from '../helpers/utils'
 
 const secondsInYear = '31536000'
 
@@ -89,7 +90,7 @@ export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded
 }
 
 export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded): void {
-  const rewardsIpfsHash = event.params.rewardsIpfsHash
+  const rewardsIpfsHash = parseIpfsHash(event.params.rewardsIpfsHash)
   const token = event.params.token
   let totalAmountToDistribute = event.params.amount
   const extraData = event.params.extraData
@@ -105,10 +106,13 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
     return
   }
 
-  const userRewards = fetchRewardsData(rewardsIpfsHash)
-  if (rewardsIpfsHash !== '' && userRewards === null) {
-    log.error('[MerkleDistributor] OneTimeDistributionAdded rewardsIpfsHash={} not found', [rewardsIpfsHash])
-    return
+  let userRewards: Array<JSONValue> | null
+  if (rewardsIpfsHash != null) {
+    userRewards = fetchRewardsData(rewardsIpfsHash!)
+    if (userRewards == null) {
+      log.error('[MerkleDistributor] OneTimeDistributionAdded rewardsIpfsHash={} not found', [rewardsIpfsHash!])
+      return
+    }
   }
 
   // distribute to all vault users
@@ -131,7 +135,7 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
       userRewards,
     )
     if (totalAmountToDistribute.isZero()) {
-      log.error('[MerkleDistributor] No users found for vault={} rewardsIpfsHash={}', [vault.id, rewardsIpfsHash])
+      log.error('[MerkleDistributor] No users found for vault={} rewardsIpfsHash={}', [vault.id, rewardsIpfsHash!])
       return
     }
     // do not update vault._periodExtraEarnedAssets here as the reward was distributed to selected users only
