@@ -67,6 +67,10 @@ export function handleStrategyProxyCreated(event: StrategyProxyCreated): void {
   const vaultAddress = event.params.vault
   const userAddress = event.params.user
   const proxyAddress = event.params.proxy
+  if (!loadVault(vaultAddress)) {
+    log.error('[LeverageStrategy] Vault not found for address={}', [vaultAddress.toHex()])
+    return
+  }
 
   createOrLoadAavePosition(proxyAddress)
   createOrLoadAllocator(proxyAddress, vaultAddress)
