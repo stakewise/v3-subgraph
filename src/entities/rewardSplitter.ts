@@ -44,6 +44,17 @@ export function createOrLoadRewardSplitterShareHolder(
   return rewardSplitterShareHolder
 }
 
+export function syncEarnedVaultAssets(vault: Vault, shareHolder: RewardSplitterShareHolder): void {
+  const assetsBefore = shareHolder.earnedVaultAssets
+  shareHolder.earnedVaultAssets = convertSharesToAssets(vault, shareHolder.earnedVaultShares)
+
+  const allocator = createOrLoadAllocator(Address.fromBytes(shareHolder.address), Address.fromString(vault.id))
+  allocator._periodExtraEarnedAssets = allocator._periodExtraEarnedAssets.plus(
+    shareHolder.earnedVaultAssets.minus(assetsBefore),
+  )
+  allocator.save()
+}
+
 export function updateRewardSplitters(vault: Vault): void {
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     // wait for the migration
@@ -51,7 +62,7 @@ export function updateRewardSplitters(vault: Vault): void {
   }
 
   const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
-  const updateStateCalls = getUpdateStateCall(vault)
+  const updateStateCall = getUpdateStateCall(vault)
 
   let rewardSplitter: RewardSplitter
   const syncRewardsCall = Bytes.fromHexString(syncRewardsCallSelector)
@@ -71,24 +82,16 @@ export function updateRewardSplitters(vault: Vault): void {
       )
     }
 
-    let result = chunkedMulticall(updateStateCalls, calls)
+    let result = chunkedMulticall(updateStateCall, calls)
     // remove the first element (syncRewardsCall result)
     result = result.slice(1)
 
     let shareHolder: RewardSplitterShareHolder
-    let earnedVaultAssetsBefore: BigInt
     for (let j = 0; j < shareHolders.length; j++) {
       shareHolder = shareHolders[j]
-      earnedVaultAssetsBefore = shareHolder.earnedVaultAssets
       shareHolder.earnedVaultShares = ethereum.decode('uint256', result[j]!)!.toBigInt()
-      shareHolder.earnedVaultAssets = convertSharesToAssets(vault, shareHolder.earnedVaultShares)
+      syncEarnedVaultAssets(vault, shareHolder)
       shareHolder.save()
-
-      const allocator = createOrLoadAllocator(Address.fromBytes(shareHolder.address), Address.fromString(vault.id))
-      allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(
-        shareHolder.earnedVaultAssets.minus(earnedVaultAssetsBefore),
-      )
-      allocator.save()
     }
   }
 }

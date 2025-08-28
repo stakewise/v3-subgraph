@@ -1,6 +1,6 @@
 import { BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
 import { OsToken, OsTokenSnapshot } from '../../generated/schema'
-import { OsTokenVaultController as OsTokenVaultControllerContact } from '../../generated/PeriodicTasks/OsTokenVaultController'
+import { OsTokenVaultController as OsTokenVaultControllerContact } from '../../generated/OsTokenVaultController/OsTokenVaultController'
 import { OS_TOKEN_VAULT_CONTROLLER, WAD } from '../helpers/constants'
 import { calculateAverage } from '../helpers/utils'
 
@@ -89,11 +89,11 @@ export function getOsTokenApy(osToken: OsToken, useDayApy: boolean): BigDecimal 
   return calculateAverage(apys.slice(apys.length - snapshotsPerDay))
 }
 
-export function snapshotOsToken(osToken: OsToken, earnedAssets: BigInt, timestamp: BigInt): void {
+export function snapshotOsToken(osToken: OsToken, timestamp: BigInt): void {
   let apy = getOsTokenApy(osToken, true)
   const osTokenSnapshot = new OsTokenSnapshot(1)
   osTokenSnapshot.timestamp = timestamp.toI64()
-  osTokenSnapshot.earnedAssets = earnedAssets
+  osTokenSnapshot.earnedAssets = osToken._periodEarnedAssets
   osTokenSnapshot.totalAssets = osToken.totalAssets
   osTokenSnapshot.apy = apy
   osTokenSnapshot.save()

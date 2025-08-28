@@ -12,7 +12,11 @@ export function handleDepositDataManagerUpdated(event: DepositDataManagerUpdated
   const depositDataManager = event.params.depositDataManager
 
   // Vault must exist at the time of the event
-  const vault = Vault.load(vaultAddress) as Vault
+  const vault = Vault.load(vaultAddress)
+  if (!vault) {
+    log.error('[DepositDataRegistry] DepositDataManagerUpdated vault={} not found', [vaultAddress])
+    return
+  }
   vault.depositDataManager = depositDataManager
   vault.save()
 
@@ -56,7 +60,7 @@ export function handleDepositDataRootUpdated(event: DepositDataRootUpdated): voi
 
   // Vault must exist at the time of the event
   const vault = Vault.load(vaultAddress)
-  if (vault === null) {
+  if (!vault) {
     log.error('[DepositDataRegistry] DepositDataRootUpdated vault={} not found', [vaultAddress])
     return
   }

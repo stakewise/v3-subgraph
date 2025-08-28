@@ -6,7 +6,7 @@ import { GENESIS_IPFS_HASH } from '../helpers/constants'
 export function handleDepositEvent(event: DepositEvent): void {
   const publicKey = event.params.pubkey
   let networkValidator = NetworkValidator.load(publicKey)
-  if (networkValidator == null) {
+  if (networkValidator === null) {
     networkValidator = new NetworkValidator(publicKey)
     networkValidator.save()
   }
@@ -30,7 +30,7 @@ export function handleGenesisValidators(block: ethereum.Block): void {
   for (let i = 0; i < data!.length; i = i + 48) {
     let publicKey = Bytes.fromUint8Array(data!.slice(i, i + 48))
     let networkValidator = NetworkValidator.load(publicKey)
-    if (networkValidator == null) {
+    if (networkValidator === null) {
       networkValidator = new NetworkValidator(publicKey)
       networkValidator.save()
     }

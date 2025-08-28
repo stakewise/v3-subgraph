@@ -1,11 +1,11 @@
 import { Address, BigInt, log } from '@graphprotocol/graph-ts'
 import { RewardSplitter as RewardSplitterTemplate } from '../../generated/templates'
 import {
-  ClaimOnBehalfUpdated,
   RewardsWithdrawn,
   SharesDecreased,
   SharesIncreased,
   OwnershipTransferred,
+  ClaimerUpdated,
 } from '../../generated/templates/RewardSplitter/RewardSplitter'
 import { RewardSplitterCreated } from '../../generated/templates/RewardSplitterFactory/RewardSplitterFactory'
 import { RewardSplitter } from '../../generated/schema'
@@ -14,6 +14,7 @@ import {
   createOrLoadRewardSplitterShareHolder,
   getRewardSplitterVersion,
   loadRewardSplitterShareHolder,
+  syncEarnedVaultAssets,
 } from '../entities/rewardSplitter'
 import { convertSharesToAssets, loadVault } from '../entities/vault'
 
@@ -34,18 +35,18 @@ export function handleRewardSplitterCreated(event: RewardSplitterCreated): void 
 
   const rewardSplitter = new RewardSplitter(rewardSplitterAddress)
   rewardSplitter.version = version
-  rewardSplitter.isClaimOnBehalfEnabled = false
   rewardSplitter.totalShares = BigInt.zero()
   rewardSplitter.owner = owner
   rewardSplitter.vault = vaultAddressHex
 
   if (version >= BigInt.fromI32(3)) {
     const vault = loadVault(Address.fromString(vaultAddressHex))
-    if (vault == null) {
+    if (!vault) {
       log.error('[RewardSplitterFactory] Vault not found address={}', [vaultAddressHex])
       return
     }
     rewardSplitter.owner = vault.admin
+    rewardSplitter.claimer = Address.zero()
   }
   rewardSplitter.save()
 
@@ -57,25 +58,6 @@ export function handleRewardSplitterCreated(event: RewardSplitterCreated): void 
     rewardSplitterAddress,
     vaultAddressHex,
     owner.toHex(),
-  ])
-}
-
-// Event emitted on RewardSplitter claim on behalf update
-export function handleClaimOnBehalfUpdated(event: ClaimOnBehalfUpdated): void {
-  const params = event.params
-  const rewardSplitterAddress = event.address
-  const rewardSplitterAddressHex = rewardSplitterAddress.toHex()
-
-  const rewardSplitter = RewardSplitter.load(rewardSplitterAddressHex) as RewardSplitter
-  rewardSplitter.isClaimOnBehalfEnabled = params.enabled
-  rewardSplitter.save()
-
-  const txHash = event.transaction.hash.toHex()
-  createTransaction(txHash)
-
-  log.info('[RewardSplitter] ClaimOnBehalfUpdated rewardSplitter={} enabled={}', [
-    rewardSplitterAddressHex,
-    params.enabled ? 'true' : 'false',
   ])
 }
 
@@ -140,9 +122,15 @@ export function handleRewardsWithdrawn(event: RewardsWithdrawn): void {
   const rewardSplitterAddressHex = rewardSplitterAddress.toHex()
 
   const rewardSplitter = RewardSplitter.load(rewardSplitterAddressHex)!
-  const vault = loadVault(Address.fromString(rewardSplitter.vault))!
+  const vault = loadVault(Address.fromString(rewardSplitter.vault))
+  if (!vault) {
+    log.error('[RewardSplitter] Vault not found for address={}', [rewardSplitter.vault])
+    return
+  }
 
   const shareHolder = loadRewardSplitterShareHolder(account, rewardSplitterAddress)!
+  syncEarnedVaultAssets(vault, shareHolder)
+
   shareHolder.earnedVaultShares = shareHolder.earnedVaultShares.minus(withdrawnVaultShares)
   if (shareHolder.earnedVaultShares.lt(BigInt.zero())) {
     shareHolder.earnedVaultShares = BigInt.zero()
@@ -165,8 +153,23 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   rewardSplitter.owner = event.params.newOwner
   rewardSplitter.save()
 
+  createTransaction(event.transaction.hash.toHex())
+
   log.info('[RewardSplitter] OwnershipTransferred rewardSplitter={} newOwner={}', [
     event.address.toHex(),
     event.params.newOwner.toHex(),
+  ])
+}
+
+export function handleClaimerUpdated(event: ClaimerUpdated): void {
+  const rewardSplitter = RewardSplitter.load(event.address.toHex())!
+  rewardSplitter.claimer = event.params.claimer
+  rewardSplitter.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[RewardSplitter] ClaimerUpdated rewardSplitter={} newClaimer={}', [
+    event.address.toHex(),
+    event.params.claimer.toHex(),
   ])
 }

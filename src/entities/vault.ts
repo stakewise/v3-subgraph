@@ -1,8 +1,17 @@
-import { Address, BigDecimal, BigInt, Bytes, ethereum, JSONValue, log, TypedMap } from '@graphprotocol/graph-ts'
-import { Aave, Distributor, OsToken, OsTokenConfig, Vault, VaultSnapshot } from '../../generated/schema'
+import { Address, BigDecimal, BigInt, Bytes, ethereum, JSONValue, log } from '@graphprotocol/graph-ts'
 import {
-  AAVE_LEVERAGE_STRATEGY,
-  AAVE_LEVERAGE_STRATEGY_START_BLOCK,
+  Aave,
+  Allocator,
+  Distributor,
+  Network,
+  OsToken,
+  OsTokenConfig,
+  Vault,
+  VaultSnapshot,
+} from '../../generated/schema'
+import {
+  AAVE_LEVERAGE_STRATEGY_V1,
+  AAVE_LEVERAGE_STRATEGY_V1_START_BLOCK,
   DEPOSIT_DATA_REGISTRY,
   FOX_VAULT1,
   FOX_VAULT2,
@@ -10,9 +19,10 @@ import {
   WAD,
 } from '../helpers/constants'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy, loadOsToken } from './osToken'
-import { isGnosisNetwork, loadNetwork } from './network'
+import { increaseUserVaultsCount, isGnosisNetwork, loadNetwork } from './network'
 import { getV2PoolState, loadV2Pool, updatePoolApy } from './v2pool'
 import {
+  calculateApy,
   calculateAverage,
   chunkedMulticall,
   encodeContractCall,
@@ -24,13 +34,17 @@ import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactor
 import {
   BlocklistVault as BlocklistVaultTemplate,
   Erc20Vault as Erc20VaultTemplate,
-  GnoVault as GnoVaultTemplate,
   OwnMevEscrow as OwnMevEscrowTemplate,
   PrivateVault as PrivateVaultTemplate,
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import { createTransaction } from './transaction'
-import { getAllocatorId } from './allocator'
+import {
+  createOrLoadAllocator,
+  getAllocatorLtv,
+  getAllocatorLtvStatus,
+  syncAllocatorPeriodStakeEarnedAssets,
+} from './allocator'
 import {
   convertStringToDistributionType,
   DistributionType,
@@ -38,6 +52,9 @@ import {
   loadDistributor,
   loadPeriodicDistribution,
 } from './merkleDistributor'
+import { loadOsTokenConfig } from './osTokenConfig'
+import { updateExitRequests } from './exitRequest'
+import { updateRewardSplitters } from './rewardSplitter'
 
 const snapshotsPerWeek = 14
 const snapshotsPerDay = 2
@@ -70,7 +87,6 @@ export function createVault(
   const block = event.block
   const vaultAddress = event.params.vault
   const vaultAddressHex = vaultAddress.toHex()
-  const isGnosis = isGnosisNetwork()
 
   const vault = new Vault(vaultAddressHex)
   let decodedParams: ethereum.Tuple
@@ -117,8 +133,6 @@ export function createVault(
   vault.isCollateralized = false
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
-  vault.lastXdaiSwappedTimestamp = block.timestamp
-  vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault.baseApy = BigDecimal.zero()
   vault.baseApys = []
   vault.apy = BigDecimal.zero()
@@ -129,6 +143,9 @@ export function createVault(
   vault.isGenesis = false
   vault.version = version
   vault.lastFeeUpdateTimestamp = block.timestamp
+  vault._periodStakeEarnedAssets = BigInt.zero()
+  vault._periodExtraEarnedAssets = BigInt.zero()
+  vault._unclaimedFeeRecipientShares = BigInt.zero()
 
   if (vault.version.equals(BigInt.fromI32(1))) {
     // there is no validators manager for v1 vaults
@@ -153,10 +170,6 @@ export function createVault(
   if (isBlocklist) {
     BlocklistVaultTemplate.create(vaultAddress)
     vault.blocklistManager = admin
-  }
-
-  if (isGnosis) {
-    GnoVaultTemplate.create(vaultAddress)
   }
 
   vault.save()
@@ -268,7 +281,7 @@ export function updateVaults(
   rewardsRoot: Bytes,
   updateTimestamp: BigInt,
   rewardsIpfsHash: string,
-): TypedMap<string, BigInt> {
+): void {
   const vaultRewards = ipfsData.toObject().mustGet('vaults').toArray()
   const network = loadNetwork()!
   const isGnosis = isGnosisNetwork()
@@ -277,7 +290,6 @@ export function updateVaults(
   const distributor = loadDistributor()!
 
   // process vault rewards
-  const feeRecipientsEarnedShares = new TypedMap<string, BigInt>()
   for (let i = 0; i < vaultRewards.length; i++) {
     // load vault object
     const vaultReward = vaultRewards[i].toObject()
@@ -333,12 +345,6 @@ export function updateVaults(
     const newExitingAssets = newState[4]
     const feeRecipientShares = newState[5]
 
-    // save fee recipient earned shares
-    feeRecipientsEarnedShares.set(
-      getAllocatorId(Address.fromBytes(vault.feeRecipient), vaultAddress),
-      feeRecipientShares.minus(vault._unclaimedFeeRecipientShares),
-    )
-
     // calculate smoothing pool penalty
     let slashedMevReward = vault.slashedMevReward
     if (vault.lockedExecutionReward.gt(lockedMevReward) && vault.unlockedExecutionReward.ge(unlockedMevReward)) {
@@ -369,15 +375,7 @@ export function updateVaults(
     network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
     network.totalEarnedAssets = network.totalEarnedAssets.plus(vaultPeriodAssets)
 
-    updateVaultApy(
-      vault,
-      distributor,
-      osToken,
-      vault.rewardsTimestamp,
-      updateTimestamp,
-      newRate.minus(vault.rate),
-      false,
-    )
+    updateVaultApy(vault, distributor, osToken, vault.rewardsTimestamp, updateTimestamp, newRate.minus(vault.rate))
     vault.totalAssets = newTotalAssets
     vault.totalShares = newTotalShares
     vault.queuedShares = newQueuedShares
@@ -390,8 +388,6 @@ export function updateVaults(
     vault.rewardsTimestamp = updateTimestamp
     vault.rewardsIpfsHash = rewardsIpfsHash
     vault.canHarvest = true
-    vault._unclaimedFeeRecipientShares = feeRecipientShares
-    vault.save()
 
     // update v2 pool data
     if (vault.isGenesis && v2Pool.migrated) {
@@ -414,10 +410,35 @@ export function updateVaults(
       v2Pool.rewardsTimestamp = updateTimestamp
       v2Pool.save()
     }
-    snapshotVault(vault, distributor, osToken, vaultPeriodAssets, updateTimestamp)
+
+    // save fee recipient earned shares
+    if (feeRecipientShares.gt(BigInt.zero())) {
+      const feeRecipient = createOrLoadAllocator(Address.fromBytes(vault.feeRecipient), vaultAddress)
+      if (feeRecipient.shares.isZero()) {
+        increaseUserVaultsCount(feeRecipient.address)
+      }
+      // update stake earned assets for the current stake shares
+      syncAllocatorPeriodStakeEarnedAssets(vault, feeRecipient)
+      const assetsBefore = convertSharesToAssets(vault, feeRecipient.shares)
+
+      // update fee recipient shares and assets
+      feeRecipient.shares = feeRecipient.shares.plus(feeRecipientShares.minus(vault._unclaimedFeeRecipientShares))
+      feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
+
+      const feeRecipientEarnedAssets = feeRecipient.assets.minus(assetsBefore)
+      feeRecipient._periodExtraEarnedAssets = feeRecipient._periodExtraEarnedAssets.plus(feeRecipientEarnedAssets)
+      if (vault.isOsTokenEnabled) {
+        feeRecipient.ltv = getAllocatorLtv(feeRecipient, osToken)
+        feeRecipient.ltvStatus = getAllocatorLtvStatus(feeRecipient, loadOsTokenConfig(vault.osTokenConfig)!)
+      }
+      feeRecipient.save()
+      vaultPeriodAssets = vaultPeriodAssets.minus(feeRecipientEarnedAssets)
+    }
+    vault._periodStakeEarnedAssets = vault._periodStakeEarnedAssets.plus(vaultPeriodAssets)
+    vault._unclaimedFeeRecipientShares = feeRecipientShares
+    vault.save()
   }
   network.save()
-  return feeRecipientsEarnedShares
 }
 
 export function updateVaultMaxBoostApy(
@@ -429,8 +450,8 @@ export function updateVaultMaxBoostApy(
   blockNumber: BigInt,
 ): void {
   if (
-    AAVE_LEVERAGE_STRATEGY.equals(Address.zero()) ||
-    blockNumber.lt(BigInt.fromString(AAVE_LEVERAGE_STRATEGY_START_BLOCK)) ||
+    AAVE_LEVERAGE_STRATEGY_V1.equals(Address.zero()) ||
+    blockNumber.lt(BigInt.fromString(AAVE_LEVERAGE_STRATEGY_V1_START_BLOCK)) ||
     !vault.isOsTokenEnabled ||
     !vault.isCollateralized
   ) {
@@ -527,25 +548,23 @@ export function updateVaultMaxBoostApy(
   ) {
     vault.allocatorMaxBoostApy = allocatorMaxBoostApy
     vault.osTokenHolderMaxBoostApy = osTokenHolderMaxBoostApy
-    vault.save()
   }
 }
 
-export function snapshotVault(
-  vault: Vault,
-  distributor: Distributor,
-  osToken: OsToken,
-  earnedAssets: BigInt,
-  timestamp: BigInt,
-): void {
-  let apy = getVaultApy(vault, distributor, osToken, true)
+export function snapshotVault(vault: Vault, timestamp: BigInt, duration: BigInt): void {
   const vaultSnapshot = new VaultSnapshot(1)
   vaultSnapshot.timestamp = timestamp.toI64()
   vaultSnapshot.vault = vault.id
-  vaultSnapshot.earnedAssets = earnedAssets
+  vaultSnapshot.stakeEarnedAssets = vault._periodStakeEarnedAssets
+  vaultSnapshot.extraEarnedAssets = vault._periodExtraEarnedAssets
+  vaultSnapshot.earnedAssets = vault._periodStakeEarnedAssets.plus(vault._periodExtraEarnedAssets)
   vaultSnapshot.totalAssets = vault.totalAssets
   vaultSnapshot.totalShares = vault.totalShares
-  vaultSnapshot.apy = apy
+  vaultSnapshot.apy = calculateApy(
+    vaultSnapshot.earnedAssets,
+    vault.totalAssets.minus(vault._periodStakeEarnedAssets),
+    duration,
+  )
   vaultSnapshot.save()
 }
 
@@ -639,7 +658,6 @@ export function updateVaultApy(
   fromTimestamp: BigInt | null,
   toTimestamp: BigInt,
   rateChange: BigInt,
-  appendToLast: boolean,
 ): void {
   if (!fromTimestamp) {
     // it's the first update, skip
@@ -663,9 +681,6 @@ export function updateVaultApy(
     .div(BigDecimal.fromString(WAD))
     .div(totalDuration.toBigDecimal())
 
-  if (appendToLast && baseApysCount > 0) {
-    currentBaseApy = currentBaseApy.plus(baseApys[baseApysCount - 1])
-  }
   const maxApy = BigDecimal.fromString(MAX_VAULT_APY)
   const vaultAddr = Address.fromString(vault.id)
   const isFoxVault =
@@ -673,18 +688,41 @@ export function updateVaultApy(
   if (!isFoxVault && vault.version.equals(BigInt.fromI32(2)) && currentBaseApy.gt(maxApy)) {
     currentBaseApy = maxApy
   }
-
-  if (appendToLast && baseApysCount > 0) {
-    baseApys[baseApysCount - 1] = currentBaseApy
-  } else {
-    baseApys.push(currentBaseApy)
-  }
+  baseApys.push(currentBaseApy)
   if (baseApysCount > snapshotsPerWeek) {
     baseApys = baseApys.slice(baseApysCount - snapshotsPerWeek)
   }
   vault.baseApys = baseApys
   vault.baseApy = calculateAverage(baseApys)
   vault.apy = getVaultApy(vault, distributor, osToken, false)
+}
+
+export function syncVault(network: Network, osToken: OsToken, vault: Vault, newTimestamp: BigInt): void {
+  let allocator: Allocator
+  const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
+  const allocators: Array<Allocator> = vault.allocators.load()
+  for (let j = 0; j < allocators.length; j++) {
+    allocator = allocators[j]
+    if (allocator.shares.le(BigInt.zero())) {
+      continue
+    }
+    const assetsBefore = allocator.assets
+    allocator.assets = convertSharesToAssets(vault, allocator.shares)
+
+    if (vault.isOsTokenEnabled) {
+      allocator.ltv = getAllocatorLtv(allocator, osToken)
+      allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
+    }
+
+    allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(allocator.assets.minus(assetsBefore))
+    allocator.save()
+  }
+
+  // update exit requests
+  updateExitRequests(network, vault, newTimestamp)
+
+  // update reward splitters
+  updateRewardSplitters(vault)
 }
 
 function _getConvertToAssetsCall(shares: BigInt): Bytes {

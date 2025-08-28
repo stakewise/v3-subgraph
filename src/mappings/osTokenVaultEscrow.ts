@@ -6,12 +6,13 @@ import {
   OsTokenRedeemed,
   PositionCreated,
 } from '../../generated/OsTokenVaultEscrow/OsTokenVaultEscrow'
-import { getAllocatorApy, loadAllocator, updateAllocatorMintedOsTokenShares } from '../entities/allocator'
+import { decreaseAllocatorMintedOsTokenShares, getAllocatorApy, loadAllocator } from '../entities/allocator'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { createOrLoadOsTokenExitRequest, getExitRequestLtv } from '../entities/osTokenVaultEscrow'
 import { loadVault } from '../entities/vault'
 import { loadDistributor } from '../entities/merkleDistributor'
+import { loadAave } from '../entities/aave'
 
 export function handlePositionCreated(event: PositionCreated): void {
   const vaultAddress = event.params.vault
@@ -19,17 +20,19 @@ export function handlePositionCreated(event: PositionCreated): void {
   const osTokenShares = event.params.osTokenShares
   const exitPositionTicket = event.params.exitPositionTicket
 
-  const vault = loadVault(vaultAddress)!
+  const aave = loadAave()!
+  const vault = loadVault(vaultAddress)
+  if (!vault) {
+    log.error('[OsTokenVaultEscrow] PositionCreated vault={} not found', [vaultAddress.toHex()])
+    return
+  }
   const osToken = loadOsToken()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const distributor = loadDistributor()!
   const allocator = loadAllocator(owner, vaultAddress)!
-  allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.minus(osTokenShares)
-  if (allocator.mintedOsTokenShares.lt(BigInt.zero())) {
-    allocator.mintedOsTokenShares = BigInt.zero()
-  }
-  updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, allocator.mintedOsTokenShares)
-  allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
+
+  decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, osTokenShares)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
   allocator.save()
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
@@ -77,6 +80,9 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
   osTokenExitRequest.osTokenShares = osTokenExitRequest.osTokenShares.minus(osTokenShares)
+  if (osTokenExitRequest.osTokenShares.lt(BigInt.zero())) {
+    osTokenExitRequest.osTokenShares = BigInt.zero()
+  }
   osTokenExitRequest.exitedAssets = osTokenExitRequest.exitedAssets!.minus(withdrawnAssets)
   osTokenExitRequest.ltv = getExitRequestLtv(osTokenExitRequest, osToken)
   osTokenExitRequest.save()
@@ -101,6 +107,9 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
   osTokenExitRequest.osTokenShares = osTokenExitRequest.osTokenShares.minus(osTokenShares)
+  if (osTokenExitRequest.osTokenShares.lt(BigInt.zero())) {
+    osTokenExitRequest.osTokenShares = BigInt.zero()
+  }
   osTokenExitRequest.exitedAssets = osTokenExitRequest.exitedAssets!.minus(withdrawnAssets)
   osTokenExitRequest.ltv = getExitRequestLtv(osTokenExitRequest, osToken)
   osTokenExitRequest.save()
@@ -125,6 +134,9 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
   osTokenExitRequest.osTokenShares = osTokenExitRequest.osTokenShares.minus(osTokenShares)
+  if (osTokenExitRequest.osTokenShares.lt(BigInt.zero())) {
+    osTokenExitRequest.osTokenShares = BigInt.zero()
+  }
   osTokenExitRequest.exitedAssets = osTokenExitRequest.exitedAssets!.minus(withdrawnAssets)
   osTokenExitRequest.ltv = getExitRequestLtv(osTokenExitRequest, osToken)
   osTokenExitRequest.save()

@@ -15,11 +15,31 @@ export function loadExitRequest(vault: Address, positionTicket: BigInt): ExitReq
   return ExitRequest.load(exitRequestId)
 }
 
+export function updateClaimableExitRequests(vault: Vault, timestamp: BigInt): void {
+  let exitRequest: ExitRequest
+  const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
+  for (let i = 0; i < exitRequests.length; i++) {
+    exitRequest = exitRequests[i]
+    if (exitRequest.exitedAssets.gt(BigInt.zero()) && !exitRequest.isClaimed && !exitRequest.isClaimable) {
+      const isClaimable = exitRequest.timestamp.plus(BigInt.fromString(secondsInDay)).lt(timestamp)
+      if (isClaimable) {
+        exitRequest.isClaimable = isClaimable
+        exitRequest.save()
+      }
+    }
+  }
+}
+
 export function updateExitRequests(network: Network, vault: Vault, timestamp: BigInt): void {
   // If vault is in "genesis" mode, we need to wait for legacy migration
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     return
   }
+  if (!vault.isCollateralized) {
+    // If vault is not collateralized, there are no exit requests to process
+    return
+  }
+
   const vaultAddr = Address.fromString(vault.id)
 
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
@@ -116,26 +136,27 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
 
     exitRequest.save()
 
-    const earnedAssets = exitRequest.totalAssets.minus(totalAssetsBefore)
-    if (earnedAssets.isZero()) {
+    const totalAssetsDelta = exitRequest.totalAssets.minus(totalAssetsBefore)
+    if (totalAssetsDelta.isZero()) {
       continue
     }
 
     const allocator = loadAllocator(Address.fromBytes(exitRequest.receiver), vaultAddr)
     // if total assets are zero, it means the vault must apply the fix to the exit queue introduced in v4 vaults
     if (allocator && exitRequest.totalAssets.gt(BigInt.zero())) {
-      allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
+      allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(totalAssetsDelta)
+      allocator.exitingAssets = allocator.exitingAssets.plus(totalAssetsDelta)
       allocator.save()
     }
 
     const osTokenHolder = loadOsTokenHolder(Address.fromBytes(exitRequest.receiver))
-    if (!osTokenHolder || exitRequest.totalAssets.le(BigInt.zero())) {
-      continue
-    }
-    const osTokenVault = getOsTokenHolderVault(network, osTokenHolder)
-    if (osTokenVault && osTokenVault.equals(vaultAddr)) {
-      osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(earnedAssets)
-      osTokenHolder.save()
+    // if total assets are zero, it means the vault must apply the fix to the exit queue introduced in v4 vaults
+    if (osTokenHolder && exitRequest.totalAssets.gt(BigInt.zero())) {
+      const osTokenVault = getOsTokenHolderVault(network, osTokenHolder)
+      if (osTokenVault && osTokenVault.equals(vaultAddr)) {
+        osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(totalAssetsDelta)
+        osTokenHolder.save()
+      }
     }
   }
 }

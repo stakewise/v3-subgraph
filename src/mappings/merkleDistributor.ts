@@ -1,27 +1,43 @@
-import { Address, BigDecimal, BigInt, Bytes, ipfs, json, JSONValue, JSONValueKind, log } from '@graphprotocol/graph-ts'
+import {
+  Address,
+  BigDecimal,
+  BigInt,
+  Bytes,
+  ethereum,
+  ipfs,
+  json,
+  JSONValue,
+  JSONValueKind,
+  log,
+} from '@graphprotocol/graph-ts'
 import { DistributorClaimedAmount, PeriodicDistribution } from '../../generated/schema'
 import {
+  DistributorUpdated,
   OneTimeDistributionAdded,
   PeriodicDistributionAdded,
   RewardsClaimed,
   RewardsRootUpdated,
-  DistributorUpdated,
 } from '../../generated/MerkleDistributor/MerkleDistributor'
 import {
   convertDistributionTypeToString,
   createOrLoadDistributorClaim,
-  createOrLoadDistributorReward,
+  distributeToVaultSelectedUsers,
   distributeToVaultUsers,
   DistributionType,
+  fetchRewardsData,
   getDistributionType,
   loadDistributor,
   loadDistributorClaim,
+  redistributeMetaVaultsRewards,
+  updateDistributions,
 } from '../entities/merkleDistributor'
 import { createTransaction } from '../entities/transaction'
 import { convertTokenAmountToAssets, isTokenSupported, loadExchangeRate } from '../entities/exchangeRates'
-import { loadVault, snapshotVault } from '../entities/vault'
-import { loadOsToken } from '../entities/osToken'
+import { loadVault } from '../entities/vault'
 import { loadNetwork } from '../entities/network'
+import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
+import { loadOsToken } from '../entities/osToken'
+import { parseIpfsHash } from '../helpers/utils'
 
 const secondsInYear = '31536000'
 
@@ -74,102 +90,72 @@ export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded
 }
 
 export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded): void {
-  const rewardsIpfsHash = event.params.rewardsIpfsHash
+  const rewardsIpfsHash = parseIpfsHash(event.params.rewardsIpfsHash)
   const token = event.params.token
-  const totalAmountToDistribute = event.params.amount
+  let totalAmountToDistribute = event.params.amount
   const extraData = event.params.extraData
 
   if (!isTokenSupported(token)) {
-    log.error('[OneTimeDistribution] Unsupported token ={}', [token.toHexString()])
+    log.error('[OneTimeDistribution] Unsupported token={}', [token.toHexString()])
     return
   }
 
   const distType = getDistributionType(extraData)
-  if (distType == DistributionType.VAULT) {
-    const network = loadNetwork()!
-    const exchangeRate = loadExchangeRate()!
-    const vault = loadVault(Address.fromBytes(extraData))!
-    const distributor = loadDistributor()!
-    const osToken = loadOsToken()!
-    distributeToVaultUsers(network, exchangeRate, vault, token, totalAmountToDistribute)
-    const distributedAssets = convertTokenAmountToAssets(exchangeRate, token, totalAmountToDistribute)
-    snapshotVault(vault, distributor, osToken, distributedAssets, event.block.timestamp)
-    log.info('[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={}', [
-      vault.id,
-      token.toHexString(),
-      totalAmountToDistribute.toString(),
-    ])
+  if (distType != DistributionType.VAULT) {
+    log.error('[OneTimeDistribution] Only vault distributions are supported', [])
     return
   }
 
-  let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
-  let tries = 10
-  while (data === null && tries > 0) {
-    log.warning('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}, retrying', [rewardsIpfsHash])
-    data = ipfs.cat(rewardsIpfsHash)
-    tries -= 1
-  }
-  if (data === null) {
-    log.error('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}', [rewardsIpfsHash])
-    return
-  }
-
-  const parsedData = json.fromBytes(data as Bytes)
-  if (parsedData.kind != JSONValueKind.ARRAY) {
-    log.error('[MerkleDistributor] OneTimeDistributionAdded data is not an array for hash={}', [rewardsIpfsHash])
-    return
-  }
-
-  let totalDistributedAmount = BigInt.zero()
-  const userRewards = parsedData.toArray()
-  for (let i = 0; i < userRewards.length; i++) {
-    const _userReward = userRewards[i]
-    if (_userReward.kind != JSONValueKind.OBJECT) {
-      log.error('[MerkleDistributor] OneTimeDistributionAdded user data is not an object for hash={} index={}', [
-        rewardsIpfsHash,
-        i.toString(),
-      ])
-      continue
-    }
-    const userReward = _userReward.toObject()
-    const _user = userReward.get('address')
-    const _amount = userReward.get('amount')
-    if (!_user || _user.kind != JSONValueKind.STRING || !_amount || _amount.kind != JSONValueKind.STRING) {
-      log.error('[MerkleDistributor] OneTimeDistributionAdded user or amount is invalid for hash={} index={}', [
-        rewardsIpfsHash,
-        i.toString(),
-      ])
-      continue
-    }
-
-    const user = Address.fromString(_user.toString())
-    const amount = BigInt.fromString(_amount.toString())
-    if (amount.lt(BigInt.zero())) {
-      log.error('[MerkleDistributor] OneTimeDistributionAdded amount is negative for hash={} index={}', [
-        rewardsIpfsHash,
-        i.toString(),
-      ])
-      continue
-    }
-
-    totalDistributedAmount = totalDistributedAmount.plus(amount)
-    if (totalDistributedAmount.gt(totalAmountToDistribute)) {
-      log.error(
-        '[MerkleDistributor] OneTimeDistributionAdded total distributed amount is greater than total amount for hash={} index={}',
-        [rewardsIpfsHash, i.toString()],
-      )
+  let userRewards: Array<JSONValue> | null
+  if (rewardsIpfsHash != null) {
+    userRewards = fetchRewardsData(rewardsIpfsHash!)
+    if (userRewards == null) {
+      log.error('[MerkleDistributor] OneTimeDistributionAdded rewardsIpfsHash={} not found', [rewardsIpfsHash!])
       return
     }
-
-    const distributorReward = createOrLoadDistributorReward(token, user)
-    distributorReward.cumulativeAmount = distributorReward.cumulativeAmount.plus(amount)
-    distributorReward.save()
   }
 
-  log.info('[MerkleDistributor] OneTimeDistributionAdded rewardsIpfsHash={} token={} amount={}', [
-    rewardsIpfsHash,
+  // distribute to all vault users
+  const network = loadNetwork()!
+  const exchangeRate = loadExchangeRate()!
+  const vault = loadVault(Address.fromBytes(extraData))
+  if (vault === null) {
+    log.error('[MerkleDistributor] OneTimeDistributionAdded vault={} not found', [extraData.toHex()])
+    return
+  }
+  let selectedUsers = false
+  if (userRewards !== null) {
+    selectedUsers = true
+    totalAmountToDistribute = distributeToVaultSelectedUsers(
+      network,
+      exchangeRate,
+      vault,
+      token,
+      totalAmountToDistribute,
+      userRewards,
+    )
+    if (totalAmountToDistribute.isZero()) {
+      log.error('[MerkleDistributor] No users found for vault={} rewardsIpfsHash={}', [vault.id, rewardsIpfsHash!])
+      return
+    }
+    // do not update vault._periodExtraEarnedAssets here as the reward was distributed to selected users only
+  } else {
+    const principalAssets = distributeToVaultUsers(network, exchangeRate, vault, token, totalAmountToDistribute)
+    if (principalAssets.isZero()) {
+      log.error('[MerkleDistributor] No users found for vault={}', [vault.id])
+      return
+    }
+    const distributedAssets = convertTokenAmountToAssets(exchangeRate, token, totalAmountToDistribute)
+    vault._periodExtraEarnedAssets = vault._periodExtraEarnedAssets.plus(distributedAssets)
+    vault.save()
+  }
+  // as meta-vaults are allocators in the vault, we need to redistribute rewards to their users
+  redistributeMetaVaultsRewards(network, exchangeRate)
+  log.info('[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={} selectedUsers={}', [
+    vault.id,
     token.toHexString(),
     totalAmountToDistribute.toString(),
+    selectedUsers.toString(),
   ])
 }
 
@@ -241,10 +227,17 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
     for (let j = 0; j < tokens.length; j++) {
       const claimedAmountId = `${tokens[j].toHex()}-${user.toHex()}`
       const claimedAmount = DistributorClaimedAmount.load(claimedAmountId)
+      const amount = amounts[j]
       if (claimedAmount == null) {
-        unclaimedAmounts.push(amounts[j])
+        unclaimedAmounts.push(amount)
+      } else if (claimedAmount.cumulativeClaimedAmount.gt(amount)) {
+        log.error(
+          '[MerkleDistributor] RewardsRootUpdated claimed amount is greater than total amount for user={} token={} delta={}',
+          [user.toHex(), tokens[j].toHex(), claimedAmount.cumulativeClaimedAmount.minus(amount).toString()],
+        )
+        unclaimedAmounts.push(BigInt.zero())
       } else {
-        unclaimedAmounts.push(amounts[j].minus(claimedAmount.cumulativeClaimedAmount))
+        unclaimedAmounts.push(amount.minus(claimedAmount.cumulativeClaimedAmount))
       }
     }
 
@@ -306,4 +299,24 @@ export function handleDistributorUpdated(event: DistributorUpdated): void {
     event.params.distributor.toHex(),
     event.params.isEnabled ? 'true' : 'false',
   ])
+}
+
+export function syncDistributor(block: ethereum.Block): void {
+  const distributor = loadDistributor()
+  const network = loadNetwork()
+  const exchangeRate = loadExchangeRate()
+  const osToken = loadOsToken()
+
+  if (!network || !osToken || !distributor || !exchangeRate) {
+    log.warning('[SyncDistributor] OsToken or Network or Distributor or ExchangeRate not found', [])
+    return
+  }
+
+  const newTimestamp = block.timestamp
+  const distributorCheckpoint = createOrLoadCheckpoint(CheckpointType.DISTRIBUTOR)
+  updateDistributions(network, exchangeRate, osToken, distributor, newTimestamp)
+
+  distributorCheckpoint.timestamp = newTimestamp
+  distributorCheckpoint.save()
+  log.info('[SyncDistributor] Distributions synced timestamp={}', [newTimestamp.toString()])
 }

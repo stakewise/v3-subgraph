@@ -1,4 +1,15 @@
-import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
+import {
+  Address,
+  BigDecimal,
+  BigInt,
+  Bytes,
+  ethereum,
+  ipfs,
+  json,
+  JSONValueKind,
+  log,
+  store,
+} from '@graphprotocol/graph-ts'
 import {
   Allocator,
   Distributor,
@@ -14,18 +25,17 @@ import {
   UserIsContract,
   Vault,
 } from '../../generated/schema'
-import { Safe as SafeContract } from '../../generated/PeriodicTasks/Safe'
+import { Safe as SafeContract } from '../../generated/MerkleDistributor/Safe'
 import { loadUniswapPool } from './uniswap'
 import { ASSET_TOKEN, OS_TOKEN, SWISE_TOKEN, USDC_TOKEN } from '../helpers/constants'
-import { convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
-import { getVaultApy, loadVault, snapshotVault } from './vault'
+import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
+import { loadVault } from './vault'
 import { calculateAverage, getAnnualReward, getCompoundedApy } from '../helpers/utils'
-import { loadAavePosition } from './aave'
-import { createOrLoadAllocator, getAllocatorApy, loadAllocator } from './allocator'
-import { convertTokenAmountToAssets } from './exchangeRates'
+import { createOrLoadAllocator, loadAllocator } from './allocator'
+import { convertTokenAmountToAssets, getSupportedTokens } from './exchangeRates'
 import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
 import { loadLeverageStrategyPosition } from './leverageStrategy'
-import { loadOsTokenConfig } from './osTokenConfig'
+import { JSONValue } from '@graphprotocol/graph-ts/common/value'
 
 const distributorId = '1'
 const secondsInYear = '31536000'
@@ -226,18 +236,36 @@ export function updateDistributions(
 
     let distributedAmount: BigInt
     let principalAssets: BigInt
+    let distributedAssets: BigInt
     const distType = convertStringToDistributionType(dist.distributionType)
 
     if (distType == DistributionType.VAULT) {
-      const vault = loadVault(Address.fromBytes(dist.data))!
+      const vault = loadVault(Address.fromBytes(dist.data))
+      if (!vault) {
+        log.error('[MerkleDistributor] updateDistributions vault not found for id={}', [dist.id])
+        continue
+      }
       const token = Address.fromBytes(dist.token)
+
       distributedAmount = dist.amount.times(passedDuration).div(totalDuration)
       principalAssets = distributeToVaultUsers(network, exchangeRate, vault, token, distributedAmount)
+      distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
+
+      vault._periodExtraEarnedAssets = vault._periodExtraEarnedAssets.plus(distributedAssets)
+      vault.save()
     } else if (distType == DistributionType.LEVERAGE_STRATEGY) {
       const targetApy = getLeverageStrategyTargetApy(dist.data)
-      const response = distributeToLeverageStrategyUsers(network, exchangeRate, targetApy, passedDuration, dist.amount)
+      const response = distributeToLeverageStrategyUsers(
+        network,
+        osToken,
+        exchangeRate,
+        targetApy,
+        passedDuration,
+        dist.amount,
+      )
       distributedAmount = response[1]
       principalAssets = convertOsTokenSharesToAssets(osToken, response[0])
+      distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
     } else if (distType == DistributionType.SWISE_ASSET_UNI_POOL) {
       // dist data is the pool address
       const uniPool = loadUniswapPool(Address.fromBytes(dist.data))!
@@ -249,6 +277,7 @@ export function updateDistributions(
         Address.fromBytes(dist.token),
         distributedAmount,
       )
+      distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
     } else if (distType == DistributionType.OS_TOKEN_USDC_UNI_POOL) {
       // dist data is the pool address
       const uniPool = loadUniswapPool(Address.fromBytes(dist.data))!
@@ -260,13 +289,13 @@ export function updateDistributions(
         Address.fromBytes(dist.token),
         distributedAmount,
       )
+      distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
     } else {
       assert(false, `Unknown distribution type=${dist.id}`)
       return
     }
 
     // update APY
-    const distributedAssets = convertTokenAmountToAssets(exchangeRate, Address.fromBytes(dist.token), distributedAmount)
     updatePeriodicDistributionApy(dist, distributedAssets, principalAssets, passedDuration)
 
     if (dist.amount.equals(distributedAmount)) {
@@ -279,29 +308,11 @@ export function updateDistributions(
     if (dist.startTimestamp < dist.endTimestamp) {
       newActiveDistIds.push(dist.id)
     }
-
-    if (distType == DistributionType.VAULT) {
-      const vault = loadVault(Address.fromBytes(dist.data))!
-      vault.apy = getVaultApy(vault, distributor, osToken, false)
-      vault.save()
-
-      // update allocators
-      const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
-      let allocator: Allocator
-      let allocators: Array<Allocator> = vault.allocators.load()
-      for (let j = 0; j < allocators.length; j++) {
-        allocator = allocators[j]
-        allocator.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
-        allocator.save()
-      }
-      snapshotVault(loadVault(Address.fromBytes(dist.data))!, distributor, osToken, distributedAssets, currentTimestamp)
-    }
   }
 
   // update new active distributions
   distributor.activeDistributionIds = newActiveDistIds
   distributor.save()
-  log.info('[MerkleDistributor] Distributions updated timestamp={}', [currentTimestamp.toString()])
 }
 
 export function updatePeriodicDistributionApy(
@@ -353,7 +364,7 @@ export function distributeToVaultUsers(
 
   for (let i = 0; i < allocators.length; i++) {
     allocator = allocators[i]
-    if (_userIsContract(allocator.address)) {
+    if (_userIsContract(allocator.address) && !_isMetaVault(allocator.address)) {
       continue
     }
     const userAddress = Address.fromBytes(allocator.address)
@@ -374,6 +385,69 @@ export function distributeToVaultUsers(
   _distributeReward(network, exchangeRate, users, vaults, usersAssets, totalAssets, token, totalReward)
 
   return totalAssets
+}
+
+export function distributeToVaultSelectedUsers(
+  network: Network,
+  exchangeRate: ExchangeRate,
+  vault: Vault,
+  token: Address,
+  totalReward: BigInt,
+  allocations: Array<JSONValue>,
+): BigInt {
+  const vaultAddress = Address.fromString(vault.id)
+
+  let totalDistributedAmount = BigInt.zero()
+  for (let i = 0; i < allocations.length; i++) {
+    const _userReward = allocations[i]
+    if (_userReward.kind != JSONValueKind.OBJECT) {
+      log.error('[MerkleDistributor] OneTimeDistributionAdded user data is not an object index={}', [i.toString()])
+      continue
+    }
+    const userRewardData = _userReward.toObject()
+    const _user = userRewardData.get('address')
+    const _amount = userRewardData.get('amount')
+    if (!_user || _user.kind != JSONValueKind.STRING || !_amount || _amount.kind != JSONValueKind.STRING) {
+      log.error('[MerkleDistributor] OneTimeDistributionAdded user or amount is invalid for index={}', [i.toString()])
+      continue
+    }
+
+    const user = Address.fromString(_user.toString())
+    const amount = BigInt.fromString(_amount.toString())
+    if (amount.lt(BigInt.zero())) {
+      log.error('[MerkleDistributor] OneTimeDistributionAdded amount is negative for index={}', [i.toString()])
+      continue
+    }
+
+    totalDistributedAmount = totalDistributedAmount.plus(amount)
+    if (totalDistributedAmount.gt(totalReward)) {
+      log.error(
+        '[MerkleDistributor] OneTimeDistributionAdded total distributed amount is greater than total amount for index={}',
+        [i.toString()],
+      )
+      return totalDistributedAmount.minus(amount)
+    }
+
+    const distributorReward = createOrLoadDistributorReward(token, user)
+    distributorReward.cumulativeAmount = distributorReward.cumulativeAmount.plus(amount)
+    distributorReward.save()
+
+    const userRewardAssets = convertTokenAmountToAssets(exchangeRate, token, amount)
+    const allocator = createOrLoadAllocator(user, vaultAddress)
+    allocator._periodExtraEarnedAssets = allocator._periodExtraEarnedAssets.plus(userRewardAssets)
+    allocator.save()
+
+    const osTokenHolder = loadOsTokenHolder(user)
+    if (!osTokenHolder) {
+      continue
+    }
+    const osTokenVault = getOsTokenHolderVault(network, osTokenHolder)
+    if (osTokenVault && osTokenVault.equals(vaultAddress)) {
+      osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(userRewardAssets)
+      osTokenHolder.save()
+    }
+  }
+  return totalDistributedAmount
 }
 
 export function distributeToSwiseAssetUniPoolUsers(
@@ -484,6 +558,7 @@ export function distributeToOsTokenUsdcUniPoolUsers(
 
 export function distributeToLeverageStrategyUsers(
   network: Network,
+  osToken: OsToken,
   exchangeRate: ExchangeRate,
   targetApy: BigDecimal,
   totalDuration: BigInt,
@@ -504,13 +579,12 @@ export function distributeToLeverageStrategyUsers(
         continue
       }
       // calculate user principal
-      const aavePosition = loadAavePosition(Address.fromBytes(position.proxy))!
-      const user = Address.fromBytes(position.user)
-
-      const userPrincipalOsTokenShares = aavePosition.suppliedOsTokenShares
+      const userPrincipalOsTokenShares = position.osTokenShares
+        .plus(position.exitingOsTokenShares)
+        .plus(convertAssetsToOsTokenShares(osToken, position.assets.plus(position.exitingAssets)))
 
       vaults.push(Address.fromString(vault.id))
-      users.push(user)
+      users.push(Address.fromBytes(position.user))
       usersOsTokenShares.push(userPrincipalOsTokenShares)
       totalOsTokenShares = totalOsTokenShares.plus(userPrincipalOsTokenShares)
     }
@@ -540,6 +614,60 @@ export function distributeToLeverageStrategyUsers(
   return [totalOsTokenShares, distributedPeriodOsTokenShares]
 }
 
+export function fetchRewardsData(rewardsIpfsHash: string): Array<JSONValue> | null {
+  const ipfsHash = rewardsIpfsHash.trim()
+  if (ipfsHash.length !== 46 && ipfsHash.length !== 52) {
+    return null
+  }
+
+  let data: Bytes | null = ipfs.cat(ipfsHash)
+  let tries = 10
+  while (data === null && tries > 0) {
+    log.warning('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}, retrying', [ipfsHash])
+    data = ipfs.cat(rewardsIpfsHash)
+    tries -= 1
+  }
+  if (data === null) {
+    log.error('[MerkleDistributor] OneTimeDistributionAdded ipfs.cat failed for hash={}', [ipfsHash])
+    return null
+  }
+
+  const parsedData = json.fromBytes(data as Bytes)
+  if (parsedData.kind != JSONValueKind.ARRAY) {
+    log.error('[MerkleDistributor] OneTimeDistributionAdded data is not an array for hash={}', [ipfsHash])
+    return null
+  }
+  return parsedData.toArray()
+}
+
+export function redistributeMetaVaultsRewards(network: Network, exchangeRate: ExchangeRate): void {
+  const vaultIds = network.vaultIds
+  const supportedTokens = getSupportedTokens()
+  for (let i = 0; i < vaultIds.length; i++) {
+    const vault = loadVault(Address.fromString(vaultIds[i]))!
+    if (!vault.isMetaVault) {
+      continue
+    }
+
+    const vaultAddress = Address.fromString(vault.id)
+    for (let j = 0; j < supportedTokens.length; j++) {
+      const token = supportedTokens[j]
+      const distRewardId = `${token.toHex()}-${vaultAddress.toHex()}`
+      const distributorReward = DistributorReward.load(distRewardId)
+      if (!distributorReward) {
+        continue
+      }
+      store.remove('DistributorReward', distRewardId)
+
+      const totalReward = distributorReward.cumulativeAmount
+      if (totalReward.le(BigInt.zero())) {
+        continue
+      }
+      distributeToVaultUsers(network, exchangeRate, vault, token, totalReward)
+    }
+  }
+}
+
 function _distributeReward(
   network: Network,
   exchangeRate: ExchangeRate,
@@ -557,6 +685,9 @@ function _distributeReward(
   for (let i = 0; i < users.length; i++) {
     const user = users[i]
     const userPoints = points[i]
+    if (userPoints.le(BigInt.zero())) {
+      continue
+    }
 
     let userReward: BigInt
     if (i == users.length - 1) {
@@ -580,7 +711,7 @@ function _distributeReward(
     const vault = vaults[i]
     const userRewardAssets = convertTokenAmountToAssets(exchangeRate, token, userReward)
     const allocator = createOrLoadAllocator(user, vault)
-    allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(userRewardAssets)
+    allocator._periodExtraEarnedAssets = allocator._periodExtraEarnedAssets.plus(userRewardAssets)
     allocator.save()
 
     const osTokenHolder = loadOsTokenHolder(user)
@@ -613,4 +744,12 @@ function _userIsContract(address: Bytes): boolean {
   cache.isContract = isContract
   cache.save()
   return cache.isContract
+}
+
+function _isMetaVault(address: Bytes): boolean {
+  let vault = loadVault(Address.fromBytes(address))
+  if (vault) {
+    return vault.isMetaVault
+  }
+  return false
 }

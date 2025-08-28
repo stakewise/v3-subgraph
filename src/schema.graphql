@@ -21,6 +21,9 @@ type Allocator @entity(immutable: false) {
   "The allocator's assets amount"
   assets: BigInt!
 
+  "The allocator's assets amount that are exiting"
+  exitingAssets: BigInt!
+
   "The allocator's minted OsToken shares amount"
   mintedOsTokenShares: BigInt!
 
@@ -39,11 +42,35 @@ type Allocator @entity(immutable: false) {
   "Allocator's total earned assets"
   totalEarnedAssets: BigInt!
 
+  "Allocator's total earned assets from staking"
+  totalStakeEarnedAssets: BigInt!
+
+  "Allocator's total earned assets from boost"
+  totalBoostEarnedAssets: BigInt!
+
+  "Allocator's total earned assets from extra incentives, rewards"
+  totalExtraEarnedAssets: BigInt!
+
+  "Allocator's total OsToken fee assets"
+  totalOsTokenFeeAssets: BigInt!
+
   "The exit requests of the allocator"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "allocator")
 
-  "The period earned assets"
-  _periodEarnedAssets: BigInt!
+  "The total period assets earned from staking"
+  _periodStakeEarnedAssets: BigInt!
+
+  "The total period assets earned from boost"
+  _periodBoostEarnedAssets: BigInt!
+
+  "The total period OsToken shares earned from boost"
+  _periodBoostEarnedOsTokenShares: BigInt!
+
+  "The total period extra earned assets (e.g. reward splitter, extra incentives)"
+  _periodExtraEarnedAssets: BigInt!
+
+  "The total period OsToken shares minted as a fee"
+  _periodOsTokenFeeShares: BigInt!
 }
 
 """
@@ -328,9 +355,6 @@ type Vault @entity(immutable: false) {
   "The timestamp the vault was created at"
   createdAt: BigInt!
 
-  "The timestamp the vault last time swapped xDAI to GNO on gnosis"
-  lastXdaiSwappedTimestamp: BigInt!
-
   "The vault version"
   version: BigInt!
 
@@ -360,6 +384,12 @@ type Vault @entity(immutable: false) {
 
   "The total number of vault whitelisted accounts"
   whitelistCount: BigInt!
+
+  "The total period assets earned from staking"
+  _periodStakeEarnedAssets: BigInt!
+
+  "The total period extra earned assets (e.g. extra incentives)"
+  _periodExtraEarnedAssets: BigInt!
 
   "The total amount of the accumulated unclaimed fee recipient shares"
   _unclaimedFeeRecipientShares: BigInt!
@@ -499,9 +529,6 @@ type Network @entity(immutable: false) {
 
   "The total number of non repeated vault allocators and osToken holders"
   usersCount: Int!
-
-  "The timestamp of the last snapshot"
-  lastSnapshotTimestamp: BigInt!
 }
 
 type User @entity(immutable: false) {
@@ -559,11 +586,11 @@ type RewardSplitter @entity(immutable: false) {
   "The reward splitter version"
   version: BigInt!
 
-  "Whether claim on behalf is enabled"
-  isClaimOnBehalfEnabled: Boolean!
-
   "The address of the account that can modify the reward splitter share holders"
   owner: Bytes!
+
+  "The address of the account that can claim the rewards. Will be null for the reward splitters with version < 3."
+  claimer: Bytes
 
   "The total number of shares"
   totalShares: BigInt!
@@ -804,11 +831,8 @@ type LeverageStrategyPosition @entity(immutable: false) {
   "The unprocessed exit request. Can be null if nothing is exiting."
   exitRequest: ExitRequest
 
-  "The total amount of user assets used for period reward calc"
-  _totalAssets: BigInt!
-
-  "The total amount of user osToken shares used for period reward calc"
-  _totalOsTokenShares: BigInt!
+  "The version of the leverage strategy contract"
+  version: BigInt!
 }
 
 """
@@ -818,9 +842,12 @@ type AllocatorSnapshot @entity(timeseries: true) {
   id: Int8!
   timestamp: Timestamp!
   allocator: Allocator!
+  stakeEarnedAssets: BigInt!
+  boostEarnedAssets: BigInt!
+  extraEarnedAssets: BigInt!
+  osTokenFeeAssets: BigInt!
   earnedAssets: BigInt!
   totalAssets: BigInt!
-  boostedOsTokenShares: BigInt!
   apy: BigDecimal!
   ltv: BigDecimal!
 }
@@ -832,9 +859,12 @@ type AllocatorStats @aggregation(intervals: ["day"], source: "AllocatorSnapshot"
   id: Int8!
   timestamp: Timestamp!
   allocator: Allocator!
+  stakeEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "stakeEarnedAssets")
+  boostEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "boostEarnedAssets")
+  extraEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "extraEarnedAssets")
+  osTokenFeeAssets: BigInt! @aggregate(fn: "sum", arg: "osTokenFeeAssets")
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
-  boostedOsTokenShares: BigInt! @aggregate(fn: "last", arg: "boostedOsTokenShares")
   apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
   ltv: BigDecimal! @aggregate(fn: "last", arg: "ltv")
 }
@@ -892,6 +922,8 @@ type VaultSnapshot @entity(timeseries: true) {
   id: Int8!
   timestamp: Timestamp!
   vault: Vault!
+  stakeEarnedAssets: BigInt!
+  extraEarnedAssets: BigInt!
   earnedAssets: BigInt!
   totalAssets: BigInt!
   totalShares: BigInt!
@@ -905,6 +937,8 @@ type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
   id: Int8!
   timestamp: Timestamp!
   vault: Vault!
+  stakeEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "stakeEarnedAssets")
+  extraEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "extraEarnedAssets")
   earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
   totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
   totalShares: BigInt! @aggregate(fn: "last", arg: "totalShares")
@@ -1192,4 +1226,12 @@ type UserIsContract @entity(immutable: true) {
 type NetworkValidator @entity(immutable: true) {
   "Set to validator public key"
   id: Bytes!
+}
+
+"The checkpoint to track periodic synchronization"
+type Checkpoint @entity(immutable: false) {
+  "Set to `sync checkpoint ID`"
+  id: Bytes!
+  "The timestamp of the checkpoint"
+  timestamp: BigInt!
 }

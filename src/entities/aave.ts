@@ -1,12 +1,13 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { Aave, AavePosition } from '../../generated/schema'
-import { AaveProtocolDataProvider as AaveProtocolDataProviderContract } from '../../generated/PeriodicTasks/AaveProtocolDataProvider'
-import { AaveLeverageStrategy } from '../../generated/PeriodicTasks/AaveLeverageStrategy'
+import { AaveProtocolDataProvider as AaveProtocolDataProviderContract } from '../../generated/Keeper/AaveProtocolDataProvider'
+import { AaveLeverageStrategy } from '../../generated/AaveLeverageStrategyV1/AaveLeverageStrategy'
 import {
-  AAVE_LEVERAGE_STRATEGY,
+  AAVE_LEVERAGE_STRATEGY_V1,
   AAVE_PROTOCOL_DATA_PROVIDER,
   AAVE_PROTOCOL_DATA_PROVIDER_START_BLOCK,
   ASSET_TOKEN,
+  NETWORK,
   OS_TOKEN,
   WAD,
 } from '../helpers/constants'
@@ -15,6 +16,7 @@ import { calculateAverage, chunkedMulticall, encodeContractCall } from '../helpe
 const aaveId = '1'
 const snapshotsPerWeek = 168
 const getBorrowStateSelector = '0xe70631bc'
+const MAX_UINT_256 = BigInt.fromString('115792089237316195423570985008687907853269984665640564039457584007913129639935')
 
 export function loadAave(): Aave | null {
   return Aave.load(aaveId)
@@ -33,7 +35,12 @@ export function createOrLoadAave(): Aave {
     aave.leverageMaxBorrowLtvPercent = BigInt.zero()
     aave.borrowApys = []
     aave.supplyApys = []
-    aave.osTokenSupplyCap = BigInt.zero()
+    if (NETWORK == 'chiado' || NETWORK == 'hoodi') {
+      // OsToken supply cap cannot be set on Chiado or Hoodi
+      aave.osTokenSupplyCap = MAX_UINT_256
+    } else {
+      aave.osTokenSupplyCap = BigInt.zero()
+    }
     aave.osTokenTotalSupplied = BigInt.zero()
     aave.save()
   }
@@ -112,7 +119,7 @@ export function updateAavePositions(aave: Aave): void {
   for (let i = 0; i < positionsCount; i++) {
     position = positions[i]
     contractCalls.push(
-      encodeContractCall(AAVE_LEVERAGE_STRATEGY, _getBorrowStateCall(Address.fromBytes(position.user))),
+      encodeContractCall(AAVE_LEVERAGE_STRATEGY_V1, _getBorrowStateCall(Address.fromBytes(position.user))),
     )
   }
 
@@ -127,7 +134,7 @@ export function updateAavePositions(aave: Aave): void {
 }
 
 export function updateAavePosition(position: AavePosition): void {
-  const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY)
+  const aaveLeverageStrategy = AaveLeverageStrategy.bind(AAVE_LEVERAGE_STRATEGY_V1)
   const borrowState = aaveLeverageStrategy.getBorrowState(Address.fromBytes(position.user))
   position.borrowedAssets = borrowState.getBorrowedAssets()
   position.suppliedOsTokenShares = borrowState.getSuppliedOsTokenShares()

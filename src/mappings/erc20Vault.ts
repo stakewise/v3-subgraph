@@ -4,16 +4,17 @@ import {
   AllocatorActionType,
   createAllocatorAction,
   createOrLoadAllocator,
+  decreaseAllocatorShares,
   getAllocatorApy,
+  increaseAllocatorShares,
   loadAllocator,
-  updateAllocatorAssets,
 } from '../entities/allocator'
 import { createTransaction } from '../entities/transaction'
-import { decreaseUserVaultsCount, increaseUserVaultsCount } from '../entities/network'
 import { convertSharesToAssets, loadVault } from '../entities/vault'
 import { loadOsToken } from '../entities/osToken'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { loadDistributor } from '../entities/merkleDistributor'
+import { loadAave } from '../entities/aave'
 
 // Event emitted on mint, burn or transfer shares between allocators
 export function handleTransfer(event: Transfer): void {
@@ -35,23 +36,16 @@ export function handleTransfer(event: Transfer): void {
     return
   }
 
+  const aave = loadAave()!
   const allocatorFrom = loadAllocator(from, vaultAddress)!
-  allocatorFrom.shares = allocatorFrom.shares.minus(shares)
-  updateAllocatorAssets(osToken, osTokenConfig, vault, allocatorFrom)
-  allocatorFrom.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocatorFrom)
+  decreaseAllocatorShares(osToken, osTokenConfig, vault, allocatorFrom, shares)
+  allocatorFrom.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocatorFrom)
   allocatorFrom.save()
-  if (allocatorFrom.shares.isZero()) {
-    decreaseUserVaultsCount(allocatorFrom.address)
-  }
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferOut, from, assets, shares)
 
   const allocatorTo = createOrLoadAllocator(to, vaultAddress)
-  if (allocatorTo.shares.isZero() && !shares.isZero()) {
-    increaseUserVaultsCount(allocatorTo.address)
-  }
-  allocatorTo.shares = allocatorTo.shares.plus(shares)
-  updateAllocatorAssets(osToken, osTokenConfig, vault, allocatorTo)
-  allocatorTo.apy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocatorTo)
+  increaseAllocatorShares(osToken, osTokenConfig, vault, allocatorTo, shares)
+  allocatorTo.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocatorTo)
   allocatorTo.save()
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferIn, to, assets, shares)
 

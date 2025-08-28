@@ -4,6 +4,7 @@ import {
   BigInt,
   Bytes,
   DataSourceContext,
+  ethereum,
   ipfs,
   json,
   JSONValue,
@@ -22,6 +23,9 @@ import {
   ERC20_VAULT_FACTORY_V5,
   FOX_VAULT1,
   FOX_VAULT2,
+  META_VAULT_FACTORY_V3,
+  META_VAULT_FACTORY_V5,
+  NETWORK,
   PRIV_ERC20_VAULT_FACTORY_V1,
   PRIV_ERC20_VAULT_FACTORY_V2,
   PRIV_ERC20_VAULT_FACTORY_V3,
@@ -37,20 +41,16 @@ import {
   VAULT_FACTORY_V2,
   VAULT_FACTORY_V3,
   VAULT_FACTORY_V5,
-  META_VAULT_FACTORY_V3,
-  META_VAULT_FACTORY_V5,
-  NETWORK,
 } from '../helpers/constants'
 import {
   FoxVault as FoxVaultTemplate,
+  MetaVaultFactory as MetaVaultFactoryTemplate,
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
   VaultFactory as VaultFactoryTemplate,
-  MetaVaultFactory as MetaVaultFactoryTemplate,
 } from '../../generated/templates'
-import { Allocator, OsTokenHolder } from '../../generated/schema'
+import { Allocator, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
 import { createOrLoadOsToken, loadOsToken, updateOsTokenApy } from '../entities/osToken'
-import { createOrLoadAllocator, getAllocatorApy, updateAllocatorAssets } from '../entities/allocator'
-import { createOrLoadNetwork, increaseUserVaultsCount, loadNetwork } from '../entities/network'
+import { createOrLoadNetwork, loadNetwork } from '../entities/network'
 import {
   ConfigUpdated,
   Harvested,
@@ -59,15 +59,13 @@ import {
   ValidatorsApproval,
 } from '../../generated/Keeper/Keeper'
 import { createOrLoadV2Pool } from '../entities/v2pool'
-import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { updateExitRequests } from '../entities/exitRequest'
-import { updateRewardSplitters } from '../entities/rewardSplitter'
-import { updateLeverageStrategyPositions } from '../entities/leverageStrategy'
-import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
-import { getVaultState, isFoxVault, loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
+import { getVaultApy, getVaultState, loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
 import { getOsTokenHolderApy } from '../entities/osTokenHolder'
-import { createOrLoadAave, loadAave, updateAavePositions } from '../entities/aave'
+import { createOrLoadAave, loadAave, updateAaveApys } from '../entities/aave'
 import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
+import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
+import { loadOsTokenConfig } from '../entities/osTokenConfig'
+import { getAllocatorApy } from '../entities/allocator'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -294,7 +292,6 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const rewardsIpfsHash = event.params.rewardsIpfsHash
   const updateTimestamp = event.params.updateTimestamp
   const blockTimestamp = event.block.timestamp
-  const blockNumber = event.block.number
   const newAvgRewardPerSecond = event.params.avgRewardPerSecond
 
   // update vaults
@@ -303,101 +300,15 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
     log.warning('[Keeper] RewardsUpdated ipfs.cat failed for hash={} retrying', [rewardsIpfsHash])
     data = ipfs.cat(rewardsIpfsHash)
   }
-  const feeRecipientsEarnedShares = updateVaults(json.fromBytes(data!), rewardsRoot, updateTimestamp, rewardsIpfsHash)
-
-  // fetch Aave data
-  const aave = loadAave()!
-  updateAavePositions(aave)
+  updateVaults(json.fromBytes(data!), rewardsRoot, updateTimestamp, rewardsIpfsHash)
 
   // update OsToken
   const osToken = loadOsToken()!
   updateOsTokenApy(osToken, newAvgRewardPerSecond)
 
-  const network = loadNetwork()!
-  const distributor = loadDistributor()!
-  const vaultIds = network.vaultIds
-  for (let i = 0; i < vaultIds.length; i++) {
-    const vaultAddress = Address.fromString(vaultIds[i])
-    const vault = loadVault(vaultAddress)!
-    if (vault.rewardsRoot === null || vault.isMetaVault) {
-      continue
-    }
-    const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
-
-    // process fee recipient earned shares
-    const feeRecipient = createOrLoadAllocator(Address.fromBytes(vault.feeRecipient), vaultAddress)
-    const feeRecipientShares = feeRecipientsEarnedShares.get(feeRecipient.id)
-    if (feeRecipientShares && feeRecipientShares.gt(BigInt.zero())) {
-      if (feeRecipient.shares.isZero()) {
-        increaseUserVaultsCount(feeRecipient.address)
-      }
-      feeRecipient.shares = feeRecipient.shares.plus(feeRecipientShares)
-      feeRecipient.save()
-    }
-
-    const _isFoxVault = isFoxVault(vaultAddress)
-
-    // update allocators
-    let earnedAssets: BigInt
-    let allocator: Allocator
-    let allocators: Array<Allocator> = vault.allocators.load()
-    for (let j = 0; j < allocators.length; j++) {
-      allocator = allocators[j]
-      earnedAssets = updateAllocatorAssets(osToken, osTokenConfig, vault, allocator)
-      if (_isFoxVault) {
-        allocator.apy = allocator.assets.gt(BigInt.zero()) ? vault.apy : BigDecimal.zero()
-      }
-      allocator._periodEarnedAssets = allocator._periodEarnedAssets.plus(earnedAssets)
-      allocator.save()
-    }
-
-    // update exit requests
-    updateExitRequests(network, vault, updateTimestamp)
-
-    // update reward splitters
-    updateRewardSplitters(vault)
-
-    if (_isFoxVault) {
-      continue
-    }
-
-    // update OsToken exit requests
-    updateOsTokenExitRequests(osToken, vault)
-
-    // update leverage strategy positions
-    updateLeverageStrategyPositions(network, aave, osToken, vault)
-
-    // update allocators apys
-    let allocatorApy: BigDecimal
-    // reload allocators in case they were updated
-    allocators = vault.allocators.load()
-    for (let j = 0; j < allocators.length; j++) {
-      allocator = allocators[j]
-      allocatorApy = getAllocatorApy(osToken, osTokenConfig, vault, distributor, allocator)
-      if (allocatorApy.equals(allocator.apy)) {
-        continue
-      }
-      allocator.apy = allocatorApy
-      allocator.save()
-    }
-
-    // update vault max boost apys
-    updateVaultMaxBoostApy(aave, osToken, vault, osTokenConfig, distributor, blockNumber)
-  }
-
-  // update osToken holders apys
-  let osTokenHolderApy: BigDecimal
-  let osTokenHolder: OsTokenHolder
-  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
-  for (let i = 0; i < osTokenHolders.length; i++) {
-    osTokenHolder = osTokenHolders[i]
-    osTokenHolderApy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
-    if (osTokenHolderApy.equals(osTokenHolder.apy)) {
-      continue
-    }
-    osTokenHolder.apy = osTokenHolderApy
-    osTokenHolder.save()
-  }
+  const keeperCheckpoint = createOrLoadCheckpoint(CheckpointType.KEEPER)
+  keeperCheckpoint.timestamp = blockTimestamp
+  keeperCheckpoint.save()
 
   log.info('[Keeper] RewardsUpdated rewardsRoot={} rewardsIpfsHash={} updateTimestamp={} blockTimestamp={}', [
     rewardsRoot.toHex(),
@@ -413,7 +324,7 @@ export function handleHarvested(event: Harvested): void {
   const totalAssetsDelta = event.params.totalAssetsDelta
 
   const vault = loadVault(vaultAddress)
-  if (vault == null) {
+  if (!vault) {
     log.error('[Keeper] Harvested vault={} not found', [vaultAddress.toHex()])
     return
   }
@@ -439,13 +350,14 @@ export function handleValidatorsApproval(event: ValidatorsApproval): void {
   const vaultAddress = event.params.vault
   const vault = loadVault(vaultAddress)
 
-  if (vault === null) {
+  if (!vault) {
     log.error('[Keeper] ValidatorsApproval vault={} not found', [vaultAddress.toHex()])
     return
   }
-
-  vault.isCollateralized = true
-  vault.save()
+  if (!vault.isCollateralized) {
+    vault.isCollateralized = true
+    vault.save()
+  }
 
   log.info('[Keeper] ValidatorsApproval vault={}', [vaultAddress.toHex()])
 }
@@ -484,4 +396,82 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
   }
 
   log.info('[Keeper] ConfigUpdated configIpfsHash={}', [configIpfsHash])
+}
+
+export function syncApys(block: ethereum.Block): void {
+  const apysCheckpoint = createOrLoadCheckpoint(CheckpointType.APYS)
+  const osTokenCheckpoint = createOrLoadCheckpoint(CheckpointType.OS_TOKEN)
+  const leverageStrategyCheckpoint = createOrLoadCheckpoint(CheckpointType.LEVERAGE_STRATEGY)
+  const distributorCheckpoint = createOrLoadCheckpoint(CheckpointType.DISTRIBUTOR)
+  if (
+    osTokenCheckpoint.timestamp.lt(apysCheckpoint.timestamp) ||
+    leverageStrategyCheckpoint.timestamp.lt(apysCheckpoint.timestamp) ||
+    distributorCheckpoint.timestamp.lt(apysCheckpoint.timestamp)
+  ) {
+    return
+  }
+
+  const network = loadNetwork()
+  const osToken = loadOsToken()
+  const distributor = loadDistributor()
+  const aave = loadAave()
+
+  if (!network || !osToken || !aave || !distributor) {
+    log.warning('[SyncApys] OsToken or Network or Aave or Distributor not found', [])
+    return
+  }
+
+  const newTimestamp = block.timestamp
+  const newBlockNumber = block.number
+
+  // update Aave borrow and supply APYs
+  updateAaveApys(aave, newBlockNumber)
+
+  // update vault, allocators APYs
+  let vault: Vault
+  let osTokenConfig: OsTokenConfig
+  const vaultIds = network.vaultIds
+  for (let i = 0; i < vaultIds.length; i++) {
+    vault = loadVault(Address.fromString(vaultIds[i]))!
+    if (!vault.isCollateralized) {
+      continue
+    }
+    osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
+
+    vault.apy = getVaultApy(vault, distributor, osToken, false)
+    updateVaultMaxBoostApy(aave, osToken, vault, osTokenConfig, distributor, newBlockNumber)
+    vault.save()
+
+    // update allocators apys
+    let allocatorApy: BigDecimal
+    let allocator: Allocator
+    const allocators: Array<Allocator> = vault.allocators.load()
+    for (let j = 0; j < allocators.length; j++) {
+      allocator = allocators[j]
+      allocatorApy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
+      if (allocatorApy.equals(allocator.apy)) {
+        continue
+      }
+      allocator.apy = allocatorApy
+      allocator.save()
+    }
+  }
+
+  // update osToken holders apys
+  let osTokenHolderApy: BigDecimal
+  let osTokenHolder: OsTokenHolder
+  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
+  for (let i = 0; i < osTokenHolders.length; i++) {
+    osTokenHolder = osTokenHolders[i]
+    osTokenHolderApy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
+    if (osTokenHolderApy.equals(osTokenHolder.apy)) {
+      continue
+    }
+    osTokenHolder.apy = osTokenHolderApy
+    osTokenHolder.save()
+  }
+
+  apysCheckpoint.timestamp = newTimestamp
+  apysCheckpoint.save()
+  log.info('[SyncApys] APYs synced timestamp={}', [newTimestamp.toString()])
 }

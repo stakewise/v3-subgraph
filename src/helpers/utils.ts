@@ -31,6 +31,9 @@ export function calculateAverage(values: Array<BigDecimal>): BigDecimal {
 }
 
 export function getAnnualReward(principal: BigInt, apy: BigDecimal): BigInt {
+  if (principal.isZero() || apy.equals(BigDecimal.zero())) {
+    return BigInt.zero()
+  }
   // FIXME: Add 0.000000000000000001 to the APY as there is an issue with BigDecimal numbers
   // For example, apy = 3.741797575044 principal = 1000000000000000000, but the result is 3741797575044 instead of 3741797575044000000.
   return principal.toBigDecimal().times(apy.plus(wei)).div(BigDecimal.fromString('100')).truncate(0).digits
@@ -106,4 +109,12 @@ export function encodeContractCall(target: Address, data: Bytes): ethereum.Value
 
 export function rayMul(a: BigInt, b: BigInt): BigInt {
   return a.times(b).plus(halfRAY).div(RAY)
+}
+
+export function parseIpfsHash(ipfsHash: string): string | null {
+  const _hash = ipfsHash.trim()
+  if (_hash.length !== 46 && _hash.length !== 52) {
+    return null
+  }
+  return _hash
 }
