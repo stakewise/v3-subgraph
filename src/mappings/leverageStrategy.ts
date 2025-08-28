@@ -261,8 +261,9 @@ export function handleStrategyProxyUpgraded(event: StrategyProxyUpgraded): void 
   const vaultAddress = event.params.vault
   const userAddress = event.params.user
 
-  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress, event.address)
+  const position = createOrLoadLeverageStrategyPosition(vaultAddress, userAddress, newStrategy)
   position.version = newStrategy.equals(AAVE_LEVERAGE_STRATEGY_V1) ? BigInt.fromI32(1) : BigInt.fromI32(2)
+  position.save()
 
   createTransaction(event.transaction.hash.toHex())
 
