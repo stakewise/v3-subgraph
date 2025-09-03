@@ -142,6 +142,7 @@ export function createVault(
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = false
   vault.version = version
+  vault.lastFeePercent = null
   vault.lastFeeUpdateTimestamp = block.timestamp
   vault._periodStakeEarnedAssets = BigInt.zero()
   vault._periodExtraEarnedAssets = BigInt.zero()

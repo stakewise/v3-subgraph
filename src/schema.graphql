@@ -277,6 +277,9 @@ type Vault @entity(immutable: false) {
   "The vault slashed MEV reward in the smoothing pool"
   slashedMevReward: BigInt!
 
+  "The vault last fee percent"
+  lastFeePercent: Int!
+
   "The timestamp of the last fee update"
   lastFeeUpdateTimestamp: BigInt!
 

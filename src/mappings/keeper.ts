@@ -306,6 +306,18 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const osToken = loadOsToken()!
   updateOsTokenApy(osToken, newAvgRewardPerSecond)
 
+  // set canHarvest for all meta vaults
+  const network = loadNetwork()!
+  for (let i = 0; i < network.vaultIds.length; i++) {
+    const vaultAddress = Address.fromString(network.vaultIds[i])
+    const vault = loadVault(vaultAddress)!
+    if (vault.isMetaVault) {
+      vault.canHarvest = true
+      vault.save()
+    }
+  }
+
+  // update checkpoints
   const keeperCheckpoint = createOrLoadCheckpoint(CheckpointType.KEEPER)
   keeperCheckpoint.timestamp = blockTimestamp
   keeperCheckpoint.save()
