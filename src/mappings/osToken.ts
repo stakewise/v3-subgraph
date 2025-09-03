@@ -80,7 +80,11 @@ export function syncOsToken(block: ethereum.Block): void {
       continue
     }
 
-    osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
+    osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)
+    if (!osTokenConfig) {
+      log.warning('[SyncOsToken] OsTokenConfig not found vault={} osTokenConfig={}', [vault.id, vault.osTokenConfig])
+      continue
+    }
 
     // update allocators minted osToken shares
     updateVaultMintedOsTokenShares(osToken, osTokenConfig, vault)

@@ -808,7 +808,7 @@ templates:
           handler: handleInitialized
         - event: CheckpointCreated(uint256,uint256)
           handler: handleCheckpointCreated
-        - event: AdminUpdated(indexed address,address)
+        - event: AdminUpdated(indexed address,indexed address)
           handler: handleAdminUpdated
         - event: FeePercentUpdated(indexed address,uint16)
           handler: handleFeePercentUpdated

@@ -86,6 +86,7 @@ export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
   vault.exitingAssets = newExitingAssets
   vault.rate = newRate
   vault.rewardsRoot = subVault.rewardsRoot
+  vault.canHarvest = subVault.canHarvest
   vault.rewardsIpfsHash = subVault.rewardsIpfsHash
   vault.rewardsTimestamp = subVault.rewardsTimestamp
   vault._periodStakeEarnedAssets = vault._periodStakeEarnedAssets.plus(vaultPeriodAssets)
