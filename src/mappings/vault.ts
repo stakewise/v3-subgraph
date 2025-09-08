@@ -750,7 +750,6 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
     vault.version = BigInt.fromI32(1)
     vault.osTokenConfig = '1'
   }
-  vault.lastFeeUpdateTimestamp = event.block.timestamp
   vault.metadataIpfsHash = metadataIpfsHash
   vault._periodExtraEarnedAssets = BigInt.zero()
   vault._periodStakeEarnedAssets = BigInt.zero()
@@ -827,7 +826,6 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.version = BigInt.fromI32(1)
   vault.osTokenConfig = '1'
   vault.metadataIpfsHash = metadataIpfsHash
-  vault.lastFeeUpdateTimestamp = event.block.timestamp
   vault._periodStakeEarnedAssets = BigInt.zero()
   vault._periodExtraEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
