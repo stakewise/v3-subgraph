@@ -281,7 +281,7 @@ type Vault @entity(immutable: false) {
   lastFeePercent: Int
 
   "The timestamp of the last fee update"
-  lastFeeUpdateTimestamp: BigInt!
+  lastFeeUpdateTimestamp: BigInt
 
   "Defines whether the vault can harvest new rewards"
   canHarvest: Boolean!

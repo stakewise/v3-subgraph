@@ -5,8 +5,8 @@ import { convertSharesToAssets, getUpdateStateCall } from './vault'
 import { loadAllocator } from './allocator'
 import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
 import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
+import { isGnosisNetwork } from './network'
 
-const secondsInDay = '86400'
 const getExitQueueIndexSelector = '0x60d60e6e'
 const calculateExitedAssetsSelector = '0x76b58b90'
 
@@ -18,10 +18,11 @@ export function loadExitRequest(vault: Address, positionTicket: BigInt): ExitReq
 export function updateClaimableExitRequests(vault: Vault, timestamp: BigInt): void {
   let exitRequest: ExitRequest
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
+  const isGnosis = isGnosisNetwork()
   for (let i = 0; i < exitRequests.length; i++) {
     exitRequest = exitRequests[i]
     if (exitRequest.exitedAssets.gt(BigInt.zero()) && !exitRequest.isClaimed && !exitRequest.isClaimable) {
-      const isClaimable = exitRequest.timestamp.plus(BigInt.fromString(secondsInDay)).lt(timestamp)
+      const isClaimable = _isExitRequestClaimable(vault, exitRequest, timestamp, isGnosis)
       if (isClaimable) {
         exitRequest.isClaimable = isClaimable
         exitRequest.save()
@@ -105,6 +106,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
 
   // Parse and update each exitRequest
   const one = BigInt.fromI32(1)
+  const isGnosis = isGnosisNetwork()
   for (let i = 0; i < stage2Results.length; i++) {
     let exitRequest = pendingExitRequests[i]
     let decodedResult = ethereum.decode('(uint256,uint256,uint256)', stage2Results[i]!)!.toTuple()
@@ -127,13 +129,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     }
     exitRequest.exitedAssets = exitedAssets
 
-    // If there are some exited assets, check if they are claimable
-    if (!exitedAssets.isZero()) {
-      exitRequest.isClaimable = exitRequest.timestamp.plus(BigInt.fromString(secondsInDay)).lt(timestamp)
-    } else {
-      exitRequest.isClaimable = false
-    }
-
+    exitRequest.isClaimable = _isExitRequestClaimable(vault, exitRequest, timestamp, isGnosis)
     exitRequest.save()
 
     const totalAssetsDelta = exitRequest.totalAssets.minus(totalAssetsBefore)
@@ -177,4 +173,38 @@ function getCalculateExitedAssetsCall(
     .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(positionTicket))!)
     .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(timestamp))!)
     .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(exitQueueIndex))!)
+}
+
+function _isExitRequestClaimable(
+  vault: Vault,
+  exitRequest: ExitRequest,
+  timestamp: BigInt,
+  isGnosis: boolean,
+): boolean {
+  // If there are some exited assets, check if they are claimable
+  if (exitRequest.exitedAssets.isZero()) {
+    return false
+  }
+
+  const minDuration = _getExitQueueMinDelay(vault, isGnosis)
+  return exitRequest.timestamp.plus(minDuration).lt(timestamp)
+}
+
+function _getExitQueueMinDelay(vault: Vault, isGnosis: boolean): BigInt {
+  const beforePectraDelay = BigInt.fromI32(86400) // 24 hours
+  const afterPectraDelay = BigInt.fromI32(54000) // 15 hours
+  const latestPrivateVaultDelay = BigInt.zero()
+  if (isGnosis) {
+    if (vault.isGenesis) {
+      return vault.version.gt(BigInt.fromString('3')) ? afterPectraDelay : beforePectraDelay // 15 or 24 hours
+    } else if (vault.isPrivate) {
+      return vault.version.gt(BigInt.fromString('2')) ? latestPrivateVaultDelay : beforePectraDelay // 0 or 24 hours
+    }
+    return vault.version.gt(BigInt.fromString('2')) ? afterPectraDelay : beforePectraDelay // 15 or 24 hours
+  }
+
+  if (vault.isPrivate) {
+    return vault.version.gt(BigInt.fromString('4')) ? latestPrivateVaultDelay : beforePectraDelay // 0 or 24 hours
+  }
+  return vault.version.gt(BigInt.fromString('4')) ? afterPectraDelay : beforePectraDelay // 15 or 24 hours
 }
