@@ -146,14 +146,19 @@ export function createVault(
   vault._periodExtraEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
 
+  // the OsTokenConfig was updated for v2 vaults
   if (vault.version.equals(BigInt.fromI32(1))) {
-    // there is no validators manager for v1 vaults
-    vault.validatorsManager = null
     vault.osTokenConfig = '1'
   } else {
-    // default to deposit data registry
-    vault.validatorsManager = DEPOSIT_DATA_REGISTRY
     vault.osTokenConfig = '2'
+  }
+
+  if (isGnosisNetwork()) {
+    vault.validatorsManager = vault.version.equals(BigInt.fromI32(2)) ? DEPOSIT_DATA_REGISTRY : Address.zero()
+  } else if (vault.version.equals(BigInt.fromI32(1))) {
+    vault.validatorsManager = null
+  } else {
+    vault.validatorsManager = vault.version.lt(BigInt.fromI32(5)) ? DEPOSIT_DATA_REGISTRY : Address.zero()
   }
 
   if (ownMevEscrow != Address.zero()) {
