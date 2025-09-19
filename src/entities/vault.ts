@@ -28,6 +28,7 @@ import {
   encodeContractCall,
   getAnnualReward,
   getCompoundedApy,
+  isFailedUpdateStateCall,
 } from '../helpers/utils'
 import { createOrLoadOwnMevEscrow } from './mevEscrow'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
@@ -582,6 +583,9 @@ export function getVaultState(vault: Vault): Array<BigInt> {
       vault.exitingAssets,
       BigInt.zero(),
     ]
+  }
+  if (isFailedUpdateStateCall(vault)) {
+    return [vault.rate, vault.totalAssets, vault.totalShares, vault.queuedShares, vault.exitingAssets, BigInt.zero()]
   }
   const vaultAddr = Address.fromString(vault.id)
 

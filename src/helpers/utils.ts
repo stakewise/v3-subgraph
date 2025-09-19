@@ -3,7 +3,8 @@ import {
   Multicall as MulticallContract,
   TryAggregateCallReturnDataOutputStruct,
 } from '../../generated/Keeper/Multicall'
-import { MULTICALL, WAD } from './constants'
+import { Vault } from '../../generated/schema'
+import { MULTICALL, NETWORK, WAD } from './constants'
 
 const secondsInYear = '31536000'
 const maxPercent = '100'
@@ -117,4 +118,25 @@ export function parseIpfsHash(ipfsHash: string): string | null {
     return null
   }
   return _hash
+}
+
+export function isFailedUpdateStateCall(vault: Vault): boolean {
+  if (NETWORK != 'chiado') {
+    return false
+  }
+
+  const vaultAddress = Address.fromString(vault.id)
+  const failedRoot1 = Bytes.fromHexString('0x1bc15917c998a8525f976ac59c536f3344d8b8bb1ad63da76820476fd7a7d562')
+  const failedVault1 = Address.fromString('0xC54d33dE49870742B382D506566Edc81a2AbeD9D')
+  const failedRoot2 = Bytes.fromHexString('0x950d6ab616a8494f139357f930ce9a430c15522365ce2e5d94f6e532a3796763')
+  const failedVault2 = Address.fromString('0xF82f6E46d0d0a9536b9CA4bc480372EeaFcd9E6c')
+
+  if (!vault.rewardsRoot) {
+    return false
+  }
+
+  return (
+    (vault.rewardsRoot.equals(failedRoot1) && vaultAddress.equals(failedVault1)) ||
+    (vault.rewardsRoot.equals(failedRoot2) && vaultAddress.equals(failedVault2))
+  )
 }
