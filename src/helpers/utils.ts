@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import {
   Multicall as MulticallContract,
   TryAggregateCallReturnDataOutputStruct,
@@ -134,9 +134,12 @@ export function isFailedUpdateStateCall(vault: Vault): boolean {
   if (!vault.rewardsRoot) {
     return false
   }
-
-  return (
-    (vault.rewardsRoot.equals(failedRoot1) && vaultAddress.equals(failedVault1)) ||
-    (vault.rewardsRoot.equals(failedRoot2) && vaultAddress.equals(failedVault2))
-  )
+  if (
+    (vault.rewardsRoot!.equals(failedRoot1) && vaultAddress.equals(failedVault1)) ||
+    (vault.rewardsRoot!.equals(failedRoot2) && vaultAddress.equals(failedVault2))
+  ) {
+    log.error('[isFailedUpdateStateCall] vault={} has a known failed updateState call', [vault.id])
+    return true
+  }
+  return false
 }
