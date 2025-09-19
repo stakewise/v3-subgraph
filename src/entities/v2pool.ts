@@ -91,7 +91,11 @@ export function updatePoolApy(
 
 export function getV2PoolState(vault: Vault): Array<BigInt> {
   if (isFailedUpdateStateCall(vault)) {
-    const v2Pool = loadV2Pool()!
+    const v2Pool = loadV2Pool()
+    if (v2Pool === null) {
+      log.error('[V2Pool] getV2PoolState failed to load V2Pool on failed updateState call', [])
+      return [BigInt.fromString(WAD), BigInt.zero(), BigInt.zero(), BigInt.zero()]
+    }
     return [v2Pool.rate, v2Pool.rewardAssets, v2Pool.principalAssets, v2Pool.penaltyAssets]
   }
   const updateStateCalls = getUpdateStateCall(vault)
