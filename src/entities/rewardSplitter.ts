@@ -8,7 +8,7 @@ import {
   REWARD_SPLITTER_FACTORY_V2,
   REWARD_SPLITTER_FACTORY_V3,
 } from '../helpers/constants'
-import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
+import { chunkedMulticall, encodeContractCall, isFailedUpdateStateCall } from '../helpers/utils'
 
 const syncRewardsCallSelector = '0x72c0c211'
 const rewardsOfSelector = '0x479ba7ae'
@@ -58,6 +58,9 @@ export function syncEarnedVaultAssets(vault: Vault, shareHolder: RewardSplitterS
 export function updateRewardSplitters(vault: Vault): void {
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     // wait for the migration
+    return
+  }
+  if (isFailedUpdateStateCall(vault)) {
     return
   }
 

@@ -4,7 +4,7 @@ import { loadV2Pool } from './v2pool'
 import { convertSharesToAssets, getUpdateStateCall } from './vault'
 import { loadAllocator } from './allocator'
 import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
-import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
+import { chunkedMulticall, encodeContractCall, isFailedUpdateStateCall } from '../helpers/utils'
 import { isGnosisNetwork } from './network'
 
 const getExitQueueIndexSelector = '0x60d60e6e'
@@ -38,6 +38,9 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   }
   if (!vault.isCollateralized) {
     // If vault is not collateralized, there are no exit requests to process
+    return
+  }
+  if (isFailedUpdateStateCall(vault)) {
     return
   }
 
