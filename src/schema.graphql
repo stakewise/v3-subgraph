@@ -497,9 +497,6 @@ type OsToken @entity(immutable: false) {
 
   "The OsToken holders"
   holders: [OsTokenHolder!]! @derivedFrom(field: "osToken")
-
-  "The period earned assets"
-  _periodEarnedAssets: BigInt!
 }
 
 """
