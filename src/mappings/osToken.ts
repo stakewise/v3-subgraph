@@ -8,14 +8,11 @@ import {
 } from '../entities/osToken'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { loadNetwork } from '../entities/network'
-import { OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
+import { OsTokenConfig, Vault } from '../../generated/schema'
 import { loadVault } from '../entities/vault'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { updateVaultMintedOsTokenShares } from '../entities/allocator'
+import { updateAllocatorMintedOsTokenShares } from '../entities/allocator'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
-
-const secondsInDay = 86400
-const extraSecondsGap = 60
 
 export function handleStateUpdated(event: StateUpdated): void {
   const shares = event.params.treasuryShares
@@ -46,29 +43,13 @@ export function syncOsToken(block: ethereum.Block): void {
   const newTimestamp = block.timestamp
   const osTokenCheckpoint = createOrLoadCheckpoint(CheckpointType.OS_TOKEN)
   const hasHourPassed = osTokenCheckpoint.timestamp.plus(BigInt.fromI32(3600)).lt(newTimestamp)
-  const isCloseToDayEnd = newTimestamp
-    .plus(BigInt.fromI32(extraSecondsGap))
-    .div(BigInt.fromI32(secondsInDay))
-    .gt(osTokenCheckpoint.timestamp.plus(BigInt.fromI32(extraSecondsGap)).div(BigInt.fromI32(secondsInDay)))
-
-  if (!(hasHourPassed || isCloseToDayEnd)) {
-    // update OsToken only once per hour or close to day end
+  if (!hasHourPassed) {
+    // update OsToken only once per hour
     return
   }
 
   // update OsToken total assets
   updateOsTokenTotalAssets(osToken)
-
-  // update assets of all the OsToken holders
-  let osTokenHolder: OsTokenHolder
-  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
-  for (let i = 0; i < osTokenHolders.length; i++) {
-    osTokenHolder = osTokenHolders[i]
-    const assetsBefore = osTokenHolder.assets
-    osTokenHolder.assets = convertOsTokenSharesToAssets(osToken, osTokenHolder.balance)
-    osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(osTokenHolder.assets.minus(assetsBefore))
-    osTokenHolder.save()
-  }
 
   let vault: Vault
   let osTokenConfig: OsTokenConfig | null
@@ -87,12 +68,10 @@ export function syncOsToken(block: ethereum.Block): void {
     }
 
     // update allocators minted osToken shares
-    updateVaultMintedOsTokenShares(osToken, osTokenConfig, vault)
+    updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, vault)
 
     // update OsToken exit requests
     updateOsTokenExitRequests(osToken, vault)
-
-    vault.save()
   }
 
   osTokenCheckpoint.timestamp = newTimestamp

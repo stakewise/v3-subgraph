@@ -9,7 +9,13 @@ import {
   Vault,
 } from '../../generated/schema'
 import { WAD } from '../helpers/constants'
-import { calculateApy, chunkedMulticall, encodeContractCall, getAnnualReward } from '../helpers/utils'
+import {
+  calculateApy,
+  chunkedMulticall,
+  encodeContractCall,
+  getAnnualReward,
+  getSnapshotTimestamp,
+} from '../helpers/utils'
 import { convertOsTokenSharesToAssets } from './osToken'
 import { convertSharesToAssets, getVaultOsTokenMintApy, loadVault } from './vault'
 import { loadOsTokenConfig } from './osTokenConfig'
@@ -89,7 +95,6 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.totalEarnedAssets = BigInt.zero()
     vaultAllocator.totalStakeEarnedAssets = BigInt.zero()
     vaultAllocator.totalBoostEarnedAssets = BigInt.zero()
-    vaultAllocator.totalOsTokenFeeAssets = BigInt.zero()
     vaultAllocator._periodStakeEarnedAssets = BigInt.zero()
     vaultAllocator._periodBoostEarnedAssets = BigInt.zero()
     vaultAllocator._periodBoostEarnedOsTokenShares = BigInt.zero()
@@ -105,12 +110,15 @@ export function createAllocatorSnapshot(
   allocator: Allocator,
   rewardSplitterAssets: BigInt,
   duration: BigInt,
-  timestamp: BigInt,
+  timestamp: i64,
 ): AllocatorSnapshot {
   // calculate allocator total assets
-  const snapshotId = Bytes.fromHexString(allocator.id).concat(Bytes.fromI64(timestamp))
+  const snapshotTimestamp = getSnapshotTimestamp(timestamp)
+  const snapshotId = Bytes.fromHexString(allocator.vault)
+    .concat(allocator.address)
+    .concat(Bytes.fromByteArray(Bytes.fromI64(snapshotTimestamp)))
   const allocatorSnapshot = new AllocatorSnapshot(snapshotId)
-  allocatorSnapshot.timestamp = timestamp.toI64()
+  allocatorSnapshot.timestamp = snapshotTimestamp
   allocatorSnapshot.allocator = allocator.id
   allocatorSnapshot.stakeEarnedAssets = allocator._periodStakeEarnedAssets.minus(
     convertOsTokenSharesToAssets(osToken, allocator._periodOsTokenFeeShares),
@@ -127,6 +135,15 @@ export function createAllocatorSnapshot(
   )
   allocatorSnapshot.ltv = allocator.ltv
   allocatorSnapshot.save()
+
+  allocator.totalEarnedAssets = allocator.totalEarnedAssets.plus(allocatorSnapshot.earnedAssets)
+  allocator.totalStakeEarnedAssets = allocator.totalStakeEarnedAssets.plus(allocatorSnapshot.stakeEarnedAssets)
+  allocator.totalBoostEarnedAssets = allocator.totalBoostEarnedAssets.plus(allocatorSnapshot.boostEarnedAssets)
+  allocator._periodBoostEarnedAssets = BigInt.zero()
+  allocator._periodBoostEarnedOsTokenShares = BigInt.zero()
+  allocator._periodStakeEarnedAssets = BigInt.zero()
+  allocator._periodOsTokenFeeShares = BigInt.zero()
+  allocator.save()
 
   return allocatorSnapshot
 }

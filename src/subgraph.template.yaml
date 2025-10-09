@@ -164,6 +164,8 @@ dataSources:
           file: ./abis/AaveProtocolDataProvider.json
         - name: OsTokenVaultEscrow
           file: ./abis/OsTokenVaultEscrow.json
+        - name: Erc20Token
+          file: ./abis/Erc20Token.json
       eventHandlers:
         - event: OwnershipTransferred(indexed address,indexed address)
           handler: handleOwnershipTransferred
@@ -386,6 +388,26 @@ dataSources:
       eventHandlers:
         - event: VestingEscrowCreated(indexed address,indexed address,indexed address,address,address,uint256,uint256,uint256,uint256)
           handler: handleVestingEscrowCreated
+  - kind: ethereum/contract
+    name: XdaiConverterFactory
+    network: {{ network }}
+    source:
+      address: '{{ xDaiConverterFactory.address }}'
+      abi: XdaiConverterFactory
+      startBlock: {{ xDaiConverterFactory.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/xdaiConverter.ts
+      entities:
+        - XdaiConverter
+      abis:
+        - name: XdaiConverterFactory
+          file: ./abis/XdaiConverterFactory.json
+      eventHandlers:
+        - event: TokensConverterCreated(address,indexed address,indexed address)
+          handler: handleTokensConverterCreated
   - kind: ethereum/contract
     name: OsTokenVaultEscrow
     network: {{ network }}
@@ -812,6 +834,8 @@ templates:
           handler: handleAdminUpdated
         - event: FeePercentUpdated(indexed address,uint16)
           handler: handleFeePercentUpdated
+        - event: AssetsDonated(address,uint256)
+          handler: handleAssetsDonated
   - kind: ethereum/contract
     name: OwnMevEscrow
     network: {{ network }}

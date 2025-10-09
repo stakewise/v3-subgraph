@@ -7,6 +7,7 @@ import { Vault } from '../../generated/schema'
 import { MULTICALL, NETWORK, WAD } from './constants'
 
 const secondsInYear = '31536000'
+const secondsInDay = 86400
 const maxPercent = '100'
 const wei = BigDecimal.fromString('1').div(BigDecimal.fromString(WAD))
 const RAY = BigInt.fromI32(10).pow(27)
@@ -50,22 +51,6 @@ export function calculateApy(earnedAssets: BigInt, totalAssets: BigInt, duration
     .times(BigDecimal.fromString(maxPercent))
     .div(totalAssets.toBigDecimal())
     .div(durationInSeconds.toBigDecimal())
-}
-
-export function getCompoundedApy(initialApyPercent: BigDecimal, secondaryApyPercent: BigDecimal): BigDecimal {
-  const hundred = BigDecimal.fromString('100')
-
-  // convert percentages to decimal fractions
-  const initialApy = initialApyPercent.div(hundred)
-  const secondaryApy = secondaryApyPercent.div(hundred)
-
-  // approximate finalAPY using linearization, works only for small APYs
-  // finalApy ≈ initialApy * (1 + (secondaryApy / 2))
-  const factor = BigDecimal.fromString('1').plus(secondaryApy.div(BigDecimal.fromString('2')))
-  const finalApy = initialApy.times(factor)
-
-  // convert back to a percentage if needed
-  return finalApy.times(hundred)
 }
 
 export function chunkedMulticall(
@@ -142,4 +127,12 @@ export function isFailedUpdateStateCall(vault: Vault): boolean {
     return true
   }
   return false
+}
+
+export function getSnapshotTimestamp(timestamp: i64): i64 {
+  const remainder = timestamp % secondsInDay
+  if (remainder <= 0) {
+    return timestamp
+  }
+  return timestamp - remainder + secondsInDay
 }

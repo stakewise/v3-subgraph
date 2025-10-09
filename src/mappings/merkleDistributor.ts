@@ -21,6 +21,7 @@ import {
 import {
   convertDistributionTypeToString,
   createOrLoadDistributorClaim,
+  createOrLoadDistributorReward,
   distributeToVaultSelectedUsers,
   distributeToVaultUsers,
   DistributionType,
@@ -28,18 +29,15 @@ import {
   getDistributionType,
   loadDistributor,
   loadDistributorClaim,
-  redistributeMetaVaultsRewards,
-  updateDistributions,
+  updatePeriodicDistributions,
 } from '../entities/merkleDistributor'
 import { createTransaction } from '../entities/transaction'
-import { convertTokenAmountToAssets, isTokenSupported, loadExchangeRate } from '../entities/exchangeRates'
+import { isTokenSupported, loadExchangeRate } from '../entities/exchangeRates'
 import { loadVault } from '../entities/vault'
 import { loadNetwork } from '../entities/network'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
-import { loadOsToken } from '../entities/osToken'
 import { parseIpfsHash } from '../helpers/utils'
-
-const secondsInYear = '31536000'
+import { OS_TOKEN } from '../helpers/constants'
 
 export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded): void {
   const token = event.params.token
@@ -56,13 +54,7 @@ export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded
   }
 
   const startTimestamp = event.block.timestamp.plus(event.params.delayInSeconds)
-  let endTimestamp: BigInt
-  if (distType == DistributionType.LEVERAGE_STRATEGY) {
-    // the actual end timestamp will be calculated during first distribution
-    endTimestamp = startTimestamp.plus(BigInt.fromString(secondsInYear))
-  } else {
-    endTimestamp = startTimestamp.plus(event.params.durationInSeconds)
-  }
+  const endTimestamp = startTimestamp.plus(event.params.durationInSeconds)
 
   const distribution = new PeriodicDistribution(`${event.transaction.hash.toHex()}-${event.logIndex.toString()}`)
   distribution.hash = event.transaction.hash
@@ -90,10 +82,12 @@ export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded
 }
 
 export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded): void {
+  const network = loadNetwork()!
   const rewardsIpfsHash = parseIpfsHash(event.params.rewardsIpfsHash)
   const token = event.params.token
   let totalAmountToDistribute = event.params.amount
   const extraData = event.params.extraData
+  const caller = event.params.caller
 
   if (!isTokenSupported(token)) {
     log.error('[OneTimeDistribution] Unsupported token={}', [token.toHexString()])
@@ -106,57 +100,33 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
     return
   }
 
-  let userRewards: Array<JSONValue> | null
-  if (rewardsIpfsHash != null) {
-    userRewards = fetchRewardsData(rewardsIpfsHash!)
-    if (userRewards == null) {
-      log.error('[MerkleDistributor] OneTimeDistributionAdded rewardsIpfsHash={} not found', [rewardsIpfsHash!])
-      return
-    }
-  }
-
-  // distribute to all vault users
-  const network = loadNetwork()!
-  const exchangeRate = loadExchangeRate()!
   const vault = loadVault(Address.fromBytes(extraData))
   if (vault === null) {
     log.error('[MerkleDistributor] OneTimeDistributionAdded vault={} not found', [extraData.toHex()])
     return
   }
-  let selectedUsers = false
-  if (userRewards !== null) {
-    selectedUsers = true
-    totalAmountToDistribute = distributeToVaultSelectedUsers(
-      network,
-      exchangeRate,
-      vault,
-      token,
-      totalAmountToDistribute,
-      userRewards,
-    )
-    if (totalAmountToDistribute.isZero()) {
-      log.error('[MerkleDistributor] No users found for vault={} rewardsIpfsHash={}', [vault.id, rewardsIpfsHash!])
-      return
+
+  if (rewardsIpfsHash != null) {
+    const userRewards = fetchRewardsData(rewardsIpfsHash!)
+    if (userRewards != null) {
+      const isBoostRefund =
+        token.equals(OS_TOKEN) && caller.equals(Address.fromHexString('0x2685C0e39EEAAd383fB71ec3F493991d532A87ae'))
+      distributeToVaultSelectedUsers(network, vault, token, totalAmountToDistribute, userRewards, isBoostRefund)
+      log.info(
+        '[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={} selectedUsers=true isBoostRefund={}',
+        [vault.id, token.toHexString(), totalAmountToDistribute.toString(), isBoostRefund ? 'true' : 'false'],
+      )
+    } else {
+      log.error('[MerkleDistributor] OneTimeDistributionAdded rewardsIpfsHash={} not found', [rewardsIpfsHash!])
     }
-    // do not update vault._periodExtraEarnedAssets here as the reward was distributed to selected users only
   } else {
-    const principalAssets = distributeToVaultUsers(network, exchangeRate, vault, token, totalAmountToDistribute)
-    if (principalAssets.isZero()) {
-      log.error('[MerkleDistributor] No users found for vault={}', [vault.id])
-      return
-    }
-    const distributedAssets = convertTokenAmountToAssets(exchangeRate, token, totalAmountToDistribute)
-    vault._periodExtraEarnedAssets = vault._periodExtraEarnedAssets.plus(distributedAssets)
-    vault.save()
+    distributeToVaultUsers(network, vault, token, totalAmountToDistribute)
+    log.info('[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={} selectedUsers=false', [
+      vault.id,
+      token.toHexString(),
+      totalAmountToDistribute.toString(),
+    ])
   }
-  // as meta-vaults are allocators in the vault, we need to redistribute rewards to their users
-  redistributeMetaVaultsRewards(network, exchangeRate)
-  log.info('[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={} selectedUsers={}', [
-    vault.id,
-    token.toHexString(),
-    totalAmountToDistribute.toString(),
-    selectedUsers.toString(),
-  ])
 }
 
 export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
@@ -265,7 +235,8 @@ export function handleRewardsClaimed(event: RewardsClaimed): void {
   const unclaimedAmounts = claim.unclaimedAmounts
 
   for (let i = 0; i < tokens.length; i++) {
-    const claimedAmountId = `${tokens[i].toHex()}-${user.toHex()}`
+    const token = tokens[i]
+    const claimedAmountId = `${token.toHex()}-${user.toHex()}`
     let claimedAmount = DistributorClaimedAmount.load(claimedAmountId)
     if (claimedAmount == null) {
       claimedAmount = new DistributorClaimedAmount(claimedAmountId)
@@ -274,6 +245,20 @@ export function handleRewardsClaimed(event: RewardsClaimed): void {
     claimedAmount.cumulativeClaimedAmount = cumulativeAmounts[i]
     claimedAmount.save()
     unclaimedAmounts[i] = BigInt.zero()
+
+    const distributorReward = createOrLoadDistributorReward(token, user)
+    if (claimedAmount.cumulativeClaimedAmount.gt(distributorReward.cumulativeAmount)) {
+      log.error(
+        '[MerkleDistributor] RewardsClaimed claimed amount is greater than total amount for user={} token={} delta={}',
+        [
+          user.toHex(),
+          token.toHex(),
+          claimedAmount.cumulativeClaimedAmount.minus(distributorReward.cumulativeAmount).toString(),
+        ],
+      )
+      distributorReward.cumulativeAmount = claimedAmount.cumulativeClaimedAmount
+      distributorReward.save()
+    }
   }
 
   claim.unclaimedAmounts = unclaimedAmounts
@@ -305,16 +290,15 @@ export function syncDistributor(block: ethereum.Block): void {
   const distributor = loadDistributor()
   const network = loadNetwork()
   const exchangeRate = loadExchangeRate()
-  const osToken = loadOsToken()
 
-  if (!network || !osToken || !distributor || !exchangeRate) {
-    log.warning('[SyncDistributor] OsToken or Network or Distributor or ExchangeRate not found', [])
+  if (!network || !distributor || !exchangeRate) {
+    log.warning('[SyncDistributor] Network or Distributor or ExchangeRate not found', [])
     return
   }
 
   const newTimestamp = block.timestamp
   const distributorCheckpoint = createOrLoadCheckpoint(CheckpointType.DISTRIBUTOR)
-  updateDistributions(network, exchangeRate, osToken, distributor, newTimestamp)
+  updatePeriodicDistributions(network, exchangeRate, distributor, newTimestamp)
 
   distributorCheckpoint.timestamp = newTimestamp
   distributorCheckpoint.save()

@@ -138,6 +138,10 @@
     "address": "0x4abB9BBb82922A6893A5d6890cd2eE94610BEc48",
     "startBlock": "36651385"
   },
+  "xDaiConverterFactory": {
+    "address": "0xdeC758323bF734c72F909965841fC2dba3C8c007",
+    "startBlock": "42139081"
+  },
   "validatorsRegistry": {
     "address": "0x0B98057eA310F4d31F2a452B414647007d1645d9",
     "startBlock": "19469076"

@@ -48,7 +48,7 @@ import {
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
   VaultFactory as VaultFactoryTemplate,
 } from '../../generated/templates'
-import { Allocator, OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
+import { Allocator, OsTokenConfig, Vault } from '../../generated/schema'
 import { createOrLoadOsToken, loadOsToken, updateOsTokenApy } from '../entities/osToken'
 import { createOrLoadNetwork, loadNetwork } from '../entities/network'
 import {
@@ -59,8 +59,7 @@ import {
   ValidatorsApproval,
 } from '../../generated/Keeper/Keeper'
 import { createOrLoadV2Pool } from '../entities/v2pool'
-import { getVaultApy, getVaultState, loadVault, updateVaultMaxBoostApy, updateVaults } from '../entities/vault'
-import { getOsTokenHolderApy } from '../entities/osTokenHolder'
+import { getAllocatorMaxBoostApy, getVaultBaseApy, getVaultExtraApy, loadVault, updateVaults } from '../entities/vault'
 import { createOrLoadAave, loadAave, updateAaveApys } from '../entities/aave'
 import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
@@ -341,12 +340,6 @@ export function handleHarvested(event: Harvested): void {
     return
   }
   vault.canHarvest = vault.rewardsRoot!.notEqual(event.params.rewardsRoot)
-  if (vault.canHarvest) {
-    const state = getVaultState(vault)
-    vault._unclaimedFeeRecipientShares = state[5]
-  } else {
-    vault._unclaimedFeeRecipientShares = BigInt.zero()
-  }
   vault.save()
   if (vault.isGenesis) {
     const v2Pool = createOrLoadV2Pool()
@@ -397,16 +390,6 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
   network.osTokenVaultIds = osTokenVaultIds
   network.oraclesConfigIpfsHash = configIpfsHash
   network.save()
-
-  const osToken = loadOsToken()!
-  const distributor = loadDistributor()!
-  const holders: Array<OsTokenHolder> = osToken.holders.load()
-  for (let i = 0; i < holders.length; i++) {
-    const holder = holders[i]
-    holder.apy = getOsTokenHolderApy(network, osToken, distributor, holder)
-    holder.save()
-  }
-
   log.info('[Keeper] ConfigUpdated configIpfsHash={}', [configIpfsHash])
 }
 
@@ -450,8 +433,10 @@ export function syncApys(block: ethereum.Block): void {
     }
     osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
-    vault.apy = getVaultApy(vault, distributor, osToken, false)
-    updateVaultMaxBoostApy(aave, osToken, vault, osTokenConfig, distributor, newBlockNumber)
+    vault.baseApy = getVaultBaseApy(vault)
+    vault.extraApy = getVaultExtraApy(distributor, vault)
+    vault.apy = vault.baseApy.plus(vault.extraApy)
+    vault.allocatorMaxBoostApy = getAllocatorMaxBoostApy(aave, osToken, vault, osTokenConfig, newBlockNumber)
     vault.save()
 
     // update allocators apys
@@ -460,27 +445,13 @@ export function syncApys(block: ethereum.Block): void {
     const allocators: Array<Allocator> = vault.allocators.load()
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocatorApy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocator)
+      allocatorApy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
       if (allocatorApy.equals(allocator.apy)) {
         continue
       }
       allocator.apy = allocatorApy
       allocator.save()
     }
-  }
-
-  // update osToken holders apys
-  let osTokenHolderApy: BigDecimal
-  let osTokenHolder: OsTokenHolder
-  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
-  for (let i = 0; i < osTokenHolders.length; i++) {
-    osTokenHolder = osTokenHolders[i]
-    osTokenHolderApy = getOsTokenHolderApy(network, osToken, distributor, osTokenHolder)
-    if (osTokenHolderApy.equals(osTokenHolder.apy)) {
-      continue
-    }
-    osTokenHolder.apy = osTokenHolderApy
-    osTokenHolder.save()
   }
 
   apysCheckpoint.timestamp = newTimestamp

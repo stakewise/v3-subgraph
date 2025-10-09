@@ -1,5 +1,5 @@
-import { BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
-import { OsToken } from '../../generated/schema'
+import { Address, BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
+import { OsToken, OsTokenHolder } from '../../generated/schema'
 import { OsTokenVaultController as OsTokenVaultControllerContact } from '../../generated/OsTokenVaultController/OsTokenVaultController'
 import { OS_TOKEN_VAULT_CONTROLLER, WAD } from '../helpers/constants'
 import { calculateAverage } from '../helpers/utils'
@@ -27,6 +27,24 @@ export function createOrLoadOsToken(): OsToken {
   }
 
   return osToken
+}
+
+export function loadOsTokenHolder(holderAddress: Address): OsTokenHolder | null {
+  return OsTokenHolder.load(holderAddress.toHex())
+}
+
+export function createOrLoadOsTokenHolder(holderAddress: Address): OsTokenHolder {
+  const id = holderAddress.toHex()
+  let holder = OsTokenHolder.load(id)
+
+  if (holder === null) {
+    holder = new OsTokenHolder(id)
+    holder.balance = BigInt.zero()
+    holder.transfersCount = BigInt.zero()
+    holder.save()
+  }
+
+  return holder
 }
 
 export function updateOsTokenTotalAssets(osToken: OsToken): void {

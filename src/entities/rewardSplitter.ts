@@ -49,7 +49,7 @@ export function syncEarnedVaultAssets(vault: Vault, shareHolder: RewardSplitterS
   shareHolder.earnedVaultAssets = convertSharesToAssets(vault, shareHolder.earnedVaultShares)
 
   const allocator = createOrLoadAllocator(Address.fromBytes(shareHolder.address), Address.fromString(vault.id))
-  allocator._periodExtraEarnedAssets = allocator._periodExtraEarnedAssets.plus(
+  allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(
     shareHolder.earnedVaultAssets.minus(assetsBefore),
   )
   allocator.save()

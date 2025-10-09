@@ -1,9 +1,8 @@
 import { Address, log, store } from '@graphprotocol/graph-ts'
 import { SubVault } from '../../generated/schema'
 import { SubVaultAdded, SubVaultEjected, SubVaultsHarvested } from '../../generated/templates/MetaVault/MetaVault'
-import { loadVault, syncVault, updateVaultApy } from '../entities/vault'
+import { loadVault, syncVault } from '../entities/vault'
 import { loadOsToken } from '../entities/osToken'
-import { loadDistributor } from '../entities/merkleDistributor'
 import { loadNetwork } from '../entities/network'
 import { getMetaVaultState } from '../entities/metaVault'
 
@@ -53,7 +52,6 @@ export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
   // load used objects
   const vaultAddress = event.address
   const vault = loadVault(vaultAddress)!
-  const distributor = loadDistributor()!
   const osToken = loadOsToken()!
 
   // fetch vault state
@@ -72,14 +70,6 @@ export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
   const subVault = loadVault(Address.fromBytes(subVaults[0].subVault))!
 
   // update vault
-  updateVaultApy(
-    vault,
-    distributor,
-    osToken,
-    vault.rewardsTimestamp,
-    subVault.rewardsTimestamp!,
-    newRate.minus(vault.rate),
-  )
   vault.totalAssets = newTotalAssets
   vault.totalShares = newTotalShares
   vault.queuedShares = newQueuedShares
@@ -89,8 +79,10 @@ export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
   vault.canHarvest = subVault.canHarvest
   vault.rewardsIpfsHash = subVault.rewardsIpfsHash
   vault.rewardsTimestamp = subVault.rewardsTimestamp
-  vault._periodStakeEarnedAssets = vault._periodStakeEarnedAssets.plus(vaultPeriodAssets)
+  vault._periodEarnedAssets = vault._periodEarnedAssets.plus(vaultPeriodAssets)
   vault.save()
+
+  // TODO: fix fee recipient shares minted
 
   // update vault allocators, exit requests, reward splitters
   syncVault(loadNetwork()!, osToken, vault, timestamp)
