@@ -14,6 +14,9 @@ import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { updateAllocatorMintedOsTokenShares } from '../entities/allocator'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 
+const secondsInDay = 86400
+const extraSecondsGap = 60
+
 export function handleStateUpdated(event: StateUpdated): void {
   const shares = event.params.treasuryShares
   const osToken = loadOsToken()!
@@ -43,8 +46,13 @@ export function syncOsToken(block: ethereum.Block): void {
   const newTimestamp = block.timestamp
   const osTokenCheckpoint = createOrLoadCheckpoint(CheckpointType.OS_TOKEN)
   const hasHourPassed = osTokenCheckpoint.timestamp.plus(BigInt.fromI32(3600)).lt(newTimestamp)
-  if (!hasHourPassed) {
-    // update OsToken only once per hour
+  const isCloseToDayEnd = newTimestamp
+    .plus(BigInt.fromI32(extraSecondsGap))
+    .div(BigInt.fromI32(secondsInDay))
+    .gt(osTokenCheckpoint.timestamp.plus(BigInt.fromI32(extraSecondsGap)).div(BigInt.fromI32(secondsInDay)))
+
+  if (!(hasHourPassed || isCloseToDayEnd)) {
+    // update OsToken only once per hour or close to day end
     return
   }
 

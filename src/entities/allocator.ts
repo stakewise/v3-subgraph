@@ -174,6 +174,10 @@ export function createAllocatorAction(
 }
 
 export function updateAllocatorMintedOsTokenShares(osToken: OsToken, osTokenConfig: OsTokenConfig, vault: Vault): void {
+  if (!vault.isOsTokenEnabled) {
+    return
+  }
+
   // Prepare all calls for retrieving minted shares from OsToken positions
   let calls: Array<ethereum.Value> = []
   let allocator: Allocator

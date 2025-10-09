@@ -65,7 +65,6 @@ export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded
   distribution.startTimestamp = startTimestamp
   distribution.endTimestamp = endTimestamp
   distribution.apy = BigDecimal.zero()
-  distribution.apys = []
   distribution.save()
 
   const distributor = loadDistributor()!

@@ -59,7 +59,14 @@ import {
   ValidatorsApproval,
 } from '../../generated/Keeper/Keeper'
 import { createOrLoadV2Pool } from '../entities/v2pool'
-import { getAllocatorMaxBoostApy, getVaultBaseApy, getVaultExtraApy, loadVault, updateVaults } from '../entities/vault'
+import {
+  getAllocatorMaxBoostApy,
+  getVaultBaseApy,
+  getVaultExtraApy,
+  getVaultState,
+  loadVault,
+  updateVaults,
+} from '../entities/vault'
 import { createOrLoadAave, loadAave, updateAaveApys } from '../entities/aave'
 import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
@@ -340,6 +347,12 @@ export function handleHarvested(event: Harvested): void {
     return
   }
   vault.canHarvest = vault.rewardsRoot!.notEqual(event.params.rewardsRoot)
+  if (vault.canHarvest) {
+    const state = getVaultState(vault)
+    vault._unclaimedFeeRecipientShares = state[5]
+  } else {
+    vault._unclaimedFeeRecipientShares = BigInt.zero()
+  }
   vault.save()
   if (vault.isGenesis) {
     const v2Pool = createOrLoadV2Pool()

@@ -38,7 +38,12 @@ import {
   Vault as VaultTemplate,
 } from '../../generated/templates'
 import { createTransaction } from './transaction'
-import { createOrLoadAllocator, getAllocatorLtv, getAllocatorLtvStatus } from './allocator'
+import {
+  createOrLoadAllocator,
+  getAllocatorLtv,
+  getAllocatorLtvStatus,
+  syncAllocatorPeriodStakeEarnedAssets,
+} from './allocator'
 import { loadOsTokenConfig } from './osTokenConfig'
 import { updateExitRequests } from './exitRequest'
 import { updateRewardSplitters } from './rewardSplitter'
@@ -388,22 +393,13 @@ export function updateVaults(
       if (feeRecipient.shares.isZero()) {
         increaseUserVaultsCount(feeRecipient.address)
       }
-      const earnedShares = feeRecipientShares.minus(feeRecipient.shares)
-      const assetsBefore = feeRecipient.assets
+      // update stake earned assets for the current stake shares
+      syncAllocatorPeriodStakeEarnedAssets(vault, feeRecipient)
+      const assetsBefore = convertSharesToAssets(vault, feeRecipient.shares)
 
       // update fee recipient shares and assets
-      feeRecipient.shares = feeRecipientShares
-      feeRecipient.assets = convertSharesToAssets(vault, feeRecipientShares)
-      if (earnedShares.lt(BigInt.zero())) {
-        log.error('[Keeper] RewardsUpdated vault={} feeRecipient={} earnedShares is negative: {}', [
-          vaultAddress.toHex(),
-          feeRecipient.address.toHex(),
-          earnedShares.toString(),
-        ])
-        feeRecipient.save()
-        vault.save()
-        continue
-      }
+      feeRecipient.shares = feeRecipient.shares.plus(feeRecipientShares.minus(vault._unclaimedFeeRecipientShares))
+      feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
 
       const feeRecipientEarnedAssets = feeRecipient.assets.minus(assetsBefore)
       feeRecipient._periodStakeEarnedAssets = feeRecipient._periodStakeEarnedAssets.plus(feeRecipientEarnedAssets)
@@ -414,6 +410,7 @@ export function updateVaults(
       feeRecipient.save()
     }
     vault._periodEarnedAssets = vault._periodEarnedAssets.plus(vaultPeriodAssets)
+    vault._unclaimedFeeRecipientShares = feeRecipientShares
     vault.save()
   }
   network.save()
@@ -498,9 +495,14 @@ export function getVaultState(vault: Vault): Array<BigInt> {
   }
   const vaultAddr = Address.fromString(vault.id)
 
-  const updateStateCall = getUpdateStateCall(vault)
+  // fetch fee recipient shares before state update
+  const getFeeRecipientSharesCall = _getSharesCall(Address.fromBytes(vault.feeRecipient))
+  let results = chunkedMulticall(null, [encodeContractCall(vaultAddr, getFeeRecipientSharesCall)])
+  const feeRecipientSharesBefore = ethereum.decode('uint256', results[0]!)!.toBigInt()
+
+  const updateStateCalls = getUpdateStateCall(vault)
   const calls: Array<ethereum.Value> = [
-    encodeContractCall(vaultAddr, _getSharesCall(Address.fromBytes(vault.feeRecipient))),
+    encodeContractCall(vaultAddr, getFeeRecipientSharesCall),
     encodeContractCall(vaultAddr, _getConvertToAssetsCall(BigInt.fromString(WAD))),
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalAssetsSelector)),
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalSharesSelector)),
@@ -534,9 +536,10 @@ export function getVaultState(vault: Vault): Array<BigInt> {
     calls.push(encodeContractCall(vaultAddr, Bytes.fromHexString(exitQueueDataSelector)))
   }
 
-  let results = chunkedMulticall(updateStateCall, calls)
+  results = chunkedMulticall(updateStateCalls, calls)
+  const feeRecipientSharesAfter = ethereum.decode('uint256', results[0]!)!.toBigInt()
+  const feeRecipientEarnedShares = feeRecipientSharesAfter.minus(feeRecipientSharesBefore)
 
-  const feeRecipientShares = ethereum.decode('uint256', results[0]!)!.toBigInt()
   const newRate = ethereum.decode('uint256', results[1]!)!.toBigInt()
   const totalAssets = ethereum.decode('uint256', results[2]!)!.toBigInt()
   const totalShares = ethereum.decode('uint256', results[3]!)!.toBigInt()
@@ -559,7 +562,7 @@ export function getVaultState(vault: Vault): Array<BigInt> {
     exitingAssets = exitQueueData[3].toBigInt()
   }
 
-  return [newRate, totalAssets, totalShares, queuedShares, exitingAssets, feeRecipientShares]
+  return [newRate, totalAssets, totalShares, queuedShares, exitingAssets, feeRecipientEarnedShares]
 }
 
 export function getVaultBaseApy(vault: Vault): BigDecimal {

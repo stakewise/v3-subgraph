@@ -364,6 +364,9 @@ type Vault @entity(immutable: false) {
   "The total period assets earned from staking"
   _periodEarnedAssets: BigInt!
 
+  "The total amount of the accumulated unclaimed fee recipient shares"
+  _unclaimedFeeRecipientShares: BigInt!
+
   "The timestamp of the last snapshot. Can be null if no snapshots were taken."
   _lastSnapshotTimestamp: Timestamp
 }
@@ -1029,9 +1032,6 @@ type PeriodicDistribution @entity(immutable: false) {
 
   "The average weekly apy of the distribution"
   apy: BigDecimal!
-
-  "The list of APY snapshots"
-  apys: [BigDecimal!]!
 
   "The timestamp when the distribution starts"
   startTimestamp: BigInt!
