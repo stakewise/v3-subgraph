@@ -139,6 +139,7 @@ export function createVault(
   vault.isGenesis = false
   vault.version = version
   vault._periodEarnedAssets = BigInt.zero()
+  vault._unclaimedFeeRecipientShares = BigInt.zero()
 
   // the OsTokenConfig was updated for v2 vaults
   if (vault.version.equals(BigInt.fromI32(1))) {

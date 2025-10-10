@@ -758,6 +758,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   }
   vault.metadataIpfsHash = metadataIpfsHash
   vault._periodEarnedAssets = BigInt.zero()
+  vault._unclaimedFeeRecipientShares = BigInt.zero()
 
   vault.save()
   VaultTemplate.create(vaultAddress)
