@@ -134,5 +134,6 @@ export function getSnapshotTimestamp(timestamp: i64): i64 {
   if (remainder <= 0) {
     return timestamp
   }
-  return timestamp - remainder + secondsInDay
+  // convert to microseconds
+  return (timestamp - remainder + secondsInDay) * 1_000_000
 }

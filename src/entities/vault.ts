@@ -19,7 +19,7 @@ import {
 } from '../helpers/constants'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, loadOsToken } from './osToken'
 import { increaseUserVaultsCount, isGnosisNetwork, loadNetwork } from './network'
-import { getV2PoolRewardAssets, loadV2Pool } from './v2pool'
+import { getV2PoolState, loadV2Pool } from './v2pool'
 import {
   chunkedMulticall,
   encodeContractCall,
@@ -220,6 +220,7 @@ export function createVaultSnapshot(vault: Vault, timestamp: i64): VaultSnapshot
 
   // update period data
   vault._lastSnapshotTimestamp = snapshotTimestamp
+  vault._periodEarnedAssets = BigInt.zero()
   vault.save()
 
   return vaultSnapshot
@@ -380,11 +381,21 @@ export function updateVaults(
 
     // update v2 pool data
     if (vault.isGenesis && v2Pool.migrated && !v2Pool.isDisconnected) {
-      const newRewardAssets = getV2PoolRewardAssets(vault)
+      const stateUpdate = getV2PoolState(vault)
+      const newRate = stateUpdate[0]
+      const newRewardAssets = stateUpdate[1]
+      const newPrincipalAssets = stateUpdate[2]
+      const newPenaltyAssets = stateUpdate[3]
+      const poolNewTotalAssets = newRewardAssets.plus(newPrincipalAssets).minus(newPenaltyAssets)
       const poolRewardsDiff = newRewardAssets.minus(v2Pool.rewardAssets)
       vaultPeriodAssets = vaultPeriodAssets.minus(poolRewardsDiff)
       network.totalAssets = network.totalAssets.plus(poolRewardsDiff)
+      v2Pool.rate = newRate
+      v2Pool.principalAssets = newPrincipalAssets
       v2Pool.rewardAssets = newRewardAssets
+      v2Pool.penaltyAssets = newPenaltyAssets
+      v2Pool.totalAssets = poolNewTotalAssets
+      v2Pool.rewardsTimestamp = updateTimestamp
       v2Pool.save()
     }
 

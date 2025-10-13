@@ -630,14 +630,46 @@ type V2Pool @entity(immutable: false) {
   "1"
   id: ID!
 
+  "V2 Pool total assets"
+  totalAssets: BigInt!
+
   "Total rewards accumulated"
   rewardAssets: BigInt!
+
+  "Total assets staked"
+  principalAssets: BigInt!
+
+  "Total penalty accrued"
+  penaltyAssets: BigInt!
+
+  "The staking fee percent charged by the pool"
+  feePercent: Int!
 
   "Whether V2 Pool has migrated to V3"
   migrated: Boolean!
 
   "Whether V2 Pool is disconnected"
   isDisconnected: Boolean!
+
+  "The current exchange rate for 10^18 staked token"
+  rate: BigInt!
+
+  "The pool average weekly total APY"
+  apy: BigDecimal!
+
+  "Last rewards update timestamp"
+  rewardsTimestamp: BigInt
+}
+
+"""
+StakeWise V2 pool user
+"""
+type V2PoolUser @entity(immutable: false) {
+  "The address of the user"
+  id: ID!
+
+  "The balance of the user"
+  balance: BigInt!
 }
 
 """

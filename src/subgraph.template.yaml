@@ -5,6 +5,8 @@ schema:
   file: ./schema.graphql
 features:
   - ipfsOnEthereumContracts
+  - nonFatalErrors
+  - grafting
 indexerHints:
   prune: {{ maxRetainBlocks }}
 dataSources:
