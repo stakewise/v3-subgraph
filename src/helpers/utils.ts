@@ -131,9 +131,9 @@ export function isFailedUpdateStateCall(vault: Vault): boolean {
 
 export function getSnapshotTimestamp(timestamp: i64): i64 {
   const remainder = timestamp % secondsInDay
-  if (remainder <= 0) {
-    return timestamp
+  if (remainder > 0) {
+    timestamp -= remainder
   }
   // convert to microseconds
-  return (timestamp - remainder + secondsInDay) * 1_000_000
+  return timestamp * 1_000_000
 }
