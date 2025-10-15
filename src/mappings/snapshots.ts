@@ -50,7 +50,7 @@ export function syncSnapshots(block: ethereum.Block): void {
       continue
     }
 
-    createVaultSnapshot(vault, newTimestamp.toI64())
+    createVaultSnapshot(vault, duration, newTimestamp.toI64())
 
     const allocators: Array<Allocator> = vault.allocators.load()
     const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()

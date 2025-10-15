@@ -204,7 +204,7 @@ export function handleInitialized(event: Initialized): void {
       }
     } else if (newVersion.equals(BigInt.fromI32(5))) {
       const v2Pool = createOrLoadV2Pool()
-      v2Pool.isDisconnected = false
+      v2Pool.isDisconnected = true
       v2Pool.save()
     }
   }

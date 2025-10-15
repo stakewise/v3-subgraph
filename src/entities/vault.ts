@@ -198,12 +198,12 @@ export function createVault(
   )
 }
 
-export function createVaultSnapshot(vault: Vault, timestamp: i64): VaultSnapshot {
+export function createVaultSnapshot(vault: Vault, duration: BigInt, timestamp: i64): VaultSnapshot {
   const snapshotTimestamp = getSnapshotTimestamp(timestamp)
   let vaultApy = BigDecimal.zero()
   if (vault._lastSnapshotTimestamp > 0) {
     const prevSnapshot = loadVaultSnapshot(vault, vault._lastSnapshotTimestamp)!
-    vaultApy = _getApyFromRateChange(vault.rate.minus(prevSnapshot._rate), snapshotTimestamp - prevSnapshot.timestamp)
+    vaultApy = _getApyFromRateChange(vault.rate.minus(prevSnapshot._rate), duration)
   }
 
   const snapshotId = Bytes.fromHexString(vault.id).concat(Bytes.fromByteArray(Bytes.fromI64(snapshotTimestamp)))
@@ -657,8 +657,8 @@ export function syncVault(network: Network, osToken: OsToken, vault: Vault, newT
   updateRewardSplitters(vault)
 }
 
-function _getApyFromRateChange(rateChange: BigInt, duration: i64): BigDecimal {
-  if (duration <= 0) {
+function _getApyFromRateChange(rateChange: BigInt, duration: BigInt): BigDecimal {
+  if (duration.le(BigInt.zero())) {
     log.error('[Vault] _getApyFromRateChange invalid duration rateChange={} duration={}', [
       rateChange.toString(),
       duration.toString(),
