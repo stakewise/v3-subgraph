@@ -1,6 +1,6 @@
 {
   "name": "v3-subgraph",
-  "version": "4.0.2",
+  "version": "4.0.3",
   "description": "Subgraph for the StakeWise Protocol",
   "repository": "https://github.com/stakewise/v3-subgraph",
   "license": "AGPL-3.0-only",
@@ -57,22 +57,22 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.1",
-    "@eslint/js": "9.34.0",
-    "@graphprotocol/graph-cli": "0.97.1",
-    "@graphprotocol/graph-ts": "0.38.1",
-    "@types/node": "24.3.0",
-    "@typescript-eslint/eslint-plugin": "8.42.0",
-    "@typescript-eslint/parser": "8.42.0",
-    "dotenv": "17.2.2",
-    "eslint": "9.34.0",
+    "@eslint/js": "9.38.0",
+    "@graphprotocol/graph-cli": "0.98.1",
+    "@graphprotocol/graph-ts": "0.38.2",
+    "@types/node": "24.9.0",
+    "@typescript-eslint/eslint-plugin": "8.46.2",
+    "@typescript-eslint/parser": "8.46.2",
+    "dotenv": "17.2.3",
+    "eslint": "9.38.0",
     "eslint-config-prettier": "10.1.8",
-    "globals": "16.3.0",
+    "globals": "16.4.0",
     "husky": "9.1.7",
-    "lint-staged": "16.1.6",
+    "lint-staged": "16.2.5",
     "matchstick-as": "0.6.0",
     "mustache": "4.2.0",
     "prettier": "3.6.2",
-    "typescript": "5.9.2"
+    "typescript": "5.9.3"
   },
   "engines": {
     "node": "24.6.0"
