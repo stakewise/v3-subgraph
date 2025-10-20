@@ -13,6 +13,10 @@ const extraSecondsGap = 30
 
 export function syncSnapshots(block: ethereum.Block): void {
   const newTimestamp = block.timestamp
+  if (!_isDayEnd(newTimestamp)) {
+    return
+  }
+
   const newSnapshotsCount = newTimestamp.plus(BigInt.fromI32(extraSecondsGap)).div(BigInt.fromI32(secondsInDay))
 
   const snapshotsCheckpoint = createOrLoadCheckpoint(CheckpointType.SNAPSHOTS)
@@ -67,7 +71,7 @@ export function syncSnapshots(block: ethereum.Block): void {
 
   snapshotsCheckpoint.timestamp = newTimestamp
   snapshotsCheckpoint.save()
-  log.info('[SyncSnapshots] Snapshots synced timestamp={}', [newTimestamp.toString()])
+  log.info('[SyncSnapshots] Snapshots synced block={} timestamp={}', [block.number.toString(), newTimestamp.toString()])
 }
 
 function _getRewardSplitterAssets(user: Address, rewardSplitters: Array<RewardSplitter>): BigInt {
@@ -80,4 +84,10 @@ function _getRewardSplitterAssets(user: Address, rewardSplitters: Array<RewardSp
     }
   }
   return rewardSplitterAssets
+}
+
+function _isDayEnd(timestamp: BigInt): boolean {
+  const currentDayCount = timestamp.div(BigInt.fromI32(secondsInDay))
+  const newDayCount = timestamp.plus(BigInt.fromI32(extraSecondsGap)).div(BigInt.fromI32(secondsInDay))
+  return newDayCount.gt(currentDayCount)
 }

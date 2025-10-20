@@ -130,7 +130,7 @@ export function createAllocatorSnapshot(
   allocatorSnapshot.totalAssets = allocator.assets.plus(rewardSplitterAssets).plus(allocator.exitingAssets)
   allocatorSnapshot.apy = calculateApy(
     allocatorSnapshot.earnedAssets,
-    allocator.assets.minus(allocator._periodStakeEarnedAssets),
+    allocator.assets.plus(allocator.exitingAssets).minus(allocator._periodStakeEarnedAssets),
     duration,
   )
   allocatorSnapshot.ltv = allocator.ltv

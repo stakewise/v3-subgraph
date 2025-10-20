@@ -410,7 +410,7 @@ export function updateVaults(
       const assetsBefore = convertSharesToAssets(vault, feeRecipient.shares)
 
       // update fee recipient shares and assets
-      feeRecipient.shares = feeRecipient.shares.plus(feeRecipientShares.minus(vault._unclaimedFeeRecipientShares))
+      feeRecipient.shares = feeRecipient.shares.plus(feeRecipientShares).minus(vault._unclaimedFeeRecipientShares)
       feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
 
       const feeRecipientEarnedAssets = feeRecipient.assets.minus(assetsBefore)

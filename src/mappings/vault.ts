@@ -15,6 +15,7 @@ import {
   ExitQueueEntered as V1ExitQueueEntered,
   FeePercentUpdated,
   FeeRecipientUpdated,
+  FeeSharesMinted,
   Initialized,
   KeysManagerUpdated,
   MetadataUpdated,
@@ -227,6 +228,40 @@ export function handleCheckpointCreated(event: CheckpointCreated): void {
   vault.save()
 
   log.info('[Vault] CheckpointCreated vault={}', [vaultAddress.toHex()])
+}
+
+// Event emitted on FeeSharesMinted event
+export function handleFeeSharesMinted(event: FeeSharesMinted): void {
+  const vaultAddress = event.address
+  const mintedShares = event.params.shares
+
+  const vault = loadVault(vaultAddress)!
+  vault._unclaimedFeeRecipientShares = vault._unclaimedFeeRecipientShares.minus(mintedShares)
+  if (vault._unclaimedFeeRecipientShares.lt(BigInt.zero())) {
+    const feeRecipient = createOrLoadAllocator(Address.fromBytes(vault.feeRecipient), vaultAddress)
+    // deduct the negative shares from fee recipient
+    feeRecipient.shares = feeRecipient.shares.plus(vault._unclaimedFeeRecipientShares)
+    feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
+    feeRecipient.save()
+    log.warning(
+      '[FeeSharesMinted] Negative unclaimed fee recipient shares after minting fee shares vault={}, feeRecipient={} diff={}',
+      [vaultAddress.toHex(), vault.feeRecipient.toHex(), vault._unclaimedFeeRecipientShares.toString()],
+    )
+    vault._unclaimedFeeRecipientShares = BigInt.zero()
+  } else if (!vault.canHarvest && vault._unclaimedFeeRecipientShares.gt(BigInt.zero())) {
+    const feeRecipient = createOrLoadAllocator(Address.fromBytes(vault.feeRecipient), vaultAddress)
+    // deduct the remaining unclaimed shares from fee recipient
+    feeRecipient.shares = feeRecipient.shares.minus(vault._unclaimedFeeRecipientShares)
+    feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
+    feeRecipient.save()
+    log.warning(
+      '[FeeSharesMinted] Non zero unclaimed fee recipient shares after minting fee shares vault={}, feeRecipient={} diff={}',
+      [vaultAddress.toHex(), vault.feeRecipient.toHex(), vault._unclaimedFeeRecipientShares.toString()],
+    )
+    vault._unclaimedFeeRecipientShares = BigInt.zero()
+  }
+  vault.save()
+  log.info('[Vault] FeeSharesMinted vault={}', [vaultAddress.toHex()])
 }
 
 // Event emitted on validator root and IPFS hash update (deprecated)

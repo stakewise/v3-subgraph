@@ -838,6 +838,8 @@ templates:
           handler: handleFeePercentUpdated
         - event: AssetsDonated(address,uint256)
           handler: handleAssetsDonated
+        - event: FeeSharesMinted(address,uint256,uint256)
+          handler: handleFeeSharesMinted
   - kind: ethereum/contract
     name: OwnMevEscrow
     network: {{ network }}
