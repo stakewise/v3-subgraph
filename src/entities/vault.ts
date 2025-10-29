@@ -21,6 +21,7 @@ import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, loadOsToken
 import { increaseUserVaultsCount, isGnosisNetwork, loadNetwork } from './network'
 import { getV2PoolState, loadV2Pool } from './v2pool'
 import {
+  calculateApy,
   chunkedMulticall,
   encodeContractCall,
   getAnnualReward,
@@ -50,8 +51,6 @@ import { updateRewardSplitters } from './rewardSplitter'
 import { convertStringToDistributionType, DistributionType, loadPeriodicDistribution } from './merkleDistributor'
 
 const snapshotsPerWeek = 7
-const secondsInYear = '31536000'
-const maxPercent = '100'
 const updateStateSelector = '0x1a7ff553'
 const totalAssetsSelector = '0x01e1d114'
 const totalSharesSelector = '0x3a98ef39'
@@ -140,6 +139,7 @@ export function createVault(
   vault.version = version
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
+  vault._prevAllocatorAssets = BigInt.fromString(WAD)
 
   // the OsTokenConfig was updated for v2 vaults
   if (vault.version.equals(BigInt.fromI32(1))) {
@@ -200,11 +200,9 @@ export function createVault(
 
 export function createVaultSnapshot(vault: Vault, duration: BigInt, timestamp: i64): VaultSnapshot {
   const snapshotTimestamp = getSnapshotTimestamp(timestamp)
-  let vaultApy = BigDecimal.zero()
-  if (vault._lastSnapshotTimestamp > 0) {
-    const prevSnapshot = loadVaultSnapshot(vault, vault._lastSnapshotTimestamp)!
-    vaultApy = _getApyFromRateChange(vault.rate.minus(prevSnapshot._rate), duration)
-  }
+  // calculate APY based on assets change
+  const newAssets = convertSharesToAssets(vault, BigInt.fromString(WAD))
+  const vaultApy = calculateApy(newAssets.minus(vault._prevAllocatorAssets), vault._prevAllocatorAssets, duration)
 
   const snapshotId = Bytes.fromHexString(vault.id).concat(Bytes.fromByteArray(Bytes.fromI64(snapshotTimestamp)))
   const vaultSnapshot = new VaultSnapshot(snapshotId)
@@ -214,11 +212,11 @@ export function createVaultSnapshot(vault: Vault, duration: BigInt, timestamp: i
   vaultSnapshot.totalAssets = vault.totalAssets
   vaultSnapshot.totalShares = vault.totalShares
   vaultSnapshot.apy = vaultApy
-  vaultSnapshot._rate = vault.rate
   vaultSnapshot._prevSnapshotTimestamp = vault._lastSnapshotTimestamp
   vaultSnapshot.save()
 
   // update period data
+  vault._prevAllocatorAssets = newAssets
   vault._lastSnapshotTimestamp = snapshotTimestamp
   vault._periodEarnedAssets = BigInt.zero()
   vault.save()
@@ -655,23 +653,6 @@ export function syncVault(network: Network, osToken: OsToken, vault: Vault, newT
 
   // update reward splitters
   updateRewardSplitters(vault)
-}
-
-function _getApyFromRateChange(rateChange: BigInt, duration: BigInt): BigDecimal {
-  if (duration.le(BigInt.zero())) {
-    log.error('[Vault] _getApyFromRateChange invalid duration rateChange={} duration={}', [
-      rateChange.toString(),
-      duration.toString(),
-    ])
-    return BigDecimal.zero()
-  }
-
-  return rateChange
-    .toBigDecimal()
-    .times(BigDecimal.fromString(secondsInYear))
-    .times(BigDecimal.fromString(maxPercent))
-    .div(BigDecimal.fromString(WAD))
-    .div(BigDecimal.fromString(duration.toString()))
 }
 
 function _getConvertToAssetsCall(shares: BigInt): Bytes {

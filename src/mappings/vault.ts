@@ -794,6 +794,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.metadataIpfsHash = metadataIpfsHash
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
+  vault._prevAllocatorAssets = BigInt.fromString(WAD)
 
   vault.save()
   VaultTemplate.create(vaultAddress)
@@ -867,6 +868,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.metadataIpfsHash = metadataIpfsHash
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
+  vault._prevAllocatorAssets = BigInt.fromString(WAD)
 
   vault.save()
   VaultTemplate.create(vaultAddress)
