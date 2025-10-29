@@ -202,8 +202,8 @@ export function createVaultSnapshot(vault: Vault, duration: BigInt, timestamp: i
   const snapshotTimestamp = getSnapshotTimestamp(timestamp)
   // calculate assets change for APY calculation
   let prevAssets = BigInt.fromString(WAD)
-  if (vault._prevAllocatorAssets != null) {
-    prevAssets = vault._prevAllocatorAssets
+  if (vault._prevAllocatorAssets !== null) {
+    prevAssets = vault._prevAllocatorAssets!
   }
   const newAssets = convertSharesToAssets(vault, BigInt.fromString(WAD))
 
