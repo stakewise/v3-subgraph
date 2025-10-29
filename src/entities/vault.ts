@@ -200,9 +200,12 @@ export function createVault(
 
 export function createVaultSnapshot(vault: Vault, duration: BigInt, timestamp: i64): VaultSnapshot {
   const snapshotTimestamp = getSnapshotTimestamp(timestamp)
-  // calculate APY based on assets change
+  // calculate assets change for APY calculation
+  let prevAssets = BigInt.fromString(WAD)
+  if (vault._prevAllocatorAssets != null) {
+    prevAssets = vault._prevAllocatorAssets
+  }
   const newAssets = convertSharesToAssets(vault, BigInt.fromString(WAD))
-  const vaultApy = calculateApy(newAssets.minus(vault._prevAllocatorAssets), vault._prevAllocatorAssets, duration)
 
   const snapshotId = Bytes.fromHexString(vault.id).concat(Bytes.fromByteArray(Bytes.fromI64(snapshotTimestamp)))
   const vaultSnapshot = new VaultSnapshot(snapshotId)
@@ -211,7 +214,7 @@ export function createVaultSnapshot(vault: Vault, duration: BigInt, timestamp: i
   vaultSnapshot.earnedAssets = vault._periodEarnedAssets
   vaultSnapshot.totalAssets = vault.totalAssets
   vaultSnapshot.totalShares = vault.totalShares
-  vaultSnapshot.apy = vaultApy
+  vaultSnapshot.apy = calculateApy(newAssets.minus(prevAssets), prevAssets, duration)
   vaultSnapshot._prevSnapshotTimestamp = vault._lastSnapshotTimestamp
   vaultSnapshot.save()
 

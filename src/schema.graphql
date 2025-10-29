@@ -368,7 +368,7 @@ type Vault @entity(immutable: false) {
   _unclaimedFeeRecipientShares: BigInt!
 
   "The assets of the allocator from the previous snapshot to calculate vault APY"
-  _prevAllocatorAssets: BigInt!
+  _prevAllocatorAssets: BigInt
 
   "The timestamp of the last snapshot. Can be null if no snapshots were taken."
   _lastSnapshotTimestamp: Timestamp
