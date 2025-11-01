@@ -107,9 +107,12 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
 
   if (rewardsIpfsHash != null) {
     const userRewards = fetchRewardsData(rewardsIpfsHash!)
+    const isBoostRefund =
+      token.equals(OS_TOKEN) && caller.equals(Address.fromHexString('0x2685C0e39EEAAd383fB71ec3F493991d532A87ae'))
+    if (isBoostRefund && userRewards == null) {
+      assert(false, '[MerkleDistributor] Failed to fetch boost refund rewards data')
+    }
     if (userRewards != null) {
-      const isBoostRefund =
-        token.equals(OS_TOKEN) && caller.equals(Address.fromHexString('0x2685C0e39EEAAd383fB71ec3F493991d532A87ae'))
       distributeToVaultSelectedUsers(network, vault, token, totalAmountToDistribute, userRewards, isBoostRefund)
       log.info(
         '[MerkleDistributor] OneTimeDistributionAdded vault={} token={} amount={} selectedUsers=true isBoostRefund={}',
