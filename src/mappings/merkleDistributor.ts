@@ -45,11 +45,13 @@ export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded
 
   const distType = getDistributionType(extraData)
   if (distType == DistributionType.UNKNOWN) {
-    log.error('[MerkleDistributor] Unknown periodic distribution extraData={}', [extraData.toHex()])
+    log.error('[MerkleDistributor] PeriodicDistributionAdded unknown periodic distribution extraData={}', [
+      extraData.toHex(),
+    ])
     return
   }
   if (!isTokenSupported(token)) {
-    log.error('[PeriodicDistribution] Unsupported token={}', [token.toHexString()])
+    log.error('[MerkleDistributor] PeriodicDistributionAdded unsupported token={}', [token.toHexString()])
     return
   }
 
@@ -89,13 +91,13 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
   const caller = event.params.caller
 
   if (!isTokenSupported(token)) {
-    log.error('[OneTimeDistribution] Unsupported token={}', [token.toHexString()])
+    log.error('[MerkleDistributor] OneTimeDistributionAdded Unsupported token={}', [token.toHexString()])
     return
   }
 
   const distType = getDistributionType(extraData)
   if (distType != DistributionType.VAULT) {
-    log.error('[OneTimeDistribution] Only vault distributions are supported', [])
+    log.error('[MerkleDistributor] OneTimeDistributionAdded Only vault distributions are supported', [])
     return
   }
 
@@ -110,7 +112,7 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
     const isBoostRefund =
       token.equals(OS_TOKEN) && caller.equals(Address.fromHexString('0x2685C0e39EEAAd383fB71ec3F493991d532A87ae'))
     if (isBoostRefund && userRewards == null) {
-      assert(false, '[MerkleDistributor] Failed to fetch boost refund rewards data')
+      assert(false, '[MerkleDistributor] OneTimeDistributionAdded Failed to fetch boost refund rewards data')
     }
     if (userRewards != null) {
       distributeToVaultSelectedUsers(network, vault, token, totalAmountToDistribute, userRewards, isBoostRefund)
