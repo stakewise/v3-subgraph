@@ -108,6 +108,7 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
 export function createAllocatorSnapshot(
   osToken: OsToken,
   allocator: Allocator,
+  boostedOsTokenShares: BigInt,
   rewardSplitterAssets: BigInt,
   duration: BigInt,
   timestamp: i64,
@@ -117,6 +118,16 @@ export function createAllocatorSnapshot(
   const snapshotId = Bytes.fromHexString(allocator.vault)
     .concat(allocator.address)
     .concat(Bytes.fromByteArray(Bytes.fromI64(snapshotTimestamp)))
+
+  // add extra assets from boosted OsToken shares
+  let extraOsTokenAssets = BigInt.zero()
+  if (boostedOsTokenShares.gt(allocator.mintedOsTokenShares)) {
+    extraOsTokenAssets = convertOsTokenSharesToAssets(
+      osToken,
+      boostedOsTokenShares.minus(allocator.mintedOsTokenShares),
+    )
+  }
+
   const allocatorSnapshot = new AllocatorSnapshot(snapshotId)
   allocatorSnapshot.timestamp = snapshotTimestamp
   allocatorSnapshot.allocator = allocator.id
@@ -127,10 +138,13 @@ export function createAllocatorSnapshot(
     convertOsTokenSharesToAssets(osToken, allocator._periodBoostEarnedOsTokenShares),
   )
   allocatorSnapshot.earnedAssets = allocatorSnapshot.stakeEarnedAssets.plus(allocatorSnapshot.boostEarnedAssets)
-  allocatorSnapshot.totalAssets = allocator.assets.plus(rewardSplitterAssets).plus(allocator.exitingAssets)
+  allocatorSnapshot.totalAssets = allocator.assets
+    .plus(rewardSplitterAssets)
+    .plus(allocator.exitingAssets)
+    .plus(extraOsTokenAssets)
   allocatorSnapshot.apy = calculateApy(
     allocatorSnapshot.earnedAssets,
-    allocator.assets.plus(allocator.exitingAssets).minus(allocator._periodStakeEarnedAssets),
+    allocator.assets.plus(allocator.exitingAssets).plus(extraOsTokenAssets).minus(allocator._periodStakeEarnedAssets),
     duration,
   )
   allocatorSnapshot.ltv = allocator.ltv
