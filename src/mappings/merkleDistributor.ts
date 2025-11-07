@@ -36,7 +36,6 @@ import { isTokenSupported, loadExchangeRate } from '../entities/exchangeRates'
 import { loadVault } from '../entities/vault'
 import { loadNetwork } from '../entities/network'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
-import { parseIpfsHash } from '../helpers/utils'
 import { OS_TOKEN } from '../helpers/constants'
 
 export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded): void {
@@ -84,7 +83,7 @@ export function handlePeriodicDistributionAdded(event: PeriodicDistributionAdded
 
 export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded): void {
   const network = loadNetwork()!
-  const rewardsIpfsHash = parseIpfsHash(event.params.rewardsIpfsHash)
+  const rewardsIpfsHash = event.params.rewardsIpfsHash.trim()
   const token = event.params.token
   let totalAmountToDistribute = event.params.amount
   const extraData = event.params.extraData
@@ -108,7 +107,7 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
   }
 
   if (rewardsIpfsHash != null) {
-    const userRewards = fetchRewardsData(rewardsIpfsHash!)
+    const userRewards = fetchRewardsData(rewardsIpfsHash)
     const isBoostRefund =
       token.equals(OS_TOKEN) && caller.equals(Address.fromHexString('0x2685C0e39EEAAd383fB71ec3F493991d532A87ae'))
     if (isBoostRefund && userRewards == null) {
@@ -121,7 +120,7 @@ export function handleOneTimeDistributionAdded(event: OneTimeDistributionAdded):
         [vault.id, token.toHexString(), totalAmountToDistribute.toString(), isBoostRefund ? 'true' : 'false'],
       )
     } else {
-      log.error('[MerkleDistributor] OneTimeDistributionAdded rewardsIpfsHash={} not found', [rewardsIpfsHash!])
+      log.error('[MerkleDistributor] OneTimeDistributionAdded rewardsIpfsHash={} not found', [rewardsIpfsHash])
     }
   } else {
     distributeToVaultUsers(network, vault, token, totalAmountToDistribute)
