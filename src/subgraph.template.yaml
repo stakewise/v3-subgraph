@@ -7,8 +7,6 @@ features:
   - ipfsOnEthereumContracts
   - nonFatalErrors
   - grafting
-indexerHints:
-  prune: {{ maxRetainBlocks }}
 dataSources:
   - kind: ethereum/contract
     name: Snapshots
