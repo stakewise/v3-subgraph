@@ -1,9 +1,8 @@
-import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import {
   Multicall as MulticallContract,
   TryAggregateCallReturnDataOutputStruct,
 } from '../../generated/Keeper/Multicall'
-import { Vault } from '../../generated/schema'
 import { MULTICALL, NETWORK, WAD } from './constants'
 
 const secondsInYear = '31536000'
@@ -97,18 +96,14 @@ export function rayMul(a: BigInt, b: BigInt): BigInt {
   return a.times(b).plus(halfRAY).div(RAY)
 }
 
-export function isFailedUpdateStateCall(vault: Vault): boolean {
-  if (NETWORK != 'chiado') {
+export function isFailedRewardsUpdate(rewardsRoot: Bytes | null): boolean {
+  if (NETWORK != 'chiado' || rewardsRoot === null) {
     return false
   }
 
   const failedRoot1 = Bytes.fromHexString('0x1bc15917c998a8525f976ac59c536f3344d8b8bb1ad63da76820476fd7a7d562')
   const failedRoot2 = Bytes.fromHexString('0x950d6ab616a8494f139357f930ce9a430c15522365ce2e5d94f6e532a3796763')
-  if (vault.rewardsRoot!.equals(failedRoot1) || vault.rewardsRoot!.equals(failedRoot2)) {
-    log.error('[isFailedUpdateStateCall] vault={} has a known failed updateState call', [vault.id])
-    return true
-  }
-  return false
+  return rewardsRoot.equals(failedRoot1) || rewardsRoot.equals(failedRoot2)
 }
 
 export function getSnapshotTimestamp(timestamp: i64): i64 {

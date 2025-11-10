@@ -3,7 +3,7 @@ import { ExitRequest, Network, Vault } from '../../generated/schema'
 import { loadV2Pool } from './v2pool'
 import { convertSharesToAssets, getUpdateStateCall } from './vault'
 import { loadAllocator } from './allocator'
-import { chunkedMulticall, encodeContractCall, isFailedUpdateStateCall } from '../helpers/utils'
+import { chunkedMulticall, encodeContractCall, isFailedRewardsUpdate } from '../helpers/utils'
 import { isGnosisNetwork } from './network'
 
 const getExitQueueIndexSelector = '0x60d60e6e'
@@ -39,7 +39,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     // If vault is not collateralized, there are no exit requests to process
     return
   }
-  if (isFailedUpdateStateCall(vault)) {
+  if (isFailedRewardsUpdate(vault.rewardsRoot)) {
     return
   }
 

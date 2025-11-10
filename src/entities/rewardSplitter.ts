@@ -8,7 +8,7 @@ import {
   REWARD_SPLITTER_FACTORY_V2,
   REWARD_SPLITTER_FACTORY_V3,
 } from '../helpers/constants'
-import { chunkedMulticall, encodeContractCall, isFailedUpdateStateCall } from '../helpers/utils'
+import { chunkedMulticall, encodeContractCall, isFailedRewardsUpdate } from '../helpers/utils'
 
 const syncRewardsCallSelector = '0x72c0c211'
 const rewardsOfSelector = '0x479ba7ae'
@@ -60,7 +60,7 @@ export function updateRewardSplitters(vault: Vault): void {
     // wait for the migration
     return
   }
-  if (isFailedUpdateStateCall(vault)) {
+  if (isFailedRewardsUpdate(vault.rewardsRoot)) {
     return
   }
 

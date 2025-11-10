@@ -402,10 +402,6 @@ export function distributeToSwiseAssetUniPoolUsers(
 export function fetchRewardsData(rewardsIpfsHash: string): Array<JSONValue> | null {
   const ipfsHash = rewardsIpfsHash.trim()
   log.info('[MerkleDistributor] OneTimeDistributionAdded fetching rewards hash={}', [rewardsIpfsHash])
-  if (ipfsHash.length !== 46 && ipfsHash.length !== 52) {
-    log.error('[MerkleDistributor] OneTimeDistributionAdded invalid ipfs hash={} length', [ipfsHash])
-    return null
-  }
 
   let data: Bytes | null = ipfs.cat(ipfsHash)
   let tries = 10
