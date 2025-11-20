@@ -539,6 +539,12 @@ export function getVaultState(vault: Vault): Array<BigInt> {
     hasExitingAssets = vault.version.ge(BigInt.fromI32(2)) && vault.version.le(BigInt.fromI32(4))
     hasExitQueueData = vault.version.ge(BigInt.fromI32(5))
   }
+  log.info('[Keeper] getVaultState vault={} hasQueuedShares={} hasExitingAssets={} hasExitQueueData={}', [
+    vault.id,
+    hasQueuedShares.toString(),
+    hasExitingAssets.toString(),
+    hasExitQueueData.toString(),
+  ])
 
   if (hasQueuedShares) {
     calls.push(encodeContractCall(vaultAddr, Bytes.fromHexString(queuedSharesSelector)))
