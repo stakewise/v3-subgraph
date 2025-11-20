@@ -506,22 +506,8 @@ export function getVaultState(vault: Vault): Array<BigInt> {
   if (isFailedRewardsUpdate(vault.rewardsRoot)) {
     return [vault.rate, vault.totalAssets, vault.totalShares, vault.queuedShares, vault.exitingAssets, BigInt.zero()]
   }
-  const isGnosis = isGnosisNetwork()
-  if (
-    isGnosis &&
-    vault.isGenesis &&
-    vault.rewardsRoot &&
-    vault.rewardsRoot!.equals(Bytes.fromHexString('0xdf6c3598226cfb848a6aaaa51e50fabee60de8f6c5f82829951289ed4a19b3f1'))
-  ) {
-    log.error('[Keeper] getVaultState vault={} has known failed rewardsRoot={}, returning current state', [
-      vault.id,
-      vault.rewardsRoot!.toHex(),
-    ])
-    return [vault.rate, vault.totalAssets, vault.totalShares, vault.queuedShares, vault.exitingAssets, BigInt.zero()]
-  }
 
   const vaultAddr = Address.fromString(vault.id)
-  log.info('[Keeper] getVaultState vault={} version={}', [vault.id, vault.version.toString()])
 
   // fetch fee recipient shares before state update
   const getFeeRecipientSharesCall = _getSharesCall(Address.fromBytes(vault.feeRecipient))
@@ -539,6 +525,7 @@ export function getVaultState(vault: Vault): Array<BigInt> {
   let hasQueuedShares: boolean
   let hasExitingAssets: boolean
   let hasExitQueueData: boolean
+  const isGnosis = isGnosisNetwork()
   if (isGnosis) {
     hasQueuedShares = vault.version.le(BigInt.fromI32(vault.isGenesis ? 3 : 2))
     hasExitingAssets = vault.version.le(BigInt.fromI32(vault.isGenesis ? 3 : 2))
@@ -552,12 +539,6 @@ export function getVaultState(vault: Vault): Array<BigInt> {
     hasExitingAssets = vault.version.ge(BigInt.fromI32(2)) && vault.version.le(BigInt.fromI32(4))
     hasExitQueueData = vault.version.ge(BigInt.fromI32(5))
   }
-  log.info('[Keeper] getVaultState vault={} hasQueuedShares={} hasExitingAssets={} hasExitQueueData={}', [
-    vault.id,
-    hasQueuedShares.toString(),
-    hasExitingAssets.toString(),
-    hasExitQueueData.toString(),
-  ])
 
   if (hasQueuedShares) {
     calls.push(encodeContractCall(vaultAddr, Bytes.fromHexString(queuedSharesSelector)))
