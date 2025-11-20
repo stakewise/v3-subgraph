@@ -56,7 +56,8 @@ export function getV2PoolState(vault: Vault): Array<BigInt> {
     }
     return [v2Pool.rate, v2Pool.rewardAssets, v2Pool.principalAssets, v2Pool.penaltyAssets]
   }
-  const updateStateCalls = getUpdateStateCall(vault)
+  log.info('[V2Pool] getV2PoolState executing multicall to get pool state', [])
+  const updateStateCall = getUpdateStateCall(vault)
   const wad = BigInt.fromString(WAD)
 
   let contractCalls: Array<ethereum.Value> = [
@@ -66,7 +67,7 @@ export function getV2PoolState(vault: Vault): Array<BigInt> {
     encodeContractCall(V2_REWARD_TOKEN, Bytes.fromHexString(rewardPerTokenSelector)),
   ]
 
-  const results = chunkedMulticall(updateStateCalls, contractCalls)
+  const results = chunkedMulticall(updateStateCall, contractCalls)
   const rewardAssets = ethereum.decode('uint256', results[0]!)!.toBigInt()
   const penaltyAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
   const principalAssets = ethereum.decode('uint256', results[2]!)!.toBigInt()

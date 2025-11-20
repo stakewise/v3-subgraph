@@ -507,6 +507,7 @@ export function getVaultState(vault: Vault): Array<BigInt> {
     return [vault.rate, vault.totalAssets, vault.totalShares, vault.queuedShares, vault.exitingAssets, BigInt.zero()]
   }
   const vaultAddr = Address.fromString(vault.id)
+  log.info('[Keeper] getVaultState vault={} version={}', [vault.id, vault.version.toString()])
 
   // fetch fee recipient shares before state update
   const getFeeRecipientSharesCall = _getSharesCall(Address.fromBytes(vault.feeRecipient))
