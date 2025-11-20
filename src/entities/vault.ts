@@ -506,6 +506,20 @@ export function getVaultState(vault: Vault): Array<BigInt> {
   if (isFailedRewardsUpdate(vault.rewardsRoot)) {
     return [vault.rate, vault.totalAssets, vault.totalShares, vault.queuedShares, vault.exitingAssets, BigInt.zero()]
   }
+  const isGnosis = isGnosisNetwork()
+  if (
+    isGnosis &&
+    vault.isGenesis &&
+    vault.rewardsRoot &&
+    vault.rewardsRoot!.equals(Bytes.fromHexString('0xdf6c3598226cfb848a6aaaa51e50fabee60de8f6c5f82829951289ed4a19b3f1'))
+  ) {
+    log.error('[Keeper] getVaultState vault={} has known failed rewardsRoot={}, returning current state', [
+      vault.id,
+      vault.rewardsRoot!.toHex(),
+    ])
+    return [vault.rate, vault.totalAssets, vault.totalShares, vault.queuedShares, vault.exitingAssets, BigInt.zero()]
+  }
+
   const vaultAddr = Address.fromString(vault.id)
   log.info('[Keeper] getVaultState vault={} version={}', [vault.id, vault.version.toString()])
 
@@ -522,7 +536,6 @@ export function getVaultState(vault: Vault): Array<BigInt> {
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalSharesSelector)),
   ]
 
-  const isGnosis = isGnosisNetwork()
   let hasQueuedShares: boolean
   let hasExitingAssets: boolean
   let hasExitQueueData: boolean
