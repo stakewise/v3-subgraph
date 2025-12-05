@@ -54,10 +54,9 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt): void 
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
   vault.baseApy = BigDecimal.zero()
-  vault.baseApys = []
+  vault.extraApy = BigDecimal.zero()
   vault.apy = BigDecimal.zero()
   vault.allocatorMaxBoostApy = BigDecimal.zero()
-  vault.osTokenHolderMaxBoostApy = BigDecimal.zero()
   vault.blocklistCount = BigInt.zero()
   vault.whitelistCount = BigInt.zero()
   vault.isGenesis = false
@@ -65,9 +64,9 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt): void 
   vault.validatorsManager = Address.zero()
   vault.osTokenConfig = '2'
   vault.metadataIpfsHash = metadataIpfsHash
-  vault._periodStakeEarnedAssets = BigInt.zero()
-  vault._periodExtraEarnedAssets = BigInt.zero()
+  vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
+  vault._prevAllocatorAssets = BigInt.fromString(WAD)
   vault.save()
 
   VaultTemplate.create(vaultAddress)

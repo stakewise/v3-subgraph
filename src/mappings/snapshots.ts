@@ -1,26 +1,23 @@
 import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
-import {
-  Allocator,
-  LeverageStrategyPosition,
-  OsToken,
-  OsTokenHolder,
-  RewardSplitter,
-  Vault,
-} from '../../generated/schema'
-import { convertAssetsToOsTokenShares, loadOsToken, snapshotOsToken } from '../entities/osToken'
-import { snapshotAllocator } from '../entities/allocator'
+import { Allocator, RewardSplitter, Vault } from '../../generated/schema'
+import { loadOsToken } from '../entities/osToken'
 import { loadNetwork } from '../entities/network'
-import { loadVault, snapshotVault } from '../entities/vault'
+import { createVaultSnapshot, loadVault } from '../entities/vault'
 import { loadRewardSplitterShareHolder } from '../entities/rewardSplitter'
 import { loadDistributor } from '../entities/merkleDistributor'
-import { snapshotOsTokenHolder } from '../entities/osTokenHolder'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
+import { createAllocatorSnapshot } from '../entities/allocator'
+import { loadLeverageStrategyPosition } from '../entities/leverageStrategy'
 
 const secondsInDay = 86400
 const extraSecondsGap = 30
 
 export function syncSnapshots(block: ethereum.Block): void {
   const newTimestamp = block.timestamp
+  if (!_isDayEnd(newTimestamp)) {
+    return
+  }
+
   const newSnapshotsCount = newTimestamp.plus(BigInt.fromI32(extraSecondsGap)).div(BigInt.fromI32(secondsInDay))
 
   const snapshotsCheckpoint = createOrLoadCheckpoint(CheckpointType.SNAPSHOTS)
@@ -47,22 +44,7 @@ export function syncSnapshots(block: ethereum.Block): void {
     return
   }
 
-  // snapshot OsToken
   const duration = newTimestamp.minus(snapshotsCheckpoint.timestamp)
-  snapshotOsToken(osToken, newTimestamp)
-  osToken._periodEarnedAssets = BigInt.zero()
-  osToken.save()
-
-  // snapshot OsToken holders
-  let osTokenHolder: OsTokenHolder
-  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
-  for (let i = 0; i < osTokenHolders.length; i++) {
-    osTokenHolder = osTokenHolders[i]
-    const osTokenHolderSnapshot = snapshotOsTokenHolder(network, osToken, osTokenHolder, duration, newTimestamp)
-    osTokenHolder.totalEarnedAssets = osTokenHolder.totalEarnedAssets.plus(osTokenHolderSnapshot.earnedAssets)
-    osTokenHolder._periodEarnedAssets = BigInt.zero()
-    osTokenHolder.save()
-  }
 
   let vault: Vault
   const vaultIds = network.vaultIds
@@ -73,14 +55,11 @@ export function syncSnapshots(block: ethereum.Block): void {
       continue
     }
 
-    snapshotVault(vault, newTimestamp, duration)
-    vault._periodStakeEarnedAssets = BigInt.zero()
-    vault._periodExtraEarnedAssets = BigInt.zero()
-    vault.save()
+    createVaultSnapshot(vault, duration, newTimestamp.toI64())
 
+    const vaultAddress = Address.fromString(vault.id)
     const allocators: Array<Allocator> = vault.allocators.load()
     const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
-    const leveragePositions: Array<LeverageStrategyPosition> = vault.leveragePositions.load()
     for (let j = 0; j < allocators.length; j++) {
       const allocator = allocators[j]
       const allocatorAddress = Address.fromBytes(allocator.address)
@@ -88,54 +67,31 @@ export function syncSnapshots(block: ethereum.Block): void {
       // get boost OsToken shares if boost exists
       let boostedOsTokenShares = BigInt.zero()
       if (vault.isOsTokenEnabled) {
-        boostedOsTokenShares = _getUserBoostedOsTokenShares(osToken, allocatorAddress, leveragePositions)
+        const leverageStrategyPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
+        if (leverageStrategyPosition) {
+          boostedOsTokenShares = leverageStrategyPosition.osTokenShares.plus(
+            leverageStrategyPosition.exitingOsTokenShares,
+          )
+        }
       }
 
       // get assets from the reward splitters
       let rewardSplitterAssets = _getRewardSplitterAssets(allocatorAddress, rewardSplitters)
 
-      const allocatorSnapshot = snapshotAllocator(
+      createAllocatorSnapshot(
         osToken,
         allocator,
         boostedOsTokenShares,
         rewardSplitterAssets,
         duration,
-        newTimestamp,
+        newTimestamp.toI64(),
       )
-      allocator.totalEarnedAssets = allocator.totalEarnedAssets.plus(allocatorSnapshot.earnedAssets)
-      allocator.totalStakeEarnedAssets = allocator.totalStakeEarnedAssets.plus(allocatorSnapshot.stakeEarnedAssets)
-      allocator.totalBoostEarnedAssets = allocator.totalBoostEarnedAssets.plus(allocatorSnapshot.boostEarnedAssets)
-      allocator.totalExtraEarnedAssets = allocator.totalExtraEarnedAssets.plus(allocatorSnapshot.extraEarnedAssets)
-      allocator.totalOsTokenFeeAssets = allocator.totalOsTokenFeeAssets.plus(allocatorSnapshot.osTokenFeeAssets)
-      allocator._periodBoostEarnedAssets = BigInt.zero()
-      allocator._periodBoostEarnedOsTokenShares = BigInt.zero()
-      allocator._periodStakeEarnedAssets = BigInt.zero()
-      allocator._periodExtraEarnedAssets = BigInt.zero()
-      allocator._periodOsTokenFeeShares = BigInt.zero()
-      allocator.save()
     }
   }
 
   snapshotsCheckpoint.timestamp = newTimestamp
   snapshotsCheckpoint.save()
-  log.info('[SyncSnapshots] Snapshots synced timestamp={}', [newTimestamp.toString()])
-}
-
-function _getUserBoostedOsTokenShares(
-  osToken: OsToken,
-  user: Address,
-  leveragePositions: Array<LeverageStrategyPosition>,
-): BigInt {
-  let boostPosition: LeverageStrategyPosition
-  for (let i = 0; i < leveragePositions.length; i++) {
-    boostPosition = leveragePositions[i]
-    if (Address.fromBytes(boostPosition.user).equals(user)) {
-      return boostPosition.osTokenShares
-        .plus(boostPosition.exitingOsTokenShares)
-        .plus(convertAssetsToOsTokenShares(osToken, boostPosition.assets.plus(boostPosition.exitingAssets)))
-    }
-  }
-  return BigInt.zero()
+  log.info('[SyncSnapshots] Snapshots synced block={} timestamp={}', [block.number.toString(), newTimestamp.toString()])
 }
 
 function _getRewardSplitterAssets(user: Address, rewardSplitters: Array<RewardSplitter>): BigInt {
@@ -148,4 +104,10 @@ function _getRewardSplitterAssets(user: Address, rewardSplitters: Array<RewardSp
     }
   }
   return rewardSplitterAssets
+}
+
+function _isDayEnd(timestamp: BigInt): boolean {
+  const currentDayCount = timestamp.div(BigInt.fromI32(secondsInDay))
+  const newDayCount = timestamp.plus(BigInt.fromI32(extraSecondsGap)).div(BigInt.fromI32(secondsInDay))
+  return newDayCount.gt(currentDayCount)
 }

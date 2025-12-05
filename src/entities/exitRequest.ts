@@ -3,8 +3,7 @@ import { ExitRequest, Network, Vault } from '../../generated/schema'
 import { loadV2Pool } from './v2pool'
 import { convertSharesToAssets, getUpdateStateCall } from './vault'
 import { loadAllocator } from './allocator'
-import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
-import { chunkedMulticall, encodeContractCall, isFailedUpdateStateCall } from '../helpers/utils'
+import { chunkedMulticall, encodeContractCall, isFailedRewardsUpdate } from '../helpers/utils'
 import { isGnosisNetwork } from './network'
 
 const getExitQueueIndexSelector = '0x60d60e6e'
@@ -40,7 +39,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     // If vault is not collateralized, there are no exit requests to process
     return
   }
-  if (isFailedUpdateStateCall(vault)) {
+  if (isFailedRewardsUpdate(vault.rewardsRoot)) {
     return
   }
 
@@ -146,16 +145,6 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
       allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(totalAssetsDelta)
       allocator.exitingAssets = allocator.exitingAssets.plus(totalAssetsDelta)
       allocator.save()
-    }
-
-    const osTokenHolder = loadOsTokenHolder(Address.fromBytes(exitRequest.receiver))
-    // if total assets are zero, it means the vault must apply the fix to the exit queue introduced in v4 vaults
-    if (osTokenHolder && exitRequest.totalAssets.gt(BigInt.zero())) {
-      const osTokenVault = getOsTokenHolderVault(network, osTokenHolder)
-      if (osTokenVault && osTokenVault.equals(vaultAddr)) {
-        osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(totalAssetsDelta)
-        osTokenHolder.save()
-      }
     }
   }
 }

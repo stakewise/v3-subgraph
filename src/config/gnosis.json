@@ -44,7 +44,7 @@
   "ethUsdPriceFeed": "0xa767f745331D267c7751297D982b050c93985627",
   "balancerQuery": "0x0f3e0c4218b7b0108a3643cfe9d3ec0d4f57c54e",
   "bcspxSdaiBalancerPool": "0xae2a38545167be5a2eba9b931b28de5a7d95315e0002000000000000000000cc",
-  "assetToken": "0x0000000000000000000000000000000000000000",
+  "assetToken": "0x9C58BAcC331c9aa871AFD802DB6379a98e80CEdb",
   "swiseAssetUniPool": "0x0000000000000000000000000000000000000000",
   "usdcToken": "0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83",
   "susdsToken": "0x0000000000000000000000000000000000000000",
@@ -137,6 +137,10 @@
   "strategiesRegistry": {
     "address": "0x4abB9BBb82922A6893A5d6890cd2eE94610BEc48",
     "startBlock": "36651385"
+  },
+  "xDaiConverterFactory": {
+    "address": "0xdeC758323bF734c72F909965841fC2dba3C8c007",
+    "startBlock": "42139081"
   },
   "validatorsRegistry": {
     "address": "0x0B98057eA310F4d31F2a452B414647007d1645d9",

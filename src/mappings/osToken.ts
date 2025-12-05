@@ -8,10 +8,10 @@ import {
 } from '../entities/osToken'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { loadNetwork } from '../entities/network'
-import { OsTokenConfig, OsTokenHolder, Vault } from '../../generated/schema'
+import { OsTokenConfig, Vault } from '../../generated/schema'
 import { loadVault } from '../entities/vault'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { updateVaultMintedOsTokenShares } from '../entities/allocator'
+import { updateAllocatorMintedOsTokenShares } from '../entities/allocator'
 import { updateOsTokenExitRequests } from '../entities/osTokenVaultEscrow'
 
 const secondsInDay = 86400
@@ -59,17 +59,6 @@ export function syncOsToken(block: ethereum.Block): void {
   // update OsToken total assets
   updateOsTokenTotalAssets(osToken)
 
-  // update assets of all the OsToken holders
-  let osTokenHolder: OsTokenHolder
-  const osTokenHolders: Array<OsTokenHolder> = osToken.holders.load()
-  for (let i = 0; i < osTokenHolders.length; i++) {
-    osTokenHolder = osTokenHolders[i]
-    const assetsBefore = osTokenHolder.assets
-    osTokenHolder.assets = convertOsTokenSharesToAssets(osToken, osTokenHolder.balance)
-    osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets.plus(osTokenHolder.assets.minus(assetsBefore))
-    osTokenHolder.save()
-  }
-
   let vault: Vault
   let osTokenConfig: OsTokenConfig | null
   const vaultIds = network.vaultIds
@@ -87,12 +76,10 @@ export function syncOsToken(block: ethereum.Block): void {
     }
 
     // update allocators minted osToken shares
-    updateVaultMintedOsTokenShares(osToken, osTokenConfig, vault)
+    updateAllocatorMintedOsTokenShares(osToken, osTokenConfig, vault)
 
     // update OsToken exit requests
     updateOsTokenExitRequests(osToken, vault)
-
-    vault.save()
   }
 
   osTokenCheckpoint.timestamp = newTimestamp

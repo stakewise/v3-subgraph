@@ -144,6 +144,10 @@
     "address": "0x90b82E4b3aa385B4A02B7EBc1892a4BeD6B5c465",
     "startBlock": "21024037"
   },
+  "xDaiConverterFactory": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "startBlock": "21024037"
+  },
   "validatorsRegistry": {
     "address": "0x00000000219ab540356cBB839Cbe05303d7705Fa",
     "startBlock": "11052983"

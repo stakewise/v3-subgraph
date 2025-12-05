@@ -1,10 +1,8 @@
 import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 import {
   Aave,
-  Distributor,
   ExitRequest,
   LeverageStrategyPosition,
-  Network,
   OsToken,
   OsTokenConfig,
   OsTokenExitRequest,
@@ -12,18 +10,11 @@ import {
 } from '../../generated/schema'
 import { AaveLeverageStrategy } from '../../generated/AaveLeverageStrategyV1/AaveLeverageStrategy'
 import { AAVE_LEVERAGE_STRATEGY_V2, WAD } from '../helpers/constants'
-import { createOrLoadAllocator, loadAllocator } from './allocator'
-import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, getOsTokenApy } from './osToken'
-import { getAnnualReward, getCompoundedApy } from '../helpers/utils'
-import { getVaultApy, getVaultOsTokenMintApy } from './vault'
+import { loadAllocator } from './allocator'
+import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets } from './osToken'
+import { getAnnualReward } from '../helpers/utils'
+import { getVaultOsTokenMintApy } from './vault'
 import { loadAavePosition } from './aave'
-import {
-  convertStringToDistributionType,
-  DistributionType,
-  getPeriodicDistributionApy,
-  loadPeriodicDistribution,
-} from './merkleDistributor'
-import { getOsTokenHolderVault, loadOsTokenHolder } from './osTokenHolder'
 
 export function loadLeverageStrategyPosition(vault: Address, user: Address): LeverageStrategyPosition | null {
   const leverageStrategyPositionId = `${vault.toHex()}-${user.toHex()}`
@@ -61,11 +52,7 @@ export function createOrLoadLeverageStrategyPosition(
   return leverageStrategyPosition
 }
 
-export function updateLeveragePositionOsTokenSharesAndAssets(
-  aave: Aave,
-  osToken: OsToken,
-  position: LeverageStrategyPosition,
-): void {
+export function updateLeveragePosition(aave: Aave, osToken: OsToken, position: LeverageStrategyPosition): void {
   if (aave.leverageMaxBorrowLtvPercent.isZero()) {
     assert(false, 'Leverage max borrow LTV percent is zero')
   }
@@ -131,40 +118,12 @@ export function updateLeveragePositionOsTokenSharesAndAssets(
   position.save()
 }
 
-export function updateLeveragePositionPeriodEarnedAssets(
-  network: Network,
-  osToken: OsToken,
-  vault: Vault,
-  position: LeverageStrategyPosition,
-  earnedOsTokenShares: BigInt,
-  earnedAssets: BigInt,
-): void {
-  // update allocator
-  const userAddress = Address.fromBytes(position.user)
-  const vaultAddr = Address.fromString(vault.id)
-  const allocator = createOrLoadAllocator(userAddress, vaultAddr)
-  allocator._periodBoostEarnedOsTokenShares = allocator._periodBoostEarnedOsTokenShares.plus(earnedOsTokenShares)
-  allocator._periodBoostEarnedAssets = allocator._periodBoostEarnedAssets.plus(earnedAssets)
-  allocator.save()
-
-  // update osToken holder
-  const osTokenHolder = loadOsTokenHolder(userAddress)!
-  const osTokenHolderVault = getOsTokenHolderVault(network, osTokenHolder)
-  if (osTokenHolderVault && osTokenHolderVault.equals(vaultAddr)) {
-    osTokenHolder._periodEarnedAssets = osTokenHolder._periodEarnedAssets
-      .plus(earnedAssets)
-      .plus(convertOsTokenSharesToAssets(osToken, earnedOsTokenShares))
-    osTokenHolder.save()
-  }
-}
-
 export function getBoostPositionAnnualReward(
   osToken: OsToken,
   aave: Aave,
   vault: Vault,
   osTokenConfig: OsTokenConfig,
   strategyPosition: LeverageStrategyPosition,
-  distributor: Distributor,
 ): BigInt {
   if (
     strategyPosition.osTokenShares.isZero() &&
@@ -174,48 +133,32 @@ export function getBoostPositionAnnualReward(
   ) {
     return BigInt.zero()
   }
-  const vaultAddress = Address.fromString(strategyPosition.vault)
+  const vaultAddress = Address.fromString(vault.id)
   const proxyAddress = Address.fromBytes(strategyPosition.proxy)
 
   const vaultPosition = loadAllocator(proxyAddress, vaultAddress)!
   const aavePosition = loadAavePosition(proxyAddress)!
 
-  const vaultApy = getVaultApy(vault, distributor, osToken, false)
-  const osTokenApy = getOsTokenApy(osToken, false)
+  const vaultApy = vault.apy
   const borrowApy = aave.borrowApy
-  // earned osToken shares earn extra staking rewards, apply compounding
-  const supplyApy = getCompoundedApy(aave.supplyApy, osTokenApy)
 
-  let totalDepositedAssets = vaultPosition.assets
+  let totalEffectiveAssets = vaultPosition.assets
   let totalMintedOsTokenShares = vaultPosition.mintedOsTokenShares
   if (strategyPosition.exitRequest !== null) {
     const osTokenExitRequest = OsTokenExitRequest.load(strategyPosition.exitRequest!)!
     if (osTokenExitRequest.exitedAssets === null) {
       const exitRequest = ExitRequest.load(strategyPosition.exitRequest!)!
       const notExitedAssets = exitRequest.totalAssets.minus(exitRequest.exitedAssets)
-      totalDepositedAssets = totalDepositedAssets.plus(notExitedAssets)
+      totalEffectiveAssets = totalEffectiveAssets.plus(notExitedAssets)
     }
     totalMintedOsTokenShares = totalMintedOsTokenShares.plus(osTokenExitRequest.osTokenShares)
   }
-  const totalMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalMintedOsTokenShares)
 
-  const totalSuppliedOsTokenShares = aavePosition.suppliedOsTokenShares
+  const totalMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalMintedOsTokenShares)
   const totalBorrowedAssets = aavePosition.borrowedAssets
 
-  // deposited assets earn vault APY
-  let totalEarnedAssets = getAnnualReward(totalDepositedAssets, vaultApy)
-
-  // supplied osToken shares that are not minted earn osToken APY
-  const totalSuppliedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalSuppliedOsTokenShares)
-  if (totalSuppliedOsTokenAssets.gt(totalMintedOsTokenAssets)) {
-    totalEarnedAssets = totalEarnedAssets.plus(
-      getAnnualReward(totalSuppliedOsTokenAssets.minus(totalMintedOsTokenAssets), osTokenApy),
-    )
-  }
-
-  // supplied osToken shares earn supply APY
-  const totalEarnedOsTokenShares = getAnnualReward(totalSuppliedOsTokenShares, supplyApy)
-  totalEarnedAssets = totalEarnedAssets.plus(convertOsTokenSharesToAssets(osToken, totalEarnedOsTokenShares))
+  // staked assets earn vault APY
+  let totalEarnedAssets = getAnnualReward(totalEffectiveAssets, vaultApy)
 
   // minted osToken shares lose mint APY
   const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig)
@@ -223,26 +166,6 @@ export function getBoostPositionAnnualReward(
 
   // borrowed assets lose borrow APY
   totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(totalBorrowedAssets, borrowApy))
-
-  if (totalSuppliedOsTokenAssets.le(BigInt.zero())) {
-    return totalEarnedAssets
-  }
-
-  // all the supplied OsToken assets earn the additional incentives
-  const activeDistributionIds = distributor.activeDistributionIds
-  for (let i = 0; i < activeDistributionIds.length; i++) {
-    const distribution = loadPeriodicDistribution(activeDistributionIds[i])!
-    if (convertStringToDistributionType(distribution.distributionType) !== DistributionType.LEVERAGE_STRATEGY) {
-      continue
-    }
-
-    // get the distribution APY
-    const distributionApy = getPeriodicDistributionApy(distribution, osToken, false)
-    if (distributionApy.le(BigDecimal.zero())) {
-      continue
-    }
-    totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(totalSuppliedOsTokenAssets, distributionApy))
-  }
 
   return totalEarnedAssets
 }

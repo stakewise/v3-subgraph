@@ -1,11 +1,10 @@
-import { BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
-import { OsToken, OsTokenSnapshot } from '../../generated/schema'
+import { Address, BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
+import { OsToken, OsTokenHolder } from '../../generated/schema'
 import { OsTokenVaultController as OsTokenVaultControllerContact } from '../../generated/OsTokenVaultController/OsTokenVaultController'
 import { OS_TOKEN_VAULT_CONTROLLER, WAD } from '../helpers/constants'
 import { calculateAverage } from '../helpers/utils'
 
 const snapshotsPerWeek = 14
-const snapshotsPerDay = 2
 const secondsInYear = '31536000'
 const maxPercent = '100'
 export const osTokenId = '1'
@@ -24,11 +23,28 @@ export function createOrLoadOsToken(): OsToken {
     osToken.feePercent = 0
     osToken.totalSupply = BigInt.zero()
     osToken.totalAssets = BigInt.zero()
-    osToken._periodEarnedAssets = BigInt.zero()
     osToken.save()
   }
 
   return osToken
+}
+
+export function loadOsTokenHolder(holderAddress: Address): OsTokenHolder | null {
+  return OsTokenHolder.load(holderAddress.toHex())
+}
+
+export function createOrLoadOsTokenHolder(holderAddress: Address): OsTokenHolder {
+  const id = holderAddress.toHex()
+  let holder = OsTokenHolder.load(id)
+
+  if (holder === null) {
+    holder = new OsTokenHolder(id)
+    holder.balance = BigInt.zero()
+    holder.transfersCount = BigInt.zero()
+    holder.save()
+  }
+
+  return holder
 }
 
 export function updateOsTokenTotalAssets(osToken: OsToken): void {
@@ -40,7 +56,6 @@ export function updateOsTokenTotalAssets(osToken: OsToken): void {
     return
   }
   osToken.totalAssets = newTotalAssets
-  osToken._periodEarnedAssets = osToken._periodEarnedAssets.plus(osTokenTotalAssetsDiff)
   osToken.save()
 }
 
@@ -78,23 +93,4 @@ export function convertAssetsToOsTokenShares(osToken: OsToken, assets: BigInt): 
   } else {
     return assets.times(osToken.totalSupply).div(osToken.totalAssets)
   }
-}
-
-export function getOsTokenApy(osToken: OsToken, useDayApy: boolean): BigDecimal {
-  const apysCount = osToken.apys.length
-  if (!useDayApy || apysCount < snapshotsPerDay) {
-    return osToken.apy
-  }
-  const apys: Array<BigDecimal> = osToken.apys
-  return calculateAverage(apys.slice(apys.length - snapshotsPerDay))
-}
-
-export function snapshotOsToken(osToken: OsToken, timestamp: BigInt): void {
-  let apy = getOsTokenApy(osToken, true)
-  const osTokenSnapshot = new OsTokenSnapshot(1)
-  osTokenSnapshot.timestamp = timestamp.toI64()
-  osTokenSnapshot.earnedAssets = osToken._periodEarnedAssets
-  osTokenSnapshot.totalAssets = osToken.totalAssets
-  osTokenSnapshot.apy = apy
-  osTokenSnapshot.save()
 }

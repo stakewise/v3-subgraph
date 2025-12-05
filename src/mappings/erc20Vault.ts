@@ -13,7 +13,6 @@ import { createTransaction } from '../entities/transaction'
 import { convertSharesToAssets, loadVault } from '../entities/vault'
 import { loadOsToken } from '../entities/osToken'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { loadDistributor } from '../entities/merkleDistributor'
 import { loadAave } from '../entities/aave'
 
 // Event emitted on mint, burn or transfer shares between allocators
@@ -22,7 +21,6 @@ export function handleTransfer(event: Transfer): void {
   const vaultAddress = event.address
   const vault = loadVault(vaultAddress)!
   const osToken = loadOsToken()!
-  const distributor = loadDistributor()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
   const from = params.from
@@ -39,13 +37,13 @@ export function handleTransfer(event: Transfer): void {
   const aave = loadAave()!
   const allocatorFrom = loadAllocator(from, vaultAddress)!
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocatorFrom, shares)
-  allocatorFrom.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocatorFrom)
+  allocatorFrom.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocatorFrom)
   allocatorFrom.save()
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferOut, from, assets, shares)
 
   const allocatorTo = createOrLoadAllocator(to, vaultAddress)
   increaseAllocatorShares(osToken, osTokenConfig, vault, allocatorTo, shares)
-  allocatorTo.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, distributor, allocatorTo)
+  allocatorTo.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocatorTo)
   allocatorTo.save()
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferIn, to, assets, shares)
 

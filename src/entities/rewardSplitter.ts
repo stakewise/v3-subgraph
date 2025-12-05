@@ -8,7 +8,7 @@ import {
   REWARD_SPLITTER_FACTORY_V2,
   REWARD_SPLITTER_FACTORY_V3,
 } from '../helpers/constants'
-import { chunkedMulticall, encodeContractCall, isFailedUpdateStateCall } from '../helpers/utils'
+import { chunkedMulticall, encodeContractCall, isFailedRewardsUpdate } from '../helpers/utils'
 
 const syncRewardsCallSelector = '0x72c0c211'
 const rewardsOfSelector = '0x479ba7ae'
@@ -49,7 +49,7 @@ export function syncEarnedVaultAssets(vault: Vault, shareHolder: RewardSplitterS
   shareHolder.earnedVaultAssets = convertSharesToAssets(vault, shareHolder.earnedVaultShares)
 
   const allocator = createOrLoadAllocator(Address.fromBytes(shareHolder.address), Address.fromString(vault.id))
-  allocator._periodExtraEarnedAssets = allocator._periodExtraEarnedAssets.plus(
+  allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(
     shareHolder.earnedVaultAssets.minus(assetsBefore),
   )
   allocator.save()
@@ -60,7 +60,7 @@ export function updateRewardSplitters(vault: Vault): void {
     // wait for the migration
     return
   }
-  if (isFailedUpdateStateCall(vault)) {
+  if (isFailedRewardsUpdate(vault.rewardsRoot)) {
     return
   }
 

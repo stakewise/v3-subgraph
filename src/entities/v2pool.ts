@@ -1,12 +1,9 @@
 import { BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { V2Pool, V2PoolUser, Vault } from '../../generated/schema'
 import { V2_POOL_FEE_PERCENT, V2_REWARD_TOKEN, V2_STAKED_TOKEN, WAD } from '../helpers/constants'
-import { calculateAverage, chunkedMulticall, encodeContractCall, isFailedUpdateStateCall } from '../helpers/utils'
+import { chunkedMulticall, encodeContractCall, isFailedRewardsUpdate } from '../helpers/utils'
 import { getUpdateStateCall } from './vault'
 
-const snapshotsPerWeek = 14
-const secondsInYear = '31536000'
-const maxPercent = '100'
 const poolId = '1'
 const poolRewardAssetsSelector = '0x18160ddd'
 const poolPrincipalAssetsSelector = '0x18160ddd'
@@ -29,7 +26,7 @@ export function createOrLoadV2Pool(): V2Pool {
     pool.feePercent = I32.parseInt(V2_POOL_FEE_PERCENT)
     pool.rate = BigInt.fromString(WAD)
     pool.migrated = false
-    pool.apys = []
+    pool.isDisconnected = false
     pool.apy = BigDecimal.zero()
     pool.save()
   }
@@ -50,47 +47,8 @@ export function createOrLoadV2PoolUser(userAddress: Bytes): V2PoolUser {
   return v2PoolUser
 }
 
-export function updatePoolApy(
-  pool: V2Pool,
-  fromTimestamp: BigInt | null,
-  toTimestamp: BigInt,
-  rateChange: BigInt,
-): void {
-  if (fromTimestamp === null) {
-    // it's the first update, skip
-    return
-  }
-  const totalDuration = toTimestamp.minus(fromTimestamp)
-  if (totalDuration.isZero()) {
-    log.error('[V2Pool] updatePoolApy totalDuration is zero fromTimestamp={} toTimestamp={}', [
-      fromTimestamp.toString(),
-      toTimestamp.toString(),
-    ])
-    return
-  }
-  let currentApy = new BigDecimal(rateChange)
-    .times(BigDecimal.fromString(secondsInYear))
-    .times(BigDecimal.fromString(maxPercent))
-    .div(BigDecimal.fromString(WAD))
-    .div(new BigDecimal(totalDuration))
-
-  if (pool.totalAssets.gt(BigInt.zero())) {
-    // the rate change is calculated as if only the principal assets were staked
-    // we need to include the reward assets as well
-    currentApy = currentApy.times(pool.principalAssets.toBigDecimal()).div(pool.totalAssets.toBigDecimal())
-  }
-
-  let apys = pool.apys
-  apys.push(currentApy)
-  if (apys.length > snapshotsPerWeek) {
-    apys = apys.slice(apys.length - snapshotsPerWeek)
-  }
-  pool.apys = apys
-  pool.apy = calculateAverage(apys)
-}
-
 export function getV2PoolState(vault: Vault): Array<BigInt> {
-  if (isFailedUpdateStateCall(vault)) {
+  if (isFailedRewardsUpdate(vault.rewardsRoot)) {
     const v2Pool = loadV2Pool()
     if (v2Pool === null) {
       log.error('[V2Pool] getV2PoolState failed to load V2Pool on failed updateState call', [])
@@ -98,7 +56,8 @@ export function getV2PoolState(vault: Vault): Array<BigInt> {
     }
     return [v2Pool.rate, v2Pool.rewardAssets, v2Pool.principalAssets, v2Pool.penaltyAssets]
   }
-  const updateStateCalls = getUpdateStateCall(vault)
+  log.info('[V2Pool] getV2PoolState executing multicall to get pool state', [])
+  const updateStateCall = getUpdateStateCall(vault)
   const wad = BigInt.fromString(WAD)
 
   let contractCalls: Array<ethereum.Value> = [
@@ -108,7 +67,7 @@ export function getV2PoolState(vault: Vault): Array<BigInt> {
     encodeContractCall(V2_REWARD_TOKEN, Bytes.fromHexString(rewardPerTokenSelector)),
   ]
 
-  const results = chunkedMulticall(updateStateCalls, contractCalls)
+  const results = chunkedMulticall(updateStateCall, contractCalls)
   const rewardAssets = ethereum.decode('uint256', results[0]!)!.toBigInt()
   const penaltyAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
   const principalAssets = ethereum.decode('uint256', results[2]!)!.toBigInt()

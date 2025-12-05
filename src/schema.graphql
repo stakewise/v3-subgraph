@@ -48,12 +48,6 @@ type Allocator @entity(immutable: false) {
   "Allocator's total earned assets from boost"
   totalBoostEarnedAssets: BigInt!
 
-  "Allocator's total earned assets from extra incentives, rewards"
-  totalExtraEarnedAssets: BigInt!
-
-  "Allocator's total OsToken fee assets"
-  totalOsTokenFeeAssets: BigInt!
-
   "The exit requests of the allocator"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "allocator")
 
@@ -65,9 +59,6 @@ type Allocator @entity(immutable: false) {
 
   "The total period OsToken shares earned from boost"
   _periodBoostEarnedOsTokenShares: BigInt!
-
-  "The total period extra earned assets (e.g. reward splitter, extra incentives)"
-  _periodExtraEarnedAssets: BigInt!
 
   "The total period OsToken shares minted as a fee"
   _periodOsTokenFeeShares: BigInt!
@@ -109,23 +100,8 @@ type OsTokenHolder @entity(immutable: false) {
   "The OsToken holder balance (shares)"
   balance: BigInt!
 
-  "The OsToken holder assets"
-  assets: BigInt!
-
-  "The OsToken instance"
-  osToken: OsToken!
-
-  "The osToken holder's average weekly APY"
-  apy: BigDecimal!
-
   "The total number of OsToken transfers"
   transfersCount: BigInt!
-
-  "The osToken holder's total earned assets"
-  totalEarnedAssets: BigInt!
-
-  "The period earned assets"
-  _periodEarnedAssets: BigInt!
 }
 
 """
@@ -367,20 +343,17 @@ type Vault @entity(immutable: false) {
   "Whether the vault is a genesis vault (v2 pool migration)"
   isGenesis: Boolean!
 
-  "The vault average weekly total APY"
+  "The vault current total APY"
   apy: BigDecimal!
 
-  "The vault average weekly base APY (without extra incentives)"
+  "The vault base APY calculated as weekly average of staking APY"
   baseApy: BigDecimal!
 
-  "The list of vault base APY snapshots"
-  baseApys: [BigDecimal!]!
+  "The current extra incentives APY"
+  extraApy: BigDecimal!
 
   "The average weekly max boost APY earned in this vault by the allocator"
   allocatorMaxBoostApy: BigDecimal!
-
-  "The average weekly max boost APY earned in this vault by the osToken holder"
-  osTokenHolderMaxBoostApy: BigDecimal!
 
   "The total number of vault blocklisted accounts"
   blocklistCount: BigInt!
@@ -389,13 +362,16 @@ type Vault @entity(immutable: false) {
   whitelistCount: BigInt!
 
   "The total period assets earned from staking"
-  _periodStakeEarnedAssets: BigInt!
-
-  "The total period extra earned assets (e.g. extra incentives)"
-  _periodExtraEarnedAssets: BigInt!
+  _periodEarnedAssets: BigInt!
 
   "The total amount of the accumulated unclaimed fee recipient shares"
   _unclaimedFeeRecipientShares: BigInt!
+
+  "The assets of the allocator from the previous snapshot to calculate vault APY"
+  _prevAllocatorAssets: BigInt
+
+  "The timestamp of the last snapshot. Can be null if no snapshots were taken."
+  _lastSnapshotTimestamp: Timestamp
 }
 
 """
@@ -418,6 +394,23 @@ Own MEV escrow
 type OwnMevEscrow @entity(immutable: false) {
   "The address of the Own MEV escrow"
   id: ID!
+
+  "The total amount of harvested assets"
+  totalHarvestedAssets: BigInt!
+
+  "The last checkpointed assets for period rewards calculation"
+  lastCheckpointAssets: BigInt!
+}
+
+"""
+XDai Converter
+"""
+type XdaiConverter @entity(immutable: false) {
+  "The address of the vault that uses the XDai converter"
+  id: ID!
+
+  "The address of the XDai converter"
+  address: Bytes!
 
   "The total amount of harvested assets"
   totalHarvestedAssets: BigInt!
@@ -494,12 +487,6 @@ type OsToken @entity(immutable: false) {
 
   "The OsToken total assets"
   totalAssets: BigInt!
-
-  "The OsToken holders"
-  holders: [OsTokenHolder!]! @derivedFrom(field: "osToken")
-
-  "The period earned assets"
-  _periodEarnedAssets: BigInt!
 }
 
 """
@@ -664,14 +651,14 @@ type V2Pool @entity(immutable: false) {
   "Whether V2 Pool has migrated to V3"
   migrated: Boolean!
 
+  "Whether V2 Pool is disconnected"
+  isDisconnected: Boolean!
+
   "The current exchange rate for 10^18 staked token"
   rate: BigInt!
 
   "The pool average weekly total APY"
   apy: BigDecimal!
-
-  "The list of pool APY snapshot"
-  apys: [BigDecimal!]!
 
   "Last rewards update timestamp"
   rewardsTimestamp: BigInt
@@ -841,14 +828,12 @@ type LeverageStrategyPosition @entity(immutable: false) {
 """
 The snapshot of the allocator state
 """
-type AllocatorSnapshot @entity(timeseries: true) {
-  id: Int8!
+type AllocatorSnapshot @entity(immutable: true) {
+  id: Bytes!
   timestamp: Timestamp!
   allocator: Allocator!
   stakeEarnedAssets: BigInt!
   boostEarnedAssets: BigInt!
-  extraEarnedAssets: BigInt!
-  osTokenFeeAssets: BigInt!
   earnedAssets: BigInt!
   totalAssets: BigInt!
   apy: BigDecimal!
@@ -856,96 +841,17 @@ type AllocatorSnapshot @entity(timeseries: true) {
 }
 
 """
-The aggregation of the allocator snapshots
-"""
-type AllocatorStats @aggregation(intervals: ["day"], source: "AllocatorSnapshot") {
-  id: Int8!
-  timestamp: Timestamp!
-  allocator: Allocator!
-  stakeEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "stakeEarnedAssets")
-  boostEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "boostEarnedAssets")
-  extraEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "extraEarnedAssets")
-  osTokenFeeAssets: BigInt! @aggregate(fn: "sum", arg: "osTokenFeeAssets")
-  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
-  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
-  apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
-  ltv: BigDecimal! @aggregate(fn: "last", arg: "ltv")
-}
-
-"""
-The snapshot of the OsToken state
-"""
-type OsTokenSnapshot @entity(timeseries: true) {
-  id: Int8!
-  timestamp: Timestamp!
-  earnedAssets: BigInt!
-  totalAssets: BigInt!
-  apy: BigDecimal!
-}
-
-"""
-The aggregation of the OsToken snapshots
-"""
-type OsTokenStats @aggregation(intervals: ["day"], source: "OsTokenSnapshot") {
-  id: Int8!
-  timestamp: Timestamp!
-  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
-  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
-  apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
-}
-
-"""
-The snapshot of the OsTokenHolder state
-"""
-type OsTokenHolderSnapshot @entity(timeseries: true) {
-  id: Int8!
-  timestamp: Timestamp!
-  osTokenHolder: OsTokenHolder!
-  earnedAssets: BigInt!
-  totalAssets: BigInt!
-  apy: BigDecimal!
-}
-
-"""
-The aggregation of the OsTokenHolder snapshots
-"""
-type OsTokenHolderStats @aggregation(intervals: ["day"], source: "OsTokenHolderSnapshot") {
-  id: Int8!
-  timestamp: Timestamp!
-  osTokenHolder: OsTokenHolder!
-  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
-  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
-  apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
-}
-
-"""
 The snapshot of the Vault state
 """
-type VaultSnapshot @entity(timeseries: true) {
-  id: Int8!
+type VaultSnapshot @entity(immutable: true) {
+  id: Bytes!
   timestamp: Timestamp!
   vault: Vault!
-  stakeEarnedAssets: BigInt!
-  extraEarnedAssets: BigInt!
   earnedAssets: BigInt!
   totalAssets: BigInt!
   totalShares: BigInt!
   apy: BigDecimal!
-}
-
-"""
-The aggregation of the Vault snapshots
-"""
-type VaultStats @aggregation(intervals: ["day"], source: "VaultSnapshot") {
-  id: Int8!
-  timestamp: Timestamp!
-  vault: Vault!
-  stakeEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "stakeEarnedAssets")
-  extraEarnedAssets: BigInt! @aggregate(fn: "sum", arg: "extraEarnedAssets")
-  earnedAssets: BigInt! @aggregate(fn: "sum", arg: "earnedAssets")
-  totalAssets: BigInt! @aggregate(fn: "last", arg: "totalAssets")
-  totalShares: BigInt! @aggregate(fn: "last", arg: "totalShares")
-  apy: BigDecimal! @aggregate(fn: "last", arg: "apy")
+  _prevSnapshotTimestamp: Timestamp
 }
 
 """
@@ -1160,9 +1066,6 @@ type PeriodicDistribution @entity(immutable: false) {
 
   "The average weekly apy of the distribution"
   apy: BigDecimal!
-
-  "The list of APY snapshots"
-  apys: [BigDecimal!]!
 
   "The timestamp when the distribution starts"
   startTimestamp: BigInt!
