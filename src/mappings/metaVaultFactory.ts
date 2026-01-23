@@ -5,5 +5,6 @@ import { createMetaVault } from '../entities/metaVault'
 export function handleMetaVaultCreated(event: MetaVaultCreated): void {
   let context = dataSource.context()
   let version = context.getBigInt('version')
-  createMetaVault(event, version)
+  let isPrivate = context.getBoolean('isPrivate')
+  createMetaVault(event, isPrivate, version)
 }

@@ -1,7 +1,11 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { Vault } from '../../generated/schema'
 import { MetaVaultCreated } from '../../generated/templates/MetaVaultFactory/MetaVaultFactory'
-import { MetaVault as MetaVaultTemplate, Vault as VaultTemplate } from '../../generated/templates'
+import {
+  MetaVault as MetaVaultTemplate,
+  Vault as VaultTemplate,
+  PrivateVault as PrivateVaultTemplate,
+} from '../../generated/templates'
 import { WAD } from '../helpers/constants'
 import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 import { loadNetwork } from './network'
@@ -12,7 +16,7 @@ const totalSharesSelector = '0x3a98ef39'
 const convertToAssetsSelector = '0x07a2d13a'
 const exitQueueDataSelector = '0x3e1655d3'
 
-export function createMetaVault(event: MetaVaultCreated, version: BigInt): void {
+export function createMetaVault(event: MetaVaultCreated, isPrivate: boolean, version: BigInt): void {
   const block = event.block
   const vaultAddress = event.params.vault
   const vaultAddressHex = vaultAddress.toHex()
@@ -21,6 +25,7 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt): void 
   let decodedParams = (
     ethereum.decode('(address,uint256,uint16,string)', event.params.params) as ethereum.Value
   ).toTuple()
+  // curator is not stored in the entity, only used for logging
   const curator = decodedParams[0].toAddress()
   const capacity = decodedParams[1].toBigInt()
   const feePercent = decodedParams[2].toI32()
@@ -45,7 +50,7 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt): void 
   vault.rate = BigInt.fromString(WAD)
   vault.exitingAssets = BigInt.zero()
   vault.exitingTickets = BigInt.zero()
-  vault.isPrivate = false
+  vault.isPrivate = isPrivate
   vault.isBlocklist = false
   vault.isErc20 = false
   vault.isMetaVault = true
@@ -67,6 +72,11 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt): void 
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault._prevAllocatorAssets = BigInt.fromString(WAD)
+
+  if (isPrivate) {
+    PrivateVaultTemplate.create(vaultAddress)
+    vault.whitelister = admin
+  }
   vault.save()
 
   VaultTemplate.create(vaultAddress)
