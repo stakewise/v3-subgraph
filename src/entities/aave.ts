@@ -35,8 +35,8 @@ export function createOrLoadAave(): Aave {
     aave.leverageMaxBorrowLtvPercent = BigInt.zero()
     aave.borrowApys = []
     aave.supplyApys = []
-    if (NETWORK == 'chiado' || NETWORK == 'hoodi') {
-      // OsToken supply cap cannot be set on Chiado or Hoodi
+    if (NETWORK == 'hoodi') {
+      // OsToken supply cap cannot be set on Hoodi
       aave.osTokenSupplyCap = MAX_UINT_256
     } else {
       aave.osTokenSupplyCap = BigInt.zero()

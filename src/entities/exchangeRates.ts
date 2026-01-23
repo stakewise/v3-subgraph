@@ -45,7 +45,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   const osToken = loadOsToken()!
   const wad = BigInt.fromString(WAD)
   const osTokenAssetsRate = convertOsTokenSharesToAssets(osToken, wad).toBigDecimal().div(wad.toBigDecimal())
-  if (NETWORK == 'chiado' || NETWORK == 'hoodi') {
+  if (NETWORK == 'hoodi') {
     exchangeRate.osTokenAssetsRate = osTokenAssetsRate
     exchangeRate.assetsUsdRate = BigDecimal.fromString('1905.012302')
     exchangeRate.swiseUsdRate = BigDecimal.fromString('0.009594236721804157655299186623941473')
@@ -361,7 +361,6 @@ export function createOrLoadExchangeRate(): ExchangeRate {
     exchangeRate.susdsUsdRate = BigDecimal.zero()
     exchangeRate.sdaiUsdRate = BigDecimal.zero()
     exchangeRate.bcspxUsdRate = BigDecimal.zero()
-    exchangeRate.btcUsdRate = BigDecimal.zero()
     exchangeRate.usdcUsdRate = BigDecimal.zero()
     exchangeRate.usdToEurRate = BigDecimal.zero()
     exchangeRate.usdToGbpRate = BigDecimal.zero()
