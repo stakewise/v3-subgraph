@@ -24,7 +24,11 @@ import {
   FOX_VAULT1,
   FOX_VAULT2,
   META_VAULT_FACTORY_V3,
+  META_VAULT_FACTORY_V4,
   META_VAULT_FACTORY_V5,
+  META_VAULT_FACTORY_V6,
+  PRIV_META_VAULT_FACTORY_V4,
+  PRIV_META_VAULT_FACTORY_V6,
   NETWORK,
   PRIV_ERC20_VAULT_FACTORY_V1,
   PRIV_ERC20_VAULT_FACTORY_V2,
@@ -112,7 +116,11 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   const foxVault1 = Address.fromString(FOX_VAULT1)
   const foxVault2 = Address.fromString(FOX_VAULT2)
   const metaVaultFactoryV3 = Address.fromString(META_VAULT_FACTORY_V3)
+  const metaVaultFactoryV4 = Address.fromString(META_VAULT_FACTORY_V4)
+  const privMetaVaultFactoryV4 = Address.fromString(PRIV_META_VAULT_FACTORY_V4)
   const metaVaultFactoryV5 = Address.fromString(META_VAULT_FACTORY_V5)
+  const metaVaultFactoryV6 = Address.fromString(META_VAULT_FACTORY_V6)
+  const privMetaVaultFactoryV6 = Address.fromString(PRIV_META_VAULT_FACTORY_V6)
   const zeroAddress = Address.zero()
   const blockNumber = event.block.number.toString()
 
@@ -248,15 +256,41 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
     log.info('[Keeper] Initialize BlocklistERC20VaultFactory V5 at block={}', [blockNumber])
   }
 
+  // create meta vault factories
+  context.setBoolean(IS_PRIVATE_KEY, false)
+  context.setBoolean(IS_BLOCKLIST_KEY, false)
   if (metaVaultFactoryV3.notEqual(zeroAddress)) {
     context.setBigInt(VERSION, BigInt.fromI32(3))
     MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV3, context)
     log.info('[Keeper] Initialize MetaVaultFactory V3 at block={}', [blockNumber])
   }
+  if (metaVaultFactoryV4.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(4))
+    MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV4, context)
+    log.info('[Keeper] Initialize MetaVaultFactory V4 at block={}', [blockNumber])
+  }
   if (metaVaultFactoryV5.notEqual(zeroAddress)) {
     context.setBigInt(VERSION, BigInt.fromI32(5))
     MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV5, context)
     log.info('[Keeper] Initialize MetaVaultFactory V5 at block={}', [blockNumber])
+  }
+  if (metaVaultFactoryV6.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(6))
+    MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV6, context)
+    log.info('[Keeper] Initialize MetaVaultFactory V6 at block={}', [blockNumber])
+  }
+
+  // create private meta vault factories
+  context.setBoolean(IS_PRIVATE_KEY, true)
+  if (privMetaVaultFactoryV4.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(4))
+    MetaVaultFactoryTemplate.createWithContext(privMetaVaultFactoryV4, context)
+    log.info('[Keeper] Initialize PrivateMetaVaultFactory V4 at block={}', [blockNumber])
+  }
+  if (privMetaVaultFactoryV6.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(6))
+    MetaVaultFactoryTemplate.createWithContext(privMetaVaultFactoryV6, context)
+    log.info('[Keeper] Initialize PrivateMetaVaultFactory V6 at block={}', [blockNumber])
   }
 
   // create reward splitter factories
