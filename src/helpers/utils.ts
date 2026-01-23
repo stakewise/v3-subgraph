@@ -3,7 +3,7 @@ import {
   Multicall as MulticallContract,
   TryAggregateCallReturnDataOutputStruct,
 } from '../../generated/Keeper/Multicall'
-import { MULTICALL, NETWORK, WAD } from './constants'
+import { MULTICALL, WAD } from './constants'
 
 const secondsInYear = '31536000'
 const secondsInDay = 86400
@@ -94,16 +94,6 @@ export function encodeContractCall(target: Address, data: Bytes): ethereum.Value
 
 export function rayMul(a: BigInt, b: BigInt): BigInt {
   return a.times(b).plus(halfRAY).div(RAY)
-}
-
-export function isFailedRewardsUpdate(rewardsRoot: Bytes | null): boolean {
-  if (NETWORK != 'chiado' || rewardsRoot === null) {
-    return false
-  }
-
-  const failedRoot1 = Bytes.fromHexString('0x1bc15917c998a8525f976ac59c536f3344d8b8bb1ad63da76820476fd7a7d562')
-  const failedRoot2 = Bytes.fromHexString('0x950d6ab616a8494f139357f930ce9a430c15522365ce2e5d94f6e532a3796763')
-  return rewardsRoot.equals(failedRoot1) || rewardsRoot.equals(failedRoot2)
 }
 
 export function getSnapshotTimestamp(timestamp: i64): i64 {

@@ -65,7 +65,6 @@ import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDist
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { getAllocatorApy } from '../entities/allocator'
-import { isFailedRewardsUpdate } from '../helpers/utils'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -294,14 +293,6 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const blockTimestamp = event.block.timestamp
   const newAvgRewardPerSecond = event.params.avgRewardPerSecond
 
-  if (isFailedRewardsUpdate(rewardsRoot)) {
-    log.error('[Keeper] RewardsUpdated corrupted update rewardsRoot={} rewardsIpfsHash={}', [
-      rewardsRoot.toHex(),
-      rewardsIpfsHash,
-    ])
-    return
-  }
-
   // update vaults
   let data: Bytes | null = ipfs.cat(rewardsIpfsHash)
   while (!data) {
@@ -386,8 +377,8 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
 
   let data: Bytes | null = ipfs.cat(configIpfsHash)
   while (data === null) {
-    if (NETWORK == 'chiado' || NETWORK == 'hoodi') {
-      log.warning('[Keeper] ConfigUpdated ipfs.cat failed for hash={} on chiado/hoodi, skipping', [configIpfsHash])
+    if (NETWORK == 'hoodi') {
+      log.warning('[Keeper] ConfigUpdated ipfs.cat failed for hash={} on hoodi, skipping', [configIpfsHash])
       return
     }
     log.warning('[Keeper] ConfigUpdated ipfs.cat failed for hash={}, retrying', [configIpfsHash])
