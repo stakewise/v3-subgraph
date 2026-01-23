@@ -502,7 +502,6 @@ export function getVaultState(vault: Vault): Array<BigInt> {
       BigInt.zero(),
     ]
   }
-
   const vaultAddr = Address.fromString(vault.id)
 
   // fetch fee recipient shares before state update
