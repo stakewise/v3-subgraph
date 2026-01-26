@@ -1,14 +1,5 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, JSONValue, log } from '@graphprotocol/graph-ts'
-import {
-  Aave,
-  Allocator,
-  Distributor,
-  Network,
-  OsToken,
-  OsTokenConfig,
-  Vault,
-  VaultSnapshot,
-} from '../../generated/schema'
+import { Aave, Allocator, Distributor, OsToken, OsTokenConfig, Vault, VaultSnapshot } from '../../generated/schema'
 import {
   AAVE_LEVERAGE_STRATEGY_V1,
   AAVE_LEVERAGE_STRATEGY_V1_START_BLOCK,
@@ -20,13 +11,7 @@ import {
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, loadOsToken } from './osToken'
 import { increaseUserVaultsCount, isGnosisNetwork, loadNetwork } from './network'
 import { getV2PoolState, loadV2Pool } from './v2pool'
-import {
-  calculateApy,
-  chunkedMulticall,
-  encodeContractCall,
-  getAnnualReward,
-  getSnapshotTimestamp,
-} from '../helpers/utils'
+import { calculateApy, chunkedMulticall, encodeContractCall, getSnapshotTimestamp } from '../helpers/utils'
 import { syncEthOwnMevEscrow } from './mevEscrow'
 import { syncXdaiConverter } from './xdaiConverter'
 import { VaultCreated } from '../../generated/templates/VaultFactory/VaultFactory'
@@ -39,6 +24,7 @@ import {
 } from '../../generated/templates'
 import { createTransaction } from './transaction'
 import {
+  calcAllocatorApy,
   createOrLoadAllocator,
   getAllocatorLtv,
   getAllocatorLtvStatus,
@@ -445,10 +431,6 @@ export function getAllocatorMaxBoostApy(
   }
   const wad = BigInt.fromString(WAD)
 
-  const borrowApy = aave.borrowApy
-  const vaultApy = vault.apy
-  const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig)
-
   const vaultLeverageLtv = osTokenConfig.ltvPercent.lt(osTokenConfig.leverageMaxMintLtvPercent)
     ? osTokenConfig.ltvPercent
     : osTokenConfig.leverageMaxMintLtvPercent
@@ -461,34 +443,26 @@ export function getAllocatorMaxBoostApy(
   const totalLtv = vaultLeverageLtv.times(aaveLeverageLtv).div(wad)
 
   // calculate allocator assets and shares
-  const allocatorDepositedAssets = wad
-  const allocatorMintedOsTokenAssets = allocatorDepositedAssets.times(osTokenConfig.ltvPercent).div(wad)
-  const allocatorMintedOsTokenShares = convertAssetsToOsTokenShares(osToken, allocatorMintedOsTokenAssets)
+  let stakingAssets = wad
+  const mintedOsTokenAssets = stakingAssets.times(osTokenConfig.ltvPercent).div(wad)
+  const mintedOsTokenShares = convertAssetsToOsTokenShares(osToken, mintedOsTokenAssets)
 
-  // calculate strategy assets and shares
-  const strategyMintedOsTokenShares = allocatorMintedOsTokenShares
-    .times(wad)
-    .div(wad.minus(totalLtv))
-    .minus(allocatorMintedOsTokenShares)
-  const strategyMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, strategyMintedOsTokenShares)
-  const strategyDepositedAssets = strategyMintedOsTokenAssets.times(wad).div(vaultLeverageLtv)
+  // calculate boost assets and shares
+  const boostMintedOsTokenShares = mintedOsTokenShares.times(wad).div(wad.minus(totalLtv)).minus(mintedOsTokenShares)
+  const boostMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, boostMintedOsTokenShares)
+  const boostStakingAssets = boostMintedOsTokenAssets.times(wad).div(vaultLeverageLtv)
 
-  // allocator and strategy assets earn vault apy
-  let totalEarnedAssets = getAnnualReward(allocatorDepositedAssets.plus(strategyDepositedAssets), vaultApy)
-
-  // subtract apy lost on minting osToken
-  totalEarnedAssets = totalEarnedAssets.minus(
-    getAnnualReward(allocatorMintedOsTokenAssets.plus(strategyMintedOsTokenAssets), osTokenMintApy),
+  return calcAllocatorApy(
+    aave,
+    osToken,
+    vault,
+    osTokenConfig,
+    stakingAssets.plus(boostStakingAssets),
+    BigInt.zero(),
+    mintedOsTokenShares.plus(boostMintedOsTokenShares),
+    mintedOsTokenShares.plus(boostMintedOsTokenShares),
+    boostStakingAssets,
   )
-
-  // subtract apy lost on borrowed assets
-  totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(strategyDepositedAssets, borrowApy))
-
-  // calculate allocator max boost APY
-  return totalEarnedAssets
-    .toBigDecimal()
-    .times(BigDecimal.fromString('100'))
-    .div(allocatorDepositedAssets.toBigDecimal())
 }
 
 export function getVaultState(vault: Vault): Array<BigInt> {
@@ -626,7 +600,7 @@ export function getVaultExtraApy(distributor: Distributor, vault: Vault): BigDec
   return extraApy
 }
 
-export function syncVault(network: Network, osToken: OsToken, vault: Vault, newTimestamp: BigInt): void {
+export function syncVault(osToken: OsToken, vault: Vault, newTimestamp: BigInt): void {
   let allocator: Allocator
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const allocators: Array<Allocator> = vault.allocators.load()
@@ -648,7 +622,7 @@ export function syncVault(network: Network, osToken: OsToken, vault: Vault, newT
   }
 
   // update exit requests
-  updateExitRequests(network, vault, newTimestamp)
+  updateExitRequests(vault, newTimestamp)
 
   // update reward splitters
   updateRewardSplitters(vault)
