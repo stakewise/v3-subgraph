@@ -462,11 +462,11 @@ export function calcAllocatorApy(
   }
 
   if (osTokenSharesBalance.gt(mintedOsTokenShares)) {
-    // excess osToken shares earn osToken APY
-    const excessOsTokenShares = osTokenSharesBalance.minus(mintedOsTokenShares)
-    const excessOsTokenAssets = convertOsTokenSharesToAssets(osToken, excessOsTokenShares)
-    totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(excessOsTokenAssets, osToken.apy))
-    totalAssets = totalAssets.plus(excessOsTokenAssets)
+    // unminted osToken shares earn osToken APY
+    const unmintedOsTokenShares = osTokenSharesBalance.minus(mintedOsTokenShares)
+    const unmintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, unmintedOsTokenShares)
+    totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(unmintedOsTokenAssets, osToken.apy))
+    totalAssets = totalAssets.plus(unmintedOsTokenAssets)
   }
 
   if (totalAssets.isZero()) {
