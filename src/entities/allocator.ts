@@ -99,10 +99,12 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.totalEarnedAssets = BigInt.zero()
     vaultAllocator.totalStakeEarnedAssets = BigInt.zero()
     vaultAllocator.totalBoostEarnedAssets = BigInt.zero()
+    vaultAllocator.totalExtraEarnedAssets = BigInt.zero()
     vaultAllocator._periodStakeEarnedAssets = BigInt.zero()
     vaultAllocator._periodBoostEarnedAssets = BigInt.zero()
     vaultAllocator._periodBoostEarnedOsTokenShares = BigInt.zero()
     vaultAllocator._periodOsTokenFeeShares = BigInt.zero()
+    vaultAllocator._periodExtraEarnedAssets = BigInt.zero()
     vaultAllocator.save()
   }
 
@@ -131,11 +133,14 @@ export function createAllocatorSnapshot(
   allocatorSnapshot.boostEarnedAssets = allocator._periodBoostEarnedAssets.plus(
     convertOsTokenSharesToAssets(osToken, allocator._periodBoostEarnedOsTokenShares),
   )
-  allocatorSnapshot.earnedAssets = allocatorSnapshot.stakeEarnedAssets.plus(allocatorSnapshot.boostEarnedAssets)
+  allocatorSnapshot.extraEarnedAssets = allocator._periodExtraEarnedAssets
+
+  const stakeAndBoostEarnedAssets = allocatorSnapshot.stakeEarnedAssets.plus(allocatorSnapshot.boostEarnedAssets)
+  allocatorSnapshot.earnedAssets = stakeAndBoostEarnedAssets.plus(allocatorSnapshot.extraEarnedAssets)
   allocatorSnapshot.totalAssets = allocator.totalAssets.plus(rewardSplitterAssets)
   allocatorSnapshot.apy = calculateApy(
-    allocatorSnapshot.earnedAssets,
-    allocator.totalAssets.minus(allocatorSnapshot.earnedAssets),
+    stakeAndBoostEarnedAssets,
+    allocator.totalAssets.minus(stakeAndBoostEarnedAssets),
     duration,
   )
   allocatorSnapshot.ltv = allocator.ltv
@@ -144,10 +149,12 @@ export function createAllocatorSnapshot(
   allocator.totalEarnedAssets = allocator.totalEarnedAssets.plus(allocatorSnapshot.earnedAssets)
   allocator.totalStakeEarnedAssets = allocator.totalStakeEarnedAssets.plus(allocatorSnapshot.stakeEarnedAssets)
   allocator.totalBoostEarnedAssets = allocator.totalBoostEarnedAssets.plus(allocatorSnapshot.boostEarnedAssets)
+  allocator.totalExtraEarnedAssets = allocator.totalExtraEarnedAssets.plus(allocatorSnapshot.extraEarnedAssets)
   allocator._periodBoostEarnedAssets = BigInt.zero()
   allocator._periodBoostEarnedOsTokenShares = BigInt.zero()
   allocator._periodStakeEarnedAssets = BigInt.zero()
   allocator._periodOsTokenFeeShares = BigInt.zero()
+  allocator._periodExtraEarnedAssets = BigInt.zero()
   allocator.save()
 
   return allocatorSnapshot
