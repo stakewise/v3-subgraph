@@ -69,7 +69,7 @@ import { createOrLoadAave, loadAave, updateAaveApys } from '../entities/aave'
 import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { getAllocatorApy } from '../entities/allocator'
+import { getAllocatorApy, getAllocatorAssets } from '../entities/allocator'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -500,6 +500,7 @@ export function syncApys(block: ethereum.Block): void {
         continue
       }
       allocator.apy = allocatorApy
+      allocator.totalAssets = getAllocatorAssets(osToken, allocator)
       allocator.save()
     }
   }

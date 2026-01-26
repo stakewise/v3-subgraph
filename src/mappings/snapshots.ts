@@ -7,7 +7,6 @@ import { loadRewardSplitterShareHolder } from '../entities/rewardSplitter'
 import { loadDistributor } from '../entities/merkleDistributor'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { createAllocatorSnapshot } from '../entities/allocator'
-import { loadLeverageStrategyPosition } from '../entities/leverageStrategy'
 
 const secondsInDay = 86400
 const extraSecondsGap = 30
@@ -57,35 +56,16 @@ export function syncSnapshots(block: ethereum.Block): void {
 
     createVaultSnapshot(vault, duration, newTimestamp.toI64())
 
-    const vaultAddress = Address.fromString(vault.id)
     const allocators: Array<Allocator> = vault.allocators.load()
     const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
     for (let j = 0; j < allocators.length; j++) {
       const allocator = allocators[j]
       const allocatorAddress = Address.fromBytes(allocator.address)
 
-      // get boost OsToken shares if boost exists
-      let boostedOsTokenShares = BigInt.zero()
-      if (vault.isOsTokenEnabled) {
-        const leverageStrategyPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
-        if (leverageStrategyPosition) {
-          boostedOsTokenShares = leverageStrategyPosition.osTokenShares.plus(
-            leverageStrategyPosition.exitingOsTokenShares,
-          )
-        }
-      }
-
       // get assets from the reward splitters
       let rewardSplitterAssets = _getRewardSplitterAssets(allocatorAddress, rewardSplitters)
 
-      createAllocatorSnapshot(
-        osToken,
-        allocator,
-        boostedOsTokenShares,
-        rewardSplitterAssets,
-        duration,
-        newTimestamp.toI64(),
-      )
+      createAllocatorSnapshot(osToken, allocator, rewardSplitterAssets, duration, newTimestamp.toI64())
     }
   }
 

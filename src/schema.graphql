@@ -18,7 +18,7 @@ type Allocator @entity(immutable: false) {
   "The allocator's shares amount"
   shares: BigInt!
 
-  "The allocator's assets amount"
+  "The allocator's staking assets"
   assets: BigInt!
 
   "The allocator's assets amount that are exiting"
@@ -26,6 +26,9 @@ type Allocator @entity(immutable: false) {
 
   "The allocator's exiting assets that still continue to earn staking rewards (V1 exit positions)"
   stakingExitingAssets: BigInt!
+
+  "The allocator's total assets after unboosting, burning OsToken shares, and exiting all the assets"
+  totalAssets: BigInt!
 
   "The allocator's minted OsToken shares amount"
   mintedOsTokenShares: BigInt!

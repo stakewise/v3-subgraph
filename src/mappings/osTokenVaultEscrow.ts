@@ -6,7 +6,12 @@ import {
   OsTokenRedeemed,
   PositionCreated,
 } from '../../generated/OsTokenVaultEscrow/OsTokenVaultEscrow'
-import { decreaseAllocatorMintedOsTokenShares, getAllocatorApy, loadAllocator } from '../entities/allocator'
+import {
+  decreaseAllocatorMintedOsTokenShares,
+  getAllocatorApy,
+  getAllocatorAssets,
+  loadAllocator,
+} from '../entities/allocator'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { createOrLoadOsTokenExitRequest, getExitRequestLtv } from '../entities/osTokenVaultEscrow'
@@ -31,6 +36,7 @@ export function handlePositionCreated(event: PositionCreated): void {
 
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, osTokenShares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+  allocator.totalAssets = getAllocatorAssets(osToken, allocator)
   allocator.save()
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
