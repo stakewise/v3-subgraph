@@ -6,6 +6,7 @@ import {
   AllocatorSnapshot,
   OsToken,
   OsTokenConfig,
+  OsTokenExitRequest,
   Vault,
 } from '../../generated/schema'
 import { WAD } from '../helpers/constants'
@@ -16,11 +17,12 @@ import {
   getAnnualReward,
   getSnapshotTimestamp,
 } from '../helpers/utils'
-import { convertOsTokenSharesToAssets } from './osToken'
+import { convertOsTokenSharesToAssets, loadOsTokenHolder } from './osToken'
 import { convertSharesToAssets, getVaultOsTokenMintApy, loadVault } from './vault'
 import { loadOsTokenConfig } from './osTokenConfig'
-import { getBoostPositionAnnualReward, loadLeverageStrategyPosition } from './leverageStrategy'
+import { loadLeverageStrategyPosition } from './leverageStrategy'
 import { decreaseUserVaultsCount, increaseUserVaultsCount, loadNetwork } from './network'
+import { loadAavePosition } from './aave'
 
 const osTokenPositionsSelector = '0x4ec96b22'
 
@@ -87,6 +89,7 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.assets = BigInt.zero()
     vaultAllocator.mintedOsTokenShares = BigInt.zero()
     vaultAllocator.exitingAssets = BigInt.zero()
+    vaultAllocator.stakingExitingAssets = BigInt.zero()
     vaultAllocator.ltv = BigDecimal.zero()
     vaultAllocator.ltvStatus = LtvStatusStrings[LtvStatus.Healthy]
     vaultAllocator.address = allocatorAddress
@@ -268,44 +271,59 @@ export function getAllocatorApy(
   osTokenConfig: OsTokenConfig,
   vault: Vault,
   allocator: Allocator,
+  includeOsTokenHolderShares: boolean = false,
 ): BigDecimal {
   const vaultAddress = Address.fromString(allocator.vault)
   const allocatorAddress = Address.fromBytes(allocator.address)
 
-  let totalAssets = allocator.assets
-  if (!vault.isOsTokenEnabled) {
-    return totalAssets.isZero() ? BigDecimal.zero() : vault.apy
-  }
-  // base APY from vault
-  let totalEarnedAssets = getAnnualReward(totalAssets, vault.apy)
+  let stakingAssets = allocator.assets.plus(allocator.stakingExitingAssets)
+  let exitedAssets = allocator.exitingAssets.minus(allocator.stakingExitingAssets)
+  let mintedOsTokenShares = allocator.mintedOsTokenShares
 
-  // subtract APY from minted OsToken shares
-  if (allocator.mintedOsTokenShares.gt(BigInt.zero())) {
-    const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, allocator.mintedOsTokenShares)
-    const vaultOsTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig)
-    totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(mintedOsTokenAssets, vaultOsTokenMintApy))
-  }
-
-  const boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
-  if (boostPosition !== null) {
-    totalEarnedAssets = totalEarnedAssets.plus(
-      getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition),
-    )
-    const boostedOsTokenShares = boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)
-    if (boostedOsTokenShares.gt(allocator.mintedOsTokenShares)) {
-      // extra OsToken shares earn OsToken APY
-      const extraOsTokenShares = boostedOsTokenShares.minus(allocator.mintedOsTokenShares)
-      const extraOsTokenAssets = convertOsTokenSharesToAssets(osToken, extraOsTokenShares)
-      totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(extraOsTokenAssets, osToken.apy))
-      totalAssets = totalAssets.plus(convertOsTokenSharesToAssets(osToken, extraOsTokenShares))
+  let osTokenSharesBalance = BigInt.zero()
+  if (includeOsTokenHolderShares) {
+    const osTokenHolder = loadOsTokenHolder(Address.fromBytes(allocator.address))
+    if (osTokenHolder !== null) {
+      osTokenSharesBalance = osTokenHolder.balance
     }
   }
 
-  if (totalAssets.isZero()) {
-    return BigDecimal.zero()
+  let borrowedAssets = BigInt.zero()
+  const boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
+  if (boostPosition !== null) {
+    const proxyAddress = Address.fromBytes(boostPosition.proxy)
+    const boostAavePosition = loadAavePosition(proxyAddress)!
+    const boostAllocator = loadAllocator(proxyAddress, vaultAddress)!
+
+    osTokenSharesBalance = osTokenSharesBalance.plus(boostAavePosition.suppliedOsTokenShares)
+    borrowedAssets = borrowedAssets.plus(boostAavePosition.borrowedAssets)
+
+    stakingAssets = stakingAssets.plus(boostAllocator.assets).plus(boostAllocator.stakingExitingAssets)
+    exitedAssets = exitedAssets.plus(boostAllocator.exitingAssets).minus(boostAllocator.stakingExitingAssets)
+    mintedOsTokenShares = mintedOsTokenShares.plus(boostAllocator.mintedOsTokenShares)
+
+    // Handle osToken shares from active leverage exit request
+    if (boostPosition.exitRequest !== null) {
+      const osTokenExitRequest = OsTokenExitRequest.load(boostPosition.exitRequest!)!
+      mintedOsTokenShares = mintedOsTokenShares.plus(osTokenExitRequest.osTokenShares)
+      if (osTokenExitRequest.exitedAssets !== null) {
+        exitedAssets = exitedAssets.plus(osTokenExitRequest.exitedAssets!)
+      }
+    }
   }
 
-  const allocatorApy = totalEarnedAssets.divDecimal(totalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
+  const allocatorApy = calcAllocatorApy(
+    aave,
+    osToken,
+    vault,
+    osTokenConfig,
+    stakingAssets,
+    exitedAssets,
+    mintedOsTokenShares,
+    osTokenSharesBalance,
+    borrowedAssets,
+  )
+
   if (vault.apy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
     log.warning(
       '[getAllocatorApy] Calculated APY is higher than max boost APY: maxBoostApy={} allocatorApy={} vault={} allocator={}',
@@ -409,6 +427,53 @@ export function decreaseAllocatorMintedOsTokenShares(
   }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
+}
+
+export function calcAllocatorApy(
+  aave: Aave,
+  osToken: OsToken,
+  vault: Vault,
+  osTokenConfig: OsTokenConfig,
+  stakingAssets: BigInt,
+  exitedAssets: BigInt,
+  mintedOsTokenShares: BigInt,
+  osTokenSharesBalance: BigInt,
+  borrowedAssets: BigInt,
+): BigDecimal {
+  let totalEarnedAssets = BigInt.zero()
+  let totalAssets = stakingAssets.plus(exitedAssets)
+
+  // staking assets earn vault APY
+  if (stakingAssets.gt(BigInt.zero())) {
+    totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(stakingAssets, vault.apy))
+  }
+
+  // minted osToken shares lose mint APY
+  if (mintedOsTokenShares.gt(BigInt.zero())) {
+    const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig)
+    const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, mintedOsTokenShares)
+    totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(mintedOsTokenAssets, osTokenMintApy))
+  }
+
+  // borrowed assets lose borrow APY
+  if (borrowedAssets.gt(BigInt.zero())) {
+    totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(borrowedAssets, aave.borrowApy))
+    totalAssets = totalAssets.minus(borrowedAssets)
+  }
+
+  if (osTokenSharesBalance.gt(mintedOsTokenShares)) {
+    // excess osToken shares earn osToken APY
+    const excessOsTokenShares = osTokenSharesBalance.minus(mintedOsTokenShares)
+    const excessOsTokenAssets = convertOsTokenSharesToAssets(osToken, excessOsTokenShares)
+    totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(excessOsTokenAssets, osToken.apy))
+    totalAssets = totalAssets.plus(excessOsTokenAssets)
+  }
+
+  if (totalAssets.isZero()) {
+    return BigDecimal.zero()
+  }
+
+  return totalEarnedAssets.divDecimal(totalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
 }
 
 function _getOsTokenPositionsCall(allocator: Allocator): Bytes {

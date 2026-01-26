@@ -3,7 +3,6 @@ import { SubVault } from '../../generated/schema'
 import { SubVaultAdded, SubVaultEjected, SubVaultsHarvested } from '../../generated/templates/MetaVault/MetaVault'
 import { loadVault, syncVault } from '../entities/vault'
 import { loadOsToken } from '../entities/osToken'
-import { loadNetwork } from '../entities/network'
 import { getMetaVaultState } from '../entities/metaVault'
 
 export function handleSubVaultAdded(event: SubVaultAdded): void {
@@ -85,7 +84,7 @@ export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
   // TODO: fix fee recipient shares minted
 
   // update vault allocators, exit requests, reward splitters
-  syncVault(loadNetwork()!, osToken, vault, timestamp)
+  syncVault(osToken, vault, timestamp)
 
   log.info('[MetaVault] SubVaultsHarvested delta={}', [vaultPeriodAssets.toString()])
 }

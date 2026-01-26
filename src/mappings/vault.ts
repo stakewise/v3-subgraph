@@ -193,7 +193,7 @@ export function handleInitialized(event: Initialized): void {
 
   if (newVersion.equals(BigInt.fromI32(3))) {
     // update exit requests
-    updateExitRequests(loadNetwork()!, vault, timestamp)
+    updateExitRequests(vault, timestamp)
   }
 
   if (vault.isGenesis) {
@@ -427,6 +427,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   }
 
   allocator.exitingAssets = allocator.exitingAssets.plus(assets)
+  allocator.stakingExitingAssets = allocator.stakingExitingAssets.plus(assets)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
 
@@ -581,6 +582,13 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     ])
     allocator.exitingAssets = BigInt.zero()
   }
+
+  // Update stakingExitingAssets for V1 positions
+  if (!prevExitRequest.isV2Position) {
+    const prevStakingExitingAssetsDelta = prevExitRequest.totalAssets.minus(prevExitRequest.exitedAssets)
+    allocator.stakingExitingAssets = allocator.stakingExitingAssets.minus(prevStakingExitingAssetsDelta)
+  }
+
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
 
@@ -987,7 +995,7 @@ export function syncVaults(block: ethereum.Block): void {
     }
 
     // update vault allocators, exit requests, reward splitters
-    syncVault(network, osToken, vault, newTimestamp)
+    syncVault(osToken, vault, newTimestamp)
   }
 
   vaultsCheckpoint.timestamp = newTimestamp
