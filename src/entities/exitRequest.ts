@@ -43,7 +43,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   const vaultAddr = Address.fromString(vault.id)
 
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
-  const updateStateCalls = getUpdateStateCall(vault)
+  const updateStateCall = getUpdateStateCall(vault)
 
   // ─────────────────────────────────────────────────────────────────────
   // STAGE 1: Query exitQueueIndex for all pending exit requests
@@ -64,7 +64,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   }
 
   // Execute in chunks of size 100
-  let stage1Results = chunkedMulticall(updateStateCalls, allCallsStage1, true, 100)
+  let stage1Results = chunkedMulticall(updateStateCall, allCallsStage1, true, 100)
 
   // Parse exitQueueIndex results
   for (let i = 0; i < stage1Results.length; i++) {
@@ -101,7 +101,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   }
 
   // Execute in chunks of size 100
-  let stage2Results = chunkedMulticall(updateStateCalls, allCallsStage2, true, 100)
+  let stage2Results = chunkedMulticall(updateStateCall, allCallsStage2, true, 100)
 
   // Parse and update each exitRequest
   const one = BigInt.fromI32(1)
