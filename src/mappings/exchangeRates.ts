@@ -8,7 +8,7 @@ export function syncExchangeRates(block: ethereum.Block): void {
   log.info(
     '[ExchangeRates] assetsUsdRate={} ' +
       'usdToEurRate={} usdToGbpRate={} usdToCnyRate={} usdToJpyRate={} usdToKrwRate={} usdToAudRate={} ' +
-      'daiUsdRate={} usdcUsdRate={} swiseUsdRate={} ssvUsdRate={} obolUsdRate={} LyxUsdRate={} ' +
+      'daiUsdRate={} usdcUsdRate={} swiseUsdRate={} ssvUsdRate={} obolUsdRate={} lyxUsdRate={} ' +
       'btcUsdRate={} solUsdRate={} susdsUsdRate={} sdaiUsdRate={} bcspxUsdRate={} ' +
       'timestamp={}',
     [

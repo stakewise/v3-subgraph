@@ -882,7 +882,7 @@ type ExchangeRate @entity(immutable: false) {
   "The USD rate of OBOL"
   obolUsdRate: BigDecimal!
 
-  "The USD rate of Lyx"
+  "The USD rate of LYX"
   lyxUsdRate: BigDecimal!
 
   "The USD rate of ETH"
