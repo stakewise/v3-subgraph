@@ -1,7 +1,5 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Overview
 
 This is a **Graph Protocol subgraph** for StakeWise V3, a liquid staking protocol. The subgraph indexes blockchain events to provide analytics and historical data for the StakeWise ecosystem across multiple networks (Ethereum mainnet, Gnosis, Hoodi testnet).
@@ -9,6 +7,8 @@ This is a **Graph Protocol subgraph** for StakeWise V3, a liquid staking protoco
 ## Build Commands
 
 ```bash
+# Prerequisites: Node.js 24.6.0 required
+
 # Install dependencies
 npm install
 
@@ -20,10 +20,11 @@ npm run build:hoodi
 # Run tests for a specific network
 npm run test:mainnet
 npm run test:gnosis
+npm run test:hoodi
 
-# Deploy to staging/production
-IPFS_URL=<ipfs-node> GRAPH_URL=<graph-node> npm run deploy-stage:mainnet
-IPFS_URL=<ipfs-node> GRAPH_URL=<graph-node> npm run deploy-prod:mainnet
+# Deploy to staging/production (requires IPFS_URL and GRAPH_URL in .env)
+npm run deploy-stage:mainnet
+npm run deploy-prod:mainnet
 ```
 
 ## Code Architecture
@@ -100,6 +101,11 @@ APY calculations use 7-day rolling snapshots stored in `VaultSnapshot` and `Allo
 
 Many functions check `vault.version` to handle different contract versions (V1, V2, V3, V5) which have different interfaces, especially around exit queue handling.
 
-## Git Conventions
+### Generated Files (gitignored)
 
-Use short commit messages only (no description or co-author).
+These files are auto-generated and should not be edited directly:
+
+- `src/subgraph-{network}.yaml` - Generated from template
+- `src/helpers/constants.ts` - Generated from network config
+- `generated/` - TypeScript types from ABIs and schema
+- `build/` - Compiled WASM output
