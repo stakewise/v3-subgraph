@@ -3,7 +3,6 @@ const path = require('path')
 
 const isMainnet = process.argv.includes('mainnet')
 const isHoodi = process.argv.includes('hoodi')
-const isChiado = process.argv.includes('chiado')
 const isGnosis = process.argv.includes('gnosis') || process.argv.includes('xdai')
 
 let configName = null
@@ -14,10 +13,6 @@ if (isMainnet) {
 
 if (isHoodi) {
   configName = 'hoodi'
-}
-
-if (isChiado) {
-  configName = 'chiado'
 }
 
 if (isGnosis) {

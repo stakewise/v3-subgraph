@@ -386,8 +386,8 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
 
   let data: Bytes | null = ipfs.cat(configIpfsHash)
   while (data === null) {
-    if (NETWORK == 'chiado' || NETWORK == 'hoodi') {
-      log.warning('[Keeper] ConfigUpdated ipfs.cat failed for hash={} on chiado/hoodi, skipping', [configIpfsHash])
+    if (NETWORK == 'hoodi') {
+      log.warning('[Keeper] ConfigUpdated ipfs.cat failed for hash={} on hoodi, skipping', [configIpfsHash])
       return
     }
     log.warning('[Keeper] ConfigUpdated ipfs.cat failed for hash={}, retrying', [configIpfsHash])

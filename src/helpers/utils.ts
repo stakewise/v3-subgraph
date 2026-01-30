@@ -97,7 +97,7 @@ export function rayMul(a: BigInt, b: BigInt): BigInt {
 }
 
 export function isFailedRewardsUpdate(rewardsRoot: Bytes | null): boolean {
-  if (NETWORK != 'chiado' || rewardsRoot === null) {
+  if (rewardsRoot === null) {
     return false
   }
 
