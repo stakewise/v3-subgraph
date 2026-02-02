@@ -1,7 +1,12 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { Vault } from '../../generated/schema'
 import { MetaVaultCreated } from '../../generated/templates/MetaVaultFactory/MetaVaultFactory'
-import { MetaVault as MetaVaultTemplate, Vault as VaultTemplate } from '../../generated/templates'
+import {
+  Erc20Vault as Erc20VaultTemplate,
+  MetaVault as MetaVaultTemplate,
+  PrivateVault as PrivateVaultTemplate,
+  Vault as VaultTemplate,
+} from '../../generated/templates'
 import { WAD } from '../helpers/constants'
 import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 import { loadNetwork } from './network'
@@ -12,19 +17,38 @@ const totalSharesSelector = '0x3a98ef39'
 const convertToAssetsSelector = '0x07a2d13a'
 const exitQueueDataSelector = '0x3e1655d3'
 
-export function createMetaVault(event: MetaVaultCreated, version: BigInt): void {
+export function createMetaVault(event: MetaVaultCreated, version: BigInt, isPrivate: boolean, isErc20: boolean): void {
   const block = event.block
   const vaultAddress = event.params.vault
   const vaultAddressHex = vaultAddress.toHex()
 
   const vault = new Vault(vaultAddressHex)
-  let decodedParams = (
-    ethereum.decode('(address,uint256,uint16,string)', event.params.params) as ethereum.Value
-  ).toTuple()
-  const curator = decodedParams[0].toAddress()
-  const capacity = decodedParams[1].toBigInt()
-  const feePercent = decodedParams[2].toI32()
-  const metadataIpfsHash = decodedParams[3].toString()
+  let decodedParams: ethereum.Tuple
+  let curator: Address
+  let capacity: BigInt
+  let feePercent: i32
+  let metadataIpfsHash: string
+
+  if (isErc20) {
+    decodedParams = (
+      ethereum.decode('(address,uint256,uint16,string,string,string)', event.params.params) as ethereum.Value
+    ).toTuple()
+    curator = decodedParams[0].toAddress()
+    capacity = decodedParams[1].toBigInt()
+    feePercent = decodedParams[2].toI32()
+    vault.tokenName = decodedParams[3].toString()
+    vault.tokenSymbol = decodedParams[4].toString()
+    metadataIpfsHash = decodedParams[5].toString()
+    Erc20VaultTemplate.create(vaultAddress)
+  } else {
+    decodedParams = (
+      ethereum.decode('(address,uint256,uint16,string)', event.params.params) as ethereum.Value
+    ).toTuple()
+    curator = decodedParams[0].toAddress()
+    capacity = decodedParams[1].toBigInt()
+    feePercent = decodedParams[2].toI32()
+    metadataIpfsHash = decodedParams[3].toString()
+  }
   const admin = event.params.admin
 
   vault.factory = event.address
@@ -45,9 +69,9 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt): void 
   vault.rate = BigInt.fromString(WAD)
   vault.exitingAssets = BigInt.zero()
   vault.exitingTickets = BigInt.zero()
-  vault.isPrivate = false
+  vault.isPrivate = isPrivate
   vault.isBlocklist = false
-  vault.isErc20 = false
+  vault.isErc20 = isErc20
   vault.isMetaVault = true
   vault.isOsTokenEnabled = true
   vault.isCollateralized = false
@@ -67,6 +91,12 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt): void 
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault._prevAllocatorAssets = BigInt.fromString(WAD)
+
+  if (isPrivate) {
+    PrivateVaultTemplate.create(vaultAddress)
+    vault.whitelister = admin
+  }
+
   vault.save()
 
   VaultTemplate.create(vaultAddress)
