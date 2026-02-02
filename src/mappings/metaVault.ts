@@ -16,6 +16,9 @@ export function addSubVault(metaVaultAddress: Address, subVaultAddress: Address)
 
   const metaVault = loadVault(metaVaultAddress)!
   metaVault.isCollateralized = true
+  if (metaVault.pendingMetaSubVault !== null && metaVault.pendingMetaSubVault!.equals(subVaultAddress)) {
+    metaVault.pendingMetaSubVault = null
+  }
   metaVault.save()
 }
 
@@ -26,6 +29,11 @@ export function ejectSubVault(metaVaultAddress: Address, subVaultAddress: Addres
   if (subVault) {
     store.remove('SubVault', subVaultId)
   }
+
+  // Clear ejectingSubVault on meta vault
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.ejectingSubVault = null
+  metaVault.save()
 }
 
 export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: BigInt, timestamp: BigInt): void {

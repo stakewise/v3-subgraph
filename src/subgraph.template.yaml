@@ -1009,8 +1009,14 @@ templates:
           handler: handleSubVaultAdded
         - event: SubVaultEjected(indexed address)
           handler: handleSubVaultEjected
+        - event: SubVaultEjecting(indexed address)
+          handler: handleSubVaultEjecting
         - event: SubVaultsHarvested(int256)
           handler: handleSubVaultsHarvested
+        - event: MetaSubVaultProposed(indexed address)
+          handler: handleMetaSubVaultProposed
+        - event: MetaSubVaultRejected(indexed address)
+          handler: handleMetaSubVaultRejected
   - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}
