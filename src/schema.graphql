@@ -286,6 +286,12 @@ type Vault @entity(immutable: false) {
   "The total number of sub vaults"
   subVaultsCount: Int!
 
+  "The address of the sub vault currently being ejected (for meta vaults)"
+  ejectingSubVault: Bytes
+
+  "The address of the meta vault that is pending to join as a sub vault"
+  pendingMetaSubVault: Bytes
+
   "The total number of shares"
   totalShares: BigInt!
 

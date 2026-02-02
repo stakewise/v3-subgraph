@@ -15,6 +15,9 @@ export function addSubVault(metaVaultAddress: Address, subVaultAddress: Address)
   subVault.save()
 
   const metaVault = loadVault(metaVaultAddress)!
+  if (metaVault.pendingMetaSubVault !== null && metaVault.pendingMetaSubVault!.equals(subVaultAddress)) {
+    metaVault.pendingMetaSubVault = null
+  }
   if (!metaVault.isCollateralized) {
     metaVault.isCollateralized = true
     const network = loadNetwork()!
@@ -35,6 +38,7 @@ export function ejectSubVault(metaVaultAddress: Address, subVaultAddress: Addres
     const metaVault = loadVault(metaVaultAddress)
     if (metaVault) {
       metaVault.subVaultsCount = metaVault.subVaultsCount - 1
+      metaVault.ejectingSubVault = null
       metaVault.save()
     }
   }

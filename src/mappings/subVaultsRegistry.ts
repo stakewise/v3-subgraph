@@ -3,9 +3,13 @@ import { SubVaultsRegistryMap } from '../../generated/schema'
 import {
   SubVaultAdded,
   SubVaultEjected,
+  SubVaultEjecting,
   SubVaultsHarvested,
+  MetaSubVaultProposed,
+  MetaSubVaultRejected,
 } from '../../generated/templates/SubVaultsRegistry/SubVaultsRegistry'
 import { addSubVault, ejectSubVault, harvestSubVaults } from './metaVault'
+import { loadVault } from '../entities/vault'
 
 function getMetaVaultAddress(registryAddress: Address): Address {
   const registryMap = SubVaultsRegistryMap.load(registryAddress.toHex())
@@ -58,5 +62,50 @@ export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
   log.info('[SubVaultsRegistry] SubVaultsHarvested metaVault={} delta={}', [
     metaVaultAddress.toHex(),
     totalAssetsDelta.toString(),
+  ])
+}
+
+export function handleSubVaultEjecting(event: SubVaultEjecting): void {
+  const metaVaultAddress = getMetaVaultAddress(event.address)
+  const subVaultAddress = event.params.vault
+
+  // Set ejectingSubVault on meta vault
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.ejectingSubVault = subVaultAddress
+  metaVault.save()
+
+  log.info('[SubVaultsRegistry] SubVaultEjecting metaVault={} subVault={}', [
+    metaVaultAddress.toHex(),
+    subVaultAddress.toHex(),
+  ])
+}
+
+export function handleMetaSubVaultProposed(event: MetaSubVaultProposed): void {
+  const metaVaultAddress = getMetaVaultAddress(event.address)
+  const subVaultAddress = event.params.vault
+
+  // Set pendingMetaSubVault on meta vault
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.pendingMetaSubVault = subVaultAddress
+  metaVault.save()
+
+  log.info('[SubVaultsRegistry] MetaSubVaultProposed metaVault={} subVault={}', [
+    metaVaultAddress.toHex(),
+    subVaultAddress.toHex(),
+  ])
+}
+
+export function handleMetaSubVaultRejected(event: MetaSubVaultRejected): void {
+  const metaVaultAddress = getMetaVaultAddress(event.address)
+  const subVaultAddress = event.params.vault
+
+  // Clear pendingMetaSubVault on meta vault
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.pendingMetaSubVault = null
+  metaVault.save()
+
+  log.info('[SubVaultsRegistry] MetaSubVaultRejected metaVault={} subVault={}', [
+    metaVaultAddress.toHex(),
+    subVaultAddress.toHex(),
   ])
 }
