@@ -1,5 +1,5 @@
-import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
-import { Vault } from '../../generated/schema'
+import { Address, BigDecimal, BigInt, Bytes, ethereum, log, store } from '@graphprotocol/graph-ts'
+import { SubVault, SubVaultsRegistryMap, Vault } from '../../generated/schema'
 import { MetaVaultCreated } from '../../generated/templates/MetaVaultFactory/MetaVaultFactory'
 import {
   Erc20Vault as Erc20VaultTemplate,
@@ -10,7 +10,9 @@ import {
 import { WAD } from '../helpers/constants'
 import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 import { loadNetwork } from './network'
+import { loadOsToken } from './osToken'
 import { createTransaction } from './transaction'
+import { loadVault, syncVault } from './vault'
 
 const totalAssetsSelector = '0x01e1d114'
 const totalSharesSelector = '0x3a98ef39'
@@ -143,4 +145,77 @@ export function getMetaVaultState(vault: Vault): Array<BigInt> {
 function _getConvertToAssetsCall(shares: BigInt): Bytes {
   const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(shares))
   return Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs!)
+}
+
+export function getMetaVaultAddress(registryAddress: Address): Address {
+  const registryMap = SubVaultsRegistryMap.load(registryAddress.toHex())!
+  return Address.fromBytes(registryMap.metaVault)
+}
+
+export function addSubVault(metaVaultAddress: Address, subVaultAddress: Address): void {
+  const subVaultId = `${metaVaultAddress.toHex()}-${subVaultAddress.toHex()}`
+
+  const subVault = new SubVault(subVaultId)
+  subVault.metaVault = metaVaultAddress.toHex()
+  subVault.subVault = subVaultAddress
+  subVault.save()
+
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.isCollateralized = true
+  if (metaVault.pendingMetaSubVault !== null && metaVault.pendingMetaSubVault!.equals(subVaultAddress)) {
+    metaVault.pendingMetaSubVault = null
+  }
+  metaVault.save()
+}
+
+export function ejectSubVault(metaVaultAddress: Address, subVaultAddress: Address): void {
+  const subVaultId = `${metaVaultAddress.toHex()}-${subVaultAddress.toHex()}`
+
+  const subVault = SubVault.load(subVaultId)
+  if (subVault) {
+    store.remove('SubVault', subVaultId)
+  }
+
+  // Clear ejectingSubVault on meta vault
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.ejectingSubVault = null
+  metaVault.save()
+}
+
+export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: BigInt, timestamp: BigInt): void {
+  const vault = loadVault(metaVaultAddress)!
+  const osToken = loadOsToken()!
+
+  // fetch vault state
+  const newState = getMetaVaultState(vault)
+  const newRate = newState[0]
+  const newTotalAssets = newState[1]
+  const newTotalShares = newState[2]
+  const newQueuedShares = newState[3]
+  const newExitingAssets = newState[4]
+
+  const subVaults: Array<SubVault> = vault.subVaults.load()
+  if (subVaults.length == 0) {
+    log.error('[MetaVault] No sub vaults found for vault {}', [metaVaultAddress.toHex()])
+    return
+  }
+  const subVault = loadVault(Address.fromBytes(subVaults[0].subVault))!
+
+  // update vault
+  vault.totalAssets = newTotalAssets
+  vault.totalShares = newTotalShares
+  vault.queuedShares = newQueuedShares
+  vault.exitingAssets = newExitingAssets
+  vault.rate = newRate
+  vault.rewardsRoot = subVault.rewardsRoot
+  vault.canHarvest = subVault.canHarvest
+  vault.rewardsIpfsHash = subVault.rewardsIpfsHash
+  vault.rewardsTimestamp = subVault.rewardsTimestamp
+  vault._periodEarnedAssets = vault._periodEarnedAssets.plus(totalAssetsDelta)
+  vault.save()
+
+  // TODO: fix fee recipient shares minted
+
+  // update vault allocators, exit requests, reward splitters
+  syncVault(loadNetwork()!, osToken, vault, timestamp)
 }
