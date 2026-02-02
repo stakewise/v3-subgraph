@@ -984,6 +984,34 @@ templates:
         - event: SubVaultEjected(indexed address,indexed address)
           handler: handleSubVaultEjected
   - kind: ethereum/contract
+    name: SubVaultsRegistry
+    network: {{ network }}
+    source:
+      abi: SubVaultsRegistry
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/subVaultsRegistry.ts
+      entities:
+        - Network
+        - Vault
+        - SubVault
+        - SubVaultsRegistryMap
+        - OsToken
+        - OsTokenConfig
+        - Allocator
+      abis:
+        - name: SubVaultsRegistry
+          file: ./abis/SubVaultsRegistry.json
+      eventHandlers:
+        - event: SubVaultAdded(indexed address)
+          handler: handleSubVaultAdded
+        - event: SubVaultEjected(indexed address)
+          handler: handleSubVaultEjected
+        - event: SubVaultsHarvested(int256)
+          handler: handleSubVaultsHarvested
+  - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}
     source:
