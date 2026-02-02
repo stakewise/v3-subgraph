@@ -26,7 +26,6 @@ import {
   encodeContractCall,
   getAnnualReward,
   getSnapshotTimestamp,
-  isFailedRewardsUpdate,
 } from '../helpers/utils'
 import { syncEthOwnMevEscrow } from './mevEscrow'
 import { syncXdaiConverter } from './xdaiConverter'
@@ -502,9 +501,6 @@ export function getVaultState(vault: Vault): Array<BigInt> {
       vault.exitingAssets,
       BigInt.zero(),
     ]
-  }
-  if (isFailedRewardsUpdate(vault.rewardsRoot)) {
-    return [vault.rate, vault.totalAssets, vault.totalShares, vault.queuedShares, vault.exitingAssets, BigInt.zero()]
   }
 
   const vaultAddr = Address.fromString(vault.id)

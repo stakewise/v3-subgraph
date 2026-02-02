@@ -1,7 +1,7 @@
 import { BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { V2Pool, V2PoolUser, Vault } from '../../generated/schema'
 import { V2_POOL_FEE_PERCENT, V2_REWARD_TOKEN, V2_STAKED_TOKEN, WAD } from '../helpers/constants'
-import { chunkedMulticall, encodeContractCall, isFailedRewardsUpdate } from '../helpers/utils'
+import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 import { getUpdateStateCall } from './vault'
 
 const poolId = '1'
@@ -48,14 +48,6 @@ export function createOrLoadV2PoolUser(userAddress: Bytes): V2PoolUser {
 }
 
 export function getV2PoolState(vault: Vault): Array<BigInt> {
-  if (isFailedRewardsUpdate(vault.rewardsRoot)) {
-    const v2Pool = loadV2Pool()
-    if (v2Pool === null) {
-      log.error('[V2Pool] getV2PoolState failed to load V2Pool on failed updateState call', [])
-      return [BigInt.fromString(WAD), BigInt.zero(), BigInt.zero(), BigInt.zero()]
-    }
-    return [v2Pool.rate, v2Pool.rewardAssets, v2Pool.principalAssets, v2Pool.penaltyAssets]
-  }
   log.info('[V2Pool] getV2PoolState executing multicall to get pool state', [])
   const updateStateCall = getUpdateStateCall(vault)
   const wad = BigInt.fromString(WAD)
