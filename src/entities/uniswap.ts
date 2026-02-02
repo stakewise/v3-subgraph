@@ -7,6 +7,7 @@ import {
   SWISE_TOKEN,
   SSV_TOKEN,
   OBOL_TOKEN,
+  LYX_TOKEN,
   UNISWAP_POSITION_MANAGER,
   UNISWAP_FACTORY,
 } from '../helpers/constants'
@@ -26,7 +27,8 @@ export function isPoolSupportedToken(token: Address): boolean {
     token.equals(OS_TOKEN) ||
     token.equals(SWISE_TOKEN) ||
     token.equals(Address.fromString(SSV_TOKEN)) ||
-    token.equals(Address.fromString(OBOL_TOKEN))
+    token.equals(Address.fromString(OBOL_TOKEN)) ||
+    token.equals(Address.fromString(LYX_TOKEN))
   )
 }
 

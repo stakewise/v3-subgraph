@@ -23,6 +23,8 @@ import {
   SSV_TOKEN,
   OBOL_ASSET_UNI_POOL,
   OBOL_TOKEN,
+  LYX_ASSET_UNI_POOL,
+  LYX_TOKEN,
   SUSDS_TOKEN,
   SWISE_ASSET_UNI_POOL,
   SWISE_TOKEN,
@@ -59,6 +61,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     exchangeRate.usdToAudRate = BigDecimal.fromString('1.594184415253156485142201249840582')
     exchangeRate.ssvUsdRate = BigDecimal.fromString('6.718973139778290779340878068066559')
     exchangeRate.obolUsdRate = BigDecimal.fromString('0.1443')
+    exchangeRate.lyxUsdRate = BigDecimal.fromString('0.3025')
     exchangeRate.ethUsdRate = BigDecimal.fromString('1905.012302')
     exchangeRate.btcUsdRate = BigDecimal.fromString('85111.59')
     exchangeRate.solUsdRate = BigDecimal.fromString('128.23')
@@ -82,6 +85,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     exchangeRateSnapshot.usdToAudRate = exchangeRate.usdToAudRate
     exchangeRateSnapshot.ssvUsdRate = exchangeRate.ssvUsdRate
     exchangeRateSnapshot.obolUsdRate = exchangeRate.obolUsdRate
+    exchangeRateSnapshot.lyxUsdRate = exchangeRate.lyxUsdRate
     exchangeRateSnapshot.ethUsdRate = exchangeRate.ethUsdRate
     exchangeRateSnapshot.btcUsdRate = exchangeRate.btcUsdRate
     exchangeRateSnapshot.solUsdRate = exchangeRate.solUsdRate
@@ -109,6 +113,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   let swiseUsdRate = BigDecimal.zero()
   let ssvUsdRate = BigDecimal.zero()
   let obolUsdRate = BigDecimal.zero()
+  let lyxUsdRate = BigDecimal.zero()
   let ethUsdRate = BigDecimal.zero()
   let btcUsdRate = BigDecimal.zero()
   let solUsdRate = BigDecimal.zero()
@@ -290,6 +295,15 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     }
   }
 
+  const lyxAssetUniPool = Address.fromString(LYX_ASSET_UNI_POOL)
+  if (lyxAssetUniPool.notEqual(Address.zero())) {
+    const pool = UniswapPool.load(lyxAssetUniPool.toHex())
+    if (pool !== null) {
+      const lyxAssetRate = new BigDecimal(pool.sqrtPrice.pow(2)).div(new BigDecimal(BigInt.fromI32(2).pow(192)))
+      lyxUsdRate = lyxAssetRate.times(assetsUsdRate)
+    }
+  }
+
   const zero = BigDecimal.zero()
   const one = BigDecimal.fromString('1')
   const usdToEurRate = eurToUsdRate.gt(zero) ? one.div(eurToUsdRate) : zero
@@ -311,6 +325,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   exchangeRate.daiUsdRate = daiUsdRate
   exchangeRate.ssvUsdRate = ssvUsdRate
   exchangeRate.obolUsdRate = obolUsdRate
+  exchangeRate.lyxUsdRate = lyxUsdRate
   exchangeRate.ethUsdRate = ethUsdRate
   exchangeRate.btcUsdRate = btcUsdRate
   exchangeRate.solUsdRate = solUsdRate
@@ -399,6 +414,7 @@ export function getSupportedTokens(): Array<Address> {
     SWISE_TOKEN,
     Address.fromString(SSV_TOKEN),
     Address.fromString(OBOL_TOKEN),
+    Address.fromString(LYX_TOKEN),
     Address.fromString(USDC_TOKEN),
   ]
 }
@@ -418,6 +434,9 @@ export function convertTokenAmountToAssets(exchangeRate: ExchangeRate, token: Ad
   }
   if (token.equals(Address.fromString(OBOL_TOKEN))) {
     return amount.toBigDecimal().times(exchangeRate.obolUsdRate).div(exchangeRate.assetsUsdRate).truncate(0).digits
+  }
+  if (token.equals(Address.fromString(LYX_TOKEN))) {
+    return amount.toBigDecimal().times(exchangeRate.lyxUsdRate).div(exchangeRate.assetsUsdRate).truncate(0).digits
   }
   if (token.equals(Address.fromString(USDC_TOKEN))) {
     return amount.toBigDecimal().times(exchangeRate.usdcUsdRate).div(exchangeRate.assetsUsdRate).truncate(0).digits
