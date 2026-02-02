@@ -5,6 +5,7 @@ import { loadVault, syncVault } from '../entities/vault'
 import { loadOsToken } from '../entities/osToken'
 import { loadNetwork } from '../entities/network'
 import { getMetaVaultState } from '../entities/metaVault'
+import { createTransaction } from '../entities/transaction'
 
 export function addSubVault(metaVaultAddress: Address, subVaultAddress: Address): void {
   const subVaultId = `${metaVaultAddress.toHex()}-${subVaultAddress.toHex()}`
@@ -80,6 +81,8 @@ export function handleSubVaultAdded(event: SubVaultAdded): void {
 
   addSubVault(metaVaultAddress, subVaultAddress)
 
+  createTransaction(event.transaction.hash.toHex())
+
   log.info('[MetaVault] SubVaultAdded metaVault={} subVault={}', [metaVaultAddress.toHex(), subVaultAddress.toHex()])
 }
 
@@ -88,6 +91,8 @@ export function handleSubVaultEjected(event: SubVaultEjected): void {
   const subVaultAddress = event.params.vault
 
   ejectSubVault(metaVaultAddress, subVaultAddress)
+
+  createTransaction(event.transaction.hash.toHex())
 
   log.info('[MetaVault] SubVaultEjected metaVault={} subVault={}', [metaVaultAddress.toHex(), subVaultAddress.toHex()])
 }
@@ -98,6 +103,8 @@ export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
   const timestamp = event.block.timestamp
 
   harvestSubVaults(metaVaultAddress, totalAssetsDelta, timestamp)
+
+  createTransaction(event.transaction.hash.toHex())
 
   log.info('[MetaVault] SubVaultsHarvested metaVault={} delta={}', [
     metaVaultAddress.toHex(),
