@@ -978,11 +978,11 @@ templates:
           file: ./abis/Multicall.json
       eventHandlers:
         - event: SubVaultsHarvested(int256)
-          handler: handleSubVaultsHarvested
+          handler: handleSubVaultsHarvestedV1
         - event: SubVaultAdded(indexed address,indexed address)
-          handler: handleSubVaultAdded
+          handler: handleSubVaultAddedV1
         - event: SubVaultEjected(indexed address,indexed address)
-          handler: handleSubVaultEjected
+          handler: handleSubVaultEjectedV1
   - kind: ethereum/contract
     name: SubVaultsRegistry
     network: {{ network }}
@@ -992,7 +992,7 @@ templates:
       kind: ethereum/events
       apiVersion: 0.0.9
       language: wasm/assemblyscript
-      file: ./mappings/subVaultsRegistry.ts
+      file: ./mappings/metaVault.ts
       entities:
         - Network
         - Vault
