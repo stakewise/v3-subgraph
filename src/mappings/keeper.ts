@@ -258,6 +258,10 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
     log.info('[Keeper] Initialize BlocklistERC20VaultFactory V5 at block={}', [blockNumber])
   }
 
+  // V3/V4/V5 Meta Vault Factories (non-ERC20)
+  context.setBoolean(IS_PRIVATE_KEY, false)
+  context.setBoolean(IS_ERC20_KEY, false)
+  context.setBoolean(IS_BLOCKLIST_KEY, false)
   if (metaVaultFactoryV3.notEqual(zeroAddress)) {
     context.setBigInt(VERSION, BigInt.fromI32(3))
     MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV3, context)
