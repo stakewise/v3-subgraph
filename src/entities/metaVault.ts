@@ -217,5 +217,5 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
   // TODO: fix fee recipient shares minted
 
   // update vault allocators, exit requests, reward splitters
-  syncVault(loadNetwork()!, osToken, vault, timestamp)
+  syncVault(osToken, vault, timestamp)
 }
