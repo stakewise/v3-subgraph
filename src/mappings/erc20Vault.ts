@@ -6,6 +6,7 @@ import {
   createOrLoadAllocator,
   decreaseAllocatorShares,
   getAllocatorApy,
+  getAllocatorAssets,
   increaseAllocatorShares,
   loadAllocator,
 } from '../entities/allocator'
@@ -38,12 +39,14 @@ export function handleTransfer(event: Transfer): void {
   const allocatorFrom = loadAllocator(from, vaultAddress)!
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocatorFrom, shares)
   allocatorFrom.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocatorFrom)
+  allocatorFrom.totalAssets = getAllocatorAssets(osToken, allocatorFrom)
   allocatorFrom.save()
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferOut, from, assets, shares)
 
   const allocatorTo = createOrLoadAllocator(to, vaultAddress)
   increaseAllocatorShares(osToken, osTokenConfig, vault, allocatorTo, shares)
   allocatorTo.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocatorTo)
+  allocatorTo.totalAssets = getAllocatorAssets(osToken, allocatorTo)
   allocatorTo.save()
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferIn, to, assets, shares)
 

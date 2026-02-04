@@ -15,6 +15,7 @@ import {
   createAllocatorAction,
   createOrLoadAllocator,
   getAllocatorApy,
+  getAllocatorAssets,
   loadAllocator,
 } from '../entities/allocator'
 import { loadNetwork } from '../entities/network'
@@ -53,6 +54,7 @@ function _updateAllocator(
   allocator._periodBoostEarnedOsTokenShares = allocator._periodBoostEarnedOsTokenShares.plus(earnedOsTokenShares)
   allocator._periodBoostEarnedAssets = allocator._periodBoostEarnedAssets.plus(earnedAssets)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+  allocator.totalAssets = getAllocatorAssets(osToken, allocator)
   allocator.save()
 }
 

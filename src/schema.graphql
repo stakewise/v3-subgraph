@@ -18,7 +18,7 @@ type Allocator @entity(immutable: false) {
   "The allocator's shares amount"
   shares: BigInt!
 
-  "The allocator's assets amount"
+  "The allocator's staking assets"
   assets: BigInt!
 
   "The allocator's assets amount that are exiting"
@@ -26,6 +26,9 @@ type Allocator @entity(immutable: false) {
 
   "The allocator's exiting assets that still continue to earn staking rewards (V1 exit positions)"
   stakingExitingAssets: BigInt!
+
+  "The allocator's total assets after unboosting, burning OsToken shares, and exiting all the assets"
+  totalAssets: BigInt!
 
   "The allocator's minted OsToken shares amount"
   mintedOsTokenShares: BigInt!
@@ -51,6 +54,9 @@ type Allocator @entity(immutable: false) {
   "Allocator's total earned assets from boost"
   totalBoostEarnedAssets: BigInt!
 
+  "Allocator's total earned assets from extra sources (fee recipient and reward splitter earnings)"
+  totalExtraEarnedAssets: BigInt!
+
   "The exit requests of the allocator"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "allocator")
 
@@ -65,6 +71,9 @@ type Allocator @entity(immutable: false) {
 
   "The total period OsToken shares minted as a fee"
   _periodOsTokenFeeShares: BigInt!
+
+  "The total period assets earned from being a fee recipient or holding reward splitter shares (zero for regular allocators)"
+  _periodExtraEarnedAssets: BigInt!
 }
 
 """
@@ -857,6 +866,7 @@ type AllocatorSnapshot @entity(immutable: true) {
   allocator: Allocator!
   stakeEarnedAssets: BigInt!
   boostEarnedAssets: BigInt!
+  extraEarnedAssets: BigInt!
   earnedAssets: BigInt!
   totalAssets: BigInt!
   apy: BigDecimal!

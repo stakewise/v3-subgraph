@@ -400,7 +400,7 @@ export function updateVaults(
       feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
 
       const feeRecipientEarnedAssets = feeRecipient.assets.minus(assetsBefore)
-      feeRecipient._periodStakeEarnedAssets = feeRecipient._periodStakeEarnedAssets.plus(feeRecipientEarnedAssets)
+      feeRecipient._periodExtraEarnedAssets = feeRecipient._periodExtraEarnedAssets.plus(feeRecipientEarnedAssets)
       if (vault.isOsTokenEnabled) {
         feeRecipient.ltv = getAllocatorLtv(feeRecipient, osToken)
         feeRecipient.ltvStatus = getAllocatorLtvStatus(feeRecipient, loadOsTokenConfig(vault.osTokenConfig)!)
