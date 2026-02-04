@@ -1,9 +1,16 @@
 import { Address, BigInt, log, store } from '@graphprotocol/graph-ts'
 import { Transfer } from '../../generated/OsToken/Erc20Token'
 import { createOrLoadSwiseTokenHolder, createTokenTransfer } from '../entities/tokenTransfer'
-import { OS_TOKEN, SWISE_TOKEN } from '../helpers/constants'
-import { createOrLoadOsTokenHolder, loadOsTokenHolder } from '../entities/osToken'
+import { MAIN_META_VAULT, OS_TOKEN, SWISE_TOKEN } from '../helpers/constants'
+import {
+  convertOsTokenSharesToAssets,
+  createOrLoadOsTokenHolder,
+  loadOsToken,
+  loadOsTokenHolder,
+} from '../entities/osToken'
 import { createOrLoadUser, loadNetwork } from '../entities/network'
+import { loadAllocator } from '../entities/allocator'
+import { increaseStakerDepositedAssets, increaseStakerWithdrawnAssets, updateStaker } from '../entities/staker'
 
 export function handleTransfer(event: Transfer): void {
   const tokenAddress = event.address
@@ -70,18 +77,33 @@ function _handleOsTokenTransfer(event: Transfer): void {
     return
   }
 
+  const mainMetaVaultAddress = Address.fromString(MAIN_META_VAULT)
+  const osToken = loadOsToken()!
+  const transferredAssets = convertOsTokenSharesToAssets(osToken, amount)
+
   if (from.notEqual(Address.zero())) {
     const tokenHolderFrom = loadOsTokenHolder(from)!
     tokenHolderFrom.balance = tokenHolderFrom.balance.minus(amount)
     tokenHolderFrom.transfersCount = tokenHolderFrom.transfersCount.plus(BigInt.fromI32(1))
     tokenHolderFrom.save()
 
-    const user = createOrLoadUser(from)
-    if (tokenHolderFrom.balance.isZero() && user.vaultsCount === 0) {
-      const network = loadNetwork()!
-      network.usersCount = network.usersCount - 1
-      network.save()
-      store.remove('User', user.id)
+    const allocatorFrom = loadAllocator(from, mainMetaVaultAddress)
+    if (allocatorFrom !== null) {
+      updateStaker(from)
+      increaseStakerWithdrawnAssets(from, transferredAssets)
+    }
+
+    if (tokenHolderFrom.balance.isZero()) {
+      const user = createOrLoadUser(from)
+      if (user.vaultsCount === 0) {
+        const network = loadNetwork()!
+        network.usersCount = network.usersCount - 1
+        network.save()
+        store.remove('User', user.id)
+      } else if (user.isOsTokenHolder) {
+        user.isOsTokenHolder = false
+        user.save()
+      }
     }
   }
   if (to.notEqual(Address.zero())) {
@@ -90,12 +112,19 @@ function _handleOsTokenTransfer(event: Transfer): void {
     tokenHolderTo.transfersCount = tokenHolderTo.transfersCount.plus(BigInt.fromI32(1))
     tokenHolderTo.save()
 
-    const user = createOrLoadUser(to)
-    if (!user.isOsTokenHolder && user.vaultsCount === 0 && tokenHolderTo.balance.gt(BigInt.zero())) {
-      const network = loadNetwork()!
-      network.usersCount = network.usersCount + 1
-      network.save()
+    const allocatorTo = loadAllocator(to, mainMetaVaultAddress)
+    if (allocatorTo !== null) {
+      updateStaker(to)
+      increaseStakerDepositedAssets(to, transferredAssets)
+    }
 
+    const user = createOrLoadUser(to)
+    if (!user.isOsTokenHolder) {
+      if (user.vaultsCount === 0) {
+        const network = loadNetwork()!
+        network.usersCount = network.usersCount + 1
+        network.save()
+      }
       user.isOsTokenHolder = true
       user.save()
     }

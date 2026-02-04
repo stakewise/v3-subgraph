@@ -9,7 +9,7 @@ import {
   OsTokenExitRequest,
   Vault,
 } from '../../generated/schema'
-import { WAD, MAIN_META_VAULT } from '../helpers/constants'
+import { WAD } from '../helpers/constants'
 import {
   calculateApy,
   chunkedMulticall,
@@ -266,6 +266,7 @@ export function getAllocatorApy(
   osTokenConfig: OsTokenConfig,
   vault: Vault,
   allocator: Allocator,
+  isMainVaultStaker: boolean,
 ): BigDecimal {
   const vaultAddress = Address.fromString(allocator.vault)
   const allocatorAddress = Address.fromBytes(allocator.address)
@@ -275,7 +276,7 @@ export function getAllocatorApy(
   let mintedOsTokenShares = allocator.mintedOsTokenShares
 
   let osTokenSharesBalance = BigInt.zero()
-  if (vaultAddress.equals(Address.fromString(MAIN_META_VAULT))) {
+  if (isMainVaultStaker) {
     const osTokenHolder = loadOsTokenHolder(Address.fromBytes(allocator.address))
     if (osTokenHolder !== null) {
       osTokenSharesBalance = osTokenHolder.balance
@@ -330,7 +331,7 @@ export function getAllocatorApy(
   return allocatorApy
 }
 
-export function getAllocatorAssets(osToken: OsToken, allocator: Allocator): BigInt {
+export function getAllocatorAssets(osToken: OsToken, allocator: Allocator, isMainVaultStaker: boolean): BigInt {
   const vaultAddress = Address.fromString(allocator.vault)
   const allocatorAddress = Address.fromBytes(allocator.address)
 
@@ -339,7 +340,7 @@ export function getAllocatorAssets(osToken: OsToken, allocator: Allocator): BigI
   let mintedOsTokenShares = allocator.mintedOsTokenShares
 
   let osTokenSharesBalance = BigInt.zero()
-  if (vaultAddress.equals(Address.fromString(MAIN_META_VAULT))) {
+  if (isMainVaultStaker) {
     const osTokenHolder = loadOsTokenHolder(Address.fromBytes(allocator.address))
     if (osTokenHolder !== null) {
       osTokenSharesBalance = osTokenHolder.balance
@@ -356,7 +357,7 @@ export function getAllocatorAssets(osToken: OsToken, allocator: Allocator): BigI
     osTokenSharesBalance = osTokenSharesBalance.plus(boostAavePosition.suppliedOsTokenShares)
     borrowedAssets = borrowedAssets.plus(boostAavePosition.borrowedAssets)
 
-    stakingAssets = stakingAssets.plus(boostAllocator.assets).plus(boostAllocator.stakingExitingAssets)
+    stakingAssets = stakingAssets.plus(boostAllocator.assets)
     exitingAssets = exitingAssets.plus(boostAllocator.exitingAssets)
     mintedOsTokenShares = mintedOsTokenShares.plus(boostAllocator.mintedOsTokenShares)
 
@@ -377,6 +378,7 @@ export function getAllocatorAssets(osToken: OsToken, allocator: Allocator): BigI
     mintedOsTokenShares,
     osTokenSharesBalance,
     borrowedAssets,
+    isMainVaultStaker,
   )
 }
 
@@ -529,8 +531,16 @@ export function calcAllocatorAssets(
   mintedOsTokenShares: BigInt,
   osTokenSharesBalance: BigInt,
   borrowedAssets: BigInt,
+  isMainVaultStaker: boolean,
 ): BigInt {
   let totalAssets = stakingAssets.plus(exitingAssets).minus(borrowedAssets)
+  if (isMainVaultStaker) {
+    totalAssets = totalAssets
+      .plus(convertOsTokenSharesToAssets(osToken, osTokenSharesBalance))
+      .minus(convertOsTokenSharesToAssets(osToken, mintedOsTokenShares))
+    return totalAssets.gt(BigInt.zero()) ? totalAssets : BigInt.zero()
+  }
+
   if (osTokenSharesBalance.gt(mintedOsTokenShares)) {
     const excessOsTokenShares = osTokenSharesBalance.minus(mintedOsTokenShares)
     const excessOsTokenAssets = convertOsTokenSharesToAssets(osToken, excessOsTokenShares)

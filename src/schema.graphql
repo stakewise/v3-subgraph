@@ -77,6 +77,47 @@ type Allocator @entity(immutable: false) {
 }
 
 """
+Staker in main meta vault
+"""
+type Staker @entity(immutable: false) {
+  "User address"
+  id: ID!
+
+  "The staker's address"
+  address: Bytes!
+
+  "The staker's total assets (vault stake + osToken holdings value)"
+  totalAssets: BigInt!
+
+  "The staker's average weekly APY"
+  apy: BigDecimal!
+
+  "Total earned assets from staking"
+  totalEarnedAssets: BigInt!
+
+  "The assets deposited/received during the current period"
+  _periodDepositedAssets: BigInt!
+
+  "The assets withdrawn/sent during the current period"
+  _periodWithdrawnAssets: BigInt!
+
+  "The assets from the previous snapshot (for APY calculation)"
+  _prevSnapshotAssets: BigInt
+}
+
+"""
+The snapshot of the Staker state
+"""
+type StakerSnapshot @entity(immutable: true) {
+  id: Bytes!
+  timestamp: Timestamp!
+  staker: Staker!
+  earnedAssets: BigInt!
+  totalAssets: BigInt!
+  apy: BigDecimal!
+}
+
+"""
 Token transfer
 """
 type TokenTransfer @entity(immutable: true) {

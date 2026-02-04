@@ -18,6 +18,7 @@ import {
   getAllocatorAssets,
   loadAllocator,
 } from '../entities/allocator'
+import { isMainMetaVault, updateStaker } from '../entities/staker'
 import { loadNetwork } from '../entities/network'
 import { loadVault } from '../entities/vault'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
@@ -53,9 +54,13 @@ function _updateAllocator(
   }
   allocator._periodBoostEarnedOsTokenShares = allocator._periodBoostEarnedOsTokenShares.plus(earnedOsTokenShares)
   allocator._periodBoostEarnedAssets = allocator._periodBoostEarnedAssets.plus(earnedAssets)
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
   allocator.save()
+
+  if (isMainMetaVault(vaultAddr)) {
+    updateStaker(userAddress)
+  }
 }
 
 export function handleStrategyProxyCreated(event: StrategyProxyCreated): void {

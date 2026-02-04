@@ -70,6 +70,7 @@ import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDist
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { getAllocatorApy, getAllocatorAssets } from '../entities/allocator'
+import { isMainMetaVault, updateStaker } from '../entities/staker'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -497,15 +498,17 @@ export function syncApys(block: ethereum.Block): void {
     let allocatorApy: BigDecimal
     let allocator: Allocator
     const allocators: Array<Allocator> = vault.allocators.load()
+    const vaultAddress = Address.fromString(vault.id)
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocatorApy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
-      if (allocatorApy.equals(allocator.apy)) {
-        continue
-      }
+      allocatorApy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
       allocator.apy = allocatorApy
-      allocator.totalAssets = getAllocatorAssets(osToken, allocator)
+      allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
       allocator.save()
+
+      if (isMainMetaVault(vaultAddress)) {
+        updateStaker(Address.fromBytes(allocator.address))
+      }
     }
   }
 
