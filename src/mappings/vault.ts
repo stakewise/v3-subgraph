@@ -91,7 +91,7 @@ export function handleDeposited(event: Deposited): void {
   const allocator = createOrLoadAllocator(receiver, vaultAddress)
   increaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
 
   if (isMainMetaVault(vaultAddress)) {
@@ -141,7 +141,7 @@ export function handleRedeemed(event: Redeemed): void {
   const allocator = loadAllocator(owner, vaultAddress)!
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
 
   if (isMainMetaVault(vaultAddress)) {
@@ -474,7 +474,7 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   allocator.exitingAssets = allocator.exitingAssets.plus(assets)
   allocator.stakingExitingAssets = allocator.stakingExitingAssets.plus(assets)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
 
   if (isMainMetaVault(vaultAddress)) {
@@ -551,7 +551,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
   allocator.exitingAssets = allocator.exitingAssets.plus(assets)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
 
   if (isMainMetaVault(vaultAddress)) {
@@ -645,7 +645,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   }
 
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
 
   if (isMainMetaVault(vaultAddress)) {
@@ -684,7 +684,7 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   increaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, shares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
 
   if (isMainMetaVault(vaultAddress)) {
@@ -719,7 +719,7 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
   const allocator = loadAllocator(holder, vaultAddress)!
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, shares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
 
   if (isMainMetaVault(vaultAddress)) {
@@ -765,7 +765,7 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, shares)
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, withdrawnShares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
 
   if (isMainMetaVault(vaultAddress)) {
@@ -810,7 +810,7 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, shares)
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, withdrawnShares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
 
   if (isMainMetaVault(vaultAddress)) {
@@ -1005,7 +1005,7 @@ export function handleMigrated(event: Migrated): void {
   const allocator = createOrLoadAllocator(receiver, vaultAddress)
   increaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
 
   if (isMainMetaVault(vaultAddress)) {

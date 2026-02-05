@@ -55,7 +55,7 @@ function _updateAllocator(
   allocator._periodBoostEarnedOsTokenShares = allocator._periodBoostEarnedOsTokenShares.plus(earnedOsTokenShares)
   allocator._periodBoostEarnedAssets = allocator._periodBoostEarnedAssets.plus(earnedAssets)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
 
   if (isMainMetaVault(vaultAddr)) {

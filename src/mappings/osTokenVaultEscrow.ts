@@ -37,7 +37,7 @@ export function handlePositionCreated(event: PositionCreated): void {
 
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, osTokenShares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
-  allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
 
   if (isMainMetaVault(vaultAddress)) {

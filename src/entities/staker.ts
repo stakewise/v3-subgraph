@@ -57,8 +57,12 @@ export function updateStaker(stakerAddress: Address): void {
   }
 
   const staker = createOrLoadStaker(stakerAddress)
-  staker.totalAssets = getAllocatorAssets(osToken, allocator, true)
-  staker.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, true)
+  staker.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, true)
+  if (staker.totalAssets.gt(BigInt.zero())) {
+    staker.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, true)
+  } else {
+    staker.apy = BigDecimal.zero()
+  }
   staker.save()
 }
 

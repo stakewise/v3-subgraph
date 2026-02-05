@@ -503,7 +503,7 @@ export function syncApys(block: ethereum.Block): void {
       allocator = allocators[j]
       allocatorApy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
       allocator.apy = allocatorApy
-      allocator.totalAssets = getAllocatorAssets(osToken, allocator, false)
+      allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
       allocator.save()
 
       if (isMainMetaVault(vaultAddress)) {

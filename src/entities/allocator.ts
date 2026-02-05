@@ -331,7 +331,12 @@ export function getAllocatorApy(
   return allocatorApy
 }
 
-export function getAllocatorAssets(osToken: OsToken, allocator: Allocator, isMainVaultStaker: boolean): BigInt {
+export function getAllocatorAssets(
+  osToken: OsToken,
+  osTokenConfig: OsTokenConfig,
+  allocator: Allocator,
+  isMainVaultStaker: boolean,
+): BigInt {
   const vaultAddress = Address.fromString(allocator.vault)
   const allocatorAddress = Address.fromBytes(allocator.address)
 
@@ -371,6 +376,18 @@ export function getAllocatorAssets(osToken: OsToken, allocator: Allocator, isMai
     }
   }
 
+  if (isMainVaultStaker) {
+    return calcStakerAssets(
+      osToken,
+      stakingAssets,
+      exitingAssets,
+      mintedOsTokenShares,
+      osTokenSharesBalance,
+      borrowedAssets,
+      osTokenConfig,
+    )
+  }
+
   return calcAllocatorAssets(
     osToken,
     stakingAssets,
@@ -378,7 +395,6 @@ export function getAllocatorAssets(osToken: OsToken, allocator: Allocator, isMai
     mintedOsTokenShares,
     osTokenSharesBalance,
     borrowedAssets,
-    isMainVaultStaker,
   )
 }
 
@@ -531,25 +547,50 @@ export function calcAllocatorAssets(
   mintedOsTokenShares: BigInt,
   osTokenSharesBalance: BigInt,
   borrowedAssets: BigInt,
-  isMainVaultStaker: boolean,
 ): BigInt {
   let totalAssets = stakingAssets.plus(exitingAssets).minus(borrowedAssets)
-  if (isMainVaultStaker) {
-    totalAssets = totalAssets
-      .plus(convertOsTokenSharesToAssets(osToken, osTokenSharesBalance))
-      .minus(convertOsTokenSharesToAssets(osToken, mintedOsTokenShares))
-    return totalAssets.gt(BigInt.zero()) ? totalAssets : BigInt.zero()
-  }
 
   if (osTokenSharesBalance.gt(mintedOsTokenShares)) {
     const excessOsTokenShares = osTokenSharesBalance.minus(mintedOsTokenShares)
     const excessOsTokenAssets = convertOsTokenSharesToAssets(osToken, excessOsTokenShares)
     totalAssets = totalAssets.plus(excessOsTokenAssets)
   }
-  return totalAssets
+  return totalAssets.gt(BigInt.zero()) ? totalAssets : BigInt.zero()
 }
 
 function _getOsTokenPositionsCall(allocator: Allocator): Bytes {
   const encodedArgs = ethereum.encode(ethereum.Value.fromAddress(Address.fromBytes(allocator.address)))
   return Bytes.fromHexString(osTokenPositionsSelector).concat(encodedArgs as Bytes)
+}
+
+export function calcStakerAssets(
+  osToken: OsToken,
+  stakingAssets: BigInt,
+  exitingAssets: BigInt,
+  mintedOsTokenShares: BigInt,
+  osTokenSharesBalance: BigInt,
+  borrowedAssets: BigInt,
+  osTokenConfig: OsTokenConfig,
+): BigInt {
+  if (osTokenSharesBalance.gt(mintedOsTokenShares)) {
+    osTokenSharesBalance = osTokenSharesBalance.minus(mintedOsTokenShares)
+    mintedOsTokenShares = BigInt.zero()
+  } else {
+    mintedOsTokenShares = mintedOsTokenShares.minus(osTokenSharesBalance)
+    osTokenSharesBalance = BigInt.zero()
+  }
+
+  if (mintedOsTokenShares.gt(BigInt.zero())) {
+    const mintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, mintedOsTokenShares)
+    const lockedAssets = mintedOsTokenAssets.times(BigInt.fromString(WAD)).div(osTokenConfig.ltvPercent)
+    stakingAssets = stakingAssets.gt(lockedAssets) ? stakingAssets.minus(lockedAssets) : BigInt.zero()
+  }
+
+  let totalAssets = stakingAssets.plus(exitingAssets).minus(borrowedAssets)
+  if (osTokenSharesBalance.gt(BigInt.zero())) {
+    const excessOsTokenAssets = convertOsTokenSharesToAssets(osToken, osTokenSharesBalance)
+    totalAssets = totalAssets.plus(excessOsTokenAssets)
+  }
+
+  return totalAssets.gt(BigInt.zero()) ? totalAssets : BigInt.zero()
 }
