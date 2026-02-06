@@ -343,6 +343,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   exchangeRateSnapshot.daiUsdRate = daiUsdRate
   exchangeRateSnapshot.ssvUsdRate = ssvUsdRate
   exchangeRateSnapshot.obolUsdRate = obolUsdRate
+  exchangeRateSnapshot.lyxUsdRate = lyxUsdRate
   exchangeRateSnapshot.ethUsdRate = ethUsdRate
   exchangeRateSnapshot.btcUsdRate = btcUsdRate
   exchangeRateSnapshot.solUsdRate = solUsdRate
