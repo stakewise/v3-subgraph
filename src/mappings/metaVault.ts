@@ -1,91 +1,164 @@
-import { Address, log, store } from '@graphprotocol/graph-ts'
-import { SubVault } from '../../generated/schema'
-import { SubVaultAdded, SubVaultEjected, SubVaultsHarvested } from '../../generated/templates/MetaVault/MetaVault'
-import { loadVault, syncVault } from '../entities/vault'
-import { loadOsToken } from '../entities/osToken'
-import { loadNetwork } from '../entities/network'
-import { getMetaVaultState } from '../entities/metaVault'
+import { log } from '@graphprotocol/graph-ts'
+import {
+  SubVaultAdded as SubVaultAddedV1,
+  SubVaultEjected as SubVaultEjectedV1,
+  SubVaultEjecting as SubVaultEjectingV1,
+  SubVaultsHarvested as SubVaultsHarvestedV1,
+} from '../../generated/templates/MetaVault/MetaVault'
+import {
+  SubVaultAdded,
+  SubVaultEjected,
+  SubVaultEjecting,
+  SubVaultsHarvested,
+  MetaSubVaultProposed,
+  MetaSubVaultRejected,
+} from '../../generated/templates/SubVaultsRegistry/SubVaultsRegistry'
+import { loadVault } from '../entities/vault'
+import { addSubVault, ejectSubVault, getMetaVaultAddress, harvestSubVaults } from '../entities/metaVault'
+import { createTransaction } from '../entities/transaction'
 
-export function handleSubVaultAdded(event: SubVaultAdded): void {
+// V1 handlers (MetaVault template)
+export function handleSubVaultAddedV1(event: SubVaultAddedV1): void {
   const metaVaultAddress = event.address
   const subVaultAddress = event.params.vault
-  const subVaultId = `${metaVaultAddress.toHex()}-${subVaultAddress.toHex()}`
 
-  const subVault = new SubVault(subVaultId)
-  subVault.metaVault = metaVaultAddress.toHex()
-  subVault.subVault = subVaultAddress
-  subVault.save()
+  addSubVault(metaVaultAddress, subVaultAddress)
 
-  const metaVault = loadVault(metaVaultAddress)!
-  metaVault.isCollateralized = true
-  metaVault.save()
+  createTransaction(event.transaction.hash.toHex())
 
   log.info('[MetaVault] SubVaultAdded metaVault={} subVault={}', [metaVaultAddress.toHex(), subVaultAddress.toHex()])
 }
 
-export function handleSubVaultEjected(event: SubVaultEjected): void {
+export function handleSubVaultEjectedV1(event: SubVaultEjectedV1): void {
   const metaVaultAddress = event.address
   const subVaultAddress = event.params.vault
-  const subVaultId = `${metaVaultAddress.toHex()}-${subVaultAddress.toHex()}`
 
-  // Check if the SubVault entity exists before removing it
-  const subVault = SubVault.load(subVaultId)
-  if (subVault) {
-    store.remove('SubVault', subVaultId)
+  ejectSubVault(metaVaultAddress, subVaultAddress)
 
-    log.info('[MetaVault] SubVaultEjected metaVault={} subVault={}', [
-      metaVaultAddress.toHex(),
-      subVaultAddress.toHex(),
-    ])
-  } else {
-    log.warning('[MetaVault] SubVaultEjected for non-existent subVault metaVault={} subVault={}', [
-      metaVaultAddress.toHex(),
-      subVaultAddress.toHex(),
-    ])
-  }
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[MetaVault] SubVaultEjected metaVault={} subVault={}', [metaVaultAddress.toHex(), subVaultAddress.toHex()])
+}
+
+export function handleSubVaultsHarvestedV1(event: SubVaultsHarvestedV1): void {
+  const metaVaultAddress = event.address
+  const totalAssetsDelta = event.params.totalAssetsDelta
+  const timestamp = event.block.timestamp
+
+  harvestSubVaults(metaVaultAddress, totalAssetsDelta, timestamp)
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[MetaVault] SubVaultsHarvested metaVault={} delta={}', [
+    metaVaultAddress.toHex(),
+    totalAssetsDelta.toString(),
+  ])
+}
+
+export function handleSubVaultEjectingV1(event: SubVaultEjectingV1): void {
+  const metaVaultAddress = event.address
+  const subVaultAddress = event.params.vault
+
+  // Set ejectingSubVault on meta vault
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.ejectingSubVault = subVaultAddress
+  metaVault.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[MetaVault] SubVaultEjecting metaVault={} subVault={}', [metaVaultAddress.toHex(), subVaultAddress.toHex()])
+}
+
+// V2 handlers (SubVaultsRegistry template)
+export function handleSubVaultAdded(event: SubVaultAdded): void {
+  const metaVaultAddress = getMetaVaultAddress(event.address)
+
+  const subVaultAddress = event.params.vault
+  addSubVault(metaVaultAddress, subVaultAddress)
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[SubVaultsRegistry] SubVaultAdded metaVault={} subVault={}', [
+    metaVaultAddress.toHex(),
+    subVaultAddress.toHex(),
+  ])
+}
+
+export function handleSubVaultEjected(event: SubVaultEjected): void {
+  const metaVaultAddress = getMetaVaultAddress(event.address)
+
+  const subVaultAddress = event.params.vault
+  ejectSubVault(metaVaultAddress, subVaultAddress)
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[SubVaultsRegistry] SubVaultEjected metaVault={} subVault={}', [
+    metaVaultAddress.toHex(),
+    subVaultAddress.toHex(),
+  ])
 }
 
 export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
-  const vaultPeriodAssets = event.params.totalAssetsDelta
-  const timestamp = event.block.timestamp
+  const metaVaultAddress = getMetaVaultAddress(event.address)
 
-  // load used objects
-  const vaultAddress = event.address
-  const vault = loadVault(vaultAddress)!
-  const osToken = loadOsToken()!
+  const totalAssetsDelta = event.params.totalAssetsDelta
+  harvestSubVaults(metaVaultAddress, totalAssetsDelta, event.block.timestamp)
 
-  // fetch vault state
-  const newState = getMetaVaultState(vault)
-  const newRate = newState[0]
-  const newTotalAssets = newState[1]
-  const newTotalShares = newState[2]
-  const newQueuedShares = newState[3]
-  const newExitingAssets = newState[4]
+  createTransaction(event.transaction.hash.toHex())
 
-  const subVaults: Array<SubVault> = vault.subVaults.load()
-  if (subVaults.length == 0) {
-    log.error('[MetaVault] No sub vaults found for vault {}', [vaultAddress.toHex()])
-    return
-  }
-  const subVault = loadVault(Address.fromBytes(subVaults[0].subVault))!
+  log.info('[SubVaultsRegistry] SubVaultsHarvested metaVault={} delta={}', [
+    metaVaultAddress.toHex(),
+    totalAssetsDelta.toString(),
+  ])
+}
 
-  // update vault
-  vault.totalAssets = newTotalAssets
-  vault.totalShares = newTotalShares
-  vault.queuedShares = newQueuedShares
-  vault.exitingAssets = newExitingAssets
-  vault.rate = newRate
-  vault.rewardsRoot = subVault.rewardsRoot
-  vault.canHarvest = subVault.canHarvest
-  vault.rewardsIpfsHash = subVault.rewardsIpfsHash
-  vault.rewardsTimestamp = subVault.rewardsTimestamp
-  vault._periodEarnedAssets = vault._periodEarnedAssets.plus(vaultPeriodAssets)
-  vault.save()
+export function handleSubVaultEjecting(event: SubVaultEjecting): void {
+  const metaVaultAddress = getMetaVaultAddress(event.address)
+  const subVaultAddress = event.params.vault
 
-  // TODO: fix fee recipient shares minted
+  // Set ejectingSubVault on meta vault
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.ejectingSubVault = subVaultAddress
+  metaVault.save()
 
-  // update vault allocators, exit requests, reward splitters
-  syncVault(loadNetwork()!, osToken, vault, timestamp)
+  createTransaction(event.transaction.hash.toHex())
 
-  log.info('[MetaVault] SubVaultsHarvested delta={}', [vaultPeriodAssets.toString()])
+  log.info('[SubVaultsRegistry] SubVaultEjecting metaVault={} subVault={}', [
+    metaVaultAddress.toHex(),
+    subVaultAddress.toHex(),
+  ])
+}
+
+export function handleMetaSubVaultProposed(event: MetaSubVaultProposed): void {
+  const metaVaultAddress = getMetaVaultAddress(event.address)
+  const subVaultAddress = event.params.vault
+
+  // Set pendingMetaSubVault on meta vault
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.pendingMetaSubVault = subVaultAddress
+  metaVault.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[SubVaultsRegistry] MetaSubVaultProposed metaVault={} subVault={}', [
+    metaVaultAddress.toHex(),
+    subVaultAddress.toHex(),
+  ])
+}
+
+export function handleMetaSubVaultRejected(event: MetaSubVaultRejected): void {
+  const metaVaultAddress = getMetaVaultAddress(event.address)
+  const subVaultAddress = event.params.vault
+
+  // Clear pendingMetaSubVault on meta vault
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.pendingMetaSubVault = null
+  metaVault.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[SubVaultsRegistry] MetaSubVaultRejected metaVault={} subVault={}', [
+    metaVaultAddress.toHex(),
+    subVaultAddress.toHex(),
+  ])
 }

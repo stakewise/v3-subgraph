@@ -1,11 +1,13 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, ipfs, json, log } from '@graphprotocol/graph-ts'
 
-import { Allocator, ExitRequest, Vault } from '../../generated/schema'
+import { Allocator, ExitRequest, SubVaultsRegistryMap, Vault } from '../../generated/schema'
 import {
   BlocklistVault as BlocklistVaultTemplate,
   OwnMevEscrow as OwnMevEscrowTemplate,
+  SubVaultsRegistry as SubVaultsRegistryTemplate,
   Vault as VaultTemplate,
 } from '../../generated/templates'
+import { MetaVault as MetaVaultContract } from '../../generated/templates/MetaVault/MetaVault'
 import {
   AdminUpdated,
   AssetsDonated,
@@ -48,6 +50,7 @@ import {
 import { isGnosisNetwork, loadNetwork } from '../entities/network'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import { DEPOSIT_DATA_REGISTRY, WAD } from '../helpers/constants'
+import { isSubVaultsRegistrySupported } from '../helpers/utils'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { loadExitRequest, updateClaimableExitRequests, updateExitRequests } from '../entities/exitRequest'
 import { convertSharesToAssets, loadVault, syncVault } from '../entities/vault'
@@ -189,7 +192,6 @@ export function handleInitialized(event: Initialized): void {
     vault.osTokenConfig = '2'
   }
   vault.version = newVersion
-  vault.save()
 
   if (newVersion.equals(BigInt.fromI32(3))) {
     // update exit requests
@@ -209,6 +211,30 @@ export function handleInitialized(event: Initialized): void {
       v2Pool.save()
     }
   }
+
+  // Handle SubVaultsRegistry for meta vaults (v4+ on Gnosis, v6+ on mainnet/hoodi)
+  if (isSubVaultsRegistrySupported(vault)) {
+    const metaVaultContract = MetaVaultContract.bind(vaultAddress)
+    const registryResult = metaVaultContract.try_subVaultsRegistry()
+    if (!registryResult.reverted && !registryResult.value.equals(Address.zero())) {
+      const registryAddress = registryResult.value
+      vault.subVaultsRegistry = registryAddress
+
+      // Create mapping from registry to meta vault
+      const registryMap = new SubVaultsRegistryMap(registryAddress.toHex())
+      registryMap.metaVault = vaultAddress
+      registryMap.save()
+
+      SubVaultsRegistryTemplate.create(registryAddress)
+
+      log.info('[Vault] SubVaultsRegistry created vault={} registry={}', [
+        vaultAddress.toHex(),
+        registryAddress.toHex(),
+      ])
+    }
+  }
+
+  vault.save()
 
   createTransaction(event.transaction.hash.toHex())
 
@@ -932,23 +958,30 @@ export function handleMigrated(event: Migrated): void {
 }
 
 export function handleAssetsDonated(event: AssetsDonated): void {
-  const params = event.params
-  const sender = params.sender
-  const assets = params.assets
+  const sender = event.params.sender
+  const assets = event.params.assets
   const vaultAddress = event.address
+  const vaultAddressHex = vaultAddress.toHex()
 
   const xdaiConverter = loadXdaiConverter(vaultAddress)
   if (xdaiConverter && Address.fromBytes(xdaiConverter.address).equals(sender)) {
     xdaiConverter.totalHarvestedAssets = xdaiConverter.totalHarvestedAssets.plus(assets)
     xdaiConverter.save()
-    log.info('[Vault] AssetsDonated from xDaiConverter vault={} assets={}', [vaultAddress.toHex(), assets.toString()])
+    log.info('[Vault] AssetsDonated from xDaiConverter vault={} assets={}', [vaultAddressHex, assets.toString()])
     return
   }
 
   const vault = loadVault(vaultAddress)!
+
+  // Skip for v1 meta vaults as they contain donated assets in harvested event
+  if (vault.isMetaVault && !isSubVaultsRegistrySupported(vault)) {
+    log.info('[Vault] AssetsDonated skipped for MetaVault v1 vault={} assets={}', [vaultAddressHex, assets.toString()])
+    return
+  }
+
   vault._periodEarnedAssets = vault._periodEarnedAssets.plus(assets)
   vault.save()
-  log.info('[Vault] AssetsDonated vault={} assets={}', [vaultAddress.toHex(), assets.toString()])
+  log.info('[Vault] AssetsDonated vault={} assets={}', [vaultAddressHex, assets.toString()])
 }
 
 export function syncVaults(block: ethereum.Block): void {
