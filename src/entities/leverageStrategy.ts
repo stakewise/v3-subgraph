@@ -1,19 +1,9 @@
 import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
-import {
-  Aave,
-  ExitRequest,
-  LeverageStrategyPosition,
-  OsToken,
-  OsTokenConfig,
-  OsTokenExitRequest,
-  Vault,
-} from '../../generated/schema'
+import { Aave, ExitRequest, LeverageStrategyPosition, OsToken, OsTokenExitRequest } from '../../generated/schema'
 import { AaveLeverageStrategy } from '../../generated/AaveLeverageStrategyV1/AaveLeverageStrategy'
 import { AAVE_LEVERAGE_STRATEGY_V2, WAD } from '../helpers/constants'
 import { loadAllocator } from './allocator'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets } from './osToken'
-import { getAnnualReward } from '../helpers/utils'
-import { getVaultOsTokenMintApy } from './vault'
 import { loadAavePosition } from './aave'
 
 export function loadLeverageStrategyPosition(vault: Address, user: Address): LeverageStrategyPosition | null {
@@ -116,56 +106,4 @@ export function updateLeveragePosition(aave: Aave, osToken: OsToken, position: L
     position.exitingAssets = BigInt.zero()
   }
   position.save()
-}
-
-export function getBoostPositionAnnualReward(
-  osToken: OsToken,
-  aave: Aave,
-  vault: Vault,
-  osTokenConfig: OsTokenConfig,
-  strategyPosition: LeverageStrategyPosition,
-): BigInt {
-  if (
-    strategyPosition.osTokenShares.isZero() &&
-    strategyPosition.assets.isZero() &&
-    strategyPosition.exitingOsTokenShares.isZero() &&
-    strategyPosition.exitingAssets.isZero()
-  ) {
-    return BigInt.zero()
-  }
-  const vaultAddress = Address.fromString(vault.id)
-  const proxyAddress = Address.fromBytes(strategyPosition.proxy)
-
-  const vaultPosition = loadAllocator(proxyAddress, vaultAddress)!
-  const aavePosition = loadAavePosition(proxyAddress)!
-
-  const vaultApy = vault.apy
-  const borrowApy = aave.borrowApy
-
-  let totalEffectiveAssets = vaultPosition.assets
-  let totalMintedOsTokenShares = vaultPosition.mintedOsTokenShares
-  if (strategyPosition.exitRequest !== null) {
-    const osTokenExitRequest = OsTokenExitRequest.load(strategyPosition.exitRequest!)!
-    if (osTokenExitRequest.exitedAssets === null) {
-      const exitRequest = ExitRequest.load(strategyPosition.exitRequest!)!
-      const notExitedAssets = exitRequest.totalAssets.minus(exitRequest.exitedAssets)
-      totalEffectiveAssets = totalEffectiveAssets.plus(notExitedAssets)
-    }
-    totalMintedOsTokenShares = totalMintedOsTokenShares.plus(osTokenExitRequest.osTokenShares)
-  }
-
-  const totalMintedOsTokenAssets = convertOsTokenSharesToAssets(osToken, totalMintedOsTokenShares)
-  const totalBorrowedAssets = aavePosition.borrowedAssets
-
-  // staked assets earn vault APY
-  let totalEarnedAssets = getAnnualReward(totalEffectiveAssets, vaultApy)
-
-  // minted osToken shares lose mint APY
-  const osTokenMintApy = getVaultOsTokenMintApy(osToken, osTokenConfig)
-  totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(totalMintedOsTokenAssets, osTokenMintApy))
-
-  // borrowed assets lose borrow APY
-  totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(totalBorrowedAssets, borrowApy))
-
-  return totalEarnedAssets
 }

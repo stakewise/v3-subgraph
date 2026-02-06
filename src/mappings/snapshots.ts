@@ -1,13 +1,13 @@
-import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
-import { Allocator, RewardSplitter, Vault } from '../../generated/schema'
+import { Address, BigInt, ethereum, log, TypedMap } from '@graphprotocol/graph-ts'
+import { Allocator, RewardSplitter, RewardSplitterShareHolder, Vault } from '../../generated/schema'
 import { loadOsToken } from '../entities/osToken'
 import { loadNetwork } from '../entities/network'
 import { createVaultSnapshot, loadVault } from '../entities/vault'
-import { loadRewardSplitterShareHolder } from '../entities/rewardSplitter'
 import { loadDistributor } from '../entities/merkleDistributor'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { createAllocatorSnapshot } from '../entities/allocator'
-import { loadLeverageStrategyPosition } from '../entities/leverageStrategy'
+import { MAIN_META_VAULT } from '../helpers/constants'
+import { createStakerSnapshot, loadStaker } from '../entities/staker'
 
 const secondsInDay = 86400
 const extraSecondsGap = 30
@@ -49,7 +49,6 @@ export function syncSnapshots(block: ethereum.Block): void {
   let vault: Vault
   const vaultIds = network.vaultIds
   for (let i = 0; i < vaultIds.length; i++) {
-    // snapshot vault
     vault = loadVault(Address.fromString(vaultIds[i]))!
     if (!vault.isCollateralized) {
       continue
@@ -57,35 +56,33 @@ export function syncSnapshots(block: ethereum.Block): void {
 
     createVaultSnapshot(vault, duration, newTimestamp.toI64())
 
-    const vaultAddress = Address.fromString(vault.id)
     const allocators: Array<Allocator> = vault.allocators.load()
     const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
+
+    // Build map once per vault
+    const rewardSplitterAssetsMap = _buildRewardSplitterAssetsMap(rewardSplitters)
+
     for (let j = 0; j < allocators.length; j++) {
       const allocator = allocators[j]
-      const allocatorAddress = Address.fromBytes(allocator.address)
+      const allocatorAddressHex = allocator.address.toHex()
 
-      // get boost OsToken shares if boost exists
-      let boostedOsTokenShares = BigInt.zero()
-      if (vault.isOsTokenEnabled) {
-        const leverageStrategyPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
-        if (leverageStrategyPosition) {
-          boostedOsTokenShares = leverageStrategyPosition.osTokenShares.plus(
-            leverageStrategyPosition.exitingOsTokenShares,
-          )
-        }
+      const rewardSplitterAssets = rewardSplitterAssetsMap.isSet(allocatorAddressHex)
+        ? rewardSplitterAssetsMap.get(allocatorAddressHex)!
+        : BigInt.zero()
+
+      createAllocatorSnapshot(osToken, allocator, rewardSplitterAssets, duration, newTimestamp.toI64())
+    }
+  }
+
+  // Create staker snapshots for mainMetaVault allocators
+  const mainMetaVault = loadVault(Address.fromString(MAIN_META_VAULT))
+  if (mainMetaVault !== null) {
+    const mainMetaVaultAllocators: Array<Allocator> = mainMetaVault.allocators.load()
+    for (let i = 0; i < mainMetaVaultAllocators.length; i++) {
+      const staker = loadStaker(Address.fromBytes(mainMetaVaultAllocators[i].address))
+      if (staker !== null) {
+        createStakerSnapshot(staker, duration, newTimestamp.toI64())
       }
-
-      // get assets from the reward splitters
-      let rewardSplitterAssets = _getRewardSplitterAssets(allocatorAddress, rewardSplitters)
-
-      createAllocatorSnapshot(
-        osToken,
-        allocator,
-        boostedOsTokenShares,
-        rewardSplitterAssets,
-        duration,
-        newTimestamp.toI64(),
-      )
     }
   }
 
@@ -94,16 +91,26 @@ export function syncSnapshots(block: ethereum.Block): void {
   log.info('[SyncSnapshots] Snapshots synced block={} timestamp={}', [block.number.toString(), newTimestamp.toString()])
 }
 
-function _getRewardSplitterAssets(user: Address, rewardSplitters: Array<RewardSplitter>): BigInt {
-  let rewardSplitterAssets = BigInt.zero()
+function _buildRewardSplitterAssetsMap(rewardSplitters: Array<RewardSplitter>): TypedMap<string, BigInt> {
+  const assetsMap = new TypedMap<string, BigInt>()
+
   for (let i = 0; i < rewardSplitters.length; i++) {
-    const rewardSplitterAddress = Address.fromString(rewardSplitters[i].id)
-    const shareHolder = loadRewardSplitterShareHolder(user, rewardSplitterAddress)
-    if (shareHolder) {
-      rewardSplitterAssets = rewardSplitterAssets.plus(shareHolder.earnedVaultAssets)
+    const shareHolders: Array<RewardSplitterShareHolder> = rewardSplitters[i].shareHolders.load()
+
+    for (let j = 0; j < shareHolders.length; j++) {
+      const shareHolder = shareHolders[j]
+      const holderAddressHex = shareHolder.address.toHex()
+
+      if (assetsMap.isSet(holderAddressHex)) {
+        const existingAssets = assetsMap.get(holderAddressHex)!
+        assetsMap.set(holderAddressHex, existingAssets.plus(shareHolder.earnedVaultAssets))
+      } else {
+        assetsMap.set(holderAddressHex, shareHolder.earnedVaultAssets)
+      }
     }
   }
-  return rewardSplitterAssets
+
+  return assetsMap
 }
 
 function _isDayEnd(timestamp: BigInt): boolean {

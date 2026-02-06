@@ -378,7 +378,6 @@ export function createOrLoadExchangeRate(): ExchangeRate {
     exchangeRate.susdsUsdRate = BigDecimal.zero()
     exchangeRate.sdaiUsdRate = BigDecimal.zero()
     exchangeRate.bcspxUsdRate = BigDecimal.zero()
-    exchangeRate.btcUsdRate = BigDecimal.zero()
     exchangeRate.usdcUsdRate = BigDecimal.zero()
     exchangeRate.usdToEurRate = BigDecimal.zero()
     exchangeRate.usdToGbpRate = BigDecimal.zero()
