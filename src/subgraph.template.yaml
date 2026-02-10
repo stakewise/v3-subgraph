@@ -1006,6 +1006,8 @@ templates:
       abis:
         - name: SubVaultsRegistry
           file: ./abis/SubVaultsRegistry.json
+        - name: Multicall
+          file: ./abis/Multicall.json
       eventHandlers:
         - event: SubVaultAdded(indexed address)
           handler: handleSubVaultAdded
