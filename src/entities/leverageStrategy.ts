@@ -98,7 +98,7 @@ export function updateLeveragePosition(aave: Aave, osToken: OsToken, position: L
     position.assets = clampToZero(stakedAssets.minus(borrowedAssets))
   }
 
-  let suppliedOsTokenAssets = convertOsTokenSharesToAssets(osToken, suppliedOsTokenShares)
+  const suppliedOsTokenAssets = convertOsTokenSharesToAssets(osToken, suppliedOsTokenShares)
   position.borrowLtv = suppliedOsTokenAssets.gt(BigInt.zero())
     ? borrowedAssets.divDecimal(suppliedOsTokenAssets.toBigDecimal())
     : BigDecimal.zero()
