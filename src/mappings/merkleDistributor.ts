@@ -9,6 +9,7 @@ import {
   JSONValue,
   JSONValueKind,
   log,
+  store,
 } from '@graphprotocol/graph-ts'
 import { DistributorClaimedAmount, PeriodicDistribution } from '../../generated/schema'
 import {
@@ -20,6 +21,7 @@ import {
 } from '../../generated/MerkleDistributor/MerkleDistributor'
 import {
   convertDistributionTypeToString,
+  createOrLoadDistributor,
   createOrLoadDistributorClaim,
   createOrLoadDistributorReward,
   distributeToVaultSelectedUsers,
@@ -148,6 +150,8 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
   }
 
   const userRewards = parsedData.toArray()
+  const newClaimUserIds: Array<string> = []
+
   for (let i = 0; i < userRewards.length; i++) {
     const _userReward = userRewards[i]
     if (_userReward.kind != JSONValueKind.OBJECT) {
@@ -220,7 +224,19 @@ export function handleRewardsRootUpdated(event: RewardsRootUpdated): void {
     claim.unclaimedAmounts = unclaimedAmounts
     claim.proof = proof
     claim.save()
+
+    newClaimUserIds.push(user.toHex())
   }
+
+  // Remove claims for users no longer in the IPFS file
+  const distributor = createOrLoadDistributor()
+  const previousClaims = distributor.claims.load()
+  for (let i = 0; i < previousClaims.length; i++) {
+    if (!newClaimUserIds.includes(previousClaims[i].id)) {
+      store.remove('DistributorClaim', previousClaims[i].id)
+    }
+  }
+
   log.info('[MerkleDistributor] RewardsRootUpdated rewardsRoot={} rewardsIpfsHash={}', [
     rewardsRoot.toHex(),
     rewardsIpfsHash,

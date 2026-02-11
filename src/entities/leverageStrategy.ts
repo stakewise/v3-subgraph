@@ -52,69 +52,81 @@ export function createOrLoadLeverageStrategyPosition(
   return leverageStrategyPosition
 }
 
+function clampToZero(value: BigInt): BigInt {
+  return value.lt(BigInt.zero()) ? BigInt.zero() : value
+}
+
 export function updateLeveragePosition(aave: Aave, osToken: OsToken, position: LeverageStrategyPosition): void {
   if (aave.leverageMaxBorrowLtvPercent.isZero()) {
     assert(false, 'Leverage max borrow LTV percent is zero')
   }
-  // get and update borrow position state
+
   const proxy = Address.fromBytes(position.proxy)
-  let borrowState = loadAavePosition(proxy)!
+  const borrowState = loadAavePosition(proxy)!
   const borrowedAssets = borrowState.borrowedAssets
   const suppliedOsTokenShares = borrowState.suppliedOsTokenShares
 
-  // get vault position state
   const vaultAddress = Address.fromString(position.vault)
   const proxyAllocator = loadAllocator(proxy, vaultAddress)!
   let mintedOsTokenShares = proxyAllocator.mintedOsTokenShares
   let stakedAssets = proxyAllocator.assets
 
+  // resolve exit request data once (used in both position and exiting calculations)
+  let exitQueueAssets = BigInt.zero()
+  let escrowedOsTokenShares = BigInt.zero()
   if (position.exitRequest) {
     const osTokenExitRequest = OsTokenExitRequest.load(position.exitRequest!)!
-    if (osTokenExitRequest.exitedAssets) {
-      stakedAssets = stakedAssets.plus(osTokenExitRequest.exitedAssets!)
-    } else {
-      // exit request and osToken exit request have the same id format
-      const exitRequest = ExitRequest.load(position.exitRequest!)!
-      stakedAssets = stakedAssets.plus(exitRequest.totalAssets)
-    }
-    mintedOsTokenShares = mintedOsTokenShares.plus(osTokenExitRequest.osTokenShares)
+    escrowedOsTokenShares = osTokenExitRequest.osTokenShares
+    exitQueueAssets =
+      osTokenExitRequest.exitedAssets !== null
+        ? osTokenExitRequest.exitedAssets!
+        : ExitRequest.load(position.exitRequest!)!.totalAssets
+    stakedAssets = stakedAssets.plus(exitQueueAssets)
+    mintedOsTokenShares = mintedOsTokenShares.plus(escrowedOsTokenShares)
   }
 
   const wad = BigInt.fromString(WAD)
+
   if (borrowedAssets.ge(stakedAssets)) {
     const leftOsTokenAssets = borrowedAssets.minus(stakedAssets).times(wad).div(aave.leverageMaxBorrowLtvPercent)
     position.assets = BigInt.zero()
-    position.osTokenShares = suppliedOsTokenShares
-      .minus(mintedOsTokenShares)
-      .minus(convertAssetsToOsTokenShares(osToken, leftOsTokenAssets))
-    if (position.osTokenShares.lt(BigInt.zero())) {
-      position.osTokenShares = BigInt.zero()
-    }
-  } else {
-    position.osTokenShares = suppliedOsTokenShares.minus(mintedOsTokenShares)
-    position.assets = stakedAssets.minus(borrowedAssets)
-    if (position.assets.lt(BigInt.zero())) {
-      position.assets = BigInt.zero()
-    }
-  }
-
-  if (suppliedOsTokenShares.gt(BigInt.zero())) {
-    position.borrowLtv = borrowedAssets.divDecimal(
-      new BigDecimal(convertOsTokenSharesToAssets(osToken, suppliedOsTokenShares)),
+    position.osTokenShares = clampToZero(
+      suppliedOsTokenShares.minus(mintedOsTokenShares).minus(convertAssetsToOsTokenShares(osToken, leftOsTokenAssets)),
     )
   } else {
-    position.borrowLtv = BigDecimal.zero()
+    position.osTokenShares = clampToZero(suppliedOsTokenShares.minus(mintedOsTokenShares))
+    position.assets = clampToZero(stakedAssets.minus(borrowedAssets))
   }
 
+  let suppliedOsTokenAssets = convertOsTokenSharesToAssets(osToken, suppliedOsTokenShares)
+  position.borrowLtv = suppliedOsTokenAssets.gt(BigInt.zero())
+    ? borrowedAssets.divDecimal(suppliedOsTokenAssets.toBigDecimal())
+    : BigDecimal.zero()
+
   if (position.exitingPercent.gt(BigInt.zero())) {
-    position.exitingOsTokenShares = position.osTokenShares.times(position.exitingPercent).div(wad)
-    position.osTokenShares = position.osTokenShares.minus(position.exitingOsTokenShares)
-    position.exitingAssets = position.assets.times(position.exitingPercent).div(wad)
-    position.assets = position.assets.minus(position.exitingAssets)
+    const repayAssets = borrowedAssets.lt(exitQueueAssets) ? borrowedAssets : exitQueueAssets
+    const remainingDebt = borrowedAssets.minus(repayAssets)
+
+    position.exitingAssets = exitQueueAssets.minus(repayAssets)
+
+    let reservedSupply = BigInt.zero()
+    if (remainingDebt.gt(BigInt.zero())) {
+      reservedSupply = convertAssetsToOsTokenShares(
+        osToken,
+        remainingDebt.times(wad).div(aave.leverageMaxBorrowLtvPercent),
+      )
+    }
+
+    position.exitingOsTokenShares = clampToZero(
+      suppliedOsTokenShares.minus(reservedSupply).minus(escrowedOsTokenShares),
+    )
+    position.osTokenShares = clampToZero(position.osTokenShares.minus(position.exitingOsTokenShares))
+    position.assets = clampToZero(position.assets.minus(position.exitingAssets))
   } else {
     position.exitingOsTokenShares = BigInt.zero()
     position.exitingAssets = BigInt.zero()
   }
+
   position.save()
 }
 
