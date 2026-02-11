@@ -307,67 +307,78 @@ describe('exchangeRates', () => {
       const er = ExchangeRate.load('0')!
 
       // osTokenAssetsRate = totalAssets / totalSupply = 1.05
-      assert.assertTrue(er.osTokenAssetsRate.gt(BigDecimal.fromString('1.04')))
-      assert.assertTrue(er.osTokenAssetsRate.lt(BigDecimal.fromString('1.06')))
+      assert.assertTrue(er.osTokenAssetsRate.gt(BigDecimal.fromString('1.049')))
+      assert.assertTrue(er.osTokenAssetsRate.lt(BigDecimal.fromString('1.051')))
 
-      // Chainlink direct rates
-      assert.assertTrue(er.assetsUsdRate.gt(BigDecimal.fromString('1911')))
-      assert.assertTrue(er.assetsUsdRate.lt(BigDecimal.fromString('1913')))
+      // Chainlink direct rates: value / 10^8
+      // assetsUsdRate = 191200000000 / 10^8 = 1912.0
+      assert.assertTrue(er.assetsUsdRate.gt(BigDecimal.fromString('1911.9')))
+      assert.assertTrue(er.assetsUsdRate.lt(BigDecimal.fromString('1912.1')))
 
       // mainnet: ethUsdRate = assetsUsdRate
       assert.assertTrue(er.ethUsdRate.equals(er.assetsUsdRate))
 
-      assert.assertTrue(er.daiUsdRate.gt(BigDecimal.fromString('0.999')))
-      assert.assertTrue(er.daiUsdRate.lt(BigDecimal.fromString('1.001')))
+      // daiUsdRate = 99990000 / 10^8 = 0.9999
+      assert.assertTrue(er.daiUsdRate.gt(BigDecimal.fromString('0.9998')))
+      assert.assertTrue(er.daiUsdRate.lt(BigDecimal.fromString('1.0')))
 
-      assert.assertTrue(er.usdcUsdRate.gt(BigDecimal.fromString('0.999')))
-      assert.assertTrue(er.usdcUsdRate.lt(BigDecimal.fromString('1.001')))
+      // usdcUsdRate = 99996000 / 10^8 = 0.99996
+      assert.assertTrue(er.usdcUsdRate.gt(BigDecimal.fromString('0.9999')))
+      assert.assertTrue(er.usdcUsdRate.lt(BigDecimal.fromString('1.0')))
 
-      assert.assertTrue(er.btcUsdRate.gt(BigDecimal.fromString('85000')))
-      assert.assertTrue(er.btcUsdRate.lt(BigDecimal.fromString('85200')))
+      // btcUsdRate = 8511159000000 / 10^8 = 85111.59
+      assert.assertTrue(er.btcUsdRate.gt(BigDecimal.fromString('85111')))
+      assert.assertTrue(er.btcUsdRate.lt(BigDecimal.fromString('85112')))
 
-      assert.assertTrue(er.solUsdRate.gt(BigDecimal.fromString('128')))
-      assert.assertTrue(er.solUsdRate.lt(BigDecimal.fromString('129')))
+      // solUsdRate = 12823000000 / 10^8 = 128.23
+      assert.assertTrue(er.solUsdRate.gt(BigDecimal.fromString('128.22')))
+      assert.assertTrue(er.solUsdRate.lt(BigDecimal.fromString('128.24')))
 
       // sUSDS rate = usdsUsdRate * sUsdsUsdsRate = 1.0 * 1.05 = 1.05
-      assert.assertTrue(er.susdsUsdRate.gt(BigDecimal.fromString('1.04')))
-      assert.assertTrue(er.susdsUsdRate.lt(BigDecimal.fromString('1.06')))
+      assert.assertTrue(er.susdsUsdRate.gt(BigDecimal.fromString('1.049')))
+      assert.assertTrue(er.susdsUsdRate.lt(BigDecimal.fromString('1.051')))
 
       // Forex inversions (1 / chainlinkRate)
-      assert.assertTrue(er.usdToEurRate.gt(BigDecimal.fromString('0.9')))
-      assert.assertTrue(er.usdToEurRate.lt(BigDecimal.fromString('0.95')))
+      // usdToEur = 1 / 1.085 ≈ 0.9217
+      assert.assertTrue(er.usdToEurRate.gt(BigDecimal.fromString('0.921')))
+      assert.assertTrue(er.usdToEurRate.lt(BigDecimal.fromString('0.923')))
 
-      assert.assertTrue(er.usdToGbpRate.gt(BigDecimal.fromString('0.75')))
-      assert.assertTrue(er.usdToGbpRate.lt(BigDecimal.fromString('0.8')))
+      // usdToGbp = 1 / 1.293 ≈ 0.7734
+      assert.assertTrue(er.usdToGbpRate.gt(BigDecimal.fromString('0.773')))
+      assert.assertTrue(er.usdToGbpRate.lt(BigDecimal.fromString('0.774')))
 
-      assert.assertTrue(er.usdToCnyRate.gt(BigDecimal.fromString('7')))
-      assert.assertTrue(er.usdToCnyRate.lt(BigDecimal.fromString('7.5')))
+      // usdToCny = 1 / 0.137 ≈ 7.2993
+      assert.assertTrue(er.usdToCnyRate.gt(BigDecimal.fromString('7.29')))
+      assert.assertTrue(er.usdToCnyRate.lt(BigDecimal.fromString('7.31')))
 
-      assert.assertTrue(er.usdToJpyRate.gt(BigDecimal.fromString('148')))
-      assert.assertTrue(er.usdToJpyRate.lt(BigDecimal.fromString('150')))
+      // usdToJpy = 1 / 0.00671 ≈ 149.03
+      assert.assertTrue(er.usdToJpyRate.gt(BigDecimal.fromString('149.0')))
+      assert.assertTrue(er.usdToJpyRate.lt(BigDecimal.fromString('149.1')))
 
-      assert.assertTrue(er.usdToKrwRate.gt(BigDecimal.fromString('1380')))
-      assert.assertTrue(er.usdToKrwRate.lt(BigDecimal.fromString('1400')))
+      // usdToKrw = 1 / 0.00072 ≈ 1388.89
+      assert.assertTrue(er.usdToKrwRate.gt(BigDecimal.fromString('1388')))
+      assert.assertTrue(er.usdToKrwRate.lt(BigDecimal.fromString('1390')))
 
-      assert.assertTrue(er.usdToAudRate.gt(BigDecimal.fromString('1.55')))
-      assert.assertTrue(er.usdToAudRate.lt(BigDecimal.fromString('1.6')))
+      // usdToAud = 1 / 0.635 ≈ 1.5748
+      assert.assertTrue(er.usdToAudRate.gt(BigDecimal.fromString('1.574')))
+      assert.assertTrue(er.usdToAudRate.lt(BigDecimal.fromString('1.576')))
 
       // Uniswap rates — direct formula: sqrtPrice^2 / 2^192 * assetsUsdRate
-      // SWISE ≈ $0.01
-      assert.assertTrue(er.swiseUsdRate.gt(BigDecimal.fromString('0.005')))
-      assert.assertTrue(er.swiseUsdRate.lt(BigDecimal.fromString('0.02')))
+      // SWISE ≈ $0.01001
+      assert.assertTrue(er.swiseUsdRate.gt(BigDecimal.fromString('0.0099')))
+      assert.assertTrue(er.swiseUsdRate.lt(BigDecimal.fromString('0.0102')))
 
-      // SSV ≈ $7
-      assert.assertTrue(er.ssvUsdRate.gt(BigDecimal.fromString('5')))
-      assert.assertTrue(er.ssvUsdRate.lt(BigDecimal.fromString('10')))
+      // SSV ≈ $6.998
+      assert.assertTrue(er.ssvUsdRate.gt(BigDecimal.fromString('6.99')))
+      assert.assertTrue(er.ssvUsdRate.lt(BigDecimal.fromString('7.01')))
 
-      // OBOL ≈ $0.14
-      assert.assertTrue(er.obolUsdRate.gt(BigDecimal.fromString('0.1')))
-      assert.assertTrue(er.obolUsdRate.lt(BigDecimal.fromString('0.2')))
+      // OBOL ≈ $0.14002
+      assert.assertTrue(er.obolUsdRate.gt(BigDecimal.fromString('0.139')))
+      assert.assertTrue(er.obolUsdRate.lt(BigDecimal.fromString('0.141')))
 
-      // LYX ≈ $0.307 — inverted formula: 1 / (sqrtPrice^2 / 2^192) * assetsUsdRate
-      assert.assertTrue(er.lyxUsdRate.gt(BigDecimal.fromString('0.28')))
-      assert.assertTrue(er.lyxUsdRate.lt(BigDecimal.fromString('0.35')))
+      // LYX ≈ $0.3074 — inverted formula: 1 / (sqrtPrice^2 / 2^192) * assetsUsdRate
+      assert.assertTrue(er.lyxUsdRate.gt(BigDecimal.fromString('0.306')))
+      assert.assertTrue(er.lyxUsdRate.lt(BigDecimal.fromString('0.309')))
 
       // Gnosis-only rates are zero on mainnet
       assert.assertTrue(er.sdaiUsdRate.equals(BigDecimal.zero()))
