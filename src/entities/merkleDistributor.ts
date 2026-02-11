@@ -80,6 +80,7 @@ export function createOrLoadDistributorClaim(user: Address): DistributorClaim {
   let claim = DistributorClaim.load(user.toHex())
   if (claim === null) {
     claim = new DistributorClaim(user.toHex())
+    claim.distributor = distributorId
     claim.user = user
     claim.tokens = []
     claim.cumulativeAmounts = []
