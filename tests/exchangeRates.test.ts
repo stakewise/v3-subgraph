@@ -192,49 +192,19 @@ describe('exchangeRates', () => {
   })
 
   describe('handlePoolCreated', () => {
-    test('creates SWISE/WETH pool', () => {
-      const p = pools[0]
-      const event = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
-      handlePoolCreated(event)
+    test('creates each supported pool with correct fields', () => {
+      for (let i = 0; i < pools.length; i++) {
+        clearStore()
+        const p = pools[i]
+        const event = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
+        handlePoolCreated(event)
 
-      assert.entityCount('UniswapPool', 1)
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token0', p.token0.toHexString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token1', p.token1.toHexString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'feeTier', p.fee.toString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'sqrtPrice', '0')
-    })
-
-    test('creates SSV/WETH pool', () => {
-      const p = pools[1]
-      const event = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
-      handlePoolCreated(event)
-
-      assert.entityCount('UniswapPool', 1)
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token0', p.token0.toHexString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token1', p.token1.toHexString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'feeTier', p.fee.toString())
-    })
-
-    test('creates OBOL/WETH pool', () => {
-      const p = pools[2]
-      const event = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
-      handlePoolCreated(event)
-
-      assert.entityCount('UniswapPool', 1)
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token0', p.token0.toHexString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token1', p.token1.toHexString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'feeTier', p.fee.toString())
-    })
-
-    test('creates WETH/LYX pool (inverted token order)', () => {
-      const p = pools[3]
-      const event = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
-      handlePoolCreated(event)
-
-      assert.entityCount('UniswapPool', 1)
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token0', p.token0.toHexString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token1', p.token1.toHexString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'feeTier', p.fee.toString())
+        assert.entityCount('UniswapPool', 1)
+        assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token0', p.token0.toHexString())
+        assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token1', p.token1.toHexString())
+        assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'feeTier', p.fee.toString())
+        assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'sqrtPrice', '0')
+      }
     })
 
     test('creates all 4 pools from sequential events', () => {
@@ -255,88 +225,28 @@ describe('exchangeRates', () => {
   })
 
   describe('handleSwap', () => {
-    test('updates SWISE pool sqrtPrice and tick', () => {
-      const p = pools[0]
-      const createEvent = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
-      handlePoolCreated(createEvent)
+    test('updates sqrtPrice and tick for each pool', () => {
+      for (let i = 0; i < pools.length; i++) {
+        clearStore()
+        const p = pools[i]
+        const createEvent = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
+        handlePoolCreated(createEvent)
 
-      const swapEvent = createSwapEvent(
-        p.pool,
-        SENDER,
-        RECIPIENT,
-        BigInt.fromString('-500000000000000000'),
-        BigInt.fromString('1000000000000000000'),
-        p.sqrtPrice,
-        BigInt.fromString('1000000000000000000'),
-        p.tick,
-      )
-      handleSwap(swapEvent)
+        const swapEvent = createSwapEvent(
+          p.pool,
+          SENDER,
+          RECIPIENT,
+          BigInt.fromString('-500000000000000000'),
+          BigInt.fromString('1000000000000000000'),
+          p.sqrtPrice,
+          BigInt.fromString('1000000000000000000'),
+          p.tick,
+        )
+        handleSwap(swapEvent)
 
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'sqrtPrice', p.sqrtPrice.toString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'tick', p.tick.toString())
-    })
-
-    test('updates SSV pool sqrtPrice and tick', () => {
-      const p = pools[1]
-      const createEvent = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
-      handlePoolCreated(createEvent)
-
-      const swapEvent = createSwapEvent(
-        p.pool,
-        SENDER,
-        RECIPIENT,
-        BigInt.fromString('-500000000000000000'),
-        BigInt.fromString('1000000000000000000'),
-        p.sqrtPrice,
-        BigInt.fromString('1000000000000000000'),
-        p.tick,
-      )
-      handleSwap(swapEvent)
-
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'sqrtPrice', p.sqrtPrice.toString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'tick', p.tick.toString())
-    })
-
-    test('updates OBOL pool sqrtPrice and tick', () => {
-      const p = pools[2]
-      const createEvent = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
-      handlePoolCreated(createEvent)
-
-      const swapEvent = createSwapEvent(
-        p.pool,
-        SENDER,
-        RECIPIENT,
-        BigInt.fromString('-500000000000000000'),
-        BigInt.fromString('1000000000000000000'),
-        p.sqrtPrice,
-        BigInt.fromString('1000000000000000000'),
-        p.tick,
-      )
-      handleSwap(swapEvent)
-
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'sqrtPrice', p.sqrtPrice.toString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'tick', p.tick.toString())
-    })
-
-    test('updates LYX pool sqrtPrice and tick', () => {
-      const p = pools[3]
-      const createEvent = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
-      handlePoolCreated(createEvent)
-
-      const swapEvent = createSwapEvent(
-        p.pool,
-        SENDER,
-        RECIPIENT,
-        BigInt.fromString('-153959131019660405'),
-        BigInt.fromString('1000000000000000000000'),
-        p.sqrtPrice,
-        BigInt.fromString('9607513283917780802323'),
-        p.tick,
-      )
-      handleSwap(swapEvent)
-
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'sqrtPrice', p.sqrtPrice.toString())
-      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'tick', p.tick.toString())
+        assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'sqrtPrice', p.sqrtPrice.toString())
+        assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'tick', p.tick.toString())
+      }
     })
 
     test('ignores swap for unknown pool', () => {
