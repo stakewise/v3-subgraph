@@ -29,20 +29,94 @@ import {
   SOL_USD_PRICE_FEED,
   USDS_USD_PRICE_FEED,
   SUSDS_TOKEN,
+  UNISWAP_FACTORY,
 } from '../src/helpers/constants'
 
-// Real swap data from LYX/WETH pool
-const LYX_SQRT_PRICE_X96 = BigInt.fromString('6248183018687580866187648848439')
-
-// On-chain: WETH (0xC02a...) < LYX (0xC210...) so WETH=token0, LYX=token1
-const LYX_ADDRESS = Address.fromString(LYX_TOKEN)
+const FACTORY_ADDRESS = UNISWAP_FACTORY
 const WETH_ADDRESS = Address.fromString(ASSET_TOKEN)
-const POOL_ADDRESS = Address.fromString(LYX_ASSET_UNI_POOL)
-const FACTORY_ADDRESS = Address.fromString('0x1F98431c8aD98523631AE4a59f267346ea31F984')
 const RANDOM_TOKEN = Address.fromString('0x0000000000000000000000000000000000000001')
 const RANDOM_POOL = Address.fromString('0x0000000000000000000000000000000000000002')
 const SENDER = Address.fromString('0x0000000000000000000000000000000000000003')
 const RECIPIENT = Address.fromString('0x0000000000000000000000000000000000000004')
+
+// Pool configs: token ordering matches on-chain address sort
+// SWISE (0x48c3) < WETH (0xC02a) → SWISE=token0, direct formula
+// SSV   (0x9d65) < WETH (0xC02a) → SSV=token0,   direct formula
+// OBOL  (0x0b01) < WETH (0xC02a) → OBOL=token0,  direct formula
+// LYX   (0xC210) > WETH (0xC02a) → WETH=token0,  inverted formula
+class PoolConfig {
+  name: string
+  token0: Address
+  token1: Address
+  pool: Address
+  fee: i32
+  tickSpacing: i32
+  sqrtPrice: BigInt
+  tick: i32
+
+  constructor(
+    name: string,
+    token0: Address,
+    token1: Address,
+    pool: Address,
+    fee: i32,
+    tickSpacing: i32,
+    sqrtPrice: BigInt,
+    tick: i32,
+  ) {
+    this.name = name
+    this.token0 = token0
+    this.token1 = token1
+    this.pool = pool
+    this.fee = fee
+    this.tickSpacing = tickSpacing
+    this.sqrtPrice = sqrtPrice
+    this.tick = tick
+  }
+}
+
+const SWISE_POOL = new PoolConfig(
+  'SWISE',
+  SWISE_TOKEN as Address,
+  WETH_ADDRESS,
+  Address.fromString(SWISE_ASSET_UNI_POOL),
+  10000,
+  200,
+  BigInt.fromString('181300000000000000000000000'),
+  -128000,
+)
+const SSV_POOL = new PoolConfig(
+  'SSV',
+  Address.fromString(SSV_TOKEN),
+  WETH_ADDRESS,
+  Address.fromString(SSV_ASSET_UNI_POOL),
+  3000,
+  60,
+  BigInt.fromString('4793000000000000000000000000'),
+  -22000,
+)
+const OBOL_POOL = new PoolConfig(
+  'OBOL',
+  Address.fromString(OBOL_TOKEN),
+  WETH_ADDRESS,
+  Address.fromString(OBOL_ASSET_UNI_POOL),
+  10000,
+  200,
+  BigInt.fromString('678000000000000000000000000'),
+  -68000,
+)
+const LYX_POOL = new PoolConfig(
+  'LYX',
+  WETH_ADDRESS,
+  Address.fromString(LYX_TOKEN),
+  Address.fromString(LYX_ASSET_UNI_POOL),
+  10000,
+  200,
+  BigInt.fromString('6248183018687580866187648848439'),
+  87704,
+)
+
+const pools: PoolConfig[] = [SWISE_POOL, SSV_POOL, OBOL_POOL, LYX_POOL]
 
 // Mirrors src/helpers/utils.ts encodeContractCall
 function encodeCall(target: Address, data: Bytes): ethereum.Value {
@@ -68,7 +142,6 @@ function mockMulticallResponses(responses: BigInt[]): void {
   const multicallAddr = Address.fromString(MULTICALL)
   const sig = 'tryAggregate(bool,(address,bytes)[]):((bool,bytes)[])'
 
-  // Build the exact same calldata that updateExchangeRates constructs
   const latestAnswerCall = Bytes.fromHexString('0x50d25bcd')
   const decimalsInt = BigInt.fromString('100000000')
   const encodedArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(decimalsInt))!
@@ -91,7 +164,7 @@ function mockMulticallResponses(responses: BigInt[]): void {
     encodeCall(Address.fromString(SUSDS_TOKEN), convertToAssetsCall),
   ]
 
-  // chunkedMulticall uses chunkSize=10, so: chunk1=[0..9], chunk2=[10..12]
+  // chunkedMulticall uses chunkSize=10: chunk1=[0..9], chunk2=[10..12]
   createMockedFunction(multicallAddr, 'tryAggregate', sig)
     .withArgs([ethereum.Value.fromBoolean(false), ethereum.Value.fromArray(allCalls.slice(0, 10))])
     .returns([buildResultTuples(responses.slice(0, 10))])
@@ -101,21 +174,76 @@ function mockMulticallResponses(responses: BigInt[]): void {
     .returns([buildResultTuples(responses.slice(10, 13))])
 }
 
-describe('lyxUsdRate', () => {
+function setupUniswapPools(): void {
+  for (let i = 0; i < pools.length; i++) {
+    const p = pools[i]
+    const pool = new UniswapPool(p.pool.toHex())
+    pool.token0 = p.token0
+    pool.token1 = p.token1
+    pool.feeTier = BigInt.fromI32(p.fee)
+    pool.sqrtPrice = p.sqrtPrice
+    pool.save()
+  }
+}
+
+describe('exchangeRates', () => {
   afterEach(() => {
     clearStore()
   })
 
   describe('handlePoolCreated', () => {
-    test('creates UniswapPool entity for LYX/WETH pool', () => {
-      const event = createPoolCreatedEvent(FACTORY_ADDRESS, WETH_ADDRESS, LYX_ADDRESS, 10000, 200, POOL_ADDRESS)
+    test('creates SWISE/WETH pool', () => {
+      const p = pools[0]
+      const event = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
       handlePoolCreated(event)
 
       assert.entityCount('UniswapPool', 1)
-      assert.fieldEquals('UniswapPool', POOL_ADDRESS.toHexString(), 'token0', WETH_ADDRESS.toHexString())
-      assert.fieldEquals('UniswapPool', POOL_ADDRESS.toHexString(), 'token1', LYX_ADDRESS.toHexString())
-      assert.fieldEquals('UniswapPool', POOL_ADDRESS.toHexString(), 'feeTier', '10000')
-      assert.fieldEquals('UniswapPool', POOL_ADDRESS.toHexString(), 'sqrtPrice', '0')
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token0', p.token0.toHexString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token1', p.token1.toHexString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'feeTier', p.fee.toString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'sqrtPrice', '0')
+    })
+
+    test('creates SSV/WETH pool', () => {
+      const p = pools[1]
+      const event = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
+      handlePoolCreated(event)
+
+      assert.entityCount('UniswapPool', 1)
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token0', p.token0.toHexString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token1', p.token1.toHexString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'feeTier', p.fee.toString())
+    })
+
+    test('creates OBOL/WETH pool', () => {
+      const p = pools[2]
+      const event = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
+      handlePoolCreated(event)
+
+      assert.entityCount('UniswapPool', 1)
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token0', p.token0.toHexString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token1', p.token1.toHexString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'feeTier', p.fee.toString())
+    })
+
+    test('creates WETH/LYX pool (inverted token order)', () => {
+      const p = pools[3]
+      const event = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
+      handlePoolCreated(event)
+
+      assert.entityCount('UniswapPool', 1)
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token0', p.token0.toHexString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'token1', p.token1.toHexString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'feeTier', p.fee.toString())
+    })
+
+    test('creates all 4 pools from sequential events', () => {
+      for (let i = 0; i < pools.length; i++) {
+        const p = pools[i]
+        const event = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
+        handlePoolCreated(event)
+      }
+      assert.entityCount('UniswapPool', 4)
     })
 
     test('ignores pool when neither token is supported', () => {
@@ -127,24 +255,88 @@ describe('lyxUsdRate', () => {
   })
 
   describe('handleSwap', () => {
-    test('updates sqrtPrice and tick on swap', () => {
-      const createEvent = createPoolCreatedEvent(FACTORY_ADDRESS, WETH_ADDRESS, LYX_ADDRESS, 10000, 200, POOL_ADDRESS)
+    test('updates SWISE pool sqrtPrice and tick', () => {
+      const p = pools[0]
+      const createEvent = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
       handlePoolCreated(createEvent)
 
       const swapEvent = createSwapEvent(
-        POOL_ADDRESS,
+        p.pool,
+        SENDER,
+        RECIPIENT,
+        BigInt.fromString('-500000000000000000'),
+        BigInt.fromString('1000000000000000000'),
+        p.sqrtPrice,
+        BigInt.fromString('1000000000000000000'),
+        p.tick,
+      )
+      handleSwap(swapEvent)
+
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'sqrtPrice', p.sqrtPrice.toString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'tick', p.tick.toString())
+    })
+
+    test('updates SSV pool sqrtPrice and tick', () => {
+      const p = pools[1]
+      const createEvent = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
+      handlePoolCreated(createEvent)
+
+      const swapEvent = createSwapEvent(
+        p.pool,
+        SENDER,
+        RECIPIENT,
+        BigInt.fromString('-500000000000000000'),
+        BigInt.fromString('1000000000000000000'),
+        p.sqrtPrice,
+        BigInt.fromString('1000000000000000000'),
+        p.tick,
+      )
+      handleSwap(swapEvent)
+
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'sqrtPrice', p.sqrtPrice.toString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'tick', p.tick.toString())
+    })
+
+    test('updates OBOL pool sqrtPrice and tick', () => {
+      const p = pools[2]
+      const createEvent = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
+      handlePoolCreated(createEvent)
+
+      const swapEvent = createSwapEvent(
+        p.pool,
+        SENDER,
+        RECIPIENT,
+        BigInt.fromString('-500000000000000000'),
+        BigInt.fromString('1000000000000000000'),
+        p.sqrtPrice,
+        BigInt.fromString('1000000000000000000'),
+        p.tick,
+      )
+      handleSwap(swapEvent)
+
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'sqrtPrice', p.sqrtPrice.toString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'tick', p.tick.toString())
+    })
+
+    test('updates LYX pool sqrtPrice and tick', () => {
+      const p = pools[3]
+      const createEvent = createPoolCreatedEvent(FACTORY_ADDRESS, p.token0, p.token1, p.fee, p.tickSpacing, p.pool)
+      handlePoolCreated(createEvent)
+
+      const swapEvent = createSwapEvent(
+        p.pool,
         SENDER,
         RECIPIENT,
         BigInt.fromString('-153959131019660405'),
         BigInt.fromString('1000000000000000000000'),
-        LYX_SQRT_PRICE_X96,
+        p.sqrtPrice,
         BigInt.fromString('9607513283917780802323'),
-        87704,
+        p.tick,
       )
       handleSwap(swapEvent)
 
-      assert.fieldEquals('UniswapPool', POOL_ADDRESS.toHexString(), 'sqrtPrice', LYX_SQRT_PRICE_X96.toString())
-      assert.fieldEquals('UniswapPool', POOL_ADDRESS.toHexString(), 'tick', '87704')
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'sqrtPrice', p.sqrtPrice.toString())
+      assert.fieldEquals('UniswapPool', p.pool.toHexString(), 'tick', p.tick.toString())
     })
 
     test('ignores swap for unknown pool', () => {
@@ -152,11 +344,11 @@ describe('lyxUsdRate', () => {
         RANDOM_POOL,
         SENDER,
         RECIPIENT,
-        BigInt.fromString('-153959131019660405'),
-        BigInt.fromString('1000000000000000000000'),
-        LYX_SQRT_PRICE_X96,
-        BigInt.fromString('9607513283917780802323'),
-        87704,
+        BigInt.fromString('-500000000000000000'),
+        BigInt.fromString('1000000000000000000'),
+        BigInt.fromString('1000000000000000000'),
+        BigInt.fromString('1000000000000000000'),
+        0,
       )
       handleSwap(swapEvent)
 
@@ -175,43 +367,12 @@ describe('lyxUsdRate', () => {
       osToken.totalAssets = BigInt.fromString('1050000000000000000')
       osToken.save()
 
-      // --- Setup UniswapPool entities ---
-
-      // SWISE pool (SWISE < WETH by address, SWISE=token0)
-      const swisePool = new UniswapPool(Address.fromString(SWISE_ASSET_UNI_POOL).toHex())
-      swisePool.token0 = SWISE_TOKEN
-      swisePool.token1 = Address.fromString(ASSET_TOKEN)
-      swisePool.feeTier = BigInt.fromI32(10000)
-      swisePool.sqrtPrice = BigInt.fromString('181300000000000000000000000') // ~$0.01
-      swisePool.save()
-
-      // SSV pool (SSV < WETH by address, SSV=token0)
-      const ssvPool = new UniswapPool(Address.fromString(SSV_ASSET_UNI_POOL).toHex())
-      ssvPool.token0 = Address.fromString(SSV_TOKEN)
-      ssvPool.token1 = Address.fromString(ASSET_TOKEN)
-      ssvPool.feeTier = BigInt.fromI32(3000)
-      ssvPool.sqrtPrice = BigInt.fromString('4793000000000000000000000000') // ~$7
-      ssvPool.save()
-
-      // OBOL pool (OBOL < WETH by address, OBOL=token0)
-      const obolPool = new UniswapPool(Address.fromString(OBOL_ASSET_UNI_POOL).toHex())
-      obolPool.token0 = Address.fromString(OBOL_TOKEN)
-      obolPool.token1 = Address.fromString(ASSET_TOKEN)
-      obolPool.feeTier = BigInt.fromI32(10000)
-      obolPool.sqrtPrice = BigInt.fromString('678000000000000000000000000') // ~$0.14
-      obolPool.save()
-
-      // LYX pool (WETH < LYX by address, WETH=token0 → inverted formula)
-      const lyxPool = new UniswapPool(Address.fromString(LYX_ASSET_UNI_POOL).toHex())
-      lyxPool.token0 = Address.fromString(ASSET_TOKEN)
-      lyxPool.token1 = Address.fromString(LYX_TOKEN)
-      lyxPool.feeTier = BigInt.fromI32(10000)
-      lyxPool.sqrtPrice = LYX_SQRT_PRICE_X96
-      lyxPool.save()
+      // --- Setup all 4 UniswapPool entities ---
+      setupUniswapPools()
 
       // --- Mock Multicall tryAggregate ---
       // Mainnet: 12 Chainlink oracle calls + 1 sUSDS convertToAssets = 13 responses
-      // All values are int256 with 8 decimals (Chainlink standard)
+      // All Chainlink values are int256 with 8 decimals
       mockMulticallResponses([
         BigInt.fromString('191200000000'), //  [0] ETH/USD    = $1912
         BigInt.fromString('108500000'), //     [1] EUR/USD    = 1.085
@@ -263,31 +424,25 @@ describe('lyxUsdRate', () => {
       assert.assertTrue(er.susdsUsdRate.lt(BigDecimal.fromString('1.06')))
 
       // Forex inversions (1 / chainlinkRate)
-      // usdToEurRate = 1 / 1.085 ≈ 0.9217
       assert.assertTrue(er.usdToEurRate.gt(BigDecimal.fromString('0.9')))
       assert.assertTrue(er.usdToEurRate.lt(BigDecimal.fromString('0.95')))
 
-      // usdToGbpRate = 1 / 1.293 ≈ 0.7734
       assert.assertTrue(er.usdToGbpRate.gt(BigDecimal.fromString('0.75')))
       assert.assertTrue(er.usdToGbpRate.lt(BigDecimal.fromString('0.8')))
 
-      // usdToCnyRate = 1 / 0.137 ≈ 7.30
       assert.assertTrue(er.usdToCnyRate.gt(BigDecimal.fromString('7')))
       assert.assertTrue(er.usdToCnyRate.lt(BigDecimal.fromString('7.5')))
 
-      // usdToJpyRate = 1 / 0.00671 ≈ 149.03
       assert.assertTrue(er.usdToJpyRate.gt(BigDecimal.fromString('148')))
       assert.assertTrue(er.usdToJpyRate.lt(BigDecimal.fromString('150')))
 
-      // usdToKrwRate = 1 / 0.00072 ≈ 1388.89
       assert.assertTrue(er.usdToKrwRate.gt(BigDecimal.fromString('1380')))
       assert.assertTrue(er.usdToKrwRate.lt(BigDecimal.fromString('1400')))
 
-      // usdToAudRate = 1 / 0.635 ≈ 1.5748
       assert.assertTrue(er.usdToAudRate.gt(BigDecimal.fromString('1.55')))
       assert.assertTrue(er.usdToAudRate.lt(BigDecimal.fromString('1.6')))
 
-      // Uniswap rates (direct formula: sqrtPrice^2 / 2^192 * assetsUsdRate)
+      // Uniswap rates — direct formula: sqrtPrice^2 / 2^192 * assetsUsdRate
       // SWISE ≈ $0.01
       assert.assertTrue(er.swiseUsdRate.gt(BigDecimal.fromString('0.005')))
       assert.assertTrue(er.swiseUsdRate.lt(BigDecimal.fromString('0.02')))
@@ -300,7 +455,7 @@ describe('lyxUsdRate', () => {
       assert.assertTrue(er.obolUsdRate.gt(BigDecimal.fromString('0.1')))
       assert.assertTrue(er.obolUsdRate.lt(BigDecimal.fromString('0.2')))
 
-      // LYX ≈ $0.307 (inverted formula: 1 / (sqrtPrice^2 / 2^192) * assetsUsdRate)
+      // LYX ≈ $0.307 — inverted formula: 1 / (sqrtPrice^2 / 2^192) * assetsUsdRate
       assert.assertTrue(er.lyxUsdRate.gt(BigDecimal.fromString('0.28')))
       assert.assertTrue(er.lyxUsdRate.lt(BigDecimal.fromString('0.35')))
 
