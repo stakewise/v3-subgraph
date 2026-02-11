@@ -1059,6 +1059,9 @@ type Distributor @entity(immutable: false) {
 
   "The list of active distributor addresses"
   activeDistributors: [Bytes!]!
+
+  "The list of distributor claims"
+  claims: [DistributorClaim!]! @derivedFrom(field: "distributor")
 }
 
 enum DistributionType {
@@ -1118,6 +1121,9 @@ type DistributorReward @entity(immutable: false) {
 type DistributorClaim @entity(immutable: false) {
   "Set to `user address`"
   id: ID!
+
+  "The distributor"
+  distributor: Distributor!
 
   "The address of the user"
   user: Bytes!
