@@ -299,7 +299,9 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   if (lyxAssetUniPool.notEqual(Address.zero())) {
     const pool = UniswapPool.load(lyxAssetUniPool.toHex())
     if (pool !== null) {
-      const lyxAssetRate = new BigDecimal(pool.sqrtPrice.pow(2)).div(new BigDecimal(BigInt.fromI32(2).pow(192)))
+      const lyxAssetRate = new BigDecimal(BigInt.fromI32(1)).div(
+        new BigDecimal(pool.sqrtPrice.pow(2)).div(new BigDecimal(BigInt.fromI32(2).pow(192))),
+      )
       lyxUsdRate = lyxAssetRate.times(assetsUsdRate)
     }
   }
