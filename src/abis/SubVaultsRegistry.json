@@ -1,7 +1,7 @@
 [
   {
     "type": "function",
-    "name": "subVaultsRegistry",
+    "name": "metaVault",
     "inputs": [],
     "outputs": [
       {
@@ -17,12 +17,6 @@
     "name": "SubVaultAdded",
     "inputs": [
       {
-        "name": "caller",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
         "name": "vault",
         "type": "address",
         "indexed": true,
@@ -35,12 +29,6 @@
     "type": "event",
     "name": "SubVaultEjected",
     "inputs": [
-      {
-        "name": "caller",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
       {
         "name": "vault",
         "type": "address",
@@ -55,32 +43,7 @@
     "name": "SubVaultEjecting",
     "inputs": [
       {
-        "name": "caller",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
         "name": "vault",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "SubVaultsCuratorUpdated",
-    "inputs": [
-      {
-        "name": "caller",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "curator",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -97,6 +60,32 @@
         "type": "int256",
         "indexed": false,
         "internalType": "int256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MetaSubVaultProposed",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MetaSubVaultRejected",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false
