@@ -1,7 +1,12 @@
-const { readFileSync, writeFileSync } = require('fs')
+const { readFileSync, writeFileSync, copyFileSync } = require('fs')
 const path = require('path')
 
 const schemaPath = path.join(__dirname, '..', 'generated', 'schema.ts')
+const backupPath = schemaPath + '.bak'
+
+copyFileSync(schemaPath, backupPath)
+console.log('Backed up schema.ts → schema.ts.bak')
+
 let content = readFileSync(schemaPath, 'utf8')
 
 const target = 'store.set("ExchangeRateSnapshot", id.toI64().toString(), this);'
