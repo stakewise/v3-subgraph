@@ -164,20 +164,20 @@ function mockMulticallResponses(responses: BigInt[]): void {
     encodeCall(Address.fromString(SUSDS_TOKEN), convertToAssetsCall),
   ]
 
-  // chunkedMulticall uses chunkSize=10: chunk1=[0..9], chunk2=[10..12]
-  createMockedFunction(multicallAddr, 'tryAggregate', sig)
-    .withArgs([ethereum.Value.fromBoolean(false), ethereum.Value.fromArray(allCalls.slice(0, 10))])
-    .returns([buildResultTuples(responses.slice(0, 10))])
-
-  createMockedFunction(multicallAddr, 'tryAggregate', sig)
-    .withArgs([ethereum.Value.fromBoolean(false), ethereum.Value.fromArray(allCalls.slice(10, 13))])
-    .returns([buildResultTuples(responses.slice(10, 13))])
+  // Mock each chunk dynamically, mirroring the chunkedMulticall loop in src/helpers/utils.ts
+  const chunkSize = 10 // must match the default chunkSize used by updateExchangeRates
+  for (let i = 0; i < allCalls.length; i += chunkSize) {
+    const end = i + chunkSize < allCalls.length ? i + chunkSize : allCalls.length
+    createMockedFunction(multicallAddr, 'tryAggregate', sig)
+      .withArgs([ethereum.Value.fromBoolean(false), ethereum.Value.fromArray(allCalls.slice(i, end))])
+      .returns([buildResultTuples(responses.slice(i, end))])
+  }
 }
 
 function setupUniswapPools(): void {
   for (let i = 0; i < pools.length; i++) {
     const p = pools[i]
-    const pool = new UniswapPool(p.pool.toHex())
+    const pool = new UniswapPool(p.pool.toHexString())
     pool.token0 = p.token0
     pool.token1 = p.token1
     pool.feeTier = BigInt.fromI32(p.fee)
