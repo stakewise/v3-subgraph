@@ -22,6 +22,7 @@ import {
   ERC20_VAULT_FACTORY_V2,
   ERC20_VAULT_FACTORY_V3,
   ERC20_VAULT_FACTORY_V5,
+  COMMUNITY_VAULT,
   FOX_VAULT1,
   FOX_VAULT2,
   META_VAULT_FACTORY_V3,
@@ -48,6 +49,7 @@ import {
   VAULT_FACTORY_V5,
 } from '../helpers/constants'
 import {
+  CommunityVault as CommunityVaultTemplate,
   FoxVault as FoxVaultTemplate,
   MetaVaultFactory as MetaVaultFactoryTemplate,
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
@@ -116,6 +118,7 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   const rewardSplitterFactoryV3 = Address.fromString(REWARD_SPLITTER_FACTORY_V3)
   const foxVault1 = Address.fromString(FOX_VAULT1)
   const foxVault2 = Address.fromString(FOX_VAULT2)
+  const communityVault = Address.fromString(COMMUNITY_VAULT)
   const metaVaultFactoryV3 = Address.fromString(META_VAULT_FACTORY_V3)
   const metaVaultFactoryV4 = Address.fromString(META_VAULT_FACTORY_V4)
   const metaVaultFactoryV5 = Address.fromString(META_VAULT_FACTORY_V5)
@@ -331,6 +334,11 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   if (foxVault2.notEqual(zeroAddress)) {
     FoxVaultTemplate.create(foxVault2)
     log.info('[Keeper] Initialize FoxVault2 at block={}', [blockNumber])
+  }
+
+  if (communityVault.notEqual(zeroAddress)) {
+    CommunityVaultTemplate.create(communityVault)
+    log.info('[Keeper] Initialize CommunityVault at block={}', [blockNumber])
   }
 
   log.info('[Keeper] Initialize hook complete at block={}', [blockNumber])
