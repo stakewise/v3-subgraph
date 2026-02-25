@@ -3,6 +3,7 @@ import { Address, BigDecimal, BigInt, Bytes, ethereum, ipfs, json, log } from '@
 import { Allocator, ExitRequest, SubVaultsRegistryMap, Vault } from '../../generated/schema'
 import {
   BlocklistVault as BlocklistVaultTemplate,
+  Erc20Vault as Erc20VaultTemplate,
   OwnMevEscrow as OwnMevEscrowTemplate,
   SubVaultsRegistry as SubVaultsRegistryTemplate,
   Vault as VaultTemplate,
@@ -31,6 +32,7 @@ import {
   ValidatorsRootUpdated,
 } from '../../generated/templates/Vault/Vault'
 import { GenesisVaultCreated, Migrated } from '../../generated/GenesisVault/GenesisVault'
+import { EthCommunityVaultCreated } from '../../generated/templates/CommunityVault/CommunityVault'
 import { EthFoxVaultCreated } from '../../generated/templates/FoxVault/FoxVault'
 
 import { updateMetadata } from '../entities/metadata'
@@ -916,6 +918,85 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
     feePercent.toString(),
     capacity.toString(),
     ownMevEscrow.toHex(),
+  ])
+}
+
+// Event emitted when CommunityVault is initialized
+export function handleCommunityVaultCreated(event: EthCommunityVaultCreated): void {
+  const vaultAddress = event.address
+  const vaultAddressHex = vaultAddress.toHex()
+  const params = event.params
+  const capacity = params.capacity
+  const feePercent = params.feePercent
+  const admin = params.admin
+  const nodesManager = params.nodesManager
+  const name = params.name
+  const symbol = params.symbol
+  const metadataIpfsHash = params.metadataIpfsHash
+
+  const vault = new Vault(vaultAddressHex)
+  vault.admin = admin
+  vault.factory = Address.zero()
+  vault.capacity = capacity
+  vault.feePercent = feePercent
+  vault.feeRecipient = nodesManager
+  vault.depositDataManager = Address.zero()
+  vault.validatorsManager = nodesManager
+  vault.consensusReward = BigInt.zero()
+  vault.lockedExecutionReward = BigInt.zero()
+  vault.unlockedExecutionReward = BigInt.zero()
+  vault.canHarvest = false
+  vault.slashedMevReward = BigInt.zero()
+  vault.totalShares = BigInt.zero()
+  vault.queuedShares = BigInt.zero()
+  vault.score = BigDecimal.zero()
+  vault.rate = BigInt.fromString(WAD)
+  vault.totalAssets = BigInt.zero()
+  vault.exitingAssets = BigInt.zero()
+  vault.exitingTickets = BigInt.zero()
+  vault.isPrivate = false
+  vault.isBlocklist = false
+  vault.isErc20 = true
+  vault.isMetaVault = false
+  vault.isOsTokenEnabled = true
+  vault.isCollateralized = false
+  vault.addressString = vaultAddressHex
+  vault.createdAt = event.block.timestamp
+  vault.baseApy = BigDecimal.zero()
+  vault.extraApy = BigDecimal.zero()
+  vault.apy = BigDecimal.zero()
+  vault.allocatorMaxBoostApy = BigDecimal.zero()
+  vault.isGenesis = false
+  vault.blocklistCount = BigInt.zero()
+  vault.whitelistCount = BigInt.zero()
+  vault.version = BigInt.fromI32(6)
+  vault.osTokenConfig = '2'
+  vault.tokenName = name
+  vault.tokenSymbol = symbol
+  vault.metadataIpfsHash = metadataIpfsHash
+  vault._periodEarnedAssets = BigInt.zero()
+  vault._unclaimedFeeRecipientShares = BigInt.zero()
+  vault._prevAllocatorAssets = BigInt.fromString(WAD)
+
+  vault.save()
+  VaultTemplate.create(vaultAddress)
+  Erc20VaultTemplate.create(vaultAddress)
+
+  const network = loadNetwork()!
+  network.vaultsCount = network.vaultsCount + 1
+  let vaultIds = network.vaultIds
+  vaultIds.push(vaultAddressHex)
+  network.vaultIds = vaultIds
+  network.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[CommunityVault] EthCommunityVaultCreated address={} admin={} nodesManager={} feePercent={} capacity={}', [
+    vaultAddressHex,
+    admin.toHex(),
+    nodesManager.toHex(),
+    feePercent.toString(),
+    capacity.toString(),
   ])
 }
 
