@@ -954,6 +954,26 @@ templates:
         - event: EthFoxVaultCreated(address,address,uint256,uint16,string)
           handler: handleFoxVaultCreated
   - kind: ethereum/contract
+    name: CommunityVault
+    network: {{ network }}
+    source:
+      abi: CommunityVault
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/vault.ts
+      entities:
+        - Network
+        - Vault
+        - Transaction
+      abis:
+        - name: CommunityVault
+          file: ./abis/CommunityVault.json
+      eventHandlers:
+        - event: EthCommunityVaultCreated(address,address,uint256,uint16,string,string,string)
+          handler: handleCommunityVaultCreated
+  - kind: ethereum/contract
     name: MetaVault
     network: {{ network }}
     source:
