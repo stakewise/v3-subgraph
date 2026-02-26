@@ -13,6 +13,19 @@
     "stateMutability": "view"
   },
   {
+    "type": "function",
+    "name": "canUpdateState",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
     "type": "event",
     "name": "SubVaultAdded",
     "inputs": [

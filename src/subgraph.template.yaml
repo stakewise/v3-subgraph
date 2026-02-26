@@ -1022,7 +1022,10 @@ templates:
         - SubVaultsRegistryMap
         - OsToken
         - OsTokenConfig
+        - VaultSnapshot
         - Allocator
+        - AllocatorSnapshot
+        - LeverageStrategyPosition
       abis:
         - name: SubVaultsRegistry
           file: ./abis/SubVaultsRegistry.json
