@@ -7,6 +7,8 @@ ENV ARGS=""
 RUN apt update \
   && apt install -y sudo curl postgresql postgresql-contrib
   
+# Node is only needed for container build utilities, not for test execution.
+# Matchstick runs its own binary. The version here doesn't need to match .nvmrc.
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - \
   && sudo apt-get install -y nodejs
 

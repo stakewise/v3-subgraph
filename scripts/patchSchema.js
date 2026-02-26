@@ -11,8 +11,12 @@ const replacement = 'return; // no-op: matchstick 0.6.0 lacks Timestamp support'
 
 const matches = content.match(targetRegex)
 if (!matches || matches.length === 0) {
-  console.log('ExchangeRateSnapshot.save() already patched or not found')
-  process.exit(0)
+  if (content.includes('no-op: matchstick 0.6.0 lacks Timestamp support')) {
+    console.log('ExchangeRateSnapshot.save() already patched')
+    process.exit(0)
+  }
+  console.error('ExchangeRateSnapshot store.set pattern not found — codegen format may have changed')
+  process.exit(1)
 }
 if (matches.length > 1) {
   console.error('Multiple ExchangeRateSnapshot.save() store.set occurrences found; refusing to patch')
