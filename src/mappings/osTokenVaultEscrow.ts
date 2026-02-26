@@ -1,4 +1,4 @@
-import { BigInt, log } from '@graphprotocol/graph-ts'
+import { Address, BigInt, log } from '@graphprotocol/graph-ts'
 import {
   ExitedAssetsClaimed,
   ExitedAssetsProcessed,
@@ -6,7 +6,13 @@ import {
   OsTokenRedeemed,
   PositionCreated,
 } from '../../generated/OsTokenVaultEscrow/OsTokenVaultEscrow'
-import { decreaseAllocatorMintedOsTokenShares, getAllocatorApy, loadAllocator } from '../entities/allocator'
+import {
+  decreaseAllocatorMintedOsTokenShares,
+  getAllocatorApy,
+  getAllocatorAssets,
+  loadAllocator,
+} from '../entities/allocator'
+import { isMainMetaVault, updateStaker } from '../entities/staker'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { createOrLoadOsTokenExitRequest, getExitRequestLtv } from '../entities/osTokenVaultEscrow'
@@ -30,8 +36,13 @@ export function handlePositionCreated(event: PositionCreated): void {
   const allocator = loadAllocator(owner, vaultAddress)!
 
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, osTokenShares)
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(owner)
+  }
 
   const osTokenExitRequest = createOrLoadOsTokenExitRequest(vaultAddress, exitPositionTicket)
   osTokenExitRequest.owner = owner
@@ -85,6 +96,10 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   osTokenExitRequest.ltv = getExitRequestLtv(osTokenExitRequest, osToken)
   osTokenExitRequest.save()
 
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(Address.fromBytes(osTokenExitRequest.owner))
+  }
+
   log.info('[OsTokenVaultEscrow] ExitedAssetsClaimed( vault={} exitPositionTicket={} osTokenShares={}', [
     vaultAddress.toHex(),
     exitPositionTicket.toHex(),
@@ -112,6 +127,10 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   osTokenExitRequest.ltv = getExitRequestLtv(osTokenExitRequest, osToken)
   osTokenExitRequest.save()
 
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(Address.fromBytes(osTokenExitRequest.owner))
+  }
+
   log.info('[OsTokenVaultEscrow] OsTokenLiquidated vault={} exitPositionTicket={} osTokenShares={}', [
     vaultAddress.toHex(),
     exitPositionTicket.toHex(),
@@ -138,6 +157,10 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   osTokenExitRequest.exitedAssets = osTokenExitRequest.exitedAssets!.minus(withdrawnAssets)
   osTokenExitRequest.ltv = getExitRequestLtv(osTokenExitRequest, osToken)
   osTokenExitRequest.save()
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(Address.fromBytes(osTokenExitRequest.owner))
+  }
 
   log.info('[OsTokenVaultEscrow] OsTokenRedeemed vault={} exitPositionTicket={} osTokenShares={}', [
     vaultAddress.toHex(),

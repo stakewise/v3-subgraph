@@ -18,11 +18,17 @@ type Allocator @entity(immutable: false) {
   "The allocator's shares amount"
   shares: BigInt!
 
-  "The allocator's assets amount"
+  "The allocator's staking assets"
   assets: BigInt!
 
   "The allocator's assets amount that are exiting"
   exitingAssets: BigInt!
+
+  "The allocator's exiting assets that still continue to earn staking rewards (V1 exit positions)"
+  stakingExitingAssets: BigInt!
+
+  "The allocator's total assets after unboosting, burning OsToken shares, and exiting all the assets"
+  totalAssets: BigInt!
 
   "The allocator's minted OsToken shares amount"
   mintedOsTokenShares: BigInt!
@@ -48,6 +54,9 @@ type Allocator @entity(immutable: false) {
   "Allocator's total earned assets from boost"
   totalBoostEarnedAssets: BigInt!
 
+  "Allocator's total earned assets from extra sources (fee recipient and reward splitter earnings)"
+  totalExtraEarnedAssets: BigInt!
+
   "The exit requests of the allocator"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "allocator")
 
@@ -62,6 +71,50 @@ type Allocator @entity(immutable: false) {
 
   "The total period OsToken shares minted as a fee"
   _periodOsTokenFeeShares: BigInt!
+
+  "The total period assets earned from being a fee recipient or holding reward splitter shares (zero for regular allocators)"
+  _periodExtraEarnedAssets: BigInt!
+}
+
+"""
+Staker in main meta vault
+"""
+type Staker @entity(immutable: false) {
+  "User address"
+  id: ID!
+
+  "The staker's address"
+  address: Bytes!
+
+  "The staker's total assets (vault stake + osToken holdings value)"
+  totalAssets: BigInt!
+
+  "The staker's average weekly APY"
+  apy: BigDecimal!
+
+  "Total earned assets from staking"
+  totalEarnedAssets: BigInt!
+
+  "The assets deposited/received during the current period"
+  _periodDepositedAssets: BigInt!
+
+  "The assets withdrawn/sent during the current period"
+  _periodWithdrawnAssets: BigInt!
+
+  "The assets from the previous snapshot (for APY calculation)"
+  _prevSnapshotAssets: BigInt
+}
+
+"""
+The snapshot of the Staker state
+"""
+type StakerSnapshot @entity(immutable: true) {
+  id: Bytes!
+  timestamp: Timestamp!
+  staker: Staker!
+  earnedAssets: BigInt!
+  totalAssets: BigInt!
+  apy: BigDecimal!
 }
 
 """
@@ -854,6 +907,7 @@ type AllocatorSnapshot @entity(immutable: true) {
   allocator: Allocator!
   stakeEarnedAssets: BigInt!
   boostEarnedAssets: BigInt!
+  extraEarnedAssets: BigInt!
   earnedAssets: BigInt!
   totalAssets: BigInt!
   apy: BigDecimal!

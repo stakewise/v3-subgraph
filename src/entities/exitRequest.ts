@@ -1,5 +1,5 @@
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
-import { ExitRequest, Network, Vault } from '../../generated/schema'
+import { ExitRequest, Vault } from '../../generated/schema'
 import { loadV2Pool } from './v2pool'
 import { convertSharesToAssets, getUpdateStateCall } from './vault'
 import { loadAllocator } from './allocator'
@@ -30,7 +30,7 @@ export function updateClaimableExitRequests(vault: Vault, timestamp: BigInt): vo
   }
 }
 
-export function updateExitRequests(network: Network, vault: Vault, timestamp: BigInt): void {
+export function updateExitRequests(vault: Vault, timestamp: BigInt): void {
   // If vault is in "genesis" mode, we need to wait for legacy migration
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     return
@@ -43,7 +43,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   const vaultAddr = Address.fromString(vault.id)
 
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
-  const updateStateCalls = getUpdateStateCall(vault)
+  const updateStateCall = getUpdateStateCall(vault)
 
   // ─────────────────────────────────────────────────────────────────────
   // STAGE 1: Query exitQueueIndex for all pending exit requests
@@ -64,7 +64,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   }
 
   // Execute in chunks of size 100
-  let stage1Results = chunkedMulticall(updateStateCalls, allCallsStage1, true, 100)
+  let stage1Results = chunkedMulticall(updateStateCall, allCallsStage1, true, 100)
 
   // Parse exitQueueIndex results
   for (let i = 0; i < stage1Results.length; i++) {
@@ -101,7 +101,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   }
 
   // Execute in chunks of size 100
-  let stage2Results = chunkedMulticall(updateStateCalls, allCallsStage2, true, 100)
+  let stage2Results = chunkedMulticall(updateStateCall, allCallsStage2, true, 100)
 
   // Parse and update each exitRequest
   const one = BigInt.fromI32(1)
@@ -116,7 +116,8 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
       // position was claimed in the current block, skip
       continue
     }
-    let totalAssetsBefore = exitRequest.totalAssets
+    const totalAssetsBefore = exitRequest.totalAssets
+    const stakingExitingAssetsBefore = totalAssetsBefore.minus(exitRequest.exitedAssets)
 
     // If multiple tickets remain, recalculate total assets. Otherwise, set total to exitedAssets.
     if (leftTickets.gt(one)) {
@@ -131,18 +132,29 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     exitRequest.isClaimable = _isExitRequestClaimable(vault, exitRequest, timestamp, isGnosis)
     exitRequest.save()
 
-    const totalAssetsDelta = exitRequest.totalAssets.minus(totalAssetsBefore)
-    if (totalAssetsDelta.isZero()) {
+    const exitingAssetsDelta = exitRequest.totalAssets.minus(totalAssetsBefore)
+    const stakingExitingAssetsDelta = exitRequest.totalAssets
+      .minus(exitRequest.exitedAssets)
+      .minus(stakingExitingAssetsBefore)
+    if (exitingAssetsDelta.isZero() && stakingExitingAssetsDelta.isZero()) {
       continue
     }
 
     const allocator = loadAllocator(Address.fromBytes(exitRequest.receiver), vaultAddr)
-    // if total assets are zero, it means the vault must apply the fix to the exit queue introduced in v4 vaults
-    if (allocator && exitRequest.totalAssets.gt(BigInt.zero())) {
-      allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(totalAssetsDelta)
-      allocator.exitingAssets = allocator.exitingAssets.plus(totalAssetsDelta)
-      allocator.save()
+    if (!allocator || exitRequest.totalAssets.equals(BigInt.zero())) {
+      // if total assets are zero, it means the vault must apply the fix to the exit queue introduced in v4 vaults
+      continue
     }
+
+    allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(exitingAssetsDelta)
+    allocator.exitingAssets = allocator.exitingAssets.plus(exitingAssetsDelta)
+
+    // Update stakingExitingAssets for V1 positions
+    if (!exitRequest.isV2Position) {
+      allocator.stakingExitingAssets = allocator.stakingExitingAssets.plus(stakingExitingAssetsDelta)
+    }
+
+    allocator.save()
   }
 }
 

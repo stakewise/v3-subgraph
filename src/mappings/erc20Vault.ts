@@ -6,9 +6,11 @@ import {
   createOrLoadAllocator,
   decreaseAllocatorShares,
   getAllocatorApy,
+  getAllocatorAssets,
   increaseAllocatorShares,
   loadAllocator,
 } from '../entities/allocator'
+import { isMainMetaVault, updateStaker } from '../entities/staker'
 import { createTransaction } from '../entities/transaction'
 import { convertSharesToAssets, loadVault } from '../entities/vault'
 import { loadOsToken } from '../entities/osToken'
@@ -37,15 +39,22 @@ export function handleTransfer(event: Transfer): void {
   const aave = loadAave()!
   const allocatorFrom = loadAllocator(from, vaultAddress)!
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocatorFrom, shares)
-  allocatorFrom.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocatorFrom)
+  allocatorFrom.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocatorFrom, false)
+  allocatorFrom.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocatorFrom, false)
   allocatorFrom.save()
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferOut, from, assets, shares)
 
   const allocatorTo = createOrLoadAllocator(to, vaultAddress)
   increaseAllocatorShares(osToken, osTokenConfig, vault, allocatorTo, shares)
-  allocatorTo.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocatorTo)
+  allocatorTo.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocatorTo, false)
+  allocatorTo.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocatorTo, false)
   allocatorTo.save()
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferIn, to, assets, shares)
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(from)
+    updateStaker(to)
+  }
 
   createTransaction(event.transaction.hash.toHex())
 
