@@ -1,5 +1,6 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log, store } from '@graphprotocol/graph-ts'
 import { SubVault, SubVaultsRegistryMap, Vault } from '../../generated/schema'
+import { SubVaultsRegistry as SubVaultsRegistryContract } from '../../generated/templates/SubVaultsRegistry/SubVaultsRegistry'
 import { MetaVaultCreated } from '../../generated/templates/MetaVaultFactory/MetaVaultFactory'
 import {
   Erc20Vault as Erc20VaultTemplate,
@@ -208,7 +209,12 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
   vault.exitingAssets = newExitingAssets
   vault.rate = newRate
   vault.rewardsRoot = subVault.rewardsRoot
-  vault.canHarvest = subVault.canHarvest
+  if (vault.subVaultsRegistry) {
+    const registry = SubVaultsRegistryContract.bind(Address.fromBytes(vault.subVaultsRegistry!))
+    vault.canHarvest = registry.canUpdateState()
+  } else {
+    vault.canHarvest = subVault.canHarvest
+  }
   vault.rewardsIpfsHash = subVault.rewardsIpfsHash
   vault.rewardsTimestamp = subVault.rewardsTimestamp
   vault._periodEarnedAssets = vault._periodEarnedAssets.plus(totalAssetsDelta)
