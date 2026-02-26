@@ -280,6 +280,15 @@ type Vault @entity(immutable: false) {
   "The list of sub vaults"
   subVaults: [SubVault!]! @derivedFrom(field: "metaVault")
 
+  "The address of the SubVaultsRegistry contract (for meta vaults v4+ on Gnosis, v6+ on mainnet/hoodi)"
+  subVaultsRegistry: Bytes
+
+  "The address of the sub vault currently being ejected (for meta vaults)"
+  ejectingSubVault: Bytes
+
+  "The address of the meta vault that is pending to join as a sub vault"
+  pendingMetaSubVault: Bytes
+
   "The total number of shares"
   totalShares: BigInt!
 
@@ -386,6 +395,17 @@ type SubVault @entity(immutable: false) {
 
   "The address of the sub vault"
   subVault: Bytes!
+}
+
+"""
+SubVaultsRegistry to MetaVault mapping
+"""
+type SubVaultsRegistryMap @entity(immutable: true) {
+  "The address of the SubVaultsRegistry contract"
+  id: ID!
+
+  "The meta vault address"
+  metaVault: Bytes!
 }
 
 """

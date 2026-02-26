@@ -1,4 +1,6 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
+import { Vault } from '../../generated/schema'
+import { isGnosisNetwork } from '../entities/network'
 import {
   Multicall as MulticallContract,
   TryAggregateCallReturnDataOutputStruct,
@@ -103,4 +105,12 @@ export function getSnapshotTimestamp(timestamp: i64): i64 {
   }
   // convert to microseconds
   return timestamp * 1_000_000
+}
+
+export function isSubVaultsRegistrySupported(vault: Vault): boolean {
+  if (!vault.isMetaVault) {
+    return false
+  }
+  const minVersion = isGnosisNetwork() ? 4 : 6
+  return vault.version.ge(BigInt.fromI32(minVersion))
 }
