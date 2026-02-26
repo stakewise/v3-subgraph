@@ -25,7 +25,7 @@ export function createPoolCreatedEvent(
     null,
   )
 
-  event.parameters = []
+  event.parameters = new Array<ethereum.EventParam>()
 
   event.parameters.push(new ethereum.EventParam('token0', ethereum.Value.fromAddress(token0)))
   event.parameters.push(new ethereum.EventParam('token1', ethereum.Value.fromAddress(token1)))
@@ -59,7 +59,7 @@ export function createSwapEvent(
     null,
   )
 
-  event.parameters = []
+  event.parameters = new Array<ethereum.EventParam>()
 
   event.parameters.push(new ethereum.EventParam('sender', ethereum.Value.fromAddress(sender)))
   event.parameters.push(new ethereum.EventParam('recipient', ethereum.Value.fromAddress(recipient)))

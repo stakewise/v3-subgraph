@@ -87,7 +87,7 @@ class PoolConfig {
 
 const SWISE_POOL = new PoolConfig(
   'SWISE',
-  SWISE_TOKEN as Address,
+  SWISE_TOKEN,
   WETH_ADDRESS,
   Address.fromString(SWISE_ASSET_UNI_POOL),
   10000,
