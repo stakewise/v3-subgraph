@@ -20,7 +20,7 @@
     "generate-wasm:hoodi": "graph build src/subgraph-hoodi.yaml -o build/hoodi",
     "prepare:hoodi": "npm run generate-const:hoodi && npm run generate-yaml:hoodi && npm run generate-types:hoodi",
     "build:hoodi": "npm run prepare:hoodi && npm run generate-wasm:hoodi",
-    "test:hoodi": "npm run prepare:hoodi && npm run generate-tests-yaml:hoodi && npm run patch-schema && graph test; npm run unpatch-schema",
+    "test:hoodi": "npm run prepare:hoodi && npm run generate-tests-yaml:hoodi && npm run patch-schema && graph test -d; npm run unpatch-schema",
     "deploy-stage:hoodi": "npm run prepare:hoodi && npm run deploy network:hoodi env:stage",
     "deploy-prod:hoodi": "npm run prepare:hoodi && npm run deploy network:hoodi env:prod",
     "---MAINNET---": "",
@@ -42,7 +42,7 @@
     "generate-wasm:gnosis": "graph build src/subgraph-gnosis.yaml -o build/gnosis",
     "prepare:gnosis": "npm run generate-const:gnosis && npm run generate-yaml:gnosis && npm run generate-types:gnosis",
     "build:gnosis": "npm run prepare:gnosis && npm run generate-wasm:gnosis",
-    "test:gnosis": "npm run prepare:gnosis && npm run generate-tests-yaml:gnosis && npm run patch-schema && graph test; npm run unpatch-schema",
+    "test:gnosis": "npm run prepare:gnosis && npm run generate-tests-yaml:gnosis && npm run patch-schema && graph test -d; npm run unpatch-schema",
     "deploy-stage:gnosis": "npm run prepare:gnosis && npm run deploy network:gnosis env:stage",
     "deploy-prod:gnosis": "npm run prepare:gnosis && npm run deploy network:gnosis env:prod"
   },
