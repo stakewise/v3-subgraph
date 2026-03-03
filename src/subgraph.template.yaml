@@ -797,6 +797,8 @@ templates:
           file: ./abis/Vault.json
         - name: Multicall
           file: ./abis/Multicall.json
+        - name: MetaVault
+          file: ./abis/MetaVault.json
       eventHandlers:
         - event: Deposited(indexed address,indexed address,uint256,uint256,address)
           handler: handleDeposited
@@ -952,6 +954,26 @@ templates:
         - event: EthFoxVaultCreated(address,address,uint256,uint16,string)
           handler: handleFoxVaultCreated
   - kind: ethereum/contract
+    name: CommunityVault
+    network: {{ network }}
+    source:
+      abi: CommunityVault
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/vault.ts
+      entities:
+        - Network
+        - Vault
+        - Transaction
+      abis:
+        - name: CommunityVault
+          file: ./abis/CommunityVault.json
+      eventHandlers:
+        - event: EthCommunityVaultCreated(address,address,uint256,uint16,string,string,string)
+          handler: handleCommunityVaultCreated
+  - kind: ethereum/contract
     name: MetaVault
     network: {{ network }}
     source:
@@ -978,11 +1000,50 @@ templates:
           file: ./abis/Multicall.json
       eventHandlers:
         - event: SubVaultsHarvested(int256)
-          handler: handleSubVaultsHarvested
+          handler: handleSubVaultsHarvestedV1
         - event: SubVaultAdded(indexed address,indexed address)
-          handler: handleSubVaultAdded
+          handler: handleSubVaultAddedV1
         - event: SubVaultEjected(indexed address,indexed address)
+          handler: handleSubVaultEjectedV1
+  - kind: ethereum/contract
+    name: SubVaultsRegistry
+    network: {{ network }}
+    source:
+      abi: SubVaultsRegistry
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/metaVault.ts
+      entities:
+        - Network
+        - Vault
+        - SubVault
+        - SubVaultsRegistryMap
+        - OsToken
+        - OsTokenConfig
+        - VaultSnapshot
+        - Allocator
+        - AllocatorSnapshot
+        - LeverageStrategyPosition
+      abis:
+        - name: SubVaultsRegistry
+          file: ./abis/SubVaultsRegistry.json
+        - name: Multicall
+          file: ./abis/Multicall.json
+      eventHandlers:
+        - event: SubVaultAdded(indexed address)
+          handler: handleSubVaultAdded
+        - event: SubVaultEjected(indexed address)
           handler: handleSubVaultEjected
+        - event: SubVaultEjecting(indexed address)
+          handler: handleSubVaultEjecting
+        - event: SubVaultsHarvested(int256)
+          handler: handleSubVaultsHarvested
+        - event: MetaSubVaultProposed(indexed address)
+          handler: handleMetaSubVaultProposed
+        - event: MetaSubVaultRejected(indexed address)
+          handler: handleMetaSubVaultRejected
   - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}
