@@ -44,6 +44,7 @@ import {
   decreaseAllocatorMintedOsTokenShares,
   decreaseAllocatorShares,
   getAllocatorApy,
+  getAllocatorAssets,
   getAllocatorId,
   increaseAllocatorMintedOsTokenShares,
   increaseAllocatorShares,
@@ -51,6 +52,12 @@ import {
 } from '../entities/allocator'
 import { isGnosisNetwork, loadNetwork } from '../entities/network'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
+import {
+  increaseStakerDepositedAssets,
+  increaseStakerWithdrawnAssets,
+  isMainMetaVault,
+  updateStaker,
+} from '../entities/staker'
 import { DEPOSIT_DATA_REGISTRY, WAD } from '../helpers/constants'
 import { isSubVaultsRegistrySupported } from '../helpers/utils'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
@@ -85,8 +92,14 @@ export function handleDeposited(event: Deposited): void {
   const aave = loadAave()!
   const allocator = createOrLoadAllocator(receiver, vaultAddress)
   increaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(receiver)
+    increaseStakerDepositedAssets(receiver, assets)
+  }
 
   const txHash = event.transaction.hash.toHex()
 
@@ -129,8 +142,14 @@ export function handleRedeemed(event: Redeemed): void {
   const aave = loadAave()!
   const allocator = loadAllocator(owner, vaultAddress)!
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(owner)
+    increaseStakerWithdrawnAssets(owner, assets)
+  }
 
   const txHash = event.transaction.hash.toHex()
 
@@ -197,7 +216,7 @@ export function handleInitialized(event: Initialized): void {
 
   if (newVersion.equals(BigInt.fromI32(3))) {
     // update exit requests
-    updateExitRequests(loadNetwork()!, vault, timestamp)
+    updateExitRequests(vault, timestamp)
   }
 
   if (vault.isGenesis) {
@@ -455,8 +474,14 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   }
 
   allocator.exitingAssets = allocator.exitingAssets.plus(assets)
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+  allocator.stakingExitingAssets = allocator.stakingExitingAssets.plus(assets)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(owner)
+  }
 
   log.info('[Vault] V1ExitQueueEntered vault={} owner={} shares={}', [
     vaultAddressHex,
@@ -527,8 +552,13 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   const allocator = loadAllocator(owner, vaultAddress)!
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
   allocator.exitingAssets = allocator.exitingAssets.plus(assets)
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(owner)
+  }
 
   log.info('[Vault] V2ExitQueueEntered vault={} owner={} shares={} assets={}', [
     vaultAddressHex,
@@ -609,8 +639,21 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     ])
     allocator.exitingAssets = BigInt.zero()
   }
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+
+  // Update stakingExitingAssets for V1 positions
+  if (!prevExitRequest.isV2Position) {
+    const prevStakingExitingAssetsDelta = prevExitRequest.totalAssets.minus(prevExitRequest.exitedAssets)
+    allocator.stakingExitingAssets = allocator.stakingExitingAssets.minus(prevStakingExitingAssetsDelta)
+  }
+
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(Address.fromBytes(prevExitRequest.owner))
+    increaseStakerWithdrawnAssets(Address.fromBytes(prevExitRequest.owner), claimedAssets)
+  }
 
   log.info('[Vault] ExitedAssetsClaimed vault={} prevPositionTicket={} newPositionTicket={} claimedAssets={}', [
     vaultAddressHex,
@@ -642,8 +685,13 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   const aave = loadAave()!
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   increaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, shares)
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(holder)
+  }
 
   createAllocatorAction(event, vaultAddress, AllocatorActionType.OsTokenMinted, holder, assets, shares)
   const txHash = event.transaction.hash.toHex()
@@ -672,8 +720,13 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const allocator = loadAllocator(holder, vaultAddress)!
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, shares)
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(holder)
+  }
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
@@ -713,8 +766,13 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   const allocator = loadAllocator(holder, vaultAddress)!
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, shares)
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, withdrawnShares)
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(holder)
+  }
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
@@ -753,8 +811,13 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   const allocator = loadAllocator(holder, vaultAddress)!
   decreaseAllocatorMintedOsTokenShares(osToken, osTokenConfig, allocator, shares)
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, withdrawnShares)
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(holder)
+  }
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
@@ -1022,8 +1085,14 @@ export function handleMigrated(event: Migrated): void {
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const allocator = createOrLoadAllocator(receiver, vaultAddress)
   increaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator, false)
+  allocator.totalAssets = getAllocatorAssets(osToken, osTokenConfig, allocator, false)
   allocator.save()
+
+  if (isMainMetaVault(vaultAddress)) {
+    updateStaker(receiver)
+    increaseStakerDepositedAssets(receiver, assets)
+  }
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
@@ -1101,7 +1170,7 @@ export function syncVaults(block: ethereum.Block): void {
     }
 
     // update vault allocators, exit requests, reward splitters
-    syncVault(network, osToken, vault, newTimestamp)
+    syncVault(osToken, vault, newTimestamp)
   }
 
   vaultsCheckpoint.timestamp = newTimestamp

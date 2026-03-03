@@ -93,6 +93,7 @@
   "ssvAssetUniPool": "0x0A55882F4E1117ADc54aFbbac4A39079AD52fB89",
   "obolToken": "0x0b010000b7624eb9b3dfbc279673c76e9d29d5f7",
   "obolAssetUniPool": "0x57F52C9faa6D40c5163D76b8D7dD81ddB7c95434",
+  "mainMetaVault": "0x15639E82d2072Fa510E5d2b5F0db361c823bCad3",
   "lyxToken": "0xC210B2cB65ed3484892167F5e05F7ab496Ab0598",
   "lyxAssetUniPool": "0x6771dc01D5796db631e7743DAF359F2412D308DF",
   "osTokenConfigV1": {
