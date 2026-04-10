@@ -280,6 +280,12 @@ type Vault @entity(immutable: false) {
   "The list of sub vaults"
   subVaults: [SubVault!]! @derivedFrom(field: "metaVault")
 
+  "The total number of sub vaults"
+  subVaultsCount: Int!
+
+  "The list of meta vaults addresses that added this vault as a sub vault"
+  metaVaults: [Bytes!]!
+
   "The total number of shares"
   totalShares: BigInt!
 
@@ -507,6 +513,9 @@ type Network @entity(immutable: false) {
 
   "Total number of vaults"
   vaultsCount: Int!
+
+  "Total number of collateralized vaults"
+  collateralizedVaultsCount: Int!
 
   "The non repeated addresses of all the vaults"
   vaultIds: [String!]!

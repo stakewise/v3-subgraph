@@ -14,6 +14,7 @@ export function createOrLoadNetwork(): Network {
     network = new Network(networkId)
     network.factoriesInitialized = false
     network.vaultsCount = 0
+    network.collateralizedVaultsCount = 0
     network.usersCount = 0
     network.totalAssets = BigInt.zero()
     network.totalEarnedAssets = BigInt.zero()

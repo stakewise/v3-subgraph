@@ -17,8 +17,27 @@ export function handleSubVaultAdded(event: SubVaultAdded): void {
   subVault.save()
 
   const metaVault = loadVault(metaVaultAddress)!
-  metaVault.isCollateralized = true
+  if (!metaVault.isCollateralized) {
+    metaVault.isCollateralized = true
+
+    const network = loadNetwork()!
+
+    network.collateralizedVaultsCount = network.collateralizedVaultsCount + 1
+    network.save()
+  }
+
+  metaVault.subVaultsCount = metaVault.subVaultsCount + 1
   metaVault.save()
+
+  const subVaultEntity = loadVault(subVaultAddress)
+
+  if (subVaultEntity) {
+    const metaVaults = subVaultEntity.metaVaults
+
+    metaVaults.push(metaVaultAddress)
+    subVaultEntity.metaVaults = metaVaults
+    subVaultEntity.save()
+  }
 
   log.info('[MetaVault] SubVaultAdded metaVault={} subVault={}', [metaVaultAddress.toHex(), subVaultAddress.toHex()])
 }
@@ -32,6 +51,23 @@ export function handleSubVaultEjected(event: SubVaultEjected): void {
   const subVault = SubVault.load(subVaultId)
   if (subVault) {
     store.remove('SubVault', subVaultId)
+
+    const metaVault = loadVault(metaVaultAddress)
+    if (metaVault) {
+      metaVault.subVaultsCount = metaVault.subVaultsCount - 1
+      metaVault.save()
+    }
+
+    const subVaultEntity = loadVault(subVaultAddress)
+    if (subVaultEntity) {
+      const metaVaults = subVaultEntity.metaVaults
+      const index = metaVaults.indexOf(metaVaultAddress)
+      if (index >= 0) {
+        metaVaults.splice(index, 1)
+        subVaultEntity.metaVaults = metaVaults
+        subVaultEntity.save()
+      }
+    }
 
     log.info('[MetaVault] SubVaultEjected metaVault={} subVault={}', [
       metaVaultAddress.toHex(),

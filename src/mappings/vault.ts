@@ -792,6 +792,8 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
     vault.osTokenConfig = '1'
   }
   vault.metadataIpfsHash = metadataIpfsHash
+  vault.subVaultsCount = 0
+  vault.metaVaults = []
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault._prevAllocatorAssets = BigInt.fromString(WAD)
@@ -801,6 +803,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
 
   const network = loadNetwork()!
   network.vaultsCount = network.vaultsCount + 1
+  network.collateralizedVaultsCount = network.collateralizedVaultsCount + 1
   let vaultIds = network.vaultIds
   vaultIds.push(vaultAddressHex)
   network.vaultIds = vaultIds
@@ -866,6 +869,8 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.version = BigInt.fromI32(1)
   vault.osTokenConfig = '1'
   vault.metadataIpfsHash = metadataIpfsHash
+  vault.subVaultsCount = 0
+  vault.metaVaults = []
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault._prevAllocatorAssets = BigInt.fromString(WAD)
