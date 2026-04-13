@@ -137,7 +137,6 @@ export function createVault(
   vault.isGenesis = false
   vault.version = version
   vault.subVaultsCount = 0
-  vault.metaVaults = []
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault._prevAllocatorAssets = BigInt.fromString(WAD)

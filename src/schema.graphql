@@ -283,9 +283,6 @@ type Vault @entity(immutable: false) {
   "The total number of sub vaults"
   subVaultsCount: Int!
 
-  "The list of meta vaults addresses that added this vault as a sub vault"
-  metaVaults: [Bytes!]!
-
   "The total number of shares"
   totalShares: BigInt!
 
@@ -390,8 +387,8 @@ type SubVault @entity(immutable: false) {
   "The meta vault"
   metaVault: Vault!
 
-  "The address of the sub vault"
-  subVault: Bytes!
+  "The sub vault"
+  subVault: Vault!
 }
 
 """

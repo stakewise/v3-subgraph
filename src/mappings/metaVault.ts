@@ -13,31 +13,18 @@ export function handleSubVaultAdded(event: SubVaultAdded): void {
 
   const subVault = new SubVault(subVaultId)
   subVault.metaVault = metaVaultAddress.toHex()
-  subVault.subVault = subVaultAddress
+  subVault.subVault = subVaultAddress.toHex()
   subVault.save()
 
   const metaVault = loadVault(metaVaultAddress)!
   if (!metaVault.isCollateralized) {
     metaVault.isCollateralized = true
-
     const network = loadNetwork()!
-
     network.collateralizedVaultsCount = network.collateralizedVaultsCount + 1
     network.save()
   }
-
   metaVault.subVaultsCount = metaVault.subVaultsCount + 1
   metaVault.save()
-
-  const subVaultEntity = loadVault(subVaultAddress)
-
-  if (subVaultEntity) {
-    const metaVaults = subVaultEntity.metaVaults
-
-    metaVaults.push(metaVaultAddress)
-    subVaultEntity.metaVaults = metaVaults
-    subVaultEntity.save()
-  }
 
   log.info('[MetaVault] SubVaultAdded metaVault={} subVault={}', [metaVaultAddress.toHex(), subVaultAddress.toHex()])
 }
@@ -56,17 +43,6 @@ export function handleSubVaultEjected(event: SubVaultEjected): void {
     if (metaVault) {
       metaVault.subVaultsCount = metaVault.subVaultsCount - 1
       metaVault.save()
-    }
-
-    const subVaultEntity = loadVault(subVaultAddress)
-    if (subVaultEntity) {
-      const metaVaults = subVaultEntity.metaVaults
-      const index = metaVaults.indexOf(metaVaultAddress)
-      if (index >= 0) {
-        metaVaults.splice(index, 1)
-        subVaultEntity.metaVaults = metaVaults
-        subVaultEntity.save()
-      }
     }
 
     log.info('[MetaVault] SubVaultEjected metaVault={} subVault={}', [
@@ -103,7 +79,7 @@ export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
     log.error('[MetaVault] No sub vaults found for vault {}', [vaultAddress.toHex()])
     return
   }
-  const subVault = loadVault(Address.fromBytes(subVaults[0].subVault))!
+  const subVault = loadVault(Address.fromString(subVaults[0].subVault))!
 
   // update vault
   vault.totalAssets = newTotalAssets

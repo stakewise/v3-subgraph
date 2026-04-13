@@ -793,7 +793,6 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   }
   vault.metadataIpfsHash = metadataIpfsHash
   vault.subVaultsCount = 0
-  vault.metaVaults = []
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault._prevAllocatorAssets = BigInt.fromString(WAD)
@@ -870,7 +869,6 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.osTokenConfig = '1'
   vault.metadataIpfsHash = metadataIpfsHash
   vault.subVaultsCount = 0
-  vault.metaVaults = []
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault._prevAllocatorAssets = BigInt.fromString(WAD)
