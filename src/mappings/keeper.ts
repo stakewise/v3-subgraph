@@ -366,6 +366,10 @@ export function handleValidatorsApproval(event: ValidatorsApproval): void {
   if (!vault.isCollateralized) {
     vault.isCollateralized = true
     vault.save()
+
+    const network = loadNetwork()!
+    network.collateralizedVaultsCount = network.collateralizedVaultsCount + 1
+    network.save()
   }
 
   log.info('[Keeper] ValidatorsApproval vault={}', [vaultAddress.toHex()])

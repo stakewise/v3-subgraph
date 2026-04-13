@@ -13,11 +13,17 @@ export function handleSubVaultAdded(event: SubVaultAdded): void {
 
   const subVault = new SubVault(subVaultId)
   subVault.metaVault = metaVaultAddress.toHex()
-  subVault.subVault = subVaultAddress
+  subVault.subVault = subVaultAddress.toHex()
   subVault.save()
 
   const metaVault = loadVault(metaVaultAddress)!
-  metaVault.isCollateralized = true
+  if (!metaVault.isCollateralized) {
+    metaVault.isCollateralized = true
+    const network = loadNetwork()!
+    network.collateralizedVaultsCount = network.collateralizedVaultsCount + 1
+    network.save()
+  }
+  metaVault.subVaultsCount = metaVault.subVaultsCount + 1
   metaVault.save()
 
   log.info('[MetaVault] SubVaultAdded metaVault={} subVault={}', [metaVaultAddress.toHex(), subVaultAddress.toHex()])
@@ -32,6 +38,12 @@ export function handleSubVaultEjected(event: SubVaultEjected): void {
   const subVault = SubVault.load(subVaultId)
   if (subVault) {
     store.remove('SubVault', subVaultId)
+
+    const metaVault = loadVault(metaVaultAddress)
+    if (metaVault) {
+      metaVault.subVaultsCount = metaVault.subVaultsCount - 1
+      metaVault.save()
+    }
 
     log.info('[MetaVault] SubVaultEjected metaVault={} subVault={}', [
       metaVaultAddress.toHex(),
@@ -67,7 +79,7 @@ export function handleSubVaultsHarvested(event: SubVaultsHarvested): void {
     log.error('[MetaVault] No sub vaults found for vault {}', [vaultAddress.toHex()])
     return
   }
-  const subVault = loadVault(Address.fromBytes(subVaults[0].subVault))!
+  const subVault = loadVault(Address.fromString(subVaults[0].subVault))!
 
   // update vault
   vault.totalAssets = newTotalAssets
