@@ -159,7 +159,7 @@ export function addSubVault(metaVaultAddress: Address, subVaultAddress: Address)
 
   const subVault = new SubVault(subVaultId)
   subVault.metaVault = metaVaultAddress.toHex()
-  subVault.subVault = subVaultAddress
+  subVault.subVault = subVaultAddress.toHex()
   subVault.save()
 
   const metaVault = loadVault(metaVaultAddress)!
@@ -201,7 +201,7 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
     log.error('[MetaVault] No sub vaults found for vault {}', [metaVaultAddress.toHex()])
     return
   }
-  const subVault = loadVault(Address.fromBytes(subVaults[0].subVault))!
+  const subVault = loadVault(Address.fromString(subVaults[0].subVault))!
 
   // update vault
   vault.totalAssets = newTotalAssets
