@@ -977,6 +977,7 @@ export function handleCommunityVaultCreated(event: EthCommunityVaultCreated): vo
   vault.tokenName = name
   vault.tokenSymbol = symbol
   vault.metadataIpfsHash = metadataIpfsHash
+  vault.subVaultsCount = 0
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault._prevAllocatorAssets = BigInt.fromString(WAD)
