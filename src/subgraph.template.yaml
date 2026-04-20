@@ -1005,6 +1005,8 @@ templates:
           handler: handleSubVaultAddedV1
         - event: SubVaultEjected(indexed address,indexed address)
           handler: handleSubVaultEjectedV1
+        - event: SubVaultEjecting(indexed address,indexed address)
+          handler: handleSubVaultEjectingV1
   - kind: ethereum/contract
     name: SubVaultsRegistry
     network: {{ network }}

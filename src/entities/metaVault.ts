@@ -163,23 +163,35 @@ export function addSubVault(metaVaultAddress: Address, subVaultAddress: Address)
   subVault.save()
 
   const metaVault = loadVault(metaVaultAddress)!
+  const wasCollateralized = metaVault.isCollateralized
   metaVault.isCollateralized = true
+  metaVault.subVaultsCount = metaVault.subVaultsCount + 1
   if (metaVault.pendingMetaSubVault !== null && metaVault.pendingMetaSubVault!.equals(subVaultAddress)) {
     metaVault.pendingMetaSubVault = null
   }
   metaVault.save()
+
+  if (!wasCollateralized) {
+    const network = loadNetwork()!
+    network.collateralizedVaultsCount = network.collateralizedVaultsCount + 1
+    network.save()
+  }
 }
 
 export function ejectSubVault(metaVaultAddress: Address, subVaultAddress: Address): void {
   const subVaultId = `${metaVaultAddress.toHex()}-${subVaultAddress.toHex()}`
 
   const subVault = SubVault.load(subVaultId)
+  const metaVault = loadVault(metaVaultAddress)!
+
   if (subVault) {
     store.remove('SubVault', subVaultId)
+    if (metaVault.subVaultsCount > 0) {
+      metaVault.subVaultsCount = metaVault.subVaultsCount - 1
+    }
   }
 
   // Clear ejectingSubVault on meta vault
-  const metaVault = loadVault(metaVaultAddress)!
   metaVault.ejectingSubVault = null
   metaVault.save()
 }
