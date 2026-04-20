@@ -222,17 +222,19 @@ export function handleInitialized(event: Initialized): void {
       const registryAddress = registryResult.value
       vault.subVaultsRegistry = registryAddress
 
-      // Create mapping from registry to meta vault
-      const registryMap = new SubVaultsRegistryMap(registryAddress.toHex())
-      registryMap.metaVault = vaultAddress
-      registryMap.save()
+      const registryId = registryAddress.toHex()
+      if (SubVaultsRegistryMap.load(registryId) == null) {
+        const registryMap = new SubVaultsRegistryMap(registryId)
+        registryMap.metaVault = vaultAddress
+        registryMap.save()
 
-      SubVaultsRegistryTemplate.create(registryAddress)
+        SubVaultsRegistryTemplate.create(registryAddress)
 
-      log.info('[Vault] SubVaultsRegistry created vault={} registry={}', [
-        vaultAddress.toHex(),
-        registryAddress.toHex(),
-      ])
+        log.info('[Vault] SubVaultsRegistry created vault={} registry={}', [
+          vaultAddress.toHex(),
+          registryAddress.toHex(),
+        ])
+      }
     }
   }
 
