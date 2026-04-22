@@ -292,6 +292,9 @@ type Vault @entity(immutable: false) {
   "The address of the meta vault that is pending to join as a sub vault"
   pendingMetaSubVault: Bytes
 
+  "The list of parent meta-vaults that added this vault as a sub-vault"
+  parentMetaVaults: [Bytes!]!
+
   "The total number of shares"
   totalShares: BigInt!
 
