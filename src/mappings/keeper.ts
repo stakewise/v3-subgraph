@@ -363,15 +363,16 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const osToken = loadOsToken()!
   updateOsTokenApy(osToken, newAvgRewardPerSecond)
 
-  // set canHarvest for all meta vaults
+  // set canHarvest for all meta vaults (only collateralized meta vaults can be harvested)
   const network = loadNetwork()!
   for (let i = 0; i < network.vaultIds.length; i++) {
     const vaultAddress = Address.fromString(network.vaultIds[i])
     const vault = loadVault(vaultAddress)!
-    if (vault.isMetaVault) {
-      vault.canHarvest = true
-      vault.save()
+    if (!vault.isMetaVault || !vault.isCollateralized || vault.canHarvest) {
+      continue
     }
+    vault.canHarvest = true
+    vault.save()
   }
 
   // update checkpoints
