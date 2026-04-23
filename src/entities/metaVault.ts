@@ -92,6 +92,7 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt, isPriv
   vault.osTokenConfig = '2'
   vault.metadataIpfsHash = metadataIpfsHash
   vault.subVaultsCount = 0
+  vault.parentMetaVaults = []
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault._prevAllocatorAssets = BigInt.fromString(WAD)
@@ -176,6 +177,19 @@ export function addSubVault(metaVaultAddress: Address, subVaultAddress: Address)
     network.collateralizedVaultsCount = network.collateralizedVaultsCount + 1
     network.save()
   }
+
+  const subVaultEntity = loadVault(subVaultAddress)
+  if (subVaultEntity) {
+    const parentMetaVaults = subVaultEntity.parentMetaVaults
+    parentMetaVaults.push(metaVaultAddress)
+    subVaultEntity.parentMetaVaults = parentMetaVaults
+    subVaultEntity.save()
+  } else {
+    log.warning(
+      '[MetaVault] addSubVault subVault entity not found, parentMetaVaults not updated metaVault={} subVault={}',
+      [metaVaultAddress.toHex(), subVaultAddress.toHex()],
+    )
+  }
 }
 
 export function ejectSubVault(metaVaultAddress: Address, subVaultAddress: Address): void {
@@ -188,6 +202,22 @@ export function ejectSubVault(metaVaultAddress: Address, subVaultAddress: Addres
     store.remove('SubVault', subVaultId)
     if (metaVault.subVaultsCount > 0) {
       metaVault.subVaultsCount = metaVault.subVaultsCount - 1
+    }
+
+    const subVaultEntity = loadVault(subVaultAddress)
+    if (subVaultEntity) {
+      const parentMetaVaults = subVaultEntity.parentMetaVaults
+      const index = parentMetaVaults.indexOf(metaVaultAddress)
+      if (index >= 0) {
+        parentMetaVaults.splice(index, 1)
+        subVaultEntity.parentMetaVaults = parentMetaVaults
+        subVaultEntity.save()
+      } else {
+        log.warning('[MetaVault] ejectSubVault missing parentMetaVault reference metaVault={} subVault={}', [
+          metaVaultAddress.toHex(),
+          subVaultAddress.toHex(),
+        ])
+      }
     }
   }
 
