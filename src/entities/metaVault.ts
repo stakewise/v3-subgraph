@@ -93,6 +93,7 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt, isPriv
   vault.metadataIpfsHash = metadataIpfsHash
   vault.subVaultsCount = 0
   vault.parentMetaVaults = []
+  vault.subVaultsCurator = curator
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault._prevAllocatorAssets = BigInt.fromString(WAD)

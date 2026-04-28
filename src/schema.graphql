@@ -284,7 +284,7 @@ type Vault @entity(immutable: false) {
   subVaultsRegistry: Bytes
 
   "Meta Vaults delegate funds across sub-vaults via a Curator contract"
-  subVaultsCurator: Bytes!
+  subVaultsCurator: Bytes
 
   "The total number of sub vaults"
   subVaultsCount: Int!
