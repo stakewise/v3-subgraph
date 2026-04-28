@@ -283,8 +283,8 @@ type Vault @entity(immutable: false) {
   "The address of the SubVaultsRegistry contract (for meta vaults v4+ on Gnosis, v6+ on mainnet/hoodi)"
   subVaultsRegistry: Bytes
 
-  "Meta Vaults delegate funds across sub-vaults via a Curator contract managed by the Meta Vault's SubVaultsRegistry"
-  subVaultsCurator: Bytes
+  "Meta Vaults delegate funds across sub-vaults via a Curator contract"
+  subVaultsCurator: Bytes!
 
   "The total number of sub vaults"
   subVaultsCount: Int!
