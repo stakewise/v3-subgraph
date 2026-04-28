@@ -4,6 +4,7 @@ import {
   SubVaultEjected as SubVaultEjectedV1,
   SubVaultEjecting as SubVaultEjectingV1,
   SubVaultsHarvested as SubVaultsHarvestedV1,
+  SubVaultsCuratorUpdated as SubVaultsCuratorUpdatedV1,
 } from '../../generated/templates/MetaVault/MetaVault'
 import {
   SubVaultAdded,
@@ -12,6 +13,7 @@ import {
   SubVaultsHarvested,
   MetaSubVaultProposed,
   MetaSubVaultRejected,
+  SubVaultsCuratorUpdated,
 } from '../../generated/templates/SubVaultsRegistry/SubVaultsRegistry'
 import { loadVault } from '../entities/vault'
 import { addSubVault, ejectSubVault, getMetaVaultAddress, harvestSubVaults } from '../entities/metaVault'
@@ -67,6 +69,22 @@ export function handleSubVaultEjectingV1(event: SubVaultEjectingV1): void {
   createTransaction(event.transaction.hash.toHex())
 
   log.info('[MetaVault] SubVaultEjecting metaVault={} subVault={}', [metaVaultAddress.toHex(), subVaultAddress.toHex()])
+}
+
+export function handleSubVaultsCuratorUpdatedV1(event: SubVaultsCuratorUpdatedV1): void {
+  const metaVaultAddress = event.address
+  const curatorAddress = event.params.curator
+
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.subVaultsCurator = curatorAddress
+  metaVault.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[MetaVault] SubVaultsCuratorUpdated metaVault={} curator={}', [
+    metaVaultAddress.toHex(),
+    curatorAddress.toHex(),
+  ])
 }
 
 // V2 handlers (SubVaultsRegistry template)
@@ -160,5 +178,21 @@ export function handleMetaSubVaultRejected(event: MetaSubVaultRejected): void {
   log.info('[SubVaultsRegistry] MetaSubVaultRejected metaVault={} subVault={}', [
     metaVaultAddress.toHex(),
     subVaultAddress.toHex(),
+  ])
+}
+
+export function handleSubVaultsCuratorUpdated(event: SubVaultsCuratorUpdated): void {
+  const metaVaultAddress = getMetaVaultAddress(event.address)
+  const curatorAddress = event.params.curator
+
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.subVaultsCurator = curatorAddress
+  metaVault.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[SubVaultsRegistry] SubVaultsCuratorUpdated metaVault={} curator={}', [
+    metaVaultAddress.toHex(),
+    curatorAddress.toHex(),
   ])
 }

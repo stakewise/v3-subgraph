@@ -1007,6 +1007,8 @@ templates:
           handler: handleSubVaultEjectedV1
         - event: SubVaultEjecting(indexed address,indexed address)
           handler: handleSubVaultEjectingV1
+        - event: SubVaultsCuratorUpdated(indexed address,indexed address)
+          handler: handleSubVaultsCuratorUpdatedV1
   - kind: ethereum/contract
     name: SubVaultsRegistry
     network: {{ network }}
@@ -1046,6 +1048,8 @@ templates:
           handler: handleMetaSubVaultProposed
         - event: MetaSubVaultRejected(indexed address)
           handler: handleMetaSubVaultRejected
+        - event: SubVaultsCuratorUpdated(indexed address)
+          handler: handleSubVaultsCuratorUpdated
   - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}
