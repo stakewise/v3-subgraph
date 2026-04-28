@@ -102,5 +102,18 @@
       }
     ],
     "anonymous": false
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "curator",
+        "type": "address"
+      }
+    ],
+    "name": "SubVaultsCuratorUpdated",
+    "type": "event"
   }
 ]

@@ -1046,6 +1046,8 @@ templates:
           handler: handleMetaSubVaultProposed
         - event: MetaSubVaultRejected(indexed address)
           handler: handleMetaSubVaultRejected
+        - event: SubVaultsCuratorUpdated(indexed address)
+          handler: handleSubVaultsCuratorUpdated
   - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}

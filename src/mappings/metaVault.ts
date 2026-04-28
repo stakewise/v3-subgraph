@@ -12,6 +12,7 @@ import {
   SubVaultsHarvested,
   MetaSubVaultProposed,
   MetaSubVaultRejected,
+  SubVaultsCuratorUpdated,
 } from '../../generated/templates/SubVaultsRegistry/SubVaultsRegistry'
 import { loadVault } from '../entities/vault'
 import { addSubVault, ejectSubVault, getMetaVaultAddress, harvestSubVaults } from '../entities/metaVault'
@@ -160,5 +161,21 @@ export function handleMetaSubVaultRejected(event: MetaSubVaultRejected): void {
   log.info('[SubVaultsRegistry] MetaSubVaultRejected metaVault={} subVault={}', [
     metaVaultAddress.toHex(),
     subVaultAddress.toHex(),
+  ])
+}
+
+export function handleSubVaultsCuratorUpdated(event: SubVaultsCuratorUpdated): void {
+  const metaVaultAddress = getMetaVaultAddress(event.address)
+  const curatorAddress = event.params.curator
+
+  const metaVault = loadVault(metaVaultAddress)!
+  metaVault.subVaultsCurator = curatorAddress
+  metaVault.save()
+
+  createTransaction(event.transaction.hash.toHex())
+
+  log.info('[SubVaultsRegistry] SubVaultsCuratorUpdated metaVault={} curator={}', [
+    metaVaultAddress.toHex(),
+    curatorAddress.toHex(),
   ])
 }
