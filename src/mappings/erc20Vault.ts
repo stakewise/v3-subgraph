@@ -34,14 +34,6 @@ export function handleTransfer(event: Transfer): void {
     return
   }
 
-  if (from.equals(vaultAddress) || to.equals(vaultAddress)) {
-    // V1 vaults emit a phantom Transfer(user → vault) alongside Redeemed/ExitQueueEntered
-    // for internal exit-queue accounting. The user's share decrement is already applied
-    // by handleRedeemed / handleV1ExitQueueEntered; processing this Transfer would
-    // double-debit the user and inflate the vault's own allocator with shares it doesn't own.
-    return
-  }
-
   const aave = loadAave()!
   const allocatorFrom = loadAllocator(from, vaultAddress)!
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocatorFrom, shares)
