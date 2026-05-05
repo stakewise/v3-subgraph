@@ -133,10 +133,11 @@ export function handleRedeemed(event: Redeemed): void {
   // allocator's spurious increment will both be applied by handleTransfer, so here we
   // skip the owner update and pre-decrement the vault allocator to cancel out the
   // upcoming Transfer increment.
-  const vaultVersion = vault.version.toI32()
+  const v3 = BigInt.fromI32(3)
+  const v5 = BigInt.fromI32(5)
 
   const hasPhantomTransfer =
-    vault.isErc20 && (isGnosisNetwork() ? vaultVersion == 3 : vaultVersion >= 3 && vaultVersion <= 5)
+    vault.isErc20 && (isGnosisNetwork() ? vault.version.equals(v3) : vault.version.ge(v3) && vault.version.le(v5))
 
   if (hasPhantomTransfer) {
     const vaultAllocator = createOrLoadAllocator(vaultAddress, vaultAddress)
