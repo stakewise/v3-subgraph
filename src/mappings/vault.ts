@@ -127,10 +127,32 @@ export function handleRedeemed(event: Redeemed): void {
   network.save()
 
   const aave = loadAave()!
-  const allocator = loadAllocator(owner, vaultAddress)!
-  decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
-  allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
-  allocator.save()
+
+  // Some ERC20 vault versions emit a phantom Transfer(owner → vault) alongside the burn
+  // Transfer + Redeemed event. In that case the owner's share decrement and the vault
+  // allocator's spurious increment will both be applied by handleTransfer, so here we
+  // skip the owner update and pre-decrement the vault allocator to cancel out the
+  // upcoming Transfer increment.
+  const v3 = BigInt.fromI32(3)
+  const v5 = BigInt.fromI32(5)
+
+  const hasPhantomTransfer =
+    vault.isErc20 && (isGnosisNetwork() ? vault.version.equals(v3) : vault.version.ge(v3) && vault.version.le(v5))
+
+  if (hasPhantomTransfer) {
+    const vaultAllocator = createOrLoadAllocator(vaultAddress, vaultAddress)
+
+    decreaseAllocatorShares(osToken, osTokenConfig, vault, vaultAllocator, shares)
+
+    vaultAllocator.save()
+  } else {
+    const allocator = loadAllocator(owner, vaultAddress)!
+
+    decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
+
+    allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+    allocator.save()
+  }
 
   const txHash = event.transaction.hash.toHex()
 
