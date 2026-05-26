@@ -51,7 +51,7 @@ import {
 } from '../entities/allocator'
 import { isGnosisNetwork, loadNetwork } from '../entities/network'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
-import { DEPOSIT_DATA_REGISTRY, WAD } from '../helpers/constants'
+import { DEPOSIT_DATA_REGISTRY, OS_TOKEN_REDEEMER, WAD } from '../helpers/constants'
 import { isSubVaultsRegistrySupported } from '../helpers/utils'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { loadExitRequest, updateClaimableExitRequests, updateExitRequests } from '../entities/exitRequest'
@@ -780,15 +780,17 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
 
-  const position = RedeemablePosition.load(`${vaultAddress.toHex()}-${holder.toHex()}`)
+  if (event.params.caller.equals(OS_TOKEN_REDEEMER)) {
+    const position = RedeemablePosition.load(`${vaultAddress.toHex()}-${holder.toHex()}`)
 
-  if (position !== null) {
-    position.redeemableShares = position.redeemableShares.minus(shares)
+    if (position !== null) {
+      position.redeemableShares = position.redeemableShares.minus(shares)
 
-    if (position.redeemableShares.lt(BigInt.zero())) {
-      position.redeemableShares = BigInt.zero()
+      if (position.redeemableShares.lt(BigInt.zero())) {
+        position.redeemableShares = BigInt.zero()
+      }
+      position.save()
     }
-    position.save()
   }
 
   const txHash = event.transaction.hash.toHex()
