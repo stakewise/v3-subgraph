@@ -1,6 +1,6 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, ipfs, json, log } from '@graphprotocol/graph-ts'
 
-import { Allocator, ExitRequest, SubVaultsRegistryMap, Vault } from '../../generated/schema'
+import { Allocator, ExitRequest, RedeemablePosition, SubVaultsRegistryMap, Vault } from '../../generated/schema'
 import {
   BlocklistVault as BlocklistVaultTemplate,
   Erc20Vault as Erc20VaultTemplate,
@@ -779,6 +779,17 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, withdrawnShares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
+
+  const position = RedeemablePosition.load(`${vaultAddress.toHex()}-${holder.toHex()}`)
+
+  if (position !== null) {
+    position.redeemableShares = position.redeemableShares.minus(shares)
+
+    if (position.redeemableShares.lt(BigInt.zero())) {
+      position.redeemableShares = BigInt.zero()
+    }
+    position.save()
+  }
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
