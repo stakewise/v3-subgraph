@@ -497,8 +497,8 @@ dataSources:
       file: ./mappings/osTokenRedeemer.ts
       entities:
         - Vault
-        - RedeemablePositionsRoot
         - RedeemablePosition
+        - RedeemablePositions
       abis:
         - name: OsTokenRedeemer
           file: ./abis/OsTokenRedeemer.json

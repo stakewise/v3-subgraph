@@ -783,7 +783,12 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   if (event.params.caller.equals(OS_TOKEN_REDEEMER)) {
     const position = RedeemablePosition.load(`${vaultAddress.toHex()}-${holder.toHex()}`)
 
-    if (position !== null) {
+    if (position === null) {
+      log.error('[Vault] OsTokenRedeemed redeemer-initiated but no RedeemablePosition for vault={} owner={}', [
+        vaultAddress.toHex(),
+        holder.toHex(),
+      ])
+    } else {
       position.redeemableShares = position.redeemableShares.minus(shares)
 
       if (position.redeemableShares.lt(BigInt.zero())) {

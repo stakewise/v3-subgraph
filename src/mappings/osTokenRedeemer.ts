@@ -1,20 +1,27 @@
 import { Address, BigInt, Bytes, ipfs, json, JSONValueKind, log, store } from '@graphprotocol/graph-ts'
 
-import { RedeemablePosition, RedeemablePositionsRoot } from '../../generated/schema'
+import { RedeemablePosition, RedeemablePositions } from '../../generated/schema'
 import { RedeemablePositionsUpdated } from '../../generated/OsTokenRedeemer/OsTokenRedeemer'
 import { loadVault } from '../entities/vault'
 
-const rootId = '1'
+const redeemablePositionsId = '1'
 
 export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdated): void {
   const merkleRoot = event.params.merkleRoot
   const ipfsHash = event.params.ipfsHash
 
   let data: Bytes | null = ipfs.cat(ipfsHash)
+  let tries = 5
 
-  while (data === null) {
+  while (data === null && tries > 0) {
     log.warning('[OsTokenRedeemer] RedeemablePositionsUpdated ipfs.cat failed for hash={}, retrying', [ipfsHash])
     data = ipfs.cat(ipfsHash)
+    tries -= 1
+  }
+
+  if (data === null) {
+    log.error('[OsTokenRedeemer] RedeemablePositionsUpdated ipfs.cat failed for hash={}', [ipfsHash])
+    return
   }
 
   const parsedData = json.fromBytes(data as Bytes)
@@ -24,26 +31,24 @@ export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdat
     return
   }
 
-  const existingRoot = RedeemablePositionsRoot.load(rootId)
+  const existing = RedeemablePositions.load(redeemablePositionsId)
 
-  let root: RedeemablePositionsRoot
+  let redeemablePositions: RedeemablePositions
 
-  if (existingRoot === null) {
-    root = new RedeemablePositionsRoot(rootId)
+  if (existing === null) {
+    redeemablePositions = new RedeemablePositions(redeemablePositionsId)
   } else {
-    const previousPositions = existingRoot.positions.load()
+    const previousPositions = existing.positions.load()
 
     for (let i = 0; i < previousPositions.length; i++) {
       store.remove('RedeemablePosition', previousPositions[i].id)
     }
-    root = existingRoot
+    redeemablePositions = existing
   }
 
-  root.merkleRoot = merkleRoot
-  root.ipfsHash = ipfsHash
-  root.updatedAtBlock = event.block.number
-  root.updatedAtTimestamp = event.block.timestamp
-  root.save()
+  redeemablePositions.merkleRoot = merkleRoot
+  redeemablePositions.ipfsHash = ipfsHash
+  redeemablePositions.save()
 
   const items = parsedData.toArray()
 
@@ -107,7 +112,7 @@ export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdat
     position.vault = vault.id
     position.leafShares = leafShares
     position.redeemableShares = leafShares
-    position.root = rootId
+    position.redeemablePositions = redeemablePositionsId
     position.save()
   }
 

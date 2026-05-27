@@ -1185,8 +1185,8 @@ type Checkpoint @entity(immutable: false) {
   timestamp: BigInt!
 }
 
-"Snapshot of the current OsTokenRedeemer redeemable-positions Merkle root and IPFS file"
-type RedeemablePositionsRoot @entity(immutable: false) {
+"Current OsTokenRedeemer redeemable positions snapshot — Merkle root and IPFS file"
+type RedeemablePositions @entity(immutable: false) {
   "Set to 1"
   id: ID!
 
@@ -1196,22 +1196,16 @@ type RedeemablePositionsRoot @entity(immutable: false) {
   "The IPFS hash of the JSON file containing the ordered redemption queue"
   ipfsHash: String!
 
-  "Block number when the current root was published"
-  updatedAtBlock: BigInt!
-
-  "Block timestamp when the current root was published"
-  updatedAtTimestamp: BigInt!
-
-  "All positions belonging to the current root (used to wipe on root update)"
-  positions: [RedeemablePosition!]! @derivedFrom(field: "root")
+  "Queue positions belonging to the current snapshot (used to wipe on update)"
+  positions: [RedeemablePosition!]! @derivedFrom(field: "redeemablePositions")
 }
 
-"A single osToken position queued for redemption — order is queue priority"
+"The redeemable position from the redemptions IPFS file"
 type RedeemablePosition @entity(immutable: false) {
   "Set to <Vault ID>-<owner>"
   id: ID!
 
-  "0-based position in the IPFS file — operator processes lowest index first"
+  "0-based position in the IPFS file"
   index: Int!
 
   "Address of the position owner (allocator)"
@@ -1223,9 +1217,9 @@ type RedeemablePosition @entity(immutable: false) {
   "Original osToken shares amount as published in the IPFS file (Wei)"
   leafShares: BigInt!
 
-  "Remaining osToken shares to redeem within the current root: leafShares minus already redeemed"
+  "Remaining osToken shares to redeem within the current snapshot"
   redeemableShares: BigInt!
 
-  "Back-link to the current root (cleared with the root on update)"
-  root: RedeemablePositionsRoot!
+  "Back-link to the current snapshot (cleared with the snapshot on update)"
+  redeemablePositions: RedeemablePositions!
 }
