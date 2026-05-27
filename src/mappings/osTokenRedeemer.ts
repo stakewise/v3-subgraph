@@ -20,8 +20,7 @@ export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdat
   }
 
   if (data === null) {
-    log.error('[OsTokenRedeemer] RedeemablePositionsUpdated ipfs.cat failed for hash={}', [ipfsHash])
-    return
+    assert(false, `[OsTokenRedeemer] RedeemablePositionsUpdated ipfs.cat failed for hash=${ipfsHash}`)
   }
 
   const parsedData = json.fromBytes(data as Bytes)
@@ -33,22 +32,22 @@ export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdat
 
   const existing = RedeemablePositions.load(redeemablePositionsId)
 
-  let redeemablePositions: RedeemablePositions
+  let snapshot: RedeemablePositions
 
   if (existing === null) {
-    redeemablePositions = new RedeemablePositions(redeemablePositionsId)
+    snapshot = new RedeemablePositions(redeemablePositionsId)
   } else {
     const previousPositions = existing.positions.load()
 
     for (let i = 0; i < previousPositions.length; i++) {
       store.remove('RedeemablePosition', previousPositions[i].id)
     }
-    redeemablePositions = existing
+    snapshot = existing
   }
 
-  redeemablePositions.merkleRoot = merkleRoot
-  redeemablePositions.ipfsHash = ipfsHash
-  redeemablePositions.save()
+  snapshot.merkleRoot = merkleRoot
+  snapshot.ipfsHash = ipfsHash
+  snapshot.save()
 
   const items = parsedData.toArray()
 
