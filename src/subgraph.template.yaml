@@ -484,6 +484,28 @@ dataSources:
             kind: polling
             every: {{ blocksInHour }}
   - kind: ethereum/contract
+    name: OsTokenRedeemer
+    network: {{ network }}
+    source:
+      address: '{{ osTokenRedeemer.address }}'
+      abi: OsTokenRedeemer
+      startBlock: {{ osTokenRedeemer.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./mappings/osTokenRedeemer.ts
+      entities:
+        - Vault
+        - RedeemablePosition
+        - RedeemablePositions
+      abis:
+        - name: OsTokenRedeemer
+          file: ./abis/OsTokenRedeemer.json
+      eventHandlers:
+        - event: RedeemablePositionsUpdated(indexed bytes32,string)
+          handler: handleRedeemablePositionsUpdated
+  - kind: ethereum/contract
     name: AaveLeverageStrategyV1
     network: {{ network }}
     source:
@@ -792,6 +814,7 @@ templates:
         - ExitRequest
         - Transaction
         - LeverageStrategyPosition
+        - RedeemablePosition
       abis:
         - name: Vault
           file: ./abis/Vault.json

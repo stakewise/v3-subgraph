@@ -1184,3 +1184,42 @@ type Checkpoint @entity(immutable: false) {
   "The timestamp of the checkpoint"
   timestamp: BigInt!
 }
+
+"Current OsTokenRedeemer redeemable positions snapshot — Merkle root and IPFS hash from setRedeemablePositions"
+type RedeemablePositions @entity(immutable: false) {
+  "Set to 1"
+  id: ID!
+
+  "The Merkle root committed on-chain via OsTokenRedeemer.setRedeemablePositions"
+  merkleRoot: Bytes!
+
+  "The IPFS hash of the JSON file containing the ordered redeemable positions"
+  ipfsHash: String!
+
+  "Positions belonging to the current snapshot (used to wipe on update)"
+  positions: [RedeemablePosition!]! @derivedFrom(field: "redeemablePositions")
+}
+
+"A single position from the OsTokenRedeemer redeemable-positions IPFS file"
+type RedeemablePosition @entity(immutable: false) {
+  "Set to <Vault ID>-<owner>"
+  id: ID!
+
+  "0-based position in the IPFS file"
+  index: Int!
+
+  "Address of the position owner (allocator)"
+  owner: Bytes!
+
+  "The vault the position belongs to"
+  vault: Vault!
+
+  "Original osToken shares amount as published in the IPFS file (Wei)"
+  leafShares: BigInt!
+
+  "Remaining osToken shares to redeem within the current snapshot"
+  redeemableShares: BigInt!
+
+  "Back-link to the current snapshot (cleared on update)"
+  redeemablePositions: RedeemablePositions!
+}
