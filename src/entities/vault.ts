@@ -126,6 +126,7 @@ export function createVault(
   vault.isMetaVault = false
   vault.isOsTokenEnabled = true
   vault.isCollateralized = false
+  vault.isStateUpdateRequired = false
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
   vault.baseApy = BigDecimal.zero()
@@ -379,6 +380,11 @@ export function updateVaults(
     vault.slashedMevReward = slashedMevReward
     vault.rewardsTimestamp = updateTimestamp
     vault.rewardsIpfsHash = rewardsIpfsHash
+
+    if (vault.canHarvest) {
+      vault.isStateUpdateRequired = true
+    }
+
     vault.canHarvest = true
 
     // update v2 pool data

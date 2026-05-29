@@ -337,6 +337,9 @@ type Vault @entity(immutable: false) {
   "Indicates whether the Vault has registered validators"
   isCollateralized: Boolean!
 
+  "Indicates whether the vault state is out of sync with the latest rewards nonce"
+  isStateUpdateRequired: Boolean!
+
   "If the Vault is private, whitelister can add/remove allocators"
   whitelister: Bytes
 

@@ -94,6 +94,7 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt, isPriv
   vault.subVaultsCount = 0
   vault.parentMetaVaults = []
   vault.subVaultsCurator = curator
+  vault.isStateUpdateRequired = false
   vault._periodEarnedAssets = BigInt.zero()
   vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault._prevAllocatorAssets = BigInt.fromString(WAD)

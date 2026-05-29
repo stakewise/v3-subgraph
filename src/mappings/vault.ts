@@ -827,6 +827,7 @@ export function handleGenesisVaultCreated(event: GenesisVaultCreated): void {
   vault.isMetaVault = false
   vault.isOsTokenEnabled = true
   vault.isCollateralized = true
+  vault.isStateUpdateRequired = false
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.baseApy = BigDecimal.zero()
@@ -907,6 +908,7 @@ export function handleFoxVaultCreated(event: EthFoxVaultCreated): void {
   vault.isMetaVault = false
   vault.isOsTokenEnabled = false
   vault.isCollateralized = false
+  vault.isStateUpdateRequired = false
   vault.mevEscrow = ownMevEscrow
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
@@ -989,6 +991,7 @@ export function handleCommunityVaultCreated(event: EthCommunityVaultCreated): vo
   vault.isMetaVault = false
   vault.isOsTokenEnabled = true
   vault.isCollateralized = false
+  vault.isStateUpdateRequired = false
   vault.addressString = vaultAddressHex
   vault.createdAt = event.block.timestamp
   vault.baseApy = BigDecimal.zero()
