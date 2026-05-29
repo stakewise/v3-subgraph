@@ -56,7 +56,6 @@ import {
   VaultFactory as VaultFactoryTemplate,
 } from '../../generated/templates'
 import { Allocator, OsTokenConfig, Vault } from '../../generated/schema'
-import { Vault as VaultContract } from '../../generated/templates/Vault/Vault'
 import { createOrLoadOsToken, loadOsToken, updateOsTokenApy } from '../entities/osToken'
 import { createOrLoadNetwork, loadNetwork } from '../entities/network'
 import {
@@ -375,17 +374,14 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
 
     let hasChanges = false
 
-    // set canHarvest for all meta vaults (only collateralized meta vaults can be harvested)
-    if (vault.isCollateralized && !vault.canHarvest) {
-      vault.canHarvest = true
+    if (vault.canHarvest) {
+      vault.isStateUpdateRequired = true
       hasChanges = true
     }
 
-    // sync isStateUpdateRequired from the contract
-    const vaultContract = VaultContract.bind(vaultAddress)
-    const stateUpdateResult = vaultContract.try_isStateUpdateRequired()
-    if (!stateUpdateResult.reverted && stateUpdateResult.value != vault.isStateUpdateRequired) {
-      vault.isStateUpdateRequired = stateUpdateResult.value
+    // set canHarvest for all meta vaults (only collateralized meta vaults can be harvested)
+    if (vault.isCollateralized && !vault.canHarvest) {
+      vault.canHarvest = true
       hasChanges = true
     }
 
@@ -417,6 +413,11 @@ export function handleHarvested(event: Harvested): void {
     log.error('[Keeper] Harvested vault={} not found', [vaultAddress.toHex()])
     return
   }
+
+  if (vault.isStateUpdateRequired) {
+    vault.isStateUpdateRequired = false
+  }
+
   vault.canHarvest = vault.rewardsRoot!.notEqual(event.params.rewardsRoot)
   vault.save()
   if (vault.isGenesis) {

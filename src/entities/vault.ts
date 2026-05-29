@@ -380,6 +380,11 @@ export function updateVaults(
     vault.slashedMevReward = slashedMevReward
     vault.rewardsTimestamp = updateTimestamp
     vault.rewardsIpfsHash = rewardsIpfsHash
+
+    if (vault.canHarvest) {
+      vault.isStateUpdateRequired = true
+    }
+
     vault.canHarvest = true
 
     // update v2 pool data
