@@ -1073,6 +1073,8 @@ templates:
           handler: handleMetaSubVaultRejected
         - event: SubVaultsCuratorUpdated(indexed address)
           handler: handleSubVaultsCuratorUpdated
+        - event: RewardsNonceUpdated(uint256)
+          handler: handleRewardsNonceUpdated
   - kind: ethereum/contract
     name: RewardSplitter
     network: {{ network }}

@@ -363,16 +363,31 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const osToken = loadOsToken()!
   updateOsTokenApy(osToken, newAvgRewardPerSecond)
 
-  // set canHarvest for all meta vaults (only collateralized meta vaults can be harvested)
   const network = loadNetwork()!
   for (let i = 0; i < network.vaultIds.length; i++) {
     const vaultAddress = Address.fromString(network.vaultIds[i])
     const vault = loadVault(vaultAddress)!
-    if (!vault.isMetaVault || !vault.isCollateralized || vault.canHarvest) {
+
+    if (!vault.isMetaVault) {
       continue
     }
-    vault.canHarvest = true
-    vault.save()
+
+    let hasChanges = false
+
+    if (vault.canHarvest) {
+      vault.isStateUpdateRequired = true
+      hasChanges = true
+    }
+
+    // set canHarvest for all meta vaults (only collateralized meta vaults can be harvested)
+    if (vault.isCollateralized && !vault.canHarvest) {
+      vault.canHarvest = true
+      hasChanges = true
+    }
+
+    if (hasChanges) {
+      vault.save()
+    }
   }
 
   // update checkpoints
@@ -398,6 +413,11 @@ export function handleHarvested(event: Harvested): void {
     log.error('[Keeper] Harvested vault={} not found', [vaultAddress.toHex()])
     return
   }
+
+  if (vault.isStateUpdateRequired) {
+    vault.isStateUpdateRequired = false
+  }
+
   vault.canHarvest = vault.rewardsRoot!.notEqual(event.params.rewardsRoot)
   vault.save()
   if (vault.isGenesis) {

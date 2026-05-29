@@ -11,6 +11,7 @@ import {
   SubVaultEjected,
   SubVaultEjecting,
   SubVaultsHarvested,
+  RewardsNonceUpdated,
   MetaSubVaultProposed,
   MetaSubVaultRejected,
   SubVaultsCuratorUpdated,
@@ -194,5 +195,20 @@ export function handleSubVaultsCuratorUpdated(event: SubVaultsCuratorUpdated): v
   log.info('[SubVaultsRegistry] SubVaultsCuratorUpdated metaVault={} curator={}', [
     metaVaultAddress.toHex(),
     curatorAddress.toHex(),
+  ])
+}
+
+export function handleRewardsNonceUpdated(event: RewardsNonceUpdated): void {
+  const metaVaultAddress = getMetaVaultAddress(event.address)
+  const metaVault = loadVault(metaVaultAddress)!
+
+  if (metaVault.isStateUpdateRequired) {
+    metaVault.isStateUpdateRequired = false
+    metaVault.save()
+  }
+
+  log.info('[SubVaultsRegistry] RewardsNonceUpdated metaVault={} rewardsNonce={}', [
+    metaVaultAddress.toHex(),
+    event.params.rewardsNonce.toString(),
   ])
 }
