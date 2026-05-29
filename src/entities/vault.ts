@@ -126,6 +126,7 @@ export function createVault(
   vault.isMetaVault = false
   vault.isOsTokenEnabled = true
   vault.isCollateralized = false
+  vault.isStateUpdateRequired = false
   vault.addressString = vaultAddressHex
   vault.createdAt = block.timestamp
   vault.baseApy = BigDecimal.zero()

@@ -56,6 +56,7 @@ import {
   VaultFactory as VaultFactoryTemplate,
 } from '../../generated/templates'
 import { Allocator, OsTokenConfig, Vault } from '../../generated/schema'
+import { Vault as VaultContract } from '../../generated/templates/Vault/Vault'
 import { createOrLoadOsToken, loadOsToken, updateOsTokenApy } from '../entities/osToken'
 import { createOrLoadNetwork, loadNetwork } from '../entities/network'
 import {
@@ -363,16 +364,34 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   const osToken = loadOsToken()!
   updateOsTokenApy(osToken, newAvgRewardPerSecond)
 
-  // set canHarvest for all meta vaults (only collateralized meta vaults can be harvested)
   const network = loadNetwork()!
   for (let i = 0; i < network.vaultIds.length; i++) {
     const vaultAddress = Address.fromString(network.vaultIds[i])
     const vault = loadVault(vaultAddress)!
-    if (!vault.isMetaVault || !vault.isCollateralized || vault.canHarvest) {
+
+    if (!vault.isMetaVault) {
       continue
     }
-    vault.canHarvest = true
-    vault.save()
+
+    let hasChanges = false
+
+    // set canHarvest for all meta vaults (only collateralized meta vaults can be harvested)
+    if (vault.isCollateralized && !vault.canHarvest) {
+      vault.canHarvest = true
+      hasChanges = true
+    }
+
+    // sync isStateUpdateRequired from the contract
+    const vaultContract = VaultContract.bind(vaultAddress)
+    const stateUpdateResult = vaultContract.try_isStateUpdateRequired()
+    if (!stateUpdateResult.reverted && stateUpdateResult.value != vault.isStateUpdateRequired) {
+      vault.isStateUpdateRequired = stateUpdateResult.value
+      hasChanges = true
+    }
+
+    if (hasChanges) {
+      vault.save()
+    }
   }
 
   // update checkpoints

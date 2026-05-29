@@ -115,5 +115,18 @@
     ],
     "name": "SubVaultsCuratorUpdated",
     "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "rewardsNonce",
+        "type": "uint256"
+      }
+    ],
+    "name": "RewardsNonceUpdated",
+    "type": "event"
   }
 ]
