@@ -1189,7 +1189,7 @@ type Checkpoint @entity(immutable: false) {
 }
 
 "Current OsTokenRedeemer redeemable positions snapshot — Merkle root and IPFS hash from setRedeemablePositions"
-type RedeemablePositions @entity(immutable: false) {
+type RedeemablePositionsSnapshot @entity(immutable: false) {
   "Set to 1"
   id: ID!
 
@@ -1200,7 +1200,7 @@ type RedeemablePositions @entity(immutable: false) {
   ipfsHash: String!
 
   "Positions belonging to the current snapshot (used to wipe on update)"
-  positions: [RedeemablePosition!]! @derivedFrom(field: "redeemablePositions")
+  positions: [RedeemablePosition!]! @derivedFrom(field: "snapshot")
 }
 
 "A single position from the OsTokenRedeemer redeemable-positions IPFS file"
@@ -1224,5 +1224,5 @@ type RedeemablePosition @entity(immutable: false) {
   redeemableShares: BigInt!
 
   "Back-link to the current snapshot (cleared on update)"
-  redeemablePositions: RedeemablePositions!
+  snapshot: RedeemablePositionsSnapshot!
 }
