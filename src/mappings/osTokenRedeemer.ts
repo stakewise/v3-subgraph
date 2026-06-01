@@ -1,10 +1,10 @@
 import { Address, BigInt, Bytes, ipfs, json, JSONValueKind, log, store } from '@graphprotocol/graph-ts'
 
-import { RedeemablePosition, RedeemablePositions } from '../../generated/schema'
+import { RedeemablePosition, OsTokenRedeemer } from '../../generated/schema'
 import { RedeemablePositionsUpdated } from '../../generated/OsTokenRedeemer/OsTokenRedeemer'
 import { loadVault } from '../entities/vault'
 
-const redeemablePositionsId = '1'
+const osTokenRedeemerId = '1'
 
 export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdated): void {
   const merkleRoot = event.params.merkleRoot
@@ -30,24 +30,24 @@ export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdat
     return
   }
 
-  const existing = RedeemablePositions.load(redeemablePositionsId)
+  const existing = OsTokenRedeemer.load(osTokenRedeemerId)
 
-  let snapshot: RedeemablePositions
+  let osTokenRedeemer: OsTokenRedeemer
 
   if (existing === null) {
-    snapshot = new RedeemablePositions(redeemablePositionsId)
+    osTokenRedeemer = new OsTokenRedeemer(osTokenRedeemerId)
   } else {
     const previousPositions = existing.positions.load()
 
     for (let i = 0; i < previousPositions.length; i++) {
       store.remove('RedeemablePosition', previousPositions[i].id)
     }
-    snapshot = existing
+    osTokenRedeemer = existing
   }
 
-  snapshot.merkleRoot = merkleRoot
-  snapshot.ipfsHash = ipfsHash
-  snapshot.save()
+  osTokenRedeemer.merkleRoot = merkleRoot
+  osTokenRedeemer.ipfsHash = ipfsHash
+  osTokenRedeemer.save()
 
   const items = parsedData.toArray()
 
@@ -111,7 +111,7 @@ export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdat
     position.vault = vault.id
     position.leafShares = leafShares
     position.redeemableShares = leafShares
-    position.redeemablePositions = redeemablePositionsId
+    position.osTokenRedeemer = osTokenRedeemerId
     position.save()
   }
 
