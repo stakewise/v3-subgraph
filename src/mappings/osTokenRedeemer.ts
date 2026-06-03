@@ -112,6 +112,7 @@ export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdat
     position.leafShares = leafShares
     position.redeemableShares = leafShares
     position.osTokenRedeemer = osTokenRedeemerId
+    position.ownerAddressString = owner.toHexString()
     position.save()
   }
 

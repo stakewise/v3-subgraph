@@ -1214,6 +1214,9 @@ type RedeemablePosition @entity(immutable: false) {
   "Address of the position owner (allocator)"
   owner: Bytes!
 
+  "Owner address string for search"
+  ownerAddressString: String!
+
   "The vault the position belongs to"
   vault: Vault!
 
