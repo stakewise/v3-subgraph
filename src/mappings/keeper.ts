@@ -18,6 +18,7 @@ import {
   BLOCKLIST_VAULT_FACTORY_V3,
   BLOCKLIST_VAULT_FACTORY_V5,
   ERC20_META_VAULT_FACTORY_V6,
+  ERC20_META_VAULT_FACTORY_V7,
   ERC20_VAULT_FACTORY_V1,
   ERC20_VAULT_FACTORY_V2,
   ERC20_VAULT_FACTORY_V3,
@@ -25,17 +26,18 @@ import {
   COMMUNITY_VAULT,
   FOX_VAULT1,
   FOX_VAULT2,
-  META_VAULT_FACTORY_V3,
-  META_VAULT_FACTORY_V4,
   META_VAULT_FACTORY_V5,
   META_VAULT_FACTORY_V6,
+  META_VAULT_FACTORY_V7,
   NETWORK,
   PRIV_ERC20_META_VAULT_FACTORY_V6,
+  PRIV_ERC20_META_VAULT_FACTORY_V7,
   PRIV_ERC20_VAULT_FACTORY_V1,
   PRIV_ERC20_VAULT_FACTORY_V2,
   PRIV_ERC20_VAULT_FACTORY_V3,
   PRIV_ERC20_VAULT_FACTORY_V5,
   PRIV_META_VAULT_FACTORY_V6,
+  PRIV_META_VAULT_FACTORY_V7,
   PRIV_VAULT_FACTORY_V1,
   PRIV_VAULT_FACTORY_V2,
   PRIV_VAULT_FACTORY_V3,
@@ -119,13 +121,15 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   const foxVault1 = Address.fromString(FOX_VAULT1)
   const foxVault2 = Address.fromString(FOX_VAULT2)
   const communityVault = Address.fromString(COMMUNITY_VAULT)
-  const metaVaultFactoryV3 = Address.fromString(META_VAULT_FACTORY_V3)
-  const metaVaultFactoryV4 = Address.fromString(META_VAULT_FACTORY_V4)
   const metaVaultFactoryV5 = Address.fromString(META_VAULT_FACTORY_V5)
   const metaVaultFactoryV6 = Address.fromString(META_VAULT_FACTORY_V6)
   const erc20MetaVaultFactoryV6 = Address.fromString(ERC20_META_VAULT_FACTORY_V6)
   const privMetaVaultFactoryV6 = Address.fromString(PRIV_META_VAULT_FACTORY_V6)
   const privErc20MetaVaultFactoryV6 = Address.fromString(PRIV_ERC20_META_VAULT_FACTORY_V6)
+  const metaVaultFactoryV7 = Address.fromString(META_VAULT_FACTORY_V7)
+  const erc20MetaVaultFactoryV7 = Address.fromString(ERC20_META_VAULT_FACTORY_V7)
+  const privMetaVaultFactoryV7 = Address.fromString(PRIV_META_VAULT_FACTORY_V7)
+  const privErc20MetaVaultFactoryV7 = Address.fromString(PRIV_ERC20_META_VAULT_FACTORY_V7)
   const zeroAddress = Address.zero()
   const blockNumber = event.block.number.toString()
 
@@ -261,20 +265,10 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
     log.info('[Keeper] Initialize BlocklistERC20VaultFactory V5 at block={}', [blockNumber])
   }
 
-  // V3/V4/V5 Meta Vault Factories (non-ERC20)
+  // V5 Meta Vault Factories (non-ERC20)
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_ERC20_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, false)
-  if (metaVaultFactoryV3.notEqual(zeroAddress)) {
-    context.setBigInt(VERSION, BigInt.fromI32(3))
-    MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV3, context)
-    log.info('[Keeper] Initialize MetaVaultFactory V3 at block={}', [blockNumber])
-  }
-  if (metaVaultFactoryV4.notEqual(zeroAddress)) {
-    context.setBigInt(VERSION, BigInt.fromI32(4))
-    MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV4, context)
-    log.info('[Keeper] Initialize MetaVaultFactory V4 at block={}', [blockNumber])
-  }
   if (metaVaultFactoryV5.notEqual(zeroAddress)) {
     context.setBigInt(VERSION, BigInt.fromI32(5))
     MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV5, context)
@@ -310,6 +304,37 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
     context.setBigInt(VERSION, BigInt.fromI32(6))
     MetaVaultFactoryTemplate.createWithContext(privErc20MetaVaultFactoryV6, context)
     log.info('[Keeper] Initialize PrivErc20MetaVaultFactory V6 at block={}', [blockNumber])
+  }
+
+  // V7 Meta Vault Factories
+  context.setBoolean(IS_PRIVATE_KEY, false)
+  context.setBoolean(IS_ERC20_KEY, false)
+  if (metaVaultFactoryV7.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(7))
+    MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV7, context)
+    log.info('[Keeper] Initialize MetaVaultFactory V7 at block={}', [blockNumber])
+  }
+
+  context.setBoolean(IS_ERC20_KEY, true)
+  if (erc20MetaVaultFactoryV7.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(7))
+    MetaVaultFactoryTemplate.createWithContext(erc20MetaVaultFactoryV7, context)
+    log.info('[Keeper] Initialize Erc20MetaVaultFactory V7 at block={}', [blockNumber])
+  }
+
+  context.setBoolean(IS_PRIVATE_KEY, true)
+  context.setBoolean(IS_ERC20_KEY, false)
+  if (privMetaVaultFactoryV7.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(7))
+    MetaVaultFactoryTemplate.createWithContext(privMetaVaultFactoryV7, context)
+    log.info('[Keeper] Initialize PrivMetaVaultFactory V7 at block={}', [blockNumber])
+  }
+
+  context.setBoolean(IS_ERC20_KEY, true)
+  if (privErc20MetaVaultFactoryV7.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(7))
+    MetaVaultFactoryTemplate.createWithContext(privErc20MetaVaultFactoryV7, context)
+    log.info('[Keeper] Initialize PrivErc20MetaVaultFactory V7 at block={}', [blockNumber])
   }
 
   // create reward splitter factories
