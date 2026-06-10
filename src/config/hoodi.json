@@ -33,6 +33,10 @@
   "erc20MetaVaultFactoryV6": "0xd21e8401c2DBbb180C621E8B3B22a842Ea73e487",
   "privMetaVaultFactoryV6": "0xD13BB2fD02fA060Dc82c439724dC9c4bc59957B7",
   "privErc20MetaVaultFactoryV6": "0xAc31856e2A81B9Af8b83424817C3bc0770F40a01",
+  "metaVaultFactoryV7": "0x47d598881B65892983025d4a07778901ee97e8fD",
+  "erc20MetaVaultFactoryV7": "0x2caf98d5C7d9AB21F17Ca6c2304FeA06239FB426",
+  "privMetaVaultFactoryV7": "0xC66070FB0dD883595b7C1B0dA6cBEE137391afAC",
+  "privErc20MetaVaultFactoryV7": "0xbFB8Fa5A69F04bC9a9Ed12d3aBF2884Efc1b9701",
   "rewardSplitterFactoryV1": "0xC8AdBaAC832b5CcB0C85C35D45Bc0d335db6fB29",
   "rewardSplitterFactoryV2": "0x80353898B72417AC5701a9809A9eF63F691BdE86",
   "rewardSplitterFactoryV3": "0xd12Df8543e0522CCbF12d231e822B7264c634775",
@@ -163,7 +167,5 @@
     "address": "0x00000000219ab540356cBB839Cbe05303d7705Fa",
     "startBlock": "0"
   },
-  "genesisIpfsHash": "bafybeibnb7ttpd55qsdpar5yfhxz45vkcmomplf266bqlvdy4hyji7gtsq",
-  "metaVaultFactoryV3": "0x0000000000000000000000000000000000000000",
-  "metaVaultFactoryV4": "0x0000000000000000000000000000000000000000"
+  "genesisIpfsHash": "bafybeibnb7ttpd55qsdpar5yfhxz45vkcmomplf266bqlvdy4hyji7gtsq"
 }
