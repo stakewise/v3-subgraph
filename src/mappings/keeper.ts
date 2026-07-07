@@ -26,6 +26,7 @@ import {
   COMMUNITY_VAULT,
   FOX_VAULT1,
   FOX_VAULT2,
+  META_VAULT_FACTORY_V3,
   META_VAULT_FACTORY_V5,
   META_VAULT_FACTORY_V6,
   META_VAULT_FACTORY_V7,
@@ -121,6 +122,7 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   const foxVault1 = Address.fromString(FOX_VAULT1)
   const foxVault2 = Address.fromString(FOX_VAULT2)
   const communityVault = Address.fromString(COMMUNITY_VAULT)
+  const metaVaultFactoryV3 = Address.fromString(META_VAULT_FACTORY_V3)
   const metaVaultFactoryV5 = Address.fromString(META_VAULT_FACTORY_V5)
   const metaVaultFactoryV6 = Address.fromString(META_VAULT_FACTORY_V6)
   const erc20MetaVaultFactoryV6 = Address.fromString(ERC20_META_VAULT_FACTORY_V6)
@@ -265,10 +267,15 @@ export function handleOwnershipTransferred(event: OwnershipTransferred): void {
     log.info('[Keeper] Initialize BlocklistERC20VaultFactory V5 at block={}', [blockNumber])
   }
 
-  // V5 Meta Vault Factories (non-ERC20)
+  // V3/V5 Meta Vault Factories (non-ERC20)
   context.setBoolean(IS_PRIVATE_KEY, false)
   context.setBoolean(IS_ERC20_KEY, false)
   context.setBoolean(IS_BLOCKLIST_KEY, false)
+  if (metaVaultFactoryV3.notEqual(zeroAddress)) {
+    context.setBigInt(VERSION, BigInt.fromI32(3))
+    MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV3, context)
+    log.info('[Keeper] Initialize MetaVaultFactory V3 at block={}', [blockNumber])
+  }
   if (metaVaultFactoryV5.notEqual(zeroAddress)) {
     context.setBigInt(VERSION, BigInt.fromI32(5))
     MetaVaultFactoryTemplate.createWithContext(metaVaultFactoryV5, context)
