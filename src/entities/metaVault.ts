@@ -247,7 +247,8 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
   }
   const subVault = loadVault(Address.fromString(subVaults[0].subVault))!
 
-  // update vault
+  // update vault. Network total assets are not updated here, because meta vault assets are
+  // delegated to the sub vaults and are already counted there (see updateNetworkTotalAssets).
   vault.totalAssets = newTotalAssets
   vault.totalShares = newTotalShares
   vault.queuedShares = newQueuedShares

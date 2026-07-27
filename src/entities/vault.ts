@@ -18,7 +18,7 @@ import {
   WAD,
 } from '../helpers/constants'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, loadOsToken } from './osToken'
-import { increaseUserVaultsCount, isGnosisNetwork, loadNetwork } from './network'
+import { increaseUserVaultsCount, isGnosisNetwork, loadNetwork, updateNetworkTotalAssets } from './network'
 import { getV2PoolState, loadV2Pool } from './v2pool'
 import {
   calculateApy,
@@ -366,7 +366,7 @@ export function updateVaults(
         .minus(vault.unlockedExecutionReward)
     }
 
-    network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
+    updateNetworkTotalAssets(network, vault, newTotalAssets.minus(vault.totalAssets))
     network.totalEarnedAssets = network.totalEarnedAssets.plus(vaultPeriodAssets)
 
     vault.totalAssets = newTotalAssets

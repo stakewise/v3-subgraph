@@ -31,6 +31,15 @@ export function isGnosisNetwork(): boolean {
   return NETWORK == 'gnosis' || NETWORK == 'xdai'
 }
 
+// Applies a vault assets change to the network total. Meta vaults are skipped, because their assets
+// are delegated to the sub vaults and are already counted there.
+export function updateNetworkTotalAssets(network: Network, vault: Vault, assetsDelta: BigInt): void {
+  if (vault.isMetaVault) {
+    return
+  }
+  network.totalAssets = network.totalAssets.plus(assetsDelta)
+}
+
 export function createOrLoadUser(userAddress: Bytes): User {
   const id = userAddress.toHexString()
 

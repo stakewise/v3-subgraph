@@ -49,7 +49,7 @@ import {
   increaseAllocatorShares,
   loadAllocator,
 } from '../entities/allocator'
-import { isGnosisNetwork, loadNetwork } from '../entities/network'
+import { isGnosisNetwork, loadNetwork, updateNetworkTotalAssets } from '../entities/network'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import { DEPOSIT_DATA_REGISTRY, OS_TOKEN_REDEEMER, WAD } from '../helpers/constants'
 import { isSubVaultsRegistrySupported } from '../helpers/utils'
@@ -76,7 +76,7 @@ export function handleDeposited(event: Deposited): void {
   vault.save()
 
   const network = loadNetwork()!
-  network.totalAssets = network.totalAssets.plus(assets)
+  updateNetworkTotalAssets(network, vault, assets)
   network.save()
 
   const osToken = loadOsToken()!
@@ -123,7 +123,7 @@ export function handleRedeemed(event: Redeemed): void {
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
   const network = loadNetwork()!
-  network.totalAssets = network.totalAssets.minus(assets)
+  updateNetworkTotalAssets(network, vault, assets.neg())
   network.save()
 
   const aave = loadAave()!
@@ -518,7 +518,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   vault.save()
 
   const network = loadNetwork()!
-  network.totalAssets = network.totalAssets.minus(assets)
+  updateNetworkTotalAssets(network, vault, assets.neg())
   network.save()
 
   createAllocatorAction(event, vaultAddress, AllocatorActionType.ExitQueueEntered, owner, assets, shares)
@@ -725,7 +725,7 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   vault.save()
 
   const network = loadNetwork()!
-  network.totalAssets = network.totalAssets.minus(withdrawnAssets)
+  updateNetworkTotalAssets(network, vault, withdrawnAssets.neg())
   network.save()
 
   const osToken = loadOsToken()!
@@ -764,7 +764,7 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   vault.save()
 
   const network = loadNetwork()!
-  network.totalAssets = network.totalAssets.minus(withdrawnAssets)
+  updateNetworkTotalAssets(network, vault, withdrawnAssets.neg())
   network.save()
 
   const osToken = loadOsToken()!
@@ -1066,7 +1066,7 @@ export function handleMigrated(event: Migrated): void {
   vault.save()
 
   const network = loadNetwork()!
-  network.totalAssets = network.totalAssets.plus(assets)
+  updateNetworkTotalAssets(network, vault, assets)
   network.save()
 
   const aave = loadAave()!
