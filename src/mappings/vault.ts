@@ -48,6 +48,7 @@ import {
   increaseAllocatorMintedOsTokenShares,
   increaseAllocatorShares,
   loadAllocator,
+  syncAllocatorUserCount,
 } from '../entities/allocator'
 import { isGnosisNetwork, loadNetwork, updateNetworkTotalAssets } from '../entities/network'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
@@ -294,6 +295,7 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
     // deduct the negative shares from fee recipient
     feeRecipient.shares = feeRecipient.shares.plus(vault._unclaimedFeeRecipientShares)
     feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
+    syncAllocatorUserCount(feeRecipient)
     feeRecipient.save()
     log.warning(
       '[FeeSharesMinted] Negative unclaimed fee recipient shares after minting fee shares vault={}, feeRecipient={} diff={}',
@@ -305,6 +307,7 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
     // deduct the remaining unclaimed shares from fee recipient
     feeRecipient.shares = feeRecipient.shares.minus(vault._unclaimedFeeRecipientShares)
     feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
+    syncAllocatorUserCount(feeRecipient)
     feeRecipient.save()
     log.warning(
       '[FeeSharesMinted] Non zero unclaimed fee recipient shares after minting fee shares vault={}, feeRecipient={} diff={}',

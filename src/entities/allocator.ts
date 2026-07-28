@@ -4,6 +4,7 @@ import {
   Allocator,
   AllocatorAction,
   AllocatorSnapshot,
+  LeverageStrategyPosition,
   OsToken,
   OsTokenConfig,
   Vault,
@@ -86,6 +87,9 @@ export function createOrLoadAllocator(allocatorAddress: Address, vaultAddress: A
     vaultAllocator.shares = BigInt.zero()
     vaultAllocator.assets = BigInt.zero()
     vaultAllocator.mintedOsTokenShares = BigInt.zero()
+    vaultAllocator.extraBoostOsTokenShares = BigInt.zero()
+    vaultAllocator._extraBoostOsTokenAssets = BigInt.zero()
+    vaultAllocator._countedAsUser = false
     vaultAllocator.exitingAssets = BigInt.zero()
     vaultAllocator.ltv = BigDecimal.zero()
     vaultAllocator.ltvStatus = LtvStatusStrings[LtvStatus.Healthy]
@@ -119,14 +123,11 @@ export function createAllocatorSnapshot(
     .concat(allocator.address)
     .concat(Bytes.fromByteArray(Bytes.fromI64(snapshotTimestamp)))
 
+  // accrue exchange rate appreciation earned on the extra boosted OsToken shares
+  syncAllocatorExtraBoostEarnedAssets(osToken, allocator, boostedOsTokenShares)
+
   // add extra assets from boosted OsToken shares
-  let extraOsTokenAssets = BigInt.zero()
-  if (boostedOsTokenShares.gt(allocator.mintedOsTokenShares)) {
-    extraOsTokenAssets = convertOsTokenSharesToAssets(
-      osToken,
-      boostedOsTokenShares.minus(allocator.mintedOsTokenShares),
-    )
-  }
+  const extraOsTokenAssets = allocator._extraBoostOsTokenAssets
 
   const allocatorSnapshot = new AllocatorSnapshot(snapshotId)
   allocatorSnapshot.timestamp = snapshotTimestamp
@@ -225,6 +226,11 @@ export function updateAllocatorMintedOsTokenShares(osToken: OsToken, osTokenConf
     }
 
     allocator.mintedOsTokenShares = allocatorNewMintedOsTokenShares
+    if (allocator.extraBoostOsTokenShares.gt(BigInt.zero())) {
+      // minted shares growth reclassifies part of the extra boosted OsToken shares
+      const position = loadLeverageStrategyPosition(vaultAddress, Address.fromBytes(allocator.address))
+      syncAllocatorExtraBoostEarnedAssets(osToken, allocator, getBoostedOsTokenShares(position))
+    }
     allocator.ltv = getAllocatorLtv(allocator, osToken)
     allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
     allocator._periodOsTokenFeeShares = allocator._periodOsTokenFeeShares.plus(mintedOsTokenSharesDiff)
@@ -286,6 +292,7 @@ export function getAllocatorApy(
     totalEarnedAssets = totalEarnedAssets.minus(getAnnualReward(mintedOsTokenAssets, vaultOsTokenMintApy))
   }
 
+  let hasExtraBoostOsTokenShares = false
   const boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
   if (boostPosition !== null) {
     totalEarnedAssets = totalEarnedAssets.plus(
@@ -294,6 +301,7 @@ export function getAllocatorApy(
     const boostedOsTokenShares = boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)
     if (boostedOsTokenShares.gt(allocator.mintedOsTokenShares)) {
       // extra OsToken shares earn OsToken APY
+      hasExtraBoostOsTokenShares = true
       const extraOsTokenShares = boostedOsTokenShares.minus(allocator.mintedOsTokenShares)
       const extraOsTokenAssets = convertOsTokenSharesToAssets(osToken, extraOsTokenShares)
       totalEarnedAssets = totalEarnedAssets.plus(getAnnualReward(extraOsTokenAssets, osToken.apy))
@@ -306,7 +314,19 @@ export function getAllocatorApy(
   }
 
   const allocatorApy = totalEarnedAssets.divDecimal(totalAssets.toBigDecimal()).times(BigDecimal.fromString('100'))
-  if (vault.apy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(vault.allocatorMaxBoostApy)) {
+
+  // allocatorMaxBoostApy models a freshly opened max-leverage position funded purely from the
+  // allocator's own stake, so it does not bound allocators who boost extra OsToken shares
+  if (hasExtraBoostOsTokenShares) {
+    return allocatorApy
+  }
+
+  // allocatorMaxBoostApy models a freshly opened max-leverage position: debt equals the strategy
+  // deposit and the mint drag is taken at current ratios. Aged positions legitimately drift above
+  // it as debt and mint drag compound slower than the vault stake, so only clamp when the
+  // calculated APY exceeds the reference max by more than 10% (a data anomaly rather than drift).
+  const maxAllocatorApy = vault.allocatorMaxBoostApy.times(BigDecimal.fromString('1.1'))
+  if (vault.apy.lt(vault.allocatorMaxBoostApy) && allocatorApy.gt(maxAllocatorApy)) {
     log.warning(
       '[getAllocatorApy] Calculated APY is higher than max boost APY: maxBoostApy={} allocatorApy={} vault={} allocator={}',
       [vault.allocatorMaxBoostApy.toString(), allocatorApy.toString(), vault.id, allocator.address.toHex()],
@@ -325,11 +345,9 @@ export function increaseAllocatorShares(
 ): void {
   syncAllocatorPeriodStakeEarnedAssets(vault, allocator)
 
-  if (allocator.shares.isZero() && !shares.isZero()) {
-    increaseUserVaultsCount(allocator.address)
-  }
   allocator.shares = allocator.shares.plus(shares)
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
+  syncAllocatorUserCount(allocator)
   if (vault.isOsTokenEnabled) {
     allocator.ltv = getAllocatorLtv(allocator, osToken)
     allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
@@ -346,10 +364,8 @@ export function decreaseAllocatorShares(
   syncAllocatorPeriodStakeEarnedAssets(vault, allocator)
 
   allocator.shares = allocator.shares.minus(shares)
-  if (allocator.shares.le(BigInt.zero())) {
-    decreaseUserVaultsCount(allocator.address)
-  }
   allocator.assets = convertSharesToAssets(vault, allocator.shares)
+  syncAllocatorUserCount(allocator)
   if (vault.isOsTokenEnabled) {
     allocator.ltv = getAllocatorLtv(allocator, osToken)
     allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
@@ -386,6 +402,60 @@ export function syncAllocatorPeriodStakeEarnedAssets(vault: Vault, allocator: Al
   allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(assetsAfter.minus(assetsBefore))
 }
 
+export function getBoostedOsTokenShares(position: LeverageStrategyPosition | null): BigInt {
+  if (position === null) {
+    return BigInt.zero()
+  }
+  return position.osTokenShares.plus(position.exitingOsTokenShares)
+}
+
+export function syncAllocatorExtraBoostEarnedAssets(
+  osToken: OsToken,
+  allocator: Allocator,
+  boostedOsTokenShares: BigInt,
+): void {
+  // the extra boosted OsToken shares have no offsetting minted position, so their
+  // exchange rate appreciation since the last sync is earned by the allocator
+  allocator._periodBoostEarnedAssets = allocator._periodBoostEarnedAssets.plus(
+    convertOsTokenSharesToAssets(osToken, allocator.extraBoostOsTokenShares).minus(allocator._extraBoostOsTokenAssets),
+  )
+
+  let extraBoostOsTokenShares = boostedOsTokenShares.minus(allocator.mintedOsTokenShares)
+  if (extraBoostOsTokenShares.lt(BigInt.zero())) {
+    extraBoostOsTokenShares = BigInt.zero()
+  }
+  allocator.extraBoostOsTokenShares = extraBoostOsTokenShares
+  allocator._extraBoostOsTokenAssets = convertOsTokenSharesToAssets(osToken, extraBoostOsTokenShares)
+}
+
+export function syncAllocatorUserCount(allocator: Allocator): void {
+  let counted = allocator.shares.gt(BigInt.zero())
+  if (!counted) {
+    const position = loadLeverageStrategyPosition(
+      Address.fromString(allocator.vault),
+      Address.fromBytes(allocator.address),
+    )
+    counted =
+      position !== null &&
+      !(
+        position.osTokenShares.isZero() &&
+        position.exitingOsTokenShares.isZero() &&
+        position.assets.isZero() &&
+        position.exitingAssets.isZero()
+      )
+  }
+
+  if (counted == allocator._countedAsUser) {
+    return
+  }
+  if (counted) {
+    increaseUserVaultsCount(allocator.address)
+  } else {
+    decreaseUserVaultsCount(allocator.address)
+  }
+  allocator._countedAsUser = counted
+}
+
 export function increaseAllocatorMintedOsTokenShares(
   osToken: OsToken,
   osTokenConfig: OsTokenConfig,
@@ -393,6 +463,14 @@ export function increaseAllocatorMintedOsTokenShares(
   shares: BigInt,
 ): void {
   allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.plus(shares)
+  if (allocator.extraBoostOsTokenShares.gt(BigInt.zero())) {
+    // minted shares growth reclassifies part of the extra boosted OsToken shares
+    const position = loadLeverageStrategyPosition(
+      Address.fromString(allocator.vault),
+      Address.fromBytes(allocator.address),
+    )
+    syncAllocatorExtraBoostEarnedAssets(osToken, allocator, getBoostedOsTokenShares(position))
+  }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)
 }
@@ -406,6 +484,14 @@ export function decreaseAllocatorMintedOsTokenShares(
   allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.minus(shares)
   if (allocator.mintedOsTokenShares.lt(BigInt.zero())) {
     allocator.mintedOsTokenShares = BigInt.zero()
+  }
+  const position = loadLeverageStrategyPosition(
+    Address.fromString(allocator.vault),
+    Address.fromBytes(allocator.address),
+  )
+  if (position !== null) {
+    // minted shares reduction reclassifies boosted OsToken shares into extra
+    syncAllocatorExtraBoostEarnedAssets(osToken, allocator, getBoostedOsTokenShares(position))
   }
   allocator.ltv = getAllocatorLtv(allocator, osToken)
   allocator.ltvStatus = getAllocatorLtvStatus(allocator, osTokenConfig)

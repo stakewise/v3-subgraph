@@ -27,6 +27,9 @@ type Allocator @entity(immutable: false) {
   "The allocator's minted OsToken shares amount"
   mintedOsTokenShares: BigInt!
 
+  "The allocator's boosted OsToken shares exceeding the shares minted from the vault"
+  extraBoostOsTokenShares: BigInt!
+
   "The allocator's LTV percent. Will be null if there are no OsTokens minted"
   ltv: BigDecimal!
 
@@ -62,6 +65,12 @@ type Allocator @entity(immutable: false) {
 
   "The total period OsToken shares minted as a fee"
   _periodOsTokenFeeShares: BigInt!
+
+  "The assets value of extraBoostOsTokenShares at the last earnings accrual"
+  _extraBoostOsTokenAssets: BigInt!
+
+  "Whether the allocator is counted in the users count"
+  _countedAsUser: Boolean!
 }
 
 """

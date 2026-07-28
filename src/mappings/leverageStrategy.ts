@@ -15,7 +15,10 @@ import {
   createAllocatorAction,
   createOrLoadAllocator,
   getAllocatorApy,
+  getBoostedOsTokenShares,
   loadAllocator,
+  syncAllocatorExtraBoostEarnedAssets,
+  syncAllocatorUserCount,
 } from '../entities/allocator'
 import { loadNetwork } from '../entities/network'
 import { loadVault } from '../entities/vault'
@@ -52,6 +55,8 @@ function _updateAllocator(
   }
   allocator._periodBoostEarnedOsTokenShares = allocator._periodBoostEarnedOsTokenShares.plus(earnedOsTokenShares)
   allocator._periodBoostEarnedAssets = allocator._periodBoostEarnedAssets.plus(earnedAssets)
+  syncAllocatorExtraBoostEarnedAssets(osToken, allocator, getBoostedOsTokenShares(position))
+  syncAllocatorUserCount(allocator)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
 }
@@ -329,6 +334,8 @@ export function syncLeverageStrategyPositions(block: ethereum.Block): void {
       allocator._periodBoostEarnedAssets = allocator._periodBoostEarnedAssets.plus(
         totalAssetsAfter.minus(totalAssetsBefore),
       )
+      syncAllocatorExtraBoostEarnedAssets(osToken, allocator, getBoostedOsTokenShares(position))
+      syncAllocatorUserCount(allocator)
       allocator.save()
     }
   }
