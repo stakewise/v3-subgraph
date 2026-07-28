@@ -9,6 +9,7 @@ export enum CheckpointType {
   LEVERAGE_STRATEGY,
   APYS,
   SNAPSHOTS,
+  STAKERS,
 }
 
 const CheckpointTypeStrings: Array<string> = [
@@ -19,6 +20,7 @@ const CheckpointTypeStrings: Array<string> = [
   'LEVERAGE_STRATEGY',
   'APYS',
   'SNAPSHOTS',
+  'STAKERS',
 ]
 
 export function createOrLoadCheckpoint(checkpointType: CheckpointType): Checkpoint {

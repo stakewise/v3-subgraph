@@ -31,6 +31,7 @@ import {
   updateAavePositions,
 } from '../entities/aave'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
+import { MAIN_META_VAULT_ADDRESS, syncStaker } from '../entities/staker'
 import { AAVE_LEVERAGE_STRATEGY_V1 } from '../helpers/constants'
 
 function _updateAllocator(
@@ -59,6 +60,10 @@ function _updateAllocator(
   syncAllocatorUserCount(allocator)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
+
+  if (vaultAddr.equals(MAIN_META_VAULT_ADDRESS)) {
+    syncStaker(userAddress)
+  }
 }
 
 export function handleStrategyProxyCreated(event: StrategyProxyCreated): void {

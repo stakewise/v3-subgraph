@@ -563,6 +563,26 @@ type Network @entity(immutable: false) {
 
   "The total number of non repeated vault allocators and osToken holders"
   usersCount: Int!
+
+  "All the stakers in the network"
+  stakers: [Staker!]! @derivedFrom(field: "network")
+}
+
+"""
+The main MetaVault staker
+"""
+type Staker @entity(immutable: false) {
+  "The staker address"
+  id: ID!
+
+  "The assets the staker would hold after burning/redeeming all the osToken shares and withdrawing all the assets"
+  totalAssets: BigInt!
+
+  "The staker's projected APY"
+  apy: BigDecimal!
+
+  "The network. Used to iterate over all the stakers."
+  network: Network!
 }
 
 type User @entity(immutable: false) {

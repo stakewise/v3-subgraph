@@ -4,6 +4,7 @@ import { createOrLoadSwiseTokenHolder, createTokenTransfer } from '../entities/t
 import { OS_TOKEN, SWISE_TOKEN } from '../helpers/constants'
 import { createOrLoadOsTokenHolder, loadOsTokenHolder } from '../entities/osToken'
 import { createOrLoadUser, loadNetwork } from '../entities/network'
+import { syncStaker } from '../entities/staker'
 
 export function handleTransfer(event: Transfer): void {
   const tokenAddress = event.address
@@ -83,6 +84,8 @@ function _handleOsTokenTransfer(event: Transfer): void {
       network.save()
       store.remove('User', user.id)
     }
+
+    syncStaker(from)
   }
   if (to.notEqual(Address.zero())) {
     const tokenHolderTo = createOrLoadOsTokenHolder(to)
@@ -99,5 +102,7 @@ function _handleOsTokenTransfer(event: Transfer): void {
       user.isOsTokenHolder = true
       user.save()
     }
+
+    syncStaker(to)
   }
 }
