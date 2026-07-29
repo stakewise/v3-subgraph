@@ -91,7 +91,7 @@ export function handleDeposited(event: Deposited): void {
   allocator.save()
 
   if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
-    syncStaker(receiver)
+    syncStaker(receiver, assets)
   }
 
   const txHash = event.transaction.hash.toHex()
@@ -158,6 +158,11 @@ export function handleRedeemed(event: Redeemed): void {
 
     allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
     allocator.save()
+  }
+
+  // meta vaults emit Redeemed while not collateralized (no sub vaults yet)
+  if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
+    syncStaker(owner, assets.neg())
   }
 
   const txHash = event.transaction.hash.toHex()
@@ -649,7 +654,7 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   allocator.save()
 
   if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
-    syncStaker(Address.fromBytes(prevExitRequest.owner))
+    syncStaker(Address.fromBytes(prevExitRequest.owner), claimedAssets.neg())
   }
 
   log.info('[Vault] ExitedAssetsClaimed vault={} prevPositionTicket={} newPositionTicket={} claimedAssets={}', [
@@ -686,7 +691,8 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   allocator.save()
 
   if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
-    syncStaker(holder)
+    // cancels the flow recorded by the mint's osToken transfer from the zero address
+    syncStaker(holder, convertOsTokenSharesToAssets(osToken, shares).neg())
   }
 
   createAllocatorAction(event, vaultAddress, AllocatorActionType.OsTokenMinted, holder, assets, shares)
@@ -720,7 +726,8 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
   allocator.save()
 
   if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
-    syncStaker(holder)
+    // cancels the flow recorded by the burn's osToken transfer to the zero address
+    syncStaker(holder, convertOsTokenSharesToAssets(osToken, shares))
   }
 
   const txHash = event.transaction.hash.toHex()
@@ -765,7 +772,8 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   allocator.save()
 
   if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
-    syncStaker(holder)
+    // both the debt relief and the collateral seizure are flows, the penalty is not earnings
+    syncStaker(holder, convertOsTokenSharesToAssets(osToken, shares).minus(withdrawnAssets))
   }
 
   const txHash = event.transaction.hash.toHex()
@@ -809,7 +817,8 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   allocator.save()
 
   if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
-    syncStaker(holder)
+    // both the debt relief and the collateral seizure are flows, the penalty is not earnings
+    syncStaker(holder, convertOsTokenSharesToAssets(osToken, shares).minus(withdrawnAssets))
   }
 
   if (event.params.caller.equals(OS_TOKEN_REDEEMER)) {

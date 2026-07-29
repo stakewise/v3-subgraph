@@ -581,8 +581,32 @@ type Staker @entity(immutable: false) {
   "The staker's projected APY"
   apy: BigDecimal!
 
+  "The staker's total earned assets"
+  totalEarnedAssets: BigInt!
+
   "The network. Used to iterate over all the stakers."
   network: Network!
+
+  "The snapshots of the staker state"
+  snapshots: [StakerSnapshot!]! @derivedFrom(field: "staker")
+
+  "The net assets value of the period deposits and withdrawals"
+  _periodFlowAssets: BigInt!
+
+  "The total assets at the last snapshot"
+  _prevSnapshotTotalAssets: BigInt!
+}
+
+"""
+The snapshot of the staker state
+"""
+type StakerSnapshot @entity(immutable: true) {
+  id: Bytes!
+  timestamp: Timestamp!
+  staker: Staker!
+  earnedAssets: BigInt!
+  totalAssets: BigInt!
+  apy: BigDecimal!
 }
 
 type User @entity(immutable: false) {

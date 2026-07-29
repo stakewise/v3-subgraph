@@ -49,8 +49,8 @@ export function handleTransfer(event: Transfer): void {
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferIn, to, assets, shares)
 
   if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
-    syncStaker(from)
-    syncStaker(to)
+    syncStaker(from, assets.neg())
+    syncStaker(to, assets)
   }
 
   createTransaction(event.transaction.hash.toHex())

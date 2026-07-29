@@ -42,6 +42,7 @@ function _updateAllocator(
   position: LeverageStrategyPosition,
   earnedOsTokenShares: BigInt,
   earnedAssets: BigInt,
+  stakerFlowAssets: BigInt,
 ): void {
   // update allocator
   const userAddress = Address.fromBytes(position.user)
@@ -62,7 +63,7 @@ function _updateAllocator(
   allocator.save()
 
   if (vaultAddr.equals(MAIN_META_VAULT_ADDRESS)) {
-    syncStaker(userAddress)
+    syncStaker(userAddress, stakerFlowAssets)
   }
 }
 
@@ -125,6 +126,8 @@ export function handleDeposited(event: Deposited): void {
     position,
     totalOsTokenSharesAfter.minus(totalOsTokenSharesBefore).minus(depositedOsTokenShares),
     totalAssetsAfter.minus(totalAssetsBefore),
+    // the wallet leg of the deposit is recorded by the osToken transfer to the proxy
+    convertOsTokenSharesToAssets(osToken, depositedOsTokenShares),
   )
 
   createTransaction(event.transaction.hash.toHex())
@@ -181,6 +184,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
     position,
     totalOsTokenSharesAfter.minus(totalOsTokenSharesBefore),
     totalAssetsAfter.minus(totalAssetsBefore),
+    BigInt.zero(),
   )
 
   createAllocatorAction(
@@ -237,6 +241,9 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     position,
     totalOsTokenSharesAfter.plus(claimedOsTokenShares).minus(totalOsTokenSharesBefore),
     totalAssetsAfter.plus(claimedAssets).minus(totalAssetsBefore),
+    // the claimed osToken shares arrive to the wallet via the osToken transfer,
+    // the claimed assets leave the tracked position
+    convertOsTokenSharesToAssets(osToken, claimedOsTokenShares).plus(claimedAssets).neg(),
   )
 
   createAllocatorAction(
