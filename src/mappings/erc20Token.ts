@@ -2,8 +2,14 @@ import { Address, BigInt, log, store } from '@graphprotocol/graph-ts'
 import { Transfer } from '../../generated/OsToken/Erc20Token'
 import { createOrLoadSwiseTokenHolder, createTokenTransfer } from '../entities/tokenTransfer'
 import { OS_TOKEN, SWISE_TOKEN } from '../helpers/constants'
-import { createOrLoadOsTokenHolder, loadOsTokenHolder } from '../entities/osToken'
+import {
+  convertOsTokenSharesToAssets,
+  createOrLoadOsTokenHolder,
+  loadOsTokenHolder,
+  loadOsToken,
+} from '../entities/osToken'
 import { createOrLoadUser, loadNetwork } from '../entities/network'
+import { syncStaker } from '../entities/staker'
 
 export function handleTransfer(event: Transfer): void {
   const tokenAddress = event.address
@@ -70,6 +76,11 @@ function _handleOsTokenTransfer(event: Transfer): void {
     return
   }
 
+  // the OsToken entity is created at the Keeper initialization which may happen
+  // after the first token transfers. syncStaker skips such transfers as well.
+  const osToken = loadOsToken()
+  const flowAssets = osToken !== null ? convertOsTokenSharesToAssets(osToken, amount) : BigInt.zero()
+
   if (from.notEqual(Address.zero())) {
     const tokenHolderFrom = loadOsTokenHolder(from)!
     tokenHolderFrom.balance = tokenHolderFrom.balance.minus(amount)
@@ -77,12 +88,19 @@ function _handleOsTokenTransfer(event: Transfer): void {
     tokenHolderFrom.save()
 
     const user = createOrLoadUser(from)
-    if (tokenHolderFrom.balance.isZero() && user.vaultsCount === 0) {
-      const network = loadNetwork()!
-      network.usersCount = network.usersCount - 1
-      network.save()
-      store.remove('User', user.id)
+    if (user.isOsTokenHolder && tokenHolderFrom.balance.isZero()) {
+      if (user.vaultsCount === 0) {
+        const network = loadNetwork()!
+        network.usersCount = network.usersCount - 1
+        network.save()
+        store.remove('User', user.id)
+      } else {
+        user.isOsTokenHolder = false
+        user.save()
+      }
     }
+
+    syncStaker(from, flowAssets.neg())
   }
   if (to.notEqual(Address.zero())) {
     const tokenHolderTo = createOrLoadOsTokenHolder(to)
@@ -91,13 +109,16 @@ function _handleOsTokenTransfer(event: Transfer): void {
     tokenHolderTo.save()
 
     const user = createOrLoadUser(to)
-    if (!user.isOsTokenHolder && user.vaultsCount === 0 && tokenHolderTo.balance.gt(BigInt.zero())) {
-      const network = loadNetwork()!
-      network.usersCount = network.usersCount + 1
-      network.save()
-
+    if (!user.isOsTokenHolder && tokenHolderTo.balance.gt(BigInt.zero())) {
+      if (user.vaultsCount === 0) {
+        const network = loadNetwork()!
+        network.usersCount = network.usersCount + 1
+        network.save()
+      }
       user.isOsTokenHolder = true
       user.save()
     }
+
+    syncStaker(to, flowAssets)
   }
 }

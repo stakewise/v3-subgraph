@@ -18,7 +18,7 @@ import {
   WAD,
 } from '../helpers/constants'
 import { convertAssetsToOsTokenShares, convertOsTokenSharesToAssets, loadOsToken } from './osToken'
-import { increaseUserVaultsCount, isGnosisNetwork, loadNetwork } from './network'
+import { isGnosisNetwork, loadNetwork, updateNetworkTotalAssets } from './network'
 import { getV2PoolState, loadV2Pool } from './v2pool'
 import {
   calculateApy,
@@ -43,6 +43,7 @@ import {
   getAllocatorLtv,
   getAllocatorLtvStatus,
   syncAllocatorPeriodStakeEarnedAssets,
+  syncAllocatorUserCount,
 } from './allocator'
 import { loadOsTokenConfig } from './osTokenConfig'
 import { updateExitRequests } from './exitRequest'
@@ -366,7 +367,7 @@ export function updateVaults(
         .minus(vault.unlockedExecutionReward)
     }
 
-    network.totalAssets = network.totalAssets.minus(vault.totalAssets).plus(newTotalAssets)
+    updateNetworkTotalAssets(network, vault, newTotalAssets.minus(vault.totalAssets))
     network.totalEarnedAssets = network.totalEarnedAssets.plus(vaultPeriodAssets)
 
     vault.totalAssets = newTotalAssets
@@ -410,9 +411,6 @@ export function updateVaults(
     // save fee recipient earned shares
     if (feeRecipientShares.gt(BigInt.zero())) {
       const feeRecipient = createOrLoadAllocator(Address.fromBytes(vault.feeRecipient), vaultAddress)
-      if (feeRecipient.shares.isZero()) {
-        increaseUserVaultsCount(feeRecipient.address)
-      }
       // update stake earned assets for the current stake shares
       syncAllocatorPeriodStakeEarnedAssets(vault, feeRecipient)
       const assetsBefore = convertSharesToAssets(vault, feeRecipient.shares)
@@ -420,6 +418,7 @@ export function updateVaults(
       // update fee recipient shares and assets
       feeRecipient.shares = feeRecipient.shares.plus(feeRecipientShares).minus(vault._unclaimedFeeRecipientShares)
       feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
+      syncAllocatorUserCount(feeRecipient)
 
       const feeRecipientEarnedAssets = feeRecipient.assets.minus(assetsBefore)
       feeRecipient._periodStakeEarnedAssets = feeRecipient._periodStakeEarnedAssets.plus(feeRecipientEarnedAssets)

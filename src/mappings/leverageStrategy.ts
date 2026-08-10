@@ -15,7 +15,10 @@ import {
   createAllocatorAction,
   createOrLoadAllocator,
   getAllocatorApy,
+  getBoostedOsTokenShares,
   loadAllocator,
+  syncAllocatorExtraBoostEarnedAssets,
+  syncAllocatorUserCount,
 } from '../entities/allocator'
 import { loadNetwork } from '../entities/network'
 import { loadVault } from '../entities/vault'
@@ -28,6 +31,7 @@ import {
   updateAavePositions,
 } from '../entities/aave'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
+import { MAIN_META_VAULT_ADDRESS, syncStaker } from '../entities/staker'
 import { AAVE_LEVERAGE_STRATEGY_V1 } from '../helpers/constants'
 
 function _updateAllocator(
@@ -38,6 +42,7 @@ function _updateAllocator(
   position: LeverageStrategyPosition,
   earnedOsTokenShares: BigInt,
   earnedAssets: BigInt,
+  stakerFlowAssets: BigInt,
 ): void {
   // update allocator
   const userAddress = Address.fromBytes(position.user)
@@ -52,8 +57,14 @@ function _updateAllocator(
   }
   allocator._periodBoostEarnedOsTokenShares = allocator._periodBoostEarnedOsTokenShares.plus(earnedOsTokenShares)
   allocator._periodBoostEarnedAssets = allocator._periodBoostEarnedAssets.plus(earnedAssets)
+  syncAllocatorExtraBoostEarnedAssets(osToken, allocator, getBoostedOsTokenShares(position))
+  syncAllocatorUserCount(allocator)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
+
+  if (vaultAddr.equals(MAIN_META_VAULT_ADDRESS)) {
+    syncStaker(userAddress, stakerFlowAssets)
+  }
 }
 
 export function handleStrategyProxyCreated(event: StrategyProxyCreated): void {
@@ -115,6 +126,8 @@ export function handleDeposited(event: Deposited): void {
     position,
     totalOsTokenSharesAfter.minus(totalOsTokenSharesBefore).minus(depositedOsTokenShares),
     totalAssetsAfter.minus(totalAssetsBefore),
+    // the wallet leg of the deposit is recorded by the osToken transfer to the proxy
+    convertOsTokenSharesToAssets(osToken, depositedOsTokenShares),
   )
 
   createTransaction(event.transaction.hash.toHex())
@@ -171,6 +184,7 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
     position,
     totalOsTokenSharesAfter.minus(totalOsTokenSharesBefore),
     totalAssetsAfter.minus(totalAssetsBefore),
+    BigInt.zero(),
   )
 
   createAllocatorAction(
@@ -227,6 +241,9 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     position,
     totalOsTokenSharesAfter.plus(claimedOsTokenShares).minus(totalOsTokenSharesBefore),
     totalAssetsAfter.plus(claimedAssets).minus(totalAssetsBefore),
+    // the claimed osToken shares arrive to the wallet via the osToken transfer,
+    // the claimed assets leave the tracked position
+    convertOsTokenSharesToAssets(osToken, claimedOsTokenShares).plus(claimedAssets).neg(),
   )
 
   createAllocatorAction(
@@ -329,6 +346,8 @@ export function syncLeverageStrategyPositions(block: ethereum.Block): void {
       allocator._periodBoostEarnedAssets = allocator._periodBoostEarnedAssets.plus(
         totalAssetsAfter.minus(totalAssetsBefore),
       )
+      syncAllocatorExtraBoostEarnedAssets(osToken, allocator, getBoostedOsTokenShares(position))
+      syncAllocatorUserCount(allocator)
       allocator.save()
     }
   }

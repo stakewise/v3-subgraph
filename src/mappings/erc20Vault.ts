@@ -14,6 +14,7 @@ import { convertSharesToAssets, loadVault } from '../entities/vault'
 import { loadOsToken } from '../entities/osToken'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { loadAave } from '../entities/aave'
+import { MAIN_META_VAULT_ADDRESS, syncStaker } from '../entities/staker'
 
 // Event emitted on mint, burn or transfer shares between allocators
 export function handleTransfer(event: Transfer): void {
@@ -46,6 +47,11 @@ export function handleTransfer(event: Transfer): void {
   allocatorTo.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocatorTo)
   allocatorTo.save()
   createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferIn, to, assets, shares)
+
+  if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
+    syncStaker(from, assets.neg())
+    syncStaker(to, assets)
+  }
 
   createTransaction(event.transaction.hash.toHex())
 

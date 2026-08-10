@@ -73,6 +73,7 @@ import { getAllocatorMaxBoostApy, getVaultBaseApy, getVaultExtraApy, loadVault, 
 import { createOrLoadAave, loadAave, updateAaveApys } from '../entities/aave'
 import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDistributor'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
+import { syncStakers } from '../entities/staker'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { getAllocatorApy } from '../entities/allocator'
 
@@ -571,6 +572,17 @@ export function syncApys(block: ethereum.Block): void {
       allocator.apy = allocatorApy
       allocator.save()
     }
+  }
+
+  // sync stakers once per rewards cycle after the vaults, osToken, aave and
+  // leverage strategy positions were synced with the latest rewards
+  const keeperCheckpoint = createOrLoadCheckpoint(CheckpointType.KEEPER)
+  const stakersCheckpoint = createOrLoadCheckpoint(CheckpointType.STAKERS)
+  if (stakersCheckpoint.timestamp.lt(keeperCheckpoint.timestamp)) {
+    syncStakers(network, osToken, aave)
+    stakersCheckpoint.timestamp = newTimestamp
+    stakersCheckpoint.save()
+    log.info('[SyncApys] Stakers synced timestamp={}', [newTimestamp.toString()])
   }
 
   apysCheckpoint.timestamp = newTimestamp

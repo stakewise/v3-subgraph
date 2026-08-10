@@ -8,6 +8,8 @@ import { loadDistributor } from '../entities/merkleDistributor'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { createAllocatorSnapshot } from '../entities/allocator'
 import { loadLeverageStrategyPosition } from '../entities/leverageStrategy'
+import { loadAave } from '../entities/aave'
+import { snapshotStakers } from '../entities/staker'
 
 const secondsInDay = 86400
 const extraSecondsGap = 30
@@ -88,6 +90,9 @@ export function syncSnapshots(block: ethereum.Block): void {
       )
     }
   }
+
+  // snapshot stakers
+  snapshotStakers(network, osToken, loadAave(), duration, newTimestamp.toI64())
 
   snapshotsCheckpoint.timestamp = newTimestamp
   snapshotsCheckpoint.save()

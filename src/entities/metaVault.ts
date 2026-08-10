@@ -1,5 +1,5 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log, store } from '@graphprotocol/graph-ts'
-import { SubVault, SubVaultsRegistryMap, Vault } from '../../generated/schema'
+import { Allocator, SubVault, SubVaultsRegistryMap, Vault } from '../../generated/schema'
 import { SubVaultsRegistry as SubVaultsRegistryContract } from '../../generated/templates/SubVaultsRegistry/SubVaultsRegistry'
 import { MetaVaultCreated } from '../../generated/templates/MetaVaultFactory/MetaVaultFactory'
 import {
@@ -12,6 +12,7 @@ import { WAD } from '../helpers/constants'
 import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 import { loadNetwork } from './network'
 import { loadOsToken } from './osToken'
+import { MAIN_META_VAULT_ADDRESS, syncStaker } from './staker'
 import { createTransaction } from './transaction'
 import { loadVault, syncVault } from './vault'
 
@@ -247,7 +248,8 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
   }
   const subVault = loadVault(Address.fromString(subVaults[0].subVault))!
 
-  // update vault
+  // update vault. Network total assets are not updated here, because meta vault assets are
+  // delegated to the sub vaults and are already counted there (see updateNetworkTotalAssets).
   vault.totalAssets = newTotalAssets
   vault.totalShares = newTotalShares
   vault.queuedShares = newQueuedShares
@@ -269,4 +271,12 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
 
   // update vault allocators, exit requests, reward splitters
   syncVault(loadNetwork()!, osToken, vault, timestamp)
+
+  // refresh the stakers with the harvested state
+  if (metaVaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
+    const allocators: Array<Allocator> = vault.allocators.load()
+    for (let i = 0; i < allocators.length; i++) {
+      syncStaker(Address.fromBytes(allocators[i].address))
+    }
+  }
 }

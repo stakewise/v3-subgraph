@@ -48,10 +48,12 @@ import {
   increaseAllocatorMintedOsTokenShares,
   increaseAllocatorShares,
   loadAllocator,
+  syncAllocatorUserCount,
 } from '../entities/allocator'
-import { isGnosisNetwork, loadNetwork } from '../entities/network'
+import { isGnosisNetwork, loadNetwork, updateNetworkTotalAssets } from '../entities/network'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 import { DEPOSIT_DATA_REGISTRY, OS_TOKEN_REDEEMER, WAD } from '../helpers/constants'
+import { MAIN_META_VAULT_ADDRESS, syncStaker } from '../entities/staker'
 import { isSubVaultsRegistrySupported } from '../helpers/utils'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
 import { loadExitRequest, updateClaimableExitRequests, updateExitRequests } from '../entities/exitRequest'
@@ -76,7 +78,7 @@ export function handleDeposited(event: Deposited): void {
   vault.save()
 
   const network = loadNetwork()!
-  network.totalAssets = network.totalAssets.plus(assets)
+  updateNetworkTotalAssets(network, vault, assets)
   network.save()
 
   const osToken = loadOsToken()!
@@ -87,6 +89,10 @@ export function handleDeposited(event: Deposited): void {
   increaseAllocatorShares(osToken, osTokenConfig, vault, allocator, shares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
+
+  if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
+    syncStaker(receiver, assets)
+  }
 
   const txHash = event.transaction.hash.toHex()
 
@@ -123,7 +129,7 @@ export function handleRedeemed(event: Redeemed): void {
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
   const network = loadNetwork()!
-  network.totalAssets = network.totalAssets.minus(assets)
+  updateNetworkTotalAssets(network, vault, assets.neg())
   network.save()
 
   const aave = loadAave()!
@@ -152,6 +158,11 @@ export function handleRedeemed(event: Redeemed): void {
 
     allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
     allocator.save()
+  }
+
+  // meta vaults emit Redeemed while not collateralized (no sub vaults yet)
+  if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
+    syncStaker(owner, assets.neg())
   }
 
   const txHash = event.transaction.hash.toHex()
@@ -294,6 +305,7 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
     // deduct the negative shares from fee recipient
     feeRecipient.shares = feeRecipient.shares.plus(vault._unclaimedFeeRecipientShares)
     feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
+    syncAllocatorUserCount(feeRecipient)
     feeRecipient.save()
     log.warning(
       '[FeeSharesMinted] Negative unclaimed fee recipient shares after minting fee shares vault={}, feeRecipient={} diff={}',
@@ -305,6 +317,7 @@ export function handleFeeSharesMinted(event: FeeSharesMinted): void {
     // deduct the remaining unclaimed shares from fee recipient
     feeRecipient.shares = feeRecipient.shares.minus(vault._unclaimedFeeRecipientShares)
     feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
+    syncAllocatorUserCount(feeRecipient)
     feeRecipient.save()
     log.warning(
       '[FeeSharesMinted] Non zero unclaimed fee recipient shares after minting fee shares vault={}, feeRecipient={} diff={}',
@@ -518,7 +531,7 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   vault.save()
 
   const network = loadNetwork()!
-  network.totalAssets = network.totalAssets.minus(assets)
+  updateNetworkTotalAssets(network, vault, assets.neg())
   network.save()
 
   createAllocatorAction(event, vaultAddress, AllocatorActionType.ExitQueueEntered, owner, assets, shares)
@@ -553,6 +566,10 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   allocator.exitingAssets = allocator.exitingAssets.plus(assets)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
+
+  if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
+    syncStaker(owner)
+  }
 
   log.info('[Vault] V2ExitQueueEntered vault={} owner={} shares={} assets={}', [
     vaultAddressHex,
@@ -636,6 +653,10 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
 
+  if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
+    syncStaker(Address.fromBytes(prevExitRequest.owner), claimedAssets.neg())
+  }
+
   log.info('[Vault] ExitedAssetsClaimed vault={} prevPositionTicket={} newPositionTicket={} claimedAssets={}', [
     vaultAddressHex,
     prevPositionTicket.toString(),
@@ -669,6 +690,11 @@ export function handleOsTokenMinted(event: OsTokenMinted): void {
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
 
+  if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
+    // cancels the flow recorded by the mint's osToken transfer from the zero address
+    syncStaker(holder, convertOsTokenSharesToAssets(osToken, shares).neg())
+  }
+
   createAllocatorAction(event, vaultAddress, AllocatorActionType.OsTokenMinted, holder, assets, shares)
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
@@ -699,6 +725,11 @@ export function handleOsTokenBurned(event: OsTokenBurned): void {
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
 
+  if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
+    // cancels the flow recorded by the burn's osToken transfer to the zero address
+    syncStaker(holder, convertOsTokenSharesToAssets(osToken, shares))
+  }
+
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
 
@@ -725,7 +756,7 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   vault.save()
 
   const network = loadNetwork()!
-  network.totalAssets = network.totalAssets.minus(withdrawnAssets)
+  updateNetworkTotalAssets(network, vault, withdrawnAssets.neg())
   network.save()
 
   const osToken = loadOsToken()!
@@ -739,6 +770,11 @@ export function handleOsTokenLiquidated(event: OsTokenLiquidated): void {
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, withdrawnShares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
+
+  if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
+    // both the debt relief and the collateral seizure are flows, the penalty is not earnings
+    syncStaker(holder, convertOsTokenSharesToAssets(osToken, shares).minus(withdrawnAssets))
+  }
 
   const txHash = event.transaction.hash.toHex()
   createTransaction(txHash)
@@ -764,7 +800,7 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   vault.save()
 
   const network = loadNetwork()!
-  network.totalAssets = network.totalAssets.minus(withdrawnAssets)
+  updateNetworkTotalAssets(network, vault, withdrawnAssets.neg())
   network.save()
 
   const osToken = loadOsToken()!
@@ -779,6 +815,11 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocator, withdrawnShares)
   allocator.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
   allocator.save()
+
+  if (vaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
+    // both the debt relief and the collateral seizure are flows, the penalty is not earnings
+    syncStaker(holder, convertOsTokenSharesToAssets(osToken, shares).minus(withdrawnAssets))
+  }
 
   if (event.params.caller.equals(OS_TOKEN_REDEEMER)) {
     const position = RedeemablePosition.load(`${vaultAddress.toHex()}-${holder.toHex()}`)
@@ -1066,7 +1107,7 @@ export function handleMigrated(event: Migrated): void {
   vault.save()
 
   const network = loadNetwork()!
-  network.totalAssets = network.totalAssets.plus(assets)
+  updateNetworkTotalAssets(network, vault, assets)
   network.save()
 
   const aave = loadAave()!

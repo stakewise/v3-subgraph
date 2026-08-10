@@ -27,6 +27,9 @@ type Allocator @entity(immutable: false) {
   "The allocator's minted OsToken shares amount"
   mintedOsTokenShares: BigInt!
 
+  "The allocator's boosted OsToken shares exceeding the shares minted from the vault"
+  extraBoostOsTokenShares: BigInt!
+
   "The allocator's LTV percent. Will be null if there are no OsTokens minted"
   ltv: BigDecimal!
 
@@ -62,6 +65,12 @@ type Allocator @entity(immutable: false) {
 
   "The total period OsToken shares minted as a fee"
   _periodOsTokenFeeShares: BigInt!
+
+  "The assets value of extraBoostOsTokenShares at the last earnings accrual"
+  _extraBoostOsTokenAssets: BigInt!
+
+  "Whether the allocator is counted in the users count"
+  _countedAsUser: Boolean!
 }
 
 """
@@ -554,6 +563,50 @@ type Network @entity(immutable: false) {
 
   "The total number of non repeated vault allocators and osToken holders"
   usersCount: Int!
+
+  "All the stakers in the network"
+  stakers: [Staker!]! @derivedFrom(field: "network")
+}
+
+"""
+The main MetaVault staker
+"""
+type Staker @entity(immutable: false) {
+  "The staker address"
+  id: ID!
+
+  "The assets the staker would hold after burning/redeeming all the osToken shares and withdrawing all the assets"
+  totalAssets: BigInt!
+
+  "The staker's projected APY"
+  apy: BigDecimal!
+
+  "The staker's total earned assets"
+  totalEarnedAssets: BigInt!
+
+  "The network. Used to iterate over all the stakers."
+  network: Network!
+
+  "The snapshots of the staker state"
+  snapshots: [StakerSnapshot!]! @derivedFrom(field: "staker")
+
+  "The net assets value of the period deposits and withdrawals"
+  _periodFlowAssets: BigInt!
+
+  "The total assets at the last snapshot"
+  _prevSnapshotTotalAssets: BigInt!
+}
+
+"""
+The snapshot of the staker state
+"""
+type StakerSnapshot @entity(immutable: true) {
+  id: Bytes!
+  timestamp: Timestamp!
+  staker: Staker!
+  earnedAssets: BigInt!
+  totalAssets: BigInt!
+  apy: BigDecimal!
 }
 
 type User @entity(immutable: false) {
