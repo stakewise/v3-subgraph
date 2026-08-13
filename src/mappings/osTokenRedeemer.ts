@@ -1,8 +1,13 @@
 import { Address, BigInt, Bytes, ipfs, json, JSONValueKind, log, store } from '@graphprotocol/graph-ts'
 
-import { RedeemablePosition, OsTokenRedeemer } from '../../generated/schema'
-import { RedeemablePositionsUpdated } from '../../generated/OsTokenRedeemer/OsTokenRedeemer'
+import { RedeemablePosition, OsTokenRedeemer, OsTokenRedeemerExitRequest } from '../../generated/schema'
+import {
+  ExitedAssetsClaimed,
+  ExitQueueEntered,
+  RedeemablePositionsUpdated,
+} from '../../generated/OsTokenRedeemer/OsTokenRedeemer'
 import { loadVault } from '../entities/vault'
+import { createTransaction } from '../entities/transaction'
 
 const osTokenRedeemerId = '1'
 
@@ -121,4 +126,76 @@ export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdat
     ipfsHash,
     items.length.toString(),
   ])
+}
+
+export function handleExitQueueEntered(event: ExitQueueEntered): void {
+  const owner = event.params.owner
+  const shares = event.params.shares
+  const receiver = event.params.receiver
+  const positionTicket = event.params.positionTicket
+
+  createTransaction(event.transaction.hash.toHex())
+
+  const exitRequest = new OsTokenRedeemerExitRequest(positionTicket.toString())
+
+  exitRequest.owner = owner
+  exitRequest.isClaimed = false
+  exitRequest.receiver = receiver
+  exitRequest.totalShares = shares
+  exitRequest.exitedAssets = BigInt.zero()
+  exitRequest.positionTicket = positionTicket
+  exitRequest.timestamp = event.block.timestamp
+
+  exitRequest.save()
+
+  log.info('[OsTokenRedeemer] ExitQueueEntered owner={} receiver={} positionTicket={} shares={}', [
+    owner.toHex(),
+    receiver.toHex(),
+    positionTicket.toString(),
+    shares.toString(),
+  ])
+}
+
+export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
+  const receiver = event.params.receiver
+  const claimedAssets = event.params.withdrawnAssets
+  const newPositionTicket = event.params.newPositionTicket
+  const prevPositionTicket = event.params.prevPositionTicket
+
+  createTransaction(event.transaction.hash.toHex())
+
+  const prevExitRequest = OsTokenRedeemerExitRequest.load(prevPositionTicket.toString())
+
+  if (prevExitRequest === null) {
+    log.error('[OsTokenRedeemer] ExitedAssetsClaimed exit request not found for positionTicket={}', [
+      prevPositionTicket.toString(),
+    ])
+    return
+  }
+
+  const isResolved = newPositionTicket.equals(BigInt.zero())
+  const claimedTickets = isResolved ? prevExitRequest.totalShares : newPositionTicket.minus(prevPositionTicket)
+
+  if (!isResolved) {
+    const nextExitRequest = new OsTokenRedeemerExitRequest(newPositionTicket.toString())
+
+    nextExitRequest.isClaimed = false
+    nextExitRequest.receiver = receiver
+    nextExitRequest.exitedAssets = BigInt.zero()
+    nextExitRequest.owner = prevExitRequest.owner
+    nextExitRequest.positionTicket = newPositionTicket
+    nextExitRequest.timestamp = prevExitRequest.timestamp
+    nextExitRequest.totalShares = prevExitRequest.totalShares.minus(claimedTickets)
+
+    nextExitRequest.save()
+  }
+
+  prevExitRequest.exitedAssets = claimedAssets
+  prevExitRequest.isClaimed = true
+  prevExitRequest.save()
+
+  log.info(
+    '[OsTokenRedeemer] ExitedAssetsClaimed receiver={} prevPositionTicket={} newPositionTicket={} claimedAssets={}',
+    [receiver.toHex(), prevPositionTicket.toString(), newPositionTicket.toString(), claimedAssets.toString()],
+  )
 }

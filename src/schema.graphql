@@ -1282,3 +1282,30 @@ type RedeemablePosition @entity(immutable: false) {
   "Back-link to the current OsTokenRedeemer state (cleared on update)"
   osTokenRedeemer: OsTokenRedeemer!
 }
+
+"A user's exit queue request created against the OsTokenRedeemer via enterExitQueue"
+type OsTokenRedeemerExitRequest @entity(immutable: false) {
+  "Set to the exit queue position ticket"
+  id: ID!
+
+  "The exit queue position ticket"
+  positionTicket: BigInt!
+
+  "The address that created the exit request"
+  owner: Bytes!
+
+  "The address that will receive the exited assets and can claim them"
+  receiver: Bytes!
+
+  "The total number of osToken shares queued for exit"
+  totalShares: BigInt!
+
+  "The number of assets that have exited and been claimed from this position"
+  exitedAssets: BigInt!
+
+  "The timestamp when the exit request was created"
+  timestamp: BigInt!
+
+  "Defines whether the exit request is fully claimed"
+  isClaimed: Boolean!
+}
