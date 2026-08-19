@@ -1260,6 +1260,9 @@ type OsTokenRedeemer @entity(immutable: false) {
 
   "Positions from the latest redeemable positions update"
   positions: [RedeemablePosition!]! @derivedFrom(field: "osTokenRedeemer")
+
+  "The exit queue requests created against the redeemer"
+  exitRequests: [OsTokenRedeemerExitRequest!]! @derivedFrom(field: "redeemer")
 }
 
 "A single position from the OsTokenRedeemer redeemable positions IPFS file"
@@ -1287,4 +1290,43 @@ type RedeemablePosition @entity(immutable: false) {
 
   "Back-link to the current OsTokenRedeemer state (cleared on update)"
   osTokenRedeemer: OsTokenRedeemer!
+}
+
+"A user's exit queue request created against the OsTokenRedeemer via enterExitQueue"
+type OsTokenRedeemerExitRequest @entity(immutable: false) {
+  "Set to the exit queue position ticket"
+  id: ID!
+
+  "The exit queue position ticket"
+  positionTicket: BigInt!
+
+  "The address that created the exit request"
+  owner: Bytes!
+
+  "The address that will receive the exited assets and can claim them"
+  receiver: Bytes!
+
+  "The total number of osToken shares queued for exit"
+  totalShares: BigInt!
+
+  "The total number of assets queued for exit"
+  totalAssets: BigInt!
+
+  "The total number of assets that has exited"
+  exitedAssets: BigInt!
+
+  "The exit queue index that must be used to claim the exit. Will be null if the exit is not claimable"
+  exitQueueIndex: BigInt
+
+  "The timestamp when the exit request was created"
+  timestamp: BigInt!
+
+  "Defines whether the exit request is claimable"
+  isClaimable: Boolean!
+
+  "Defines whether the exit request is claimed"
+  isClaimed: Boolean!
+
+  "The redeemer the exit request belongs to"
+  redeemer: OsTokenRedeemer!
 }

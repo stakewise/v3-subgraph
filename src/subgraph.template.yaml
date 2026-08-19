@@ -499,12 +499,19 @@ dataSources:
         - Vault
         - OsTokenRedeemer
         - RedeemablePosition
+        - OsTokenRedeemerExitRequest
       abis:
         - name: OsTokenRedeemer
           file: ./abis/OsTokenRedeemer.json
       eventHandlers:
         - event: RedeemablePositionsUpdated(indexed bytes32,string)
           handler: handleRedeemablePositionsUpdated
+        - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256)
+          handler: handleExitQueueEntered
+        - event: ExitedAssetsClaimed(indexed address,uint256,uint256,uint256)
+          handler: handleExitedAssetsClaimed
+        - event: CheckpointCreated(uint256,uint256)
+          handler: handleCheckpointCreated
   - kind: ethereum/contract
     name: AaveLeverageStrategyV1
     network: {{ network }}

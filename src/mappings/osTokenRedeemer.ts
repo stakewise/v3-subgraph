@@ -1,10 +1,16 @@
 import { Address, BigInt, Bytes, ipfs, json, JSONValueKind, log, store } from '@graphprotocol/graph-ts'
 
-import { RedeemablePosition, OsTokenRedeemer } from '../../generated/schema'
-import { RedeemablePositionsUpdated } from '../../generated/OsTokenRedeemer/OsTokenRedeemer'
+import { RedeemablePosition, OsTokenRedeemer, OsTokenRedeemerExitRequest } from '../../generated/schema'
+import {
+  ExitQueueEntered,
+  CheckpointCreated,
+  ExitedAssetsClaimed,
+  RedeemablePositionsUpdated,
+} from '../../generated/OsTokenRedeemer/OsTokenRedeemer'
 import { loadVault } from '../entities/vault'
-
-const osTokenRedeemerId = '1'
+import { createTransaction } from '../entities/transaction'
+import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
+import { osTokenRedeemerId, updateOsTokenRedeemerExitRequests } from '../entities/osTokenRedeemer'
 
 export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdated): void {
   const merkleRoot = event.params.merkleRoot
@@ -120,5 +126,97 @@ export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdat
     merkleRoot.toHex(),
     ipfsHash,
     items.length.toString(),
+  ])
+}
+
+export function handleExitQueueEntered(event: ExitQueueEntered): void {
+  const owner = event.params.owner
+  const shares = event.params.shares
+  const receiver = event.params.receiver
+  const positionTicket = event.params.positionTicket
+
+  createTransaction(event.transaction.hash.toHex())
+
+  const osToken = loadOsToken()!
+  const exitRequest = new OsTokenRedeemerExitRequest(positionTicket.toString())
+
+  exitRequest.owner = owner
+  exitRequest.isClaimed = false
+  exitRequest.isClaimable = false
+  exitRequest.receiver = receiver
+  exitRequest.totalShares = shares
+  exitRequest.exitQueueIndex = null
+  exitRequest.exitedAssets = BigInt.zero()
+  exitRequest.redeemer = osTokenRedeemerId
+  exitRequest.positionTicket = positionTicket
+  exitRequest.timestamp = event.block.timestamp
+  exitRequest.totalAssets = convertOsTokenSharesToAssets(osToken, shares)
+
+  exitRequest.save()
+
+  log.info('[OsTokenRedeemer] ExitQueueEntered owner={} receiver={} positionTicket={} shares={}', [
+    owner.toHex(),
+    receiver.toHex(),
+    positionTicket.toString(),
+    shares.toString(),
+  ])
+}
+
+export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
+  const receiver = event.params.receiver
+  const claimedAssets = event.params.withdrawnAssets
+  const newPositionTicket = event.params.newPositionTicket
+  const prevPositionTicket = event.params.prevPositionTicket
+
+  createTransaction(event.transaction.hash.toHex())
+
+  const prevExitRequest = OsTokenRedeemerExitRequest.load(prevPositionTicket.toString())
+
+  if (prevExitRequest === null) {
+    log.error('[OsTokenRedeemer] ExitedAssetsClaimed exit request not found for positionTicket={}', [
+      prevPositionTicket.toString(),
+    ])
+    return
+  }
+
+  const isResolved = newPositionTicket.equals(BigInt.zero())
+  const claimedTickets = isResolved ? prevExitRequest.totalShares : newPositionTicket.minus(prevPositionTicket)
+
+  if (!isResolved) {
+    const osToken = loadOsToken()!
+    const nextExitRequest = new OsTokenRedeemerExitRequest(newPositionTicket.toString())
+
+    nextExitRequest.isClaimed = false
+    nextExitRequest.isClaimable = false
+    nextExitRequest.receiver = receiver
+    nextExitRequest.exitQueueIndex = null
+    nextExitRequest.exitedAssets = BigInt.zero()
+    nextExitRequest.owner = prevExitRequest.owner
+    nextExitRequest.positionTicket = newPositionTicket
+    nextExitRequest.redeemer = prevExitRequest.redeemer
+    nextExitRequest.timestamp = prevExitRequest.timestamp
+    nextExitRequest.totalShares = prevExitRequest.totalShares.minus(claimedTickets)
+    nextExitRequest.totalAssets = convertOsTokenSharesToAssets(osToken, nextExitRequest.totalShares)
+
+    nextExitRequest.save()
+  }
+
+  prevExitRequest.exitedAssets = claimedAssets
+  prevExitRequest.isClaimable = false
+  prevExitRequest.isClaimed = true
+  prevExitRequest.save()
+
+  log.info(
+    '[OsTokenRedeemer] ExitedAssetsClaimed receiver={} prevPositionTicket={} newPositionTicket={} claimedAssets={}',
+    [receiver.toHex(), prevPositionTicket.toString(), newPositionTicket.toString(), claimedAssets.toString()],
+  )
+}
+
+export function handleCheckpointCreated(event: CheckpointCreated): void {
+  updateOsTokenRedeemerExitRequests(event.address)
+
+  log.info('[OsTokenRedeemer] CheckpointCreated shares={} assets={}', [
+    event.params.shares.toString(),
+    event.params.assets.toString(),
   ])
 }
