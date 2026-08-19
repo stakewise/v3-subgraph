@@ -397,6 +397,10 @@ export function handleRewardsUpdated(event: RewardsUpdated): void {
   updateOsTokenApy(osToken, newAvgRewardPerSecond)
 
   const network = loadNetwork()!
+
+  network.lastKeeperRewardsUpdateTimestamp = blockTimestamp
+  network.save()
+
   for (let i = 0; i < network.vaultIds.length; i++) {
     const vaultAddress = Address.fromString(network.vaultIds[i])
     const vault = loadVault(vaultAddress)!
@@ -452,7 +456,9 @@ export function handleHarvested(event: Harvested): void {
   }
 
   vault.canHarvest = vault.rewardsRoot!.notEqual(event.params.rewardsRoot)
+  vault.lastUpdateStateTimestamp = event.block.timestamp
   vault.save()
+
   if (vault.isGenesis) {
     const v2Pool = createOrLoadV2Pool()
     if (!v2Pool.migrated) {
