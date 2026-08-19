@@ -2,12 +2,15 @@ import { Address, BigInt, Bytes, ipfs, json, JSONValueKind, log, store } from '@
 
 import { RedeemablePosition, OsTokenRedeemer, OsTokenRedeemerExitRequest } from '../../generated/schema'
 import {
-  ExitedAssetsClaimed,
   ExitQueueEntered,
+  CheckpointCreated,
+  ExitedAssetsClaimed,
   RedeemablePositionsUpdated,
+  OsTokenRedeemer as OsTokenRedeemerContract,
 } from '../../generated/OsTokenRedeemer/OsTokenRedeemer'
 import { loadVault } from '../entities/vault'
 import { createTransaction } from '../entities/transaction'
+import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
 
 const osTokenRedeemerId = '1'
 
@@ -136,15 +139,20 @@ export function handleExitQueueEntered(event: ExitQueueEntered): void {
 
   createTransaction(event.transaction.hash.toHex())
 
+  const osToken = loadOsToken()!
   const exitRequest = new OsTokenRedeemerExitRequest(positionTicket.toString())
 
   exitRequest.owner = owner
   exitRequest.isClaimed = false
+  exitRequest.isClaimable = false
   exitRequest.receiver = receiver
   exitRequest.totalShares = shares
+  exitRequest.exitQueueIndex = null
   exitRequest.exitedAssets = BigInt.zero()
+  exitRequest.redeemer = osTokenRedeemerId
   exitRequest.positionTicket = positionTicket
   exitRequest.timestamp = event.block.timestamp
+  exitRequest.totalAssets = convertOsTokenSharesToAssets(osToken, shares)
 
   exitRequest.save()
 
@@ -177,25 +185,89 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   const claimedTickets = isResolved ? prevExitRequest.totalShares : newPositionTicket.minus(prevPositionTicket)
 
   if (!isResolved) {
+    const osToken = loadOsToken()!
     const nextExitRequest = new OsTokenRedeemerExitRequest(newPositionTicket.toString())
 
     nextExitRequest.isClaimed = false
+    nextExitRequest.isClaimable = false
     nextExitRequest.receiver = receiver
+    nextExitRequest.exitQueueIndex = null
     nextExitRequest.exitedAssets = BigInt.zero()
     nextExitRequest.owner = prevExitRequest.owner
     nextExitRequest.positionTicket = newPositionTicket
+    nextExitRequest.redeemer = prevExitRequest.redeemer
     nextExitRequest.timestamp = prevExitRequest.timestamp
     nextExitRequest.totalShares = prevExitRequest.totalShares.minus(claimedTickets)
+    nextExitRequest.totalAssets = convertOsTokenSharesToAssets(osToken, nextExitRequest.totalShares)
 
     nextExitRequest.save()
   }
 
   prevExitRequest.exitedAssets = claimedAssets
+  prevExitRequest.isClaimable = false
   prevExitRequest.isClaimed = true
   prevExitRequest.save()
+
+  updateOsTokenRedeemerExitRequests(event.address)
 
   log.info(
     '[OsTokenRedeemer] ExitedAssetsClaimed receiver={} prevPositionTicket={} newPositionTicket={} claimedAssets={}',
     [receiver.toHex(), prevPositionTicket.toString(), newPositionTicket.toString(), claimedAssets.toString()],
   )
+}
+
+export function handleCheckpointCreated(event: CheckpointCreated): void {
+  updateOsTokenRedeemerExitRequests(event.address)
+
+  log.info('[OsTokenRedeemer] CheckpointCreated shares={} assets={}', [
+    event.params.shares.toString(),
+    event.params.assets.toString(),
+  ])
+}
+
+function updateOsTokenRedeemerExitRequests(redeemerAddress: Address): void {
+  const osTokenRedeemer = OsTokenRedeemer.load(osTokenRedeemerId)
+
+  if (osTokenRedeemer === null) {
+    return
+  }
+
+  const redeemerContract = OsTokenRedeemerContract.bind(redeemerAddress)
+  const exitRequests = osTokenRedeemer.exitRequests.load()
+
+  for (let i = 0; i < exitRequests.length; i++) {
+    const exitRequest = exitRequests[i]
+
+    if (exitRequest.isClaimed) {
+      continue
+    }
+
+    const indexResult = redeemerContract.try_getExitQueueIndex(exitRequest.positionTicket)
+
+    if (indexResult.reverted || indexResult.value.lt(BigInt.zero())) {
+      exitRequest.exitQueueIndex = null
+      exitRequest.isClaimable = false
+      exitRequest.save()
+      continue
+    }
+
+    const exitQueueIndex = indexResult.value
+
+    const exitedResult = redeemerContract.try_calculateExitedAssets(
+      Address.fromBytes(exitRequest.receiver),
+      exitRequest.positionTicket,
+      exitQueueIndex,
+    )
+
+    if (exitedResult.reverted) {
+      continue
+    }
+
+    const exitedAssets = exitedResult.value.getExitedAssets()
+
+    exitRequest.isClaimable = exitedAssets.gt(BigInt.zero())
+    exitRequest.exitQueueIndex = exitQueueIndex
+    exitRequest.exitedAssets = exitedAssets
+    exitRequest.save()
+  }
 }
