@@ -265,6 +265,7 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
   vault.rewardsIpfsHash = subVault.rewardsIpfsHash
   vault.rewardsTimestamp = subVault.rewardsTimestamp
   vault._periodEarnedAssets = vault._periodEarnedAssets.plus(totalAssetsDelta)
+  vault.lastUpdateStateTimestamp = timestamp
   vault.save()
 
   // TODO: fix fee recipient shares minted
