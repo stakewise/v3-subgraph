@@ -42,6 +42,7 @@ import {
   createOrLoadAllocator,
   getAllocatorLtv,
   getAllocatorLtvStatus,
+  loadAllocator,
   syncAllocatorPeriodStakeEarnedAssets,
   syncAllocatorUserCount,
 } from './allocator'
@@ -141,7 +142,6 @@ export function createVault(
   vault.subVaultsCount = 0
   vault.parentMetaVaults = []
   vault._periodEarnedAssets = BigInt.zero()
-  vault._unclaimedFeeRecipientShares = BigInt.zero()
   vault._prevAllocatorAssets = BigInt.fromString(WAD)
 
   // the OsTokenConfig was updated for v2 vaults
@@ -341,6 +341,7 @@ export function updateVaults(
     const newTotalShares = newState[2]
     const newQueuedShares = newState[3]
     const newExitingAssets = newState[4]
+    // total fee recipient shares after the state update, not the earned delta
     const feeRecipientShares = newState[5]
 
     // calculate smoothing pool penalty
@@ -408,15 +409,23 @@ export function updateVaults(
       v2Pool.save()
     }
 
-    // save fee recipient earned shares
+    // sync fee recipient shares with the state fetched from the chain
+    const feeRecipientAddress = Address.fromBytes(vault.feeRecipient)
+    let feeRecipient: Allocator | null = null
     if (feeRecipientShares.gt(BigInt.zero())) {
-      const feeRecipient = createOrLoadAllocator(Address.fromBytes(vault.feeRecipient), vaultAddress)
+      feeRecipient = createOrLoadAllocator(feeRecipientAddress, vaultAddress)
+    } else {
+      // never create an empty allocator, but still reconcile the one that already exists
+      feeRecipient = loadAllocator(feeRecipientAddress, vaultAddress)
+    }
+
+    if (feeRecipient !== null && feeRecipient.shares.notEqual(feeRecipientShares)) {
       // update stake earned assets for the current stake shares
       syncAllocatorPeriodStakeEarnedAssets(vault, feeRecipient)
       const assetsBefore = convertSharesToAssets(vault, feeRecipient.shares)
 
       // update fee recipient shares and assets
-      feeRecipient.shares = feeRecipient.shares.plus(feeRecipientShares).minus(vault._unclaimedFeeRecipientShares)
+      feeRecipient.shares = feeRecipientShares
       feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
       syncAllocatorUserCount(feeRecipient)
 
@@ -429,7 +438,6 @@ export function updateVaults(
       feeRecipient.save()
     }
     vault._periodEarnedAssets = vault._periodEarnedAssets.plus(vaultPeriodAssets)
-    vault._unclaimedFeeRecipientShares = feeRecipientShares
     vault.save()
   }
   network.save()
@@ -500,26 +508,23 @@ export function getAllocatorMaxBoostApy(
 
 export function getVaultState(vault: Vault): Array<BigInt> {
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
+    // the state is not fetched from the chain, return the stored fee recipient shares to keep them unchanged
+    const feeRecipient = loadAllocator(Address.fromBytes(vault.feeRecipient), Address.fromString(vault.id))
     return [
       BigInt.fromString(WAD),
       vault.totalAssets,
       vault.totalShares,
       vault.queuedShares,
       vault.exitingAssets,
-      BigInt.zero(),
+      feeRecipient !== null ? feeRecipient.shares : BigInt.zero(),
     ]
   }
 
   const vaultAddr = Address.fromString(vault.id)
 
-  // fetch fee recipient shares before state update
-  const getFeeRecipientSharesCall = _getSharesCall(Address.fromBytes(vault.feeRecipient))
-  let results = chunkedMulticall(null, [encodeContractCall(vaultAddr, getFeeRecipientSharesCall)])
-  const feeRecipientSharesBefore = ethereum.decode('uint256', results[0]!)!.toBigInt()
-
   const updateStateCalls = getUpdateStateCall(vault)
   const calls: Array<ethereum.Value> = [
-    encodeContractCall(vaultAddr, getFeeRecipientSharesCall),
+    encodeContractCall(vaultAddr, _getSharesCall(Address.fromBytes(vault.feeRecipient))),
     encodeContractCall(vaultAddr, _getConvertToAssetsCall(BigInt.fromString(WAD))),
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalAssetsSelector)),
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalSharesSelector)),
@@ -553,9 +558,9 @@ export function getVaultState(vault: Vault): Array<BigInt> {
     calls.push(encodeContractCall(vaultAddr, Bytes.fromHexString(exitQueueDataSelector)))
   }
 
-  results = chunkedMulticall(updateStateCalls, calls)
-  const feeRecipientSharesAfter = ethereum.decode('uint256', results[0]!)!.toBigInt()
-  const feeRecipientEarnedShares = feeRecipientSharesAfter.minus(feeRecipientSharesBefore)
+  // the fee recipient shares are read after the state update, so they already include the pending fee shares
+  let results = chunkedMulticall(updateStateCalls, calls)
+  const feeRecipientShares = ethereum.decode('uint256', results[0]!)!.toBigInt()
 
   const newRate = ethereum.decode('uint256', results[1]!)!.toBigInt()
   const totalAssets = ethereum.decode('uint256', results[2]!)!.toBigInt()
@@ -579,7 +584,7 @@ export function getVaultState(vault: Vault): Array<BigInt> {
     exitingAssets = exitQueueData[3].toBigInt()
   }
 
-  return [newRate, totalAssets, totalShares, queuedShares, exitingAssets, feeRecipientEarnedShares]
+  return [newRate, totalAssets, totalShares, queuedShares, exitingAssets, feeRecipientShares]
 }
 
 export function getVaultBaseApy(vault: Vault): BigDecimal {
