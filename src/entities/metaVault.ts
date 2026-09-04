@@ -14,12 +14,13 @@ import { loadNetwork } from './network'
 import { loadOsToken } from './osToken'
 import { MAIN_META_VAULT_ADDRESS, syncStaker } from './staker'
 import { createTransaction } from './transaction'
-import { loadVault, syncVault } from './vault'
+import { loadVault, syncFeeRecipientShares, syncVault } from './vault'
 
 const totalAssetsSelector = '0x01e1d114'
 const totalSharesSelector = '0x3a98ef39'
 const convertToAssetsSelector = '0x07a2d13a'
 const exitQueueDataSelector = '0x3e1655d3'
+const getSharesSelector = '0xf04da65b'
 
 export function createMetaVault(event: MetaVaultCreated, version: BigInt, isPrivate: boolean, isErc20: boolean): void {
   const block = event.block
@@ -134,6 +135,7 @@ export function getMetaVaultState(vault: Vault): Array<BigInt> {
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalAssetsSelector)),
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalSharesSelector)),
     encodeContractCall(vaultAddr, Bytes.fromHexString(exitQueueDataSelector)),
+    encodeContractCall(vaultAddr, _getSharesCall(Address.fromBytes(vault.feeRecipient))),
   ]
 
   let results = chunkedMulticall(null, calls)
@@ -143,13 +145,20 @@ export function getMetaVaultState(vault: Vault): Array<BigInt> {
   const exitQueueData = ethereum.decode('(uint128,uint128,uint128,uint128,uint256)', results[3]!)!.toTuple()
   const queuedShares = exitQueueData[0].toBigInt()
   const exitingAssets = exitQueueData[3].toBigInt()
+  // the fee recipient shares are read after the harvest, so they already include the minted fee shares
+  const feeRecipientShares = ethereum.decode('uint256', results[4]!)!.toBigInt()
 
-  return [newRate, totalAssets, totalShares, queuedShares, exitingAssets]
+  return [newRate, totalAssets, totalShares, queuedShares, exitingAssets, feeRecipientShares]
 }
 
 function _getConvertToAssetsCall(shares: BigInt): Bytes {
   const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(shares))
   return Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs!)
+}
+
+function _getSharesCall(user: Address): Bytes {
+  const encodedGetSharesArgs = ethereum.encode(ethereum.Value.fromAddress(user))
+  return Bytes.fromHexString(getSharesSelector).concat(encodedGetSharesArgs!)
 }
 
 export function getMetaVaultAddress(registryAddress: Address): Address {
@@ -239,6 +248,7 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
   const newTotalShares = newState[2]
   const newQueuedShares = newState[3]
   const newExitingAssets = newState[4]
+  const feeRecipientShares = newState[5]
 
   const subVaults: Array<SubVault> = vault.subVaults.load()
   if (subVaults.length == 0) {
@@ -267,7 +277,8 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
   vault.lastUpdateStateTimestamp = timestamp
   vault.save()
 
-  // TODO: fix fee recipient shares minted
+  // sync fee recipient shares with the state fetched from the chain (fee shares are minted on harvest)
+  syncFeeRecipientShares(osToken, vault, feeRecipientShares)
 
   // update vault allocators, exit requests, reward splitters
   syncVault(loadNetwork()!, osToken, vault, timestamp)
