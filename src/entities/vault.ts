@@ -410,37 +410,47 @@ export function updateVaults(
     }
 
     // sync fee recipient shares with the state fetched from the chain
-    const feeRecipientAddress = Address.fromBytes(vault.feeRecipient)
-    let feeRecipient: Allocator | null = null
-    if (feeRecipientShares.gt(BigInt.zero())) {
-      feeRecipient = createOrLoadAllocator(feeRecipientAddress, vaultAddress)
-    } else {
-      // never create an empty allocator, but still reconcile the one that already exists
-      feeRecipient = loadAllocator(feeRecipientAddress, vaultAddress)
-    }
+    syncFeeRecipientShares(osToken, vault, feeRecipientShares)
 
-    if (feeRecipient !== null && feeRecipient.shares.notEqual(feeRecipientShares)) {
-      // update stake earned assets for the current stake shares
-      syncAllocatorPeriodStakeEarnedAssets(vault, feeRecipient)
-      const assetsBefore = convertSharesToAssets(vault, feeRecipient.shares)
-
-      // update fee recipient shares and assets
-      feeRecipient.shares = feeRecipientShares
-      feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
-      syncAllocatorUserCount(feeRecipient)
-
-      const feeRecipientEarnedAssets = feeRecipient.assets.minus(assetsBefore)
-      feeRecipient._periodStakeEarnedAssets = feeRecipient._periodStakeEarnedAssets.plus(feeRecipientEarnedAssets)
-      if (vault.isOsTokenEnabled) {
-        feeRecipient.ltv = getAllocatorLtv(feeRecipient, osToken)
-        feeRecipient.ltvStatus = getAllocatorLtvStatus(feeRecipient, loadOsTokenConfig(vault.osTokenConfig)!)
-      }
-      feeRecipient.save()
-    }
     vault._periodEarnedAssets = vault._periodEarnedAssets.plus(vaultPeriodAssets)
     vault.save()
   }
   network.save()
+}
+
+// Syncs the fee recipient allocator with the total fee recipient shares fetched from the chain.
+// Must be called after the vault rate and total assets/shares have been updated.
+export function syncFeeRecipientShares(osToken: OsToken, vault: Vault, feeRecipientShares: BigInt): void {
+  const vaultAddress = Address.fromString(vault.id)
+  const feeRecipientAddress = Address.fromBytes(vault.feeRecipient)
+  let feeRecipient: Allocator | null = null
+  if (feeRecipientShares.gt(BigInt.zero())) {
+    feeRecipient = createOrLoadAllocator(feeRecipientAddress, vaultAddress)
+  } else {
+    // never create an empty allocator, but still reconcile the one that already exists
+    feeRecipient = loadAllocator(feeRecipientAddress, vaultAddress)
+  }
+
+  if (feeRecipient === null || feeRecipient.shares.equals(feeRecipientShares)) {
+    return
+  }
+
+  // update stake earned assets for the current stake shares
+  syncAllocatorPeriodStakeEarnedAssets(vault, feeRecipient)
+  const assetsBefore = convertSharesToAssets(vault, feeRecipient.shares)
+
+  // update fee recipient shares and assets
+  feeRecipient.shares = feeRecipientShares
+  feeRecipient.assets = convertSharesToAssets(vault, feeRecipient.shares)
+  syncAllocatorUserCount(feeRecipient)
+
+  const feeRecipientEarnedAssets = feeRecipient.assets.minus(assetsBefore)
+  feeRecipient._periodStakeEarnedAssets = feeRecipient._periodStakeEarnedAssets.plus(feeRecipientEarnedAssets)
+  if (vault.isOsTokenEnabled) {
+    feeRecipient.ltv = getAllocatorLtv(feeRecipient, osToken)
+    feeRecipient.ltvStatus = getAllocatorLtvStatus(feeRecipient, loadOsTokenConfig(vault.osTokenConfig)!)
+  }
+  feeRecipient.save()
 }
 
 export function getAllocatorMaxBoostApy(
