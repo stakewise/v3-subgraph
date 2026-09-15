@@ -47,15 +47,15 @@ export function createOrLoadOsTokenHolder(holderAddress: Address): OsTokenHolder
   return holder
 }
 
-export function updateOsTokenTotalAssets(osToken: OsToken): void {
+export function updateOsTokenTotalAssetsAndSupply(osToken: OsToken): void {
   const osTokenVaultController = OsTokenVaultControllerContact.bind(OS_TOKEN_VAULT_CONTROLLER)
   const newTotalAssets = osTokenVaultController.totalAssets()
   const osTokenTotalAssetsDiff = newTotalAssets.minus(osToken.totalAssets)
   if (osTokenTotalAssetsDiff.lt(BigInt.zero())) {
-    log.error('[OsToken] osTokenTotalAssetsDiff cannot be negative={}', [osTokenTotalAssetsDiff.toString()])
-    return
+    log.warning('[OsToken] osTokenTotalAssetsDiff is negative={}', [osTokenTotalAssetsDiff.toString()])
   }
   osToken.totalAssets = newTotalAssets
+  osToken.totalSupply = osTokenVaultController.totalShares()
   osToken.save()
 }
 
