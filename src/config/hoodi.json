@@ -91,6 +91,7 @@
     "address": "0x7345fC8268459413beE9e9dd327f31283C65Ee7e",
     "startBlock": "94073"
   },
+  "osTokenTotalSupplyOffset": "22365703727143382958",
   "swiseToken": {
     "address": "0x3c5634a5437A394353F49fe04FE5db11961c5c2D",
     "startBlock": "93751"

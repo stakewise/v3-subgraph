@@ -1,7 +1,7 @@
 import { Address, BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
 import { OsToken, OsTokenHolder } from '../../generated/schema'
 import { OsTokenVaultController as OsTokenVaultControllerContact } from '../../generated/OsTokenVaultController/OsTokenVaultController'
-import { OS_TOKEN_VAULT_CONTROLLER, WAD } from '../helpers/constants'
+import { OS_TOKEN_TOTAL_SUPPLY_OFFSET, OS_TOKEN_VAULT_CONTROLLER, WAD } from '../helpers/constants'
 import { calculateAverage } from '../helpers/utils'
 
 const snapshotsPerWeek = 14
@@ -21,7 +21,8 @@ export function createOrLoadOsToken(): OsToken {
     osToken.apy = BigDecimal.zero()
     osToken.apys = []
     osToken.feePercent = 0
-    osToken.totalSupply = BigInt.zero()
+    // shares minted by the vaults that are not indexed by the subgraph
+    osToken.totalSupply = BigInt.fromString(OS_TOKEN_TOTAL_SUPPLY_OFFSET)
     osToken.totalAssets = BigInt.zero()
     osToken.save()
   }
@@ -47,15 +48,15 @@ export function createOrLoadOsTokenHolder(holderAddress: Address): OsTokenHolder
   return holder
 }
 
-export function updateOsTokenTotalAssetsAndSupply(osToken: OsToken): void {
+export function updateOsTokenTotalAssets(osToken: OsToken): void {
   const osTokenVaultController = OsTokenVaultControllerContact.bind(OS_TOKEN_VAULT_CONTROLLER)
   const newTotalAssets = osTokenVaultController.totalAssets()
   const osTokenTotalAssetsDiff = newTotalAssets.minus(osToken.totalAssets)
   if (osTokenTotalAssetsDiff.lt(BigInt.zero())) {
-    log.warning('[OsToken] osTokenTotalAssetsDiff is negative={}', [osTokenTotalAssetsDiff.toString()])
+    log.error('[OsToken] osTokenTotalAssetsDiff cannot be negative={}', [osTokenTotalAssetsDiff.toString()])
+    return
   }
   osToken.totalAssets = newTotalAssets
-  osToken.totalSupply = osTokenVaultController.totalShares()
   osToken.save()
 }
 

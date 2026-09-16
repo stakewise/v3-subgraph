@@ -4,7 +4,7 @@ import {
   convertOsTokenSharesToAssets,
   createOrLoadOsToken,
   loadOsToken,
-  updateOsTokenTotalAssetsAndSupply,
+  updateOsTokenTotalAssets,
 } from '../entities/osToken'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { loadNetwork } from '../entities/network'
@@ -56,8 +56,8 @@ export function syncOsToken(block: ethereum.Block): void {
     return
   }
 
-  // update OsToken total assets and supply
-  updateOsTokenTotalAssetsAndSupply(osToken)
+  // update OsToken total assets
+  updateOsTokenTotalAssets(osToken)
 
   let vault: Vault
   let osTokenConfig: OsTokenConfig | null
@@ -85,9 +85,8 @@ export function syncOsToken(block: ethereum.Block): void {
   osTokenCheckpoint.timestamp = newTimestamp
   osTokenCheckpoint.save()
 
-  log.info('[SyncOsToken] OsToken synced totalAssets={} totalSupply={} timestamp={} vaults={}', [
+  log.info('[SyncOsToken] OsToken synced totalAssets={} timestamp={} vaults={}', [
     osToken.totalAssets.toString(),
-    osToken.totalSupply.toString(),
     newTimestamp.toString(),
     totalVaults.toString(),
   ])
