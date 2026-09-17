@@ -141,7 +141,15 @@ export function handleDecreaseLiquidity(event: DecreaseLiquidity): void {
 }
 
 export function handleTransfer(event: Transfer): void {
-  let position = createOrLoadPosition(event.params.tokenId)
+  let position = UniswapPosition.load(event.params.tokenId.toString())
+  if (position == null) {
+    if (event.params.to.equals(Address.zero())) {
+      // the position is burned and removed from the position manager,
+      // fetching it would revert
+      return
+    }
+    position = createOrLoadPosition(event.params.tokenId)
+  }
 
   // position could not be fetched or is not supported
   if (position == null) {
