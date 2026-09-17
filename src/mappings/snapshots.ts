@@ -6,7 +6,7 @@ import { createVaultSnapshot, loadVault } from '../entities/vault'
 import { loadRewardSplitterShareHolder } from '../entities/rewardSplitter'
 import { loadDistributor } from '../entities/merkleDistributor'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
-import { createAllocatorSnapshot, isAllocatorInactive } from '../entities/allocator'
+import { createAllocatorSnapshot } from '../entities/allocator'
 import { loadLeverageStrategyPosition } from '../entities/leverageStrategy'
 import { loadAave } from '../entities/aave'
 import { snapshotStakers } from '../entities/staker'
@@ -64,19 +64,7 @@ export function syncSnapshots(block: ethereum.Block): void {
     const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
     for (let j = 0; j < allocators.length; j++) {
       const allocator = allocators[j]
-      const isInactive = isAllocatorInactive(allocator)
-      if (isInactive && rewardSplitters.length == 0) {
-        // skip empty snapshot
-        continue
-      }
       const allocatorAddress = Address.fromBytes(allocator.address)
-
-      // get assets from the reward splitters
-      const rewardSplitterAssets = _getRewardSplitterAssets(allocatorAddress, rewardSplitters)
-      if (isInactive && rewardSplitterAssets.isZero()) {
-        // skip empty snapshot
-        continue
-      }
 
       // get boost OsToken shares if boost exists
       let boostedOsTokenShares = BigInt.zero()
@@ -88,6 +76,9 @@ export function syncSnapshots(block: ethereum.Block): void {
           )
         }
       }
+
+      // get assets from the reward splitters
+      let rewardSplitterAssets = _getRewardSplitterAssets(allocatorAddress, rewardSplitters)
 
       createAllocatorSnapshot(
         osToken,
