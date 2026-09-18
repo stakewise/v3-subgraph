@@ -14,9 +14,38 @@ export function loadExitRequest(vault: Address, positionTicket: BigInt): ExitReq
   return ExitRequest.load(exitRequestId)
 }
 
+// Returns the exit requests of the vault that can still change: the ones that are not claimed and
+// are not yet both fully processed and claimable. The rest of the vault exit requests are final,
+// so they are excluded from the periodic syncs.
+export function loadPendingExitRequests(vault: Vault): Array<ExitRequest> {
+  if (vault._isPendingExitRequestsIndexed) {
+    return vault._pendingExitRequests.load()
+  }
+
+  // The pending exit requests are not indexed yet: the deployment was grafted onto the one without
+  // the index, or the vault was upgraded. Mark all the unclaimed exit requests as pending,
+  // the final ones are dropped from the index by the next exit requests update.
+  const pendingExitRequests: Array<ExitRequest> = []
+  const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
+  for (let i = 0; i < exitRequests.length; i++) {
+    const exitRequest = exitRequests[i]
+    if (exitRequest.isClaimed) {
+      continue
+    }
+    if (exitRequest._pendingVault === null) {
+      exitRequest._pendingVault = vault.id
+      exitRequest.save()
+    }
+    pendingExitRequests.push(exitRequest)
+  }
+  vault._isPendingExitRequestsIndexed = true
+  vault.save()
+  return pendingExitRequests
+}
+
 export function updateClaimableExitRequests(vault: Vault, timestamp: BigInt): void {
   let exitRequest: ExitRequest
-  const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
+  const exitRequests: Array<ExitRequest> = loadPendingExitRequests(vault)
   const isGnosis = isGnosisNetwork()
   for (let i = 0; i < exitRequests.length; i++) {
     exitRequest = exitRequests[i]
@@ -42,7 +71,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
 
   const vaultAddr = Address.fromString(vault.id)
 
-  const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
+  const exitRequests: Array<ExitRequest> = loadPendingExitRequests(vault)
   const updateStateCalls = getUpdateStateCall(vault)
 
   // ─────────────────────────────────────────────────────────────────────
@@ -129,6 +158,12 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
     exitRequest.exitedAssets = exitedAssets
 
     exitRequest.isClaimable = _isExitRequestClaimable(vault, exitRequest, timestamp, isGnosis)
+    if (leftTickets.isZero() && exitRequest.isClaimable && !exitRequest.isV2Position) {
+      // All the tickets have exited, and the exited assets are calculated from the exit queue checkpoints
+      // that never change, so the exit request is final. V2 positions are calculated from the shared
+      // pool of the exiting assets, keep syncing them until they are claimed.
+      exitRequest._pendingVault = null
+    }
     exitRequest.save()
 
     const totalAssetsDelta = exitRequest.totalAssets.minus(totalAssetsBefore)
@@ -146,12 +181,12 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   }
 }
 
-function getExitQueueIndexCall(positionTicket: BigInt): Bytes {
+export function getExitQueueIndexCall(positionTicket: BigInt): Bytes {
   const encodedArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(positionTicket))
   return Bytes.fromHexString(getExitQueueIndexSelector).concat(encodedArgs as Bytes)
 }
 
-function getCalculateExitedAssetsCall(
+export function getCalculateExitedAssetsCall(
   receiver: Address,
   positionTicket: BigInt,
   timestamp: BigInt,
