@@ -449,6 +449,9 @@ export function syncFeeRecipientShares(osToken: OsToken, vault: Vault, feeRecipi
   if (vault.isOsTokenEnabled) {
     feeRecipient.ltv = getAllocatorLtv(feeRecipient, osToken)
     feeRecipient.ltvStatus = getAllocatorLtvStatus(feeRecipient, loadOsTokenConfig(vault.osTokenConfig)!)
+  } else {
+    // syncApys does not revisit the allocators of the vaults without OsToken until the vault APY changes
+    feeRecipient.apy = feeRecipient.assets.isZero() ? BigDecimal.zero() : vault.apy
   }
   feeRecipient.save()
 }

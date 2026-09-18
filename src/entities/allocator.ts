@@ -275,9 +275,23 @@ export function getAllocatorApy(
   vault: Vault,
   allocator: Allocator,
 ): BigDecimal {
-  const vaultAddress = Address.fromString(allocator.vault)
-  const allocatorAddress = Address.fromBytes(allocator.address)
+  // boost position can exist only in the vaults with OsToken
+  const boostPosition = vault.isOsTokenEnabled
+    ? loadLeverageStrategyPosition(Address.fromString(allocator.vault), Address.fromBytes(allocator.address))
+    : null
+  return getAllocatorApyWithBoostPosition(aave, osToken, osTokenConfig, vault, allocator, boostPosition)
+}
 
+// Same as getAllocatorApy, but with the boost position resolved by the caller.
+// Used by the passes over all the vault allocators to avoid a store read per allocator.
+export function getAllocatorApyWithBoostPosition(
+  aave: Aave,
+  osToken: OsToken,
+  osTokenConfig: OsTokenConfig,
+  vault: Vault,
+  allocator: Allocator,
+  boostPosition: LeverageStrategyPosition | null,
+): BigDecimal {
   let totalAssets = allocator.assets
   if (!vault.isOsTokenEnabled) {
     return totalAssets.isZero() ? BigDecimal.zero() : vault.apy
@@ -293,7 +307,6 @@ export function getAllocatorApy(
   }
 
   let hasExtraBoostOsTokenShares = false
-  const boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
   if (boostPosition !== null) {
     totalEarnedAssets = totalEarnedAssets.plus(
       getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition),
