@@ -1,6 +1,7 @@
-import { describe, test, afterEach, assert, clearStore, createMockedFunction } from 'matchstick-as'
+import { describe, test, afterEach, assert, clearStore, createMockedFunction, newMockEvent } from 'matchstick-as'
 import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
-import { ExitRequest, Network, Vault } from '../generated/schema'
+import { ExitRequest, Network, OsTokenConfig, Vault } from '../generated/schema'
+import { ExitedAssetsClaimed, Initialized } from '../generated/templates/Vault/Vault'
 
 import {
   getCalculateExitedAssetsCall,
@@ -9,7 +10,11 @@ import {
   updateClaimableExitRequests,
   updateExitRequests,
 } from '../src/entities/exitRequest'
-import { getAllocatorId } from '../src/entities/allocator'
+import { createOrLoadAllocator, getAllocatorId } from '../src/entities/allocator'
+import { createOrLoadAave } from '../src/entities/aave'
+import { createOrLoadOsToken } from '../src/entities/osToken'
+import { getUpdateStateCall } from '../src/entities/vault'
+import { handleExitedAssetsClaimed, handleInitialized } from '../src/mappings/vault'
 import { encodeContractCall } from '../src/helpers/utils'
 import { MULTICALL, WAD } from '../src/helpers/constants'
 
@@ -97,8 +102,19 @@ function loadRequest(positionTicket: i32): ExitRequest {
   return ExitRequest.load(`${VAULT.toHex()}-${positionTicket.toString()}`)!
 }
 
-function mockMulticall(calls: Array<ethereum.Value>, results: Array<Bytes>): void {
+function mockMulticall(
+  calls: Array<ethereum.Value>,
+  results: Array<Bytes>,
+  updateStateCall: ethereum.Value | null,
+): void {
   const encodedResults: Array<ethereum.Value> = []
+  if (updateStateCall !== null) {
+    // the vault state update is prepended to the calls, its result is ignored
+    const prefix: Array<ethereum.Value> = [updateStateCall as ethereum.Value]
+    calls = prefix.concat(calls)
+    const result: Array<ethereum.Value> = [ethereum.Value.fromBoolean(true), ethereum.Value.fromBytes(new Bytes(0))]
+    encodedResults.push(ethereum.Value.fromTuple(changetype<ethereum.Tuple>(result)))
+  }
   for (let i = 0; i < results.length; i++) {
     const result: Array<ethereum.Value> = [ethereum.Value.fromBoolean(true), ethereum.Value.fromBytes(results[i])]
     encodedResults.push(ethereum.Value.fromTuple(changetype<ethereum.Tuple>(result)))
@@ -108,12 +124,29 @@ function mockMulticall(calls: Array<ethereum.Value>, results: Array<Bytes>): voi
     .returns([ethereum.Value.fromArray(encodedResults)])
 }
 
+function encodeExitedAssets(leftTickets: BigInt, exitedAssets: BigInt): Bytes {
+  return ethereum
+    .encode(ethereum.Value.fromUnsignedBigInt(leftTickets))!
+    .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(wad.minus(leftTickets)))!)
+    .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(exitedAssets))!)
+}
+
+// mocks the calculateExitedAssets call that is executed without the simulated vault state update
+function mockConfirmation(positionTicket: i32, exitQueueIndex: BigInt, result: Bytes): void {
+  const call = encodeContractCall(
+    VAULT,
+    getCalculateExitedAssetsCall(USER, BigInt.fromI32(positionTicket), ENTER_TIMESTAMP, exitQueueIndex),
+  )
+  mockMulticall([call], [result], null)
+}
+
 // mocks both exit requests update stages, the multicalls must contain the passed position tickets only
 function mockExitRequests(
   positionTickets: Array<i32>,
   exitQueueIndex: BigInt,
   leftTickets: Array<BigInt>,
   exitedAssets: Array<BigInt>,
+  updateStateCall: ethereum.Value | null = null,
 ): void {
   const stage1Calls: Array<ethereum.Value> = []
   const stage1Results: Array<Bytes> = []
@@ -127,16 +160,21 @@ function mockExitRequests(
     stage2Calls.push(
       encodeContractCall(VAULT, getCalculateExitedAssetsCall(USER, positionTicket, ENTER_TIMESTAMP, exitQueueIndex)),
     )
-    const exitedTickets = wad.minus(leftTickets[i])
-    stage2Results.push(
-      ethereum
-        .encode(ethereum.Value.fromUnsignedBigInt(leftTickets[i]))!
-        .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(exitedTickets))!)
-        .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(exitedAssets[i]))!),
-    )
+    stage2Results.push(encodeExitedAssets(leftTickets[i], exitedAssets[i]))
   }
-  mockMulticall(stage1Calls, stage1Results)
-  mockMulticall(stage2Calls, stage2Results)
+  mockMulticall(stage1Calls, stage1Results, updateStateCall)
+  mockMulticall(stage2Calls, stage2Results, updateStateCall)
+}
+
+// the vault with the harvest params: its exit requests are queried on top of the simulated state update
+function createHarvestableVault(): Vault {
+  const vault = createVault(true)
+  vault.rewardsRoot = Bytes.fromHexString('0x' + '11'.repeat(32))
+  vault.proofReward = BigInt.fromI32(1)
+  vault.proofUnlockedMevReward = BigInt.zero()
+  vault.proof = ['0x' + '22'.repeat(32)]
+  vault.save()
+  return vault
 }
 
 describe('pending exit requests', () => {
@@ -225,16 +263,126 @@ describe('pending exit requests', () => {
   test('does not query the exit requests that are out of the index', () => {
     const vault = createVault(true)
     // the final exit request: a contract call for it would not match the mocked multicalls
-    const finalRequest = createExitRequest(1, false)
+    // the position tickets are not used by the other tests, so their mocks cannot match either
+    const finalRequest = createExitRequest(11, false)
     finalRequest.exitedAssets = wad
     finalRequest.isClaimable = true
     finalRequest.save()
-    createExitRequest(2, true)
-    mockExitRequests([2], BigInt.fromI32(7), [wad], [BigInt.zero()])
+    createExitRequest(12, true)
+    mockExitRequests([12], BigInt.fromI32(8), [wad], [BigInt.zero()])
 
     updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
 
-    assert.bigIntEquals(loadRequest(1).exitedAssets, wad)
-    assert.stringEquals(loadRequest(2)._pendingVault!, VAULT.toHex())
+    assert.bigIntEquals(loadRequest(11).exitedAssets, wad)
+    assert.stringEquals(loadRequest(12)._pendingVault!, VAULT.toHex())
+  })
+
+  test('drops the exit request when the vault confirms the simulated result', () => {
+    const vault = createHarvestableVault()
+    createExitRequest(21, true)
+    mockExitRequests([21], BigInt.fromI32(9), [BigInt.zero()], [wad], getUpdateStateCall(vault))
+    mockConfirmation(21, BigInt.fromI32(9), encodeExitedAssets(BigInt.zero(), wad))
+
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+
+    assert.bigIntEquals(loadRequest(21).exitedAssets, wad)
+    assert.assertTrue(loadRequest(21).isClaimable)
+    assert.assertNull(loadRequest(21)._pendingVault)
+  })
+
+  test('keeps the exit request that is processed only by the simulated state update', () => {
+    const vault = createHarvestableVault()
+    createExitRequest(22, true)
+    mockExitRequests([22], BigInt.fromI32(9), [BigInt.zero()], [wad], getUpdateStateCall(vault))
+    // the checkpoint does not exist in the vault yet
+    mockConfirmation(22, BigInt.fromI32(9), encodeExitedAssets(wad, BigInt.zero()))
+
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+
+    // the simulated values are indexed as before, but the exit request stays in the index
+    assert.bigIntEquals(loadRequest(22).exitedAssets, wad)
+    assert.assertTrue(loadRequest(22).isClaimable)
+    assert.stringEquals(loadRequest(22)._pendingVault!, VAULT.toHex())
+  })
+
+  test('keeps the exit request when the vault returns different exited assets', () => {
+    const vault = createHarvestableVault()
+    createExitRequest(23, true)
+    mockExitRequests([23], BigInt.fromI32(9), [BigInt.zero()], [wad], getUpdateStateCall(vault))
+    mockConfirmation(23, BigInt.fromI32(9), encodeExitedAssets(BigInt.zero(), wad.minus(BigInt.fromI32(1))))
+
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+
+    assert.stringEquals(loadRequest(23)._pendingVault!, VAULT.toHex())
+  })
+
+  test('verifies all the unclaimed exit requests again after the vault upgrade', () => {
+    createVault(true)
+    // the final exit request that is out of the index
+    createExitRequest(31, false)
+
+    const mockEvent = newMockEvent()
+    const event = new Initialized(
+      VAULT,
+      mockEvent.logIndex,
+      mockEvent.transactionLogIndex,
+      mockEvent.logType,
+      mockEvent.block,
+      mockEvent.transaction,
+      [new ethereum.EventParam('version', ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(6)))],
+      null,
+    )
+    handleInitialized(event)
+
+    const vault = Vault.load(VAULT.toHex())!
+    assert.assertTrue(!vault._isPendingExitRequestsIndexed)
+
+    const pending = loadPendingExitRequests(vault)
+    assert.i32Equals(pending.length, 1)
+    assert.stringEquals(loadRequest(31)._pendingVault!, VAULT.toHex())
+    assert.assertTrue(Vault.load(VAULT.toHex())!._isPendingExitRequestsIndexed)
+  })
+
+  test('moves the index to the next exit request on the partial claim', () => {
+    createVault(true)
+    createOrLoadAave()
+    createOrLoadOsToken()
+    const osTokenConfig = new OsTokenConfig('2')
+    osTokenConfig.ltvPercent = wad.times(BigInt.fromI32(90)).div(BigInt.fromI32(100))
+    osTokenConfig.leverageMaxMintLtvPercent = osTokenConfig.ltvPercent
+    osTokenConfig.liqThresholdPercent = wad.times(BigInt.fromI32(92)).div(BigInt.fromI32(100))
+    osTokenConfig.save()
+    const allocator = createOrLoadAllocator(USER, VAULT)
+    allocator.exitingAssets = wad
+    allocator.save()
+    createExitRequest(41, true)
+
+    const halfWad = wad.div(BigInt.fromI32(2))
+    const newPositionTicket = BigInt.fromI32(41).plus(halfWad)
+    const mockEvent = newMockEvent()
+    const event = new ExitedAssetsClaimed(
+      VAULT,
+      mockEvent.logIndex,
+      mockEvent.transactionLogIndex,
+      mockEvent.logType,
+      mockEvent.block,
+      mockEvent.transaction,
+      [
+        new ethereum.EventParam('receiver', ethereum.Value.fromAddress(USER)),
+        new ethereum.EventParam('prevPositionTicket', ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(41))),
+        new ethereum.EventParam('newPositionTicket', ethereum.Value.fromUnsignedBigInt(newPositionTicket)),
+        new ethereum.EventParam('withdrawnAssets', ethereum.Value.fromUnsignedBigInt(halfWad)),
+      ],
+      null,
+    )
+    handleExitedAssetsClaimed(event)
+
+    const claimed = loadRequest(41)
+    assert.assertTrue(claimed.isClaimed)
+    assert.assertNull(claimed._pendingVault)
+
+    const next = ExitRequest.load(`${VAULT.toHex()}-${newPositionTicket.toString()}`)!
+    assert.assertTrue(!next.isClaimed)
+    assert.stringEquals(next._pendingVault!, VAULT.toHex())
   })
 })

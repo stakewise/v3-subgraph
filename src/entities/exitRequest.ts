@@ -17,6 +17,7 @@ export function loadExitRequest(vault: Address, positionTicket: BigInt): ExitReq
 // Returns the exit requests of the vault that can still change: the ones that are not claimed and
 // are not yet both fully processed and claimable. The rest of the vault exit requests are final,
 // so they are excluded from the periodic syncs.
+// NB! Saves the vault when it builds the index, pass the instance that the caller keeps using.
 export function loadPendingExitRequests(vault: Vault): Array<ExitRequest> {
   if (vault._isPendingExitRequestsIndexed) {
     return vault._pendingExitRequests.load()
@@ -83,6 +84,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   let pendingExitRequests: Array<ExitRequest> = []
   for (let i = 0; i < exitRequests.length; i++) {
     let exitRequest = exitRequests[i]
+    // older graph node versions can still return the exit request that was claimed in the current block
     if (!exitRequest.isClaimed) {
       pendingExitRequests.push(exitRequest)
       allCallsStage1.push(encodeContractCall(vaultAddr, getExitQueueIndexCall(exitRequest.positionTicket)))
@@ -132,6 +134,14 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   // Execute in chunks of size 100
   let stage2Results = chunkedMulticall(updateStateCalls, allCallsStage2, true, 100)
 
+  // The calls above are executed on top of the simulated vault state update. The checkpoint created by the
+  // simulation can differ from the one that the vault will create, so the exit requests that look final
+  // are collected here and confirmed against the current vault state after the loop.
+  const isStateUpdateSimulated = updateStateCalls !== null
+  const finalExitRequests: Array<ExitRequest> = []
+  const finalExitRequestsCalls: Array<ethereum.Value> = []
+  const finalExitRequestsResults: Array<Bytes> = []
+
   // Parse and update each exitRequest
   const one = BigInt.fromI32(1)
   const isGnosis = isGnosisNetwork()
@@ -162,7 +172,13 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
       // All the tickets have exited, and the exited assets are calculated from the exit queue checkpoints
       // that never change, so the exit request is final. V2 positions are calculated from the shared
       // pool of the exiting assets, keep syncing them until they are claimed.
-      exitRequest._pendingVault = null
+      if (isStateUpdateSimulated) {
+        finalExitRequests.push(exitRequest)
+        finalExitRequestsCalls.push(allCallsStage2[i])
+        finalExitRequestsResults.push(stage2Results[i]!)
+      } else {
+        exitRequest._pendingVault = null
+      }
     }
     exitRequest.save()
 
@@ -177,6 +193,17 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
       allocator._periodStakeEarnedAssets = allocator._periodStakeEarnedAssets.plus(totalAssetsDelta)
       allocator.exitingAssets = allocator.exitingAssets.plus(totalAssetsDelta)
       allocator.save()
+    }
+  }
+
+  // Drop the exit request from the index only when the vault returns the same result without the simulated
+  // state update. Until the checkpoint exists in the vault, the call returns no exited assets.
+  const confirmedResults = chunkedMulticall(null, finalExitRequestsCalls, true, 100)
+  for (let i = 0; i < confirmedResults.length; i++) {
+    if (confirmedResults[i]!.equals(finalExitRequestsResults[i])) {
+      const exitRequest = finalExitRequests[i]
+      exitRequest._pendingVault = null
+      exitRequest.save()
     }
   }
 }
