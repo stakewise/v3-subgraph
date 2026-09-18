@@ -201,7 +201,12 @@ export function updateAllocatorMintedOsTokenShares(osToken: OsToken, osTokenConf
   const vaultAddress = Address.fromString(vault.id)
   for (let i = 0; i < allocators.length; i++) {
     allocator = allocators[i]
-    if (allocator.shares.gt(BigInt.zero())) {
+    if (allocator.shares.le(BigInt.zero())) {
+      continue
+    }
+    // the vault accrues the OsToken fee only to the positions with shares, and all the position
+    // changes are handled through the events, so the other positions cannot change
+    if (allocator.mintedOsTokenShares.gt(BigInt.zero()) || allocator._isOsTokenPositionSyncRequired) {
       allocatorsToUpdate.push(allocator)
       calls.push(encodeContractCall(vaultAddress, _getOsTokenPositionsCall(allocator)))
     }
@@ -222,10 +227,11 @@ export function updateAllocatorMintedOsTokenShares(osToken: OsToken, osTokenConf
         '[Allocator] minted OsToken shares update failed for allocator={} osTokenConfig={} mintedOsTokenSharesDiff={}',
         [allocator.id, osTokenConfig.id, mintedOsTokenSharesDiff.toString()],
       )
-      return
+      continue
     }
 
     allocator.mintedOsTokenShares = allocatorNewMintedOsTokenShares
+    allocator._isOsTokenPositionSyncRequired = false
     if (allocator.extraBoostOsTokenShares.gt(BigInt.zero())) {
       // minted shares growth reclassifies part of the extra boosted OsToken shares
       const position = loadLeverageStrategyPosition(vaultAddress, Address.fromBytes(allocator.address))
@@ -482,8 +488,11 @@ export function decreaseAllocatorMintedOsTokenShares(
   shares: BigInt,
 ): void {
   allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.minus(shares)
-  if (allocator.mintedOsTokenShares.lt(BigInt.zero())) {
+  if (allocator.mintedOsTokenShares.le(BigInt.zero())) {
     allocator.mintedOsTokenShares = BigInt.zero()
+    // minted shares lag behind the vault by the fee accrued since the last sync, so the vault
+    // position can still hold the fee leftover. Verify it during the next OsToken sync.
+    allocator._isOsTokenPositionSyncRequired = true
   }
   const position = loadLeverageStrategyPosition(
     Address.fromString(allocator.vault),
