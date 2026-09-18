@@ -222,7 +222,7 @@ export function updateAllocatorMintedOsTokenShares(osToken: OsToken, osTokenConf
         '[Allocator] minted OsToken shares update failed for allocator={} osTokenConfig={} mintedOsTokenSharesDiff={}',
         [allocator.id, osTokenConfig.id, mintedOsTokenSharesDiff.toString()],
       )
-      return
+      continue
     }
 
     allocator.mintedOsTokenShares = allocatorNewMintedOsTokenShares
@@ -394,6 +394,22 @@ export function updateAllocatorsLtvStatus(): void {
       allocator.save()
     }
   }
+}
+
+export function isAllocatorInactive(allocator: Allocator): boolean {
+  // allocator has no stake, no pending exits, no OsToken position, no boost position
+  // and nothing accrued for the current period, so snapshot and APY would be all zeros
+  return (
+    allocator.shares.isZero() &&
+    allocator.exitingAssets.isZero() &&
+    allocator.mintedOsTokenShares.isZero() &&
+    allocator.extraBoostOsTokenShares.isZero() &&
+    allocator._periodStakeEarnedAssets.isZero() &&
+    allocator._periodBoostEarnedAssets.isZero() &&
+    allocator._periodBoostEarnedOsTokenShares.isZero() &&
+    allocator._periodOsTokenFeeShares.isZero() &&
+    !allocator._countedAsUser
+  )
 }
 
 export function syncAllocatorPeriodStakeEarnedAssets(vault: Vault, allocator: Allocator): void {

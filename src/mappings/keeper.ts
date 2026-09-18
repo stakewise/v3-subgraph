@@ -75,7 +75,7 @@ import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDist
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { syncStakers } from '../entities/staker'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { getAllocatorApy } from '../entities/allocator'
+import { getAllocatorApy, isAllocatorInactive } from '../entities/allocator'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -571,7 +571,9 @@ export function syncApys(block: ethereum.Block): void {
     const allocators: Array<Allocator> = vault.allocators.load()
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocatorApy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+      allocatorApy = isAllocatorInactive(allocator)
+        ? BigDecimal.zero()
+        : getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
       if (allocatorApy.equals(allocator.apy)) {
         continue
       }
