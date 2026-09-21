@@ -178,6 +178,9 @@ type ExitRequest @entity(immutable: false) {
 
   "Defines whether the exit request is claimed"
   isClaimed: Boolean!
+
+  "The vault that still has to sync the exit request. Null once it is claimed or fully processed and claimable"
+  _pendingVault: Vault
 }
 
 """
@@ -282,6 +285,12 @@ type Vault @entity(immutable: false) {
 
   "The vault exit requests"
   exitRequests: [ExitRequest!]! @derivedFrom(field: "vault")
+
+  "The exit requests that still have to be synced"
+  _pendingExitRequests: [ExitRequest!]! @derivedFrom(field: "_pendingVault")
+
+  "Whether the pending exit requests of the vault were indexed"
+  _isPendingExitRequestsIndexed: Boolean
 
   "The vault reward splitters"
   rewardSplitters: [RewardSplitter!]! @derivedFrom(field: "vault")
