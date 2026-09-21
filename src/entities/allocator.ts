@@ -201,7 +201,12 @@ export function updateAllocatorMintedOsTokenShares(osToken: OsToken, osTokenConf
   const vaultAddress = Address.fromString(vault.id)
   for (let i = 0; i < allocators.length; i++) {
     allocator = allocators[i]
-    if (allocator.shares.gt(BigInt.zero())) {
+    if (allocator.shares.le(BigInt.zero())) {
+      continue
+    }
+    // the vault accrues the OsToken fee only to the positions with shares, and all the position
+    // changes are handled through the events, so the other positions cannot change
+    if (allocator.mintedOsTokenShares.gt(BigInt.zero()) || allocator._isOsTokenPositionSyncRequired) {
       allocatorsToUpdate.push(allocator)
       calls.push(encodeContractCall(vaultAddress, _getOsTokenPositionsCall(allocator)))
     }
@@ -226,6 +231,7 @@ export function updateAllocatorMintedOsTokenShares(osToken: OsToken, osTokenConf
     }
 
     allocator.mintedOsTokenShares = allocatorNewMintedOsTokenShares
+    allocator._isOsTokenPositionSyncRequired = false
     if (allocator.extraBoostOsTokenShares.gt(BigInt.zero())) {
       // minted shares growth reclassifies part of the extra boosted OsToken shares
       const position = loadLeverageStrategyPosition(vaultAddress, Address.fromBytes(allocator.address))
@@ -275,9 +281,23 @@ export function getAllocatorApy(
   vault: Vault,
   allocator: Allocator,
 ): BigDecimal {
-  const vaultAddress = Address.fromString(allocator.vault)
-  const allocatorAddress = Address.fromBytes(allocator.address)
+  // boost position can exist only in the vaults with OsToken
+  const boostPosition = vault.isOsTokenEnabled
+    ? loadLeverageStrategyPosition(Address.fromString(allocator.vault), Address.fromBytes(allocator.address))
+    : null
+  return getAllocatorApyWithBoostPosition(aave, osToken, osTokenConfig, vault, allocator, boostPosition)
+}
 
+// Same as getAllocatorApy, but with the boost position resolved by the caller.
+// Used by the passes over all the vault allocators to avoid a store read per allocator.
+export function getAllocatorApyWithBoostPosition(
+  aave: Aave,
+  osToken: OsToken,
+  osTokenConfig: OsTokenConfig,
+  vault: Vault,
+  allocator: Allocator,
+  boostPosition: LeverageStrategyPosition | null,
+): BigDecimal {
   let totalAssets = allocator.assets
   if (!vault.isOsTokenEnabled) {
     return totalAssets.isZero() ? BigDecimal.zero() : vault.apy
@@ -293,7 +313,6 @@ export function getAllocatorApy(
   }
 
   let hasExtraBoostOsTokenShares = false
-  const boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
   if (boostPosition !== null) {
     totalEarnedAssets = totalEarnedAssets.plus(
       getBoostPositionAnnualReward(osToken, aave, vault, osTokenConfig, boostPosition),
@@ -498,8 +517,11 @@ export function decreaseAllocatorMintedOsTokenShares(
   shares: BigInt,
 ): void {
   allocator.mintedOsTokenShares = allocator.mintedOsTokenShares.minus(shares)
-  if (allocator.mintedOsTokenShares.lt(BigInt.zero())) {
+  if (allocator.mintedOsTokenShares.le(BigInt.zero())) {
     allocator.mintedOsTokenShares = BigInt.zero()
+    // minted shares lag behind the vault by the fee accrued since the last sync, so the vault
+    // position can still hold the fee leftover. Verify it during the next OsToken sync.
+    allocator._isOsTokenPositionSyncRequired = true
   }
   const position = loadLeverageStrategyPosition(
     Address.fromString(allocator.vault),

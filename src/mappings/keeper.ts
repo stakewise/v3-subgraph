@@ -58,7 +58,7 @@ import {
   RewardSplitterFactory as RewardSplitterFactoryTemplate,
   VaultFactory as VaultFactoryTemplate,
 } from '../../generated/templates'
-import { Allocator, OsTokenConfig, Vault } from '../../generated/schema'
+import { Allocator, LeverageStrategyPosition, OsTokenConfig, Vault } from '../../generated/schema'
 import { createOrLoadOsToken, loadOsToken, updateOsTokenApy } from '../entities/osToken'
 import { createOrLoadNetwork, loadNetwork } from '../entities/network'
 import {
@@ -75,7 +75,7 @@ import { createOrLoadDistributor, loadDistributor } from '../entities/merkleDist
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { syncStakers } from '../entities/staker'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { getAllocatorApy, isAllocatorInactive } from '../entities/allocator'
+import { getAllocatorApyWithBoostPosition, isAllocatorInactive } from '../entities/allocator'
 
 const IS_PRIVATE_KEY = 'isPrivate'
 const IS_ERC20_KEY = 'isErc20'
@@ -559,11 +559,28 @@ export function syncApys(block: ethereum.Block): void {
     }
     osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
 
+    const prevVaultApy = vault.apy
     vault.baseApy = getVaultBaseApy(vault)
     vault.extraApy = getVaultExtraApy(distributor, vault)
     vault.apy = vault.baseApy.plus(vault.extraApy)
     vault.allocatorMaxBoostApy = getAllocatorMaxBoostApy(aave, osToken, vault, osTokenConfig, newBlockNumber)
     vault.save()
+
+    if (!vault.isOsTokenEnabled && vault.apy.equals(prevVaultApy)) {
+      // without OsToken the allocator APY is either zero or the vault APY, and everything
+      // that changes the allocator assets keeps it in sync, so there is nothing to update
+      continue
+    }
+
+    // fetch all the vault boost positions at once instead of a store read per allocator,
+    // the position ID is the same as the allocator ID
+    const boostPositions = new Map<string, LeverageStrategyPosition>()
+    if (vault.isOsTokenEnabled) {
+      const vaultBoostPositions: Array<LeverageStrategyPosition> = vault.leveragePositions.load()
+      for (let j = 0; j < vaultBoostPositions.length; j++) {
+        boostPositions.set(vaultBoostPositions[j].id, vaultBoostPositions[j])
+      }
+    }
 
     // update allocators apys
     let allocatorApy: BigDecimal
@@ -573,7 +590,14 @@ export function syncApys(block: ethereum.Block): void {
       allocator = allocators[j]
       allocatorApy = isAllocatorInactive(allocator)
         ? BigDecimal.zero()
-        : getAllocatorApy(aave, osToken, osTokenConfig, vault, allocator)
+        : getAllocatorApyWithBoostPosition(
+            aave,
+            osToken,
+            osTokenConfig,
+            vault,
+            allocator,
+            boostPositions.has(allocator.id) ? boostPositions.get(allocator.id) : null,
+          )
       if (allocatorApy.equals(allocator.apy)) {
         continue
       }
