@@ -71,6 +71,9 @@ type Allocator @entity(immutable: false) {
 
   "Whether the allocator is counted in the users count"
   _countedAsUser: Boolean!
+
+  "Whether the zeroed minted OsToken shares must be verified against the vault during the next OsToken sync"
+  _isOsTokenPositionSyncRequired: Boolean
 }
 
 """
