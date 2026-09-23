@@ -225,8 +225,6 @@ export function handleInitialized(event: Initialized): void {
     vault.osTokenConfig = '2'
   }
   vault.version = newVersion
-  // the upgrade can change the exit queue, verify all the unclaimed exit requests once again
-  vault._isPendingExitRequestsIndexed = false
 
   if (newVersion.equals(BigInt.fromI32(3))) {
     // update exit requests
@@ -440,7 +438,6 @@ export function handleV1ExitQueueEntered(event: V1ExitQueueEntered): void {
   exitRequest.positionTicket = positionTicket
   exitRequest.isV2Position = false
   exitRequest.exitQueueIndex = null
-  exitRequest._pendingVault = vaultAddressHex
   exitRequest.timestamp = timestamp
   exitRequest.isClaimable = false
   exitRequest.isClaimed = false
@@ -517,7 +514,6 @@ export function handleV2ExitQueueEntered(event: V2ExitQueueEntered): void {
   exitRequest.positionTicket = positionTicket
   exitRequest.isV2Position = true
   exitRequest.exitQueueIndex = null
-  exitRequest._pendingVault = vaultAddressHex
   exitRequest.timestamp = timestamp
   exitRequest.isClaimable = false
   exitRequest.isClaimed = false
@@ -595,13 +591,11 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
     nextExitRequest.exitQueueIndex = null
     nextExitRequest.isClaimable = false
     nextExitRequest.isClaimed = false
-    nextExitRequest._pendingVault = vaultAddressHex
     nextExitRequest.save()
   }
 
   prevExitRequest.isClaimable = false
   prevExitRequest.isClaimed = true
-  prevExitRequest._pendingVault = null
   prevExitRequest.save()
 
   // update allocator APY
