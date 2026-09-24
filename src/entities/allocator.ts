@@ -23,6 +23,8 @@ import { loadOsTokenConfig } from './osTokenConfig'
 import { getBoostPositionAnnualReward, loadLeverageStrategyPosition } from './leverageStrategy'
 import { decreaseUserVaultsCount, increaseUserVaultsCount, loadNetwork } from './network'
 
+// the positions holding less than this are treated as inactive while nothing accrues to them
+export const ALLOCATOR_DUST_ASSETS = BigInt.fromI32(1000000000) // 1 gwei
 const osTokenPositionsSelector = '0x4ec96b22'
 
 export enum LtvStatus {
@@ -414,9 +416,6 @@ export function updateAllocatorsLtvStatus(): void {
     }
   }
 }
-
-// the positions with fewer assets are treated as inactive while nothing accrues to them
-export const ALLOCATOR_DUST_ASSETS = BigInt.fromI32(1000000000) // 1 gwei
 
 export function isLeverageStrategyPositionEmpty(position: LeverageStrategyPosition | null): boolean {
   return (

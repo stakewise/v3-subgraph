@@ -36,9 +36,7 @@ describe('allocator', () => {
 
     test('is true for the position below the dust threshold', () => {
       const allocator = createOrLoadAllocator(USER, VAULT)
-      allocator.shares = one
       allocator.assets = ALLOCATOR_DUST_ASSETS.minus(one)
-      allocator._countedAsUser = true
       assert.assertTrue(isAllocatorInactive(allocator, BigInt.zero(), null))
     })
 

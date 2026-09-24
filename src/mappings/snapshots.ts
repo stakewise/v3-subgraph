@@ -7,7 +7,6 @@ import { loadRewardSplitterShareHolder } from '../entities/rewardSplitter'
 import { loadDistributor } from '../entities/merkleDistributor'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { createAllocatorSnapshot, isAllocatorInactive } from '../entities/allocator'
-import { loadLeverageStrategyPosition } from '../entities/leverageStrategy'
 import { loadAave } from '../entities/aave'
 import { snapshotStakers } from '../entities/staker'
 
@@ -59,21 +58,25 @@ export function syncSnapshots(block: ethereum.Block): void {
 
     createVaultSnapshot(vault, duration, newTimestamp.toI64())
 
-    const vaultAddress = Address.fromString(vault.id)
     const allocators: Array<Allocator> = vault.allocators.load()
     const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
+
+    // fetch all the vault boost positions at once instead of a store read per allocator,
+    // the position ID is the same as the allocator ID
+    const boostPositions = new Map<string, LeverageStrategyPosition>()
+    if (vault.isOsTokenEnabled) {
+      const vaultBoostPositions: Array<LeverageStrategyPosition> = vault.leveragePositions.load()
+      for (let j = 0; j < vaultBoostPositions.length; j++) {
+        boostPositions.set(vaultBoostPositions[j].id, vaultBoostPositions[j])
+      }
+    }
+
     for (let j = 0; j < allocators.length; j++) {
       const allocator = allocators[j]
-      const allocatorAddress = Address.fromBytes(allocator.address)
 
       // get assets from the reward splitters
-      const rewardSplitterAssets = _getRewardSplitterAssets(allocatorAddress, rewardSplitters)
-
-      // get boost position if boost exists
-      let boostPosition: LeverageStrategyPosition | null = null
-      if (vault.isOsTokenEnabled) {
-        boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
-      }
+      const rewardSplitterAssets = _getRewardSplitterAssets(Address.fromBytes(allocator.address), rewardSplitters)
+      const boostPosition = boostPositions.has(allocator.id) ? boostPositions.get(allocator.id) : null
 
       if (isAllocatorInactive(allocator, rewardSplitterAssets, boostPosition)) {
         // skip empty snapshot
