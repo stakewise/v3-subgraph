@@ -103,10 +103,9 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   // Execute in chunks of size 100
   let stage2Results = chunkedMulticall(updateStateCalls, allCallsStage2, true, 100)
 
-  // The calls above are executed on top of the simulated vault state update. The checkpoint created by the
+  // The calls above can be executed on top of the simulated vault state update. The checkpoint created by the
   // simulation can differ from the one that the vault will create, so the exit requests that look final
   // are collected here and confirmed against the current vault state after the loop.
-  const isStateUpdateSimulated = updateStateCalls !== null
   const finalExitRequests: Array<ExitRequest> = []
   const finalExitRequestsCalls: Array<ethereum.Value> = []
   const finalExitRequestsResults: Array<Bytes> = []
@@ -141,13 +140,9 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
       // All the tickets have exited, and the exited assets are calculated from the exit queue checkpoints
       // that never change, so the exit request is final. V2 positions are calculated from the shared
       // pool of the exiting assets, keep syncing them until they are claimed.
-      if (isStateUpdateSimulated) {
-        finalExitRequests.push(exitRequest)
-        finalExitRequestsCalls.push(allCallsStage2[i])
-        finalExitRequestsResults.push(stage2Results[i]!)
-      } else {
-        exitRequest._isFinal = true
-      }
+      finalExitRequests.push(exitRequest)
+      finalExitRequestsCalls.push(allCallsStage2[i])
+      finalExitRequestsResults.push(stage2Results[i]!)
     }
     exitRequest.save()
 

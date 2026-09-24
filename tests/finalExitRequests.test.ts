@@ -191,6 +191,7 @@ describe('final exit requests', () => {
     // the exit requests order is not guaranteed
     mockExitRequests([1, 2], BigInt.fromI32(7), [BigInt.zero(), halfWad], [wad.plus(BigInt.fromI32(5)), halfWad])
     mockExitRequests([2, 1], BigInt.fromI32(7), [halfWad, BigInt.zero()], [halfWad, wad.plus(BigInt.fromI32(5))])
+    mockConfirmation(1, BigInt.fromI32(7), encodeExitedAssets(BigInt.zero(), wad.plus(BigInt.fromI32(5))))
 
     updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
 
