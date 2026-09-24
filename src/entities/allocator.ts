@@ -415,19 +415,37 @@ export function updateAllocatorsLtvStatus(): void {
   }
 }
 
-export function isAllocatorInactive(allocator: Allocator): boolean {
-  // allocator has no stake, no pending exits, no OsToken position, no boost position
-  // and nothing accrued for the current period, so snapshot and APY would be all zeros
+// the positions with fewer assets are treated as inactive while nothing accrues to them
+export const ALLOCATOR_DUST_ASSETS = BigInt.fromI32(1000000000) // 1 gwei
+
+export function isLeverageStrategyPositionEmpty(position: LeverageStrategyPosition | null): boolean {
   return (
-    allocator.shares.isZero() &&
-    allocator.exitingAssets.isZero() &&
+    position === null ||
+    (position.osTokenShares.isZero() &&
+      position.exitingOsTokenShares.isZero() &&
+      position.assets.isZero() &&
+      position.exitingAssets.isZero())
+  )
+}
+
+// The allocator holds dust at most, has no OsToken position, no boost position and nothing accrued
+// for the current period, so the APY is zero and the snapshot would repeat the dust balance with zero
+// earnings. Once something accrues, the snapshot is written and the period counters are reset,
+// so nothing is lost by skipping the inactive allocator
+export function isAllocatorInactive(
+  allocator: Allocator,
+  rewardSplitterAssets: BigInt,
+  boostPosition: LeverageStrategyPosition | null,
+): boolean {
+  return (
+    allocator.assets.plus(allocator.exitingAssets).plus(rewardSplitterAssets).lt(ALLOCATOR_DUST_ASSETS) &&
     allocator.mintedOsTokenShares.isZero() &&
     allocator.extraBoostOsTokenShares.isZero() &&
+    isLeverageStrategyPositionEmpty(boostPosition) &&
     allocator._periodStakeEarnedAssets.isZero() &&
     allocator._periodBoostEarnedAssets.isZero() &&
     allocator._periodBoostEarnedOsTokenShares.isZero() &&
-    allocator._periodOsTokenFeeShares.isZero() &&
-    !allocator._countedAsUser
+    allocator._periodOsTokenFeeShares.isZero()
   )
 }
 
@@ -470,14 +488,7 @@ export function syncAllocatorUserCount(allocator: Allocator): void {
       Address.fromString(allocator.vault),
       Address.fromBytes(allocator.address),
     )
-    counted =
-      position !== null &&
-      !(
-        position.osTokenShares.isZero() &&
-        position.exitingOsTokenShares.isZero() &&
-        position.assets.isZero() &&
-        position.exitingAssets.isZero()
-      )
+    counted = !isLeverageStrategyPositionEmpty(position)
   }
 
   if (counted == allocator._countedAsUser) {

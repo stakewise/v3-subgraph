@@ -588,16 +588,10 @@ export function syncApys(block: ethereum.Block): void {
     const allocators: Array<Allocator> = vault.allocators.load()
     for (let j = 0; j < allocators.length; j++) {
       allocator = allocators[j]
-      allocatorApy = isAllocatorInactive(allocator)
+      const boostPosition = boostPositions.has(allocator.id) ? boostPositions.get(allocator.id) : null
+      allocatorApy = isAllocatorInactive(allocator, BigInt.zero(), boostPosition)
         ? BigDecimal.zero()
-        : getAllocatorApyWithBoostPosition(
-            aave,
-            osToken,
-            osTokenConfig,
-            vault,
-            allocator,
-            boostPositions.has(allocator.id) ? boostPositions.get(allocator.id) : null,
-          )
+        : getAllocatorApyWithBoostPosition(aave, osToken, osTokenConfig, vault, allocator, boostPosition)
       if (allocatorApy.equals(allocator.apy)) {
         continue
       }

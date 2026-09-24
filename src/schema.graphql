@@ -929,7 +929,8 @@ type LeverageStrategyPosition @entity(immutable: false) {
 }
 
 """
-The snapshot of the allocator state
+The snapshot of the allocator state. Not created for the days when the allocator holds no assets or dust only
+and nothing accrues to the position, so the daily series can have gaps
 """
 type AllocatorSnapshot @entity(immutable: true) {
   id: Bytes!

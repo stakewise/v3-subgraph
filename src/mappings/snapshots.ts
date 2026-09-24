@@ -1,5 +1,5 @@
 import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
-import { Allocator, RewardSplitter, Vault } from '../../generated/schema'
+import { Allocator, LeverageStrategyPosition, RewardSplitter, Vault } from '../../generated/schema'
 import { loadOsToken } from '../entities/osToken'
 import { loadNetwork } from '../entities/network'
 import { createVaultSnapshot, loadVault } from '../entities/vault'
@@ -64,30 +64,25 @@ export function syncSnapshots(block: ethereum.Block): void {
     const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
     for (let j = 0; j < allocators.length; j++) {
       const allocator = allocators[j]
-      const isInactive = isAllocatorInactive(allocator)
-      if (isInactive && rewardSplitters.length == 0) {
-        // skip empty snapshot
-        continue
-      }
       const allocatorAddress = Address.fromBytes(allocator.address)
 
       // get assets from the reward splitters
       const rewardSplitterAssets = _getRewardSplitterAssets(allocatorAddress, rewardSplitters)
-      if (isInactive && rewardSplitterAssets.isZero()) {
+
+      // get boost position if boost exists
+      let boostPosition: LeverageStrategyPosition | null = null
+      if (vault.isOsTokenEnabled) {
+        boostPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
+      }
+
+      if (isAllocatorInactive(allocator, rewardSplitterAssets, boostPosition)) {
         // skip empty snapshot
         continue
       }
 
-      // get boost OsToken shares if boost exists
-      let boostedOsTokenShares = BigInt.zero()
-      if (vault.isOsTokenEnabled) {
-        const leverageStrategyPosition = loadLeverageStrategyPosition(vaultAddress, allocatorAddress)
-        if (leverageStrategyPosition) {
-          boostedOsTokenShares = leverageStrategyPosition.osTokenShares.plus(
-            leverageStrategyPosition.exitingOsTokenShares,
-          )
-        }
-      }
+      const boostedOsTokenShares = boostPosition
+        ? boostPosition.osTokenShares.plus(boostPosition.exitingOsTokenShares)
+        : BigInt.zero()
 
       createAllocatorSnapshot(
         osToken,
