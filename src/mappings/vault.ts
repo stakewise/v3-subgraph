@@ -54,7 +54,12 @@ import { DEPOSIT_DATA_REGISTRY, OS_TOKEN_REDEEMER, WAD } from '../helpers/consta
 import { MAIN_META_VAULT_ADDRESS, syncStaker } from '../entities/staker'
 import { isSubVaultsRegistrySupported } from '../helpers/utils'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
-import { loadExitRequest, updateClaimableExitRequests, updateExitRequests } from '../entities/exitRequest'
+import {
+  loadExitRequest,
+  resetFinalExitRequests,
+  updateClaimableExitRequests,
+  updateExitRequests,
+} from '../entities/exitRequest'
 import { convertSharesToAssets, loadVault, syncVault } from '../entities/vault'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { loadAave } from '../entities/aave'
@@ -225,6 +230,7 @@ export function handleInitialized(event: Initialized): void {
     vault.osTokenConfig = '2'
   }
   vault.version = newVersion
+  resetFinalExitRequests(vault)
 
   if (newVersion.equals(BigInt.fromI32(3))) {
     // update exit requests

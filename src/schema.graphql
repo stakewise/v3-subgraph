@@ -178,6 +178,9 @@ type ExitRequest @entity(immutable: false) {
 
   "Defines whether the exit request is claimed"
   isClaimed: Boolean!
+
+  "Whether the exit request is fully processed and claimable, so it is excluded from the periodic syncs"
+  _isFinal: Boolean
 }
 
 """
