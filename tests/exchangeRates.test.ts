@@ -148,20 +148,21 @@ function encodeCall(target: Address, data: Bytes): ethereum.Value {
   )
 }
 
-function buildResultTuples(responses: BigInt[]): ethereum.Value {
+function buildResultTuples(responses: BigInt[], offset: i32, failedIndexes: i32[]): ethereum.Value {
   const tuples: Array<ethereum.Value> = []
   for (let i = 0; i < responses.length; i++) {
-    const encoded = ethereum.encode(ethereum.Value.fromSignedBigInt(responses[i]))!
+    const failed = failedIndexes.includes(offset + i)
+    const encoded = failed ? Bytes.empty() : ethereum.encode(ethereum.Value.fromSignedBigInt(responses[i]))!
     tuples.push(
       ethereum.Value.fromTuple(
-        changetype<ethereum.Tuple>([ethereum.Value.fromBoolean(true), ethereum.Value.fromBytes(encoded)]),
+        changetype<ethereum.Tuple>([ethereum.Value.fromBoolean(!failed), ethereum.Value.fromBytes(encoded)]),
       ),
     )
   }
   return ethereum.Value.fromArray(tuples)
 }
 
-function mockMulticallResponses(responses: BigInt[]): void {
+function mockMulticallResponses(responses: BigInt[], failedIndexes: i32[] = []): void {
   const multicallAddr = Address.fromString(MULTICALL)
   const sig = 'tryAggregate(bool,(address,bytes)[]):((bool,bytes)[])'
 
@@ -230,7 +231,7 @@ function mockMulticallResponses(responses: BigInt[]): void {
     const end = i + chunkSize < allCalls.length ? i + chunkSize : allCalls.length
     createMockedFunction(multicallAddr, 'tryAggregate', sig)
       .withArgs([ethereum.Value.fromBoolean(false), ethereum.Value.fromArray(allCalls.slice(i, end))])
-      .returns([buildResultTuples(responses.slice(i, end))])
+      .returns([buildResultTuples(responses.slice(i, end), i, failedIndexes)])
   }
 }
 
@@ -244,6 +245,51 @@ function setupUniswapPools(): void {
     pool.sqrtPrice = p.sqrtPrice
     pool.save()
   }
+}
+
+// index of ASSETS_USD_PRICE_FEED in the multicall is 0 on both gnosis and mainnet
+const fallbackBlockTimestamp: BigInt = BigInt.fromI32(1700000000)
+const phase2Aggregator = Address.fromString('0x0000000000000000000000000000000000000012')
+const phase3Aggregator = Address.fromString('0x0000000000000000000000000000000000000013')
+
+function setupOsToken(): void {
+  const osToken = new OsToken('1')
+  osToken.apy = BigDecimal.zero()
+  osToken.apys = []
+  osToken.feePercent = 0
+  osToken.totalSupply = BigInt.fromString('1000000000000000000')
+  osToken.totalAssets = BigInt.fromString('1050000000000000000')
+  osToken.save()
+}
+
+function multicallResponses(): BigInt[] {
+  const responses: BigInt[] = []
+  const count = isGnosis ? 6 : 13
+  for (let i = 0; i < count; i++) {
+    responses.push(BigInt.fromString('100000000'))
+  }
+  return responses
+}
+
+// proxy is in phase 4 that has no aggregator yet
+function mockProxyPhases(): void {
+  const proxy = Address.fromString(ASSETS_USD_PRICE_FEED)
+  createMockedFunction(proxy, 'phaseId', 'phaseId():(uint16)').returns([ethereum.Value.fromI32(4)])
+  const phases: Address[] = [Address.zero(), phase2Aggregator, phase3Aggregator, Address.zero()]
+  for (let i = 0; i < phases.length; i++) {
+    createMockedFunction(proxy, 'phaseAggregators', 'phaseAggregators(uint16):(address)')
+      .withArgs([ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(i + 1))])
+      .returns([ethereum.Value.fromAddress(phases[i])])
+  }
+}
+
+function mockAggregator(aggregator: Address, answer: string, updatedAt: BigInt): void {
+  createMockedFunction(aggregator, 'latestAnswer', 'latestAnswer():(int256)').returns([
+    ethereum.Value.fromSignedBigInt(BigInt.fromString(answer)),
+  ])
+  createMockedFunction(aggregator, 'latestTimestamp', 'latestTimestamp():(uint256)').returns([
+    ethereum.Value.fromUnsignedBigInt(updatedAt),
+  ])
 }
 
 describe('exchangeRates', () => {
@@ -531,6 +577,59 @@ describe('exchangeRates', () => {
         assert.assertTrue(er.sdaiUsdRate.equals(BigDecimal.zero()))
         assert.assertTrue(er.bcspxUsdRate.equals(BigDecimal.zero()))
       }
+    })
+  })
+
+  describe('price feed fallback', () => {
+    test('uses latest phase aggregator when price feed reverts', () => {
+      if (isHoodi) {
+        return
+      }
+      setupOsToken()
+      setupUniswapPools()
+      mockMulticallResponses(multicallResponses(), [0])
+      mockProxyPhases()
+      mockAggregator(phase3Aggregator, '11784752522', fallbackBlockTimestamp.minus(BigInt.fromI32(600)))
+      mockAggregator(phase2Aggregator, '5000000000', fallbackBlockTimestamp.minus(BigInt.fromI32(600)))
+
+      updateExchangeRates(createOrLoadExchangeRate(), fallbackBlockTimestamp)
+
+      const er = ExchangeRate.load('0')!
+      assert.assertTrue(er.assetsUsdRate.equals(BigDecimal.fromString('117.84752522')))
+    })
+
+    test('skips stale phase aggregator', () => {
+      if (isHoodi) {
+        return
+      }
+      setupOsToken()
+      setupUniswapPools()
+      mockMulticallResponses(multicallResponses(), [0])
+      mockProxyPhases()
+      mockAggregator(phase3Aggregator, '11784752522', fallbackBlockTimestamp.minus(BigInt.fromI32(86401)))
+      mockAggregator(phase2Aggregator, '5000000000', fallbackBlockTimestamp.minus(BigInt.fromI32(600)))
+
+      updateExchangeRates(createOrLoadExchangeRate(), fallbackBlockTimestamp)
+
+      const er = ExchangeRate.load('0')!
+      assert.assertTrue(er.assetsUsdRate.equals(BigDecimal.fromString('50')))
+    })
+
+    test('sets zero rate when no phase aggregator is fresh', () => {
+      if (isHoodi) {
+        return
+      }
+      setupOsToken()
+      setupUniswapPools()
+      mockMulticallResponses(multicallResponses(), [0])
+      mockProxyPhases()
+      mockAggregator(phase3Aggregator, '11784752522', fallbackBlockTimestamp.minus(BigInt.fromI32(86401)))
+      mockAggregator(phase2Aggregator, '5000000000', fallbackBlockTimestamp.minus(BigInt.fromI32(86401)))
+
+      updateExchangeRates(createOrLoadExchangeRate(), fallbackBlockTimestamp)
+
+      const er = ExchangeRate.load('0')!
+      assert.assertTrue(er.assetsUsdRate.equals(BigDecimal.zero()))
     })
   })
 })

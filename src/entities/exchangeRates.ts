@@ -1,5 +1,6 @@
 import { ExchangeRate, ExchangeRateSnapshot, UniswapPool } from '../../generated/schema'
-import { Address, BigDecimal, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
+import { PriceFeed } from '../../generated/ExchangeRates/PriceFeed'
 import {
   ASSET_TOKEN,
   ASSETS_USD_PRICE_FEED,
@@ -42,6 +43,7 @@ const latestAnswerSelector = '0x50d25bcd' // uniswap
 const querySwapSelector = '0xe969f6b3' // balancer
 const convertToAssetsSelector = '0x07a2d13a' // erc4626 convertToAssets
 const exchangeRateId = '0'
+const maxFallbackAnswerAge = BigInt.fromI32(86400)
 
 export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigInt): void {
   const osToken = loadOsToken()!
@@ -185,25 +187,13 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
 
   let decodedValue: BigInt = BigInt.zero()
   const response = chunkedMulticall(null, contractCalls, false)
-  if (_isValidResponse(response[0])) {
-    decodedValue = ethereum.decode('int256', response[0]!)!.toBigInt()
-    assetsUsdRate = decodedValue.toBigDecimal().div(decimals)
-  }
+  assetsUsdRate = _getPriceFeedRate(response[0], ASSETS_USD_PRICE_FEED, timestamp)
 
   if (isGnosis) {
-    if (_isValidResponse(response[1])) {
-      decodedValue = ethereum.decode('int256', response[1]!)!.toBigInt()
-      daiUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[2])) {
-      decodedValue = ethereum.decode('int256', response[2]!)!.toBigInt()
-      ethUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[3])) {
-      decodedValue = ethereum.decode('int256', response[3]!)!.toBigInt()
-      btcUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[1]) && _isValidResponse(response[4])) {
+    daiUsdRate = _getPriceFeedRate(response[1], DAI_USD_PRICE_FEED, timestamp)
+    ethUsdRate = _getPriceFeedRate(response[2], ETH_USD_PRICE_FEED, timestamp)
+    btcUsdRate = _getPriceFeedRate(response[3], BTC_USD_PRICE_FEED, timestamp)
+    if (daiUsdRate.gt(BigDecimal.zero()) && _isValidResponse(response[4])) {
       decodedValue = ethereum.decode('int256', response[4]!)!.toBigInt()
       const sdaiDaiRate = decodedValue.toBigDecimal().div(decimals)
       sdaiUsdRate = sdaiDaiRate.times(daiUsdRate)
@@ -216,49 +206,18 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
       }
     }
   } else {
-    if (_isValidResponse(response[1])) {
-      decodedValue = ethereum.decode('int256', response[1]!)!.toBigInt()
-      eurToUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[2])) {
-      decodedValue = ethereum.decode('int256', response[2]!)!.toBigInt()
-      gbpToUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[3])) {
-      decodedValue = ethereum.decode('int256', response[3]!)!.toBigInt()
-      cnyToUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[4])) {
-      decodedValue = ethereum.decode('int256', response[4]!)!.toBigInt()
-      jpyToUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[5])) {
-      decodedValue = ethereum.decode('int256', response[5]!)!.toBigInt()
-      krwToUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[6])) {
-      decodedValue = ethereum.decode('int256', response[6]!)!.toBigInt()
-      audToUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[7])) {
-      decodedValue = ethereum.decode('int256', response[7]!)!.toBigInt()
-      daiUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[8])) {
-      decodedValue = ethereum.decode('int256', response[8]!)!.toBigInt()
-      usdcUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[9])) {
-      decodedValue = ethereum.decode('int256', response[9]!)!.toBigInt()
-      btcUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[10])) {
-      decodedValue = ethereum.decode('int256', response[10]!)!.toBigInt()
-      solUsdRate = decodedValue.toBigDecimal().div(decimals)
-    }
-    if (_isValidResponse(response[11]) && _isValidResponse(response[12])) {
-      decodedValue = ethereum.decode('int256', response[11]!)!.toBigInt()
-      usdsUsdRate = decodedValue.toBigDecimal().div(decimals)
+    eurToUsdRate = _getPriceFeedRate(response[1], EUR_USD_PRICE_FEED, timestamp)
+    gbpToUsdRate = _getPriceFeedRate(response[2], GBP_USD_PRICE_FEED, timestamp)
+    cnyToUsdRate = _getPriceFeedRate(response[3], CNY_USD_PRICE_FEED, timestamp)
+    jpyToUsdRate = _getPriceFeedRate(response[4], JPY_USD_PRICE_FEED, timestamp)
+    krwToUsdRate = _getPriceFeedRate(response[5], KRW_USD_PRICE_FEED, timestamp)
+    audToUsdRate = _getPriceFeedRate(response[6], AUD_USD_PRICE_FEED, timestamp)
+    daiUsdRate = _getPriceFeedRate(response[7], DAI_USD_PRICE_FEED, timestamp)
+    usdcUsdRate = _getPriceFeedRate(response[8], USDC_USD_PRICE_FEED, timestamp)
+    btcUsdRate = _getPriceFeedRate(response[9], BTC_USD_PRICE_FEED, timestamp)
+    solUsdRate = _getPriceFeedRate(response[10], SOL_USD_PRICE_FEED, timestamp)
+    usdsUsdRate = _getPriceFeedRate(response[11], USDS_USD_PRICE_FEED, timestamp)
+    if (usdsUsdRate.gt(BigDecimal.zero()) && _isValidResponse(response[12])) {
       decodedValue = ethereum.decode('int256', response[12]!)!.toBigInt()
       const sUsdsUsdsRate = decodedValue.toBigDecimal().div(decimals)
       susdsUsdRate = usdsUsdRate.times(sUsdsUsdsRate)
@@ -450,4 +409,55 @@ export function convertTokenAmountToAssets(exchangeRate: ExchangeRate, token: Ad
 
 function _isValidResponse(response: Bytes | null): boolean {
   return response !== null && response.length > 0
+}
+
+function _getPriceFeedRate(response: Bytes | null, priceFeed: string, timestamp: BigInt): BigDecimal {
+  let answer: BigInt | null = null
+  if (_isValidResponse(response)) {
+    answer = ethereum.decode('int256', response!)!.toBigInt()
+  } else {
+    log.warning('[ExchangeRates] latestAnswer() reverted for priceFeed={}, using phase aggregators', [priceFeed])
+    answer = _getLatestAnswerFromPhaseAggregators(Address.fromString(priceFeed), timestamp)
+  }
+  if (answer === null) {
+    return BigDecimal.zero()
+  }
+  return answer.toBigDecimal().div(BigDecimal.fromString('100000000'))
+}
+
+// Chainlink proxy reverts while its current phase has no aggregator,
+// so the latest phase with a fresh, working aggregator is used instead.
+function _getLatestAnswerFromPhaseAggregators(priceFeed: Address, timestamp: BigInt): BigInt | null {
+  if (priceFeed.equals(Address.zero())) {
+    return null
+  }
+  const proxy = PriceFeed.bind(priceFeed)
+  const phaseIdResult = proxy.try_phaseId()
+  if (phaseIdResult.reverted) {
+    return null
+  }
+  for (let phaseId = phaseIdResult.value; phaseId > 0; phaseId--) {
+    const aggregatorResult = proxy.try_phaseAggregators(phaseId)
+    if (aggregatorResult.reverted || aggregatorResult.value.equals(Address.zero())) {
+      continue
+    }
+    const aggregator = PriceFeed.bind(aggregatorResult.value)
+    const answerResult = aggregator.try_latestAnswer()
+    const updatedAtResult = aggregator.try_latestTimestamp()
+    if (answerResult.reverted || updatedAtResult.reverted) {
+      continue
+    }
+    const age = timestamp.minus(updatedAtResult.value)
+    if (age.gt(maxFallbackAnswerAge)) {
+      log.warning('[ExchangeRates] aggregator={} of phase={} for priceFeed={} is stale: updated {} seconds ago', [
+        aggregatorResult.value.toHex(),
+        phaseId.toString(),
+        priceFeed.toHex(),
+        age.toString(),
+      ])
+      continue
+    }
+    return answerResult.value
+  }
+  return null
 }
