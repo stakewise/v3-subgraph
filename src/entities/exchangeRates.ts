@@ -43,7 +43,10 @@ const latestAnswerSelector = '0x50d25bcd' // uniswap
 const querySwapSelector = '0xe969f6b3' // balancer
 const convertToAssetsSelector = '0x07a2d13a' // erc4626 convertToAssets
 const exchangeRateId = '0'
-const maxFallbackAnswerAge = BigInt.fromI32(86400)
+const priceFeedDecimals = BigDecimal.fromString('100000000')
+const priceFeedDecimalsInt = BigInt.fromString('100000000')
+// Chainlink heartbeat is 24h for these feeds; allow one missed round plus transmission lag
+const maxFallbackAnswerAge = BigInt.fromI32(2 * 86400)
 
 export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigInt): void {
   const osToken = loadOsToken()!
@@ -101,8 +104,6 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
   // chainlink oracle
   const latestAnswerCall = Bytes.fromHexString(latestAnswerSelector)
 
-  const decimals = BigDecimal.fromString('100000000')
-
   let assetsUsdRate = BigDecimal.zero()
   let eurToUsdRate = BigDecimal.zero()
   let gbpToUsdRate = BigDecimal.zero()
@@ -152,8 +153,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
 
   if (isGnosis) {
     // sdai <-> dai conversion rate
-    const decimalsInt = BigInt.fromString('100000000')
-    const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(decimalsInt))
+    const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(priceFeedDecimalsInt))
     const convertToAssetsCall = Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs!)
     contractCalls.push(encodeContractCall(Address.fromString(SDAI_TOKEN), convertToAssetsCall))
 
@@ -171,7 +171,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
       .concat(ethereum.encode(ethereum.Value.fromI32(0))!)
       .concat(ethereum.encode(ethereum.Value.fromAddress(Address.fromString(BCSPX_TOKEN)))!)
       .concat(ethereum.encode(ethereum.Value.fromAddress(Address.fromString(SDAI_TOKEN)))!)
-      .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(decimalsInt))!)
+      .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(priceFeedDecimalsInt))!)
       .concat(ethereum.encode(ethereum.Value.fromFixedBytes(AppBytesOffset))!)
       .concat(ethereum.encode(ethereum.Value.fromFixedBytes(AppBytesValue))!)
 
@@ -179,8 +179,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     contractCalls.push(encodeContractCall(Address.fromString(BALANCER_QUERY), querySwapCall))
   } else {
     // susds <-> usds conversion rate
-    const decimalsInt = BigInt.fromString('100000000')
-    const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(decimalsInt))
+    const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(priceFeedDecimalsInt))
     const convertToAssetsCall = Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs!)
     contractCalls.push(encodeContractCall(Address.fromString(SUSDS_TOKEN), convertToAssetsCall))
   }
@@ -195,13 +194,13 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     btcUsdRate = _getPriceFeedRate(response[3], BTC_USD_PRICE_FEED, timestamp)
     if (daiUsdRate.gt(BigDecimal.zero()) && _isValidResponse(response[4])) {
       decodedValue = ethereum.decode('int256', response[4]!)!.toBigInt()
-      const sdaiDaiRate = decodedValue.toBigDecimal().div(decimals)
+      const sdaiDaiRate = decodedValue.toBigDecimal().div(priceFeedDecimals)
       sdaiUsdRate = sdaiDaiRate.times(daiUsdRate)
 
       // bcspx
       if (_isValidResponse(response[5])) {
         decodedValue = ethereum.decode('int256', response[5]!)!.toBigInt()
-        const bcspxSdaiRate = decodedValue.toBigDecimal().div(decimals)
+        const bcspxSdaiRate = decodedValue.toBigDecimal().div(priceFeedDecimals)
         bcspxUsdRate = bcspxSdaiRate.times(sdaiUsdRate).times(daiUsdRate)
       }
     }
@@ -219,7 +218,7 @@ export function updateExchangeRates(exchangeRate: ExchangeRate, timestamp: BigIn
     usdsUsdRate = _getPriceFeedRate(response[11], USDS_USD_PRICE_FEED, timestamp)
     if (usdsUsdRate.gt(BigDecimal.zero()) && _isValidResponse(response[12])) {
       decodedValue = ethereum.decode('int256', response[12]!)!.toBigInt()
-      const sUsdsUsdsRate = decodedValue.toBigDecimal().div(decimals)
+      const sUsdsUsdsRate = decodedValue.toBigDecimal().div(priceFeedDecimals)
       susdsUsdRate = usdsUsdRate.times(sUsdsUsdsRate)
     }
 
@@ -422,7 +421,7 @@ function _getPriceFeedRate(response: Bytes | null, priceFeed: string, timestamp:
   if (answer === null) {
     return BigDecimal.zero()
   }
-  return answer.toBigDecimal().div(BigDecimal.fromString('100000000'))
+  return answer.toBigDecimal().div(priceFeedDecimals)
 }
 
 // Chainlink proxy reverts while its current phase has no aggregator,
@@ -442,12 +441,21 @@ function _getLatestAnswerFromPhaseAggregators(priceFeed: Address, timestamp: Big
       continue
     }
     const aggregator = PriceFeed.bind(aggregatorResult.value)
-    const answerResult = aggregator.try_latestAnswer()
-    const updatedAtResult = aggregator.try_latestTimestamp()
-    if (answerResult.reverted || updatedAtResult.reverted) {
+    const roundDataResult = aggregator.try_latestRoundData()
+    if (roundDataResult.reverted) {
       continue
     }
-    const age = timestamp.minus(updatedAtResult.value)
+    const answer = roundDataResult.value.getAnswer()
+    if (answer.le(BigInt.zero())) {
+      log.warning('[ExchangeRates] aggregator={} of phase={} for priceFeed={} returned invalid answer={}', [
+        aggregatorResult.value.toHex(),
+        phaseId.toString(),
+        priceFeed.toHex(),
+        answer.toString(),
+      ])
+      continue
+    }
+    const age = timestamp.minus(roundDataResult.value.getUpdatedAt())
     if (age.gt(maxFallbackAnswerAge)) {
       log.warning('[ExchangeRates] aggregator={} of phase={} for priceFeed={} is stale: updated {} seconds ago', [
         aggregatorResult.value.toHex(),
@@ -457,7 +465,7 @@ function _getLatestAnswerFromPhaseAggregators(priceFeed: Address, timestamp: Big
       ])
       continue
     }
-    return answerResult.value
+    return answer
   }
   return null
 }

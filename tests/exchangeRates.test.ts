@@ -284,11 +284,16 @@ function mockProxyPhases(): void {
 }
 
 function mockAggregator(aggregator: Address, answer: string, updatedAt: BigInt): void {
-  createMockedFunction(aggregator, 'latestAnswer', 'latestAnswer():(int256)').returns([
+  createMockedFunction(
+    aggregator,
+    'latestRoundData',
+    'latestRoundData():(uint80,int256,uint256,uint256,uint80)',
+  ).returns([
+    ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(1)),
     ethereum.Value.fromSignedBigInt(BigInt.fromString(answer)),
-  ])
-  createMockedFunction(aggregator, 'latestTimestamp', 'latestTimestamp():(uint256)').returns([
     ethereum.Value.fromUnsignedBigInt(updatedAt),
+    ethereum.Value.fromUnsignedBigInt(updatedAt),
+    ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(1)),
   ])
 }
 
@@ -606,7 +611,24 @@ describe('exchangeRates', () => {
       setupUniswapPools()
       mockMulticallResponses(multicallResponses(), [0])
       mockProxyPhases()
-      mockAggregator(phase3Aggregator, '11784752522', fallbackBlockTimestamp.minus(BigInt.fromI32(86401)))
+      mockAggregator(phase3Aggregator, '11784752522', fallbackBlockTimestamp.minus(BigInt.fromI32(2 * 86400 + 1)))
+      mockAggregator(phase2Aggregator, '5000000000', fallbackBlockTimestamp.minus(BigInt.fromI32(600)))
+
+      updateExchangeRates(createOrLoadExchangeRate(), fallbackBlockTimestamp)
+
+      const er = ExchangeRate.load('0')!
+      assert.assertTrue(er.assetsUsdRate.equals(BigDecimal.fromString('50')))
+    })
+
+    test('skips phase aggregator with zero answer', () => {
+      if (isHoodi) {
+        return
+      }
+      setupOsToken()
+      setupUniswapPools()
+      mockMulticallResponses(multicallResponses(), [0])
+      mockProxyPhases()
+      mockAggregator(phase3Aggregator, '0', fallbackBlockTimestamp.minus(BigInt.fromI32(600)))
       mockAggregator(phase2Aggregator, '5000000000', fallbackBlockTimestamp.minus(BigInt.fromI32(600)))
 
       updateExchangeRates(createOrLoadExchangeRate(), fallbackBlockTimestamp)
@@ -623,8 +645,8 @@ describe('exchangeRates', () => {
       setupUniswapPools()
       mockMulticallResponses(multicallResponses(), [0])
       mockProxyPhases()
-      mockAggregator(phase3Aggregator, '11784752522', fallbackBlockTimestamp.minus(BigInt.fromI32(86401)))
-      mockAggregator(phase2Aggregator, '5000000000', fallbackBlockTimestamp.minus(BigInt.fromI32(86401)))
+      mockAggregator(phase3Aggregator, '11784752522', fallbackBlockTimestamp.minus(BigInt.fromI32(2 * 86400 + 1)))
+      mockAggregator(phase2Aggregator, '5000000000', fallbackBlockTimestamp.minus(BigInt.fromI32(2 * 86400 + 1)))
 
       updateExchangeRates(createOrLoadExchangeRate(), fallbackBlockTimestamp)
 
