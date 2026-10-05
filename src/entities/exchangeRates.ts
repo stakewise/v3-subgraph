@@ -419,6 +419,7 @@ function _getPriceFeedRate(response: Bytes | null, priceFeed: string, timestamp:
     answer = _getLatestAnswerFromPhaseAggregators(Address.fromString(priceFeed), timestamp)
   }
   if (answer === null) {
+    log.error('[ExchangeRates] no valid answer for priceFeed={}, rate set to zero', [priceFeed])
     return BigDecimal.zero()
   }
   return answer.toBigDecimal().div(priceFeedDecimals)
