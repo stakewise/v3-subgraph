@@ -132,13 +132,12 @@ function encodeExitedAssets(leftTickets: BigInt, exitedAssets: BigInt): Bytes {
     .concat(ethereum.encode(ethereum.Value.fromUnsignedBigInt(exitedAssets))!)
 }
 
-// mocks the calculateExitedAssets call that is executed without the simulated vault state update
-function mockConfirmation(positionTicket: i32, exitQueueIndex: BigInt, result: Bytes): void {
-  const call = encodeContractCall(
-    VAULT,
-    getCalculateExitedAssetsCall(USER, BigInt.fromI32(positionTicket), ENTER_TIMESTAMP, exitQueueIndex),
-  )
-  mockMulticall([call], [result], null)
+// mocks the exit queue index query for the last ticket of the exit request, executed without the simulated
+// vault state update. The exit request is final only when the ticket is covered by the vault checkpoint
+function mockConfirmation(positionTicket: i32, lastTicketIndex: i32): void {
+  const lastTicket = BigInt.fromI32(positionTicket).plus(wad).minus(BigInt.fromI32(1))
+  const call = encodeContractCall(VAULT, getExitQueueIndexCall(lastTicket))
+  mockMulticall([call], [ethereum.encode(ethereum.Value.fromSignedBigInt(BigInt.fromI32(lastTicketIndex)))!], null)
 }
 
 // mocks both exit requests update stages, the multicalls must contain the passed position tickets only
@@ -191,7 +190,7 @@ describe('final exit requests', () => {
     // the exit requests order is not guaranteed
     mockExitRequests([1, 2], BigInt.fromI32(7), [BigInt.zero(), halfWad], [wad.plus(BigInt.fromI32(5)), halfWad])
     mockExitRequests([2, 1], BigInt.fromI32(7), [halfWad, BigInt.zero()], [halfWad, wad.plus(BigInt.fromI32(5))])
-    mockConfirmation(1, BigInt.fromI32(7), encodeExitedAssets(BigInt.zero(), wad.plus(BigInt.fromI32(5))))
+    mockConfirmation(1, 7)
 
     updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
 
@@ -258,11 +257,12 @@ describe('final exit requests', () => {
     assert.assertTrue(!loadRequest(12)._isFinal)
   })
 
-  test('marks the exit request final when the vault confirms the simulated result', () => {
+  test('marks the exit request final when the vault checkpoint covers its last ticket', () => {
     const vault = createHarvestableVault()
     createExitRequest(21)
     mockExitRequests([21], BigInt.fromI32(9), [BigInt.zero()], [wad], getUpdateStateCall(vault))
-    mockConfirmation(21, BigInt.fromI32(9), encodeExitedAssets(BigInt.zero(), wad))
+    // the last ticket is in the next checkpoint
+    mockConfirmation(21, 10)
 
     updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
 
@@ -276,7 +276,7 @@ describe('final exit requests', () => {
     createExitRequest(22)
     mockExitRequests([22], BigInt.fromI32(9), [BigInt.zero()], [wad], getUpdateStateCall(vault))
     // the checkpoint does not exist in the vault yet
-    mockConfirmation(22, BigInt.fromI32(9), encodeExitedAssets(wad, BigInt.zero()))
+    mockConfirmation(22, -1)
 
     updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
 
@@ -286,15 +286,26 @@ describe('final exit requests', () => {
     assert.assertTrue(!loadRequest(22)._isFinal)
   })
 
-  test('keeps syncing the exit request when the vault returns different exited assets', () => {
-    const vault = createHarvestableVault()
+  test('keeps syncing the exit request with the last ticket rounded to exited', () => {
+    const vault = createVault()
     createExitRequest(23)
-    mockExitRequests([23], BigInt.fromI32(9), [BigInt.zero()], [wad], getUpdateStateCall(vault))
-    mockConfirmation(23, BigInt.fromI32(9), encodeExitedAssets(BigInt.zero(), wad.minus(BigInt.fromI32(1))))
+    // the vault reports no left tickets, but the checkpoint covering the last ticket is not created yet
+    mockExitRequests([23], BigInt.fromI32(9), [BigInt.zero()], [wad.minus(BigInt.fromI32(1))])
+    mockConfirmation(23, -1)
 
     updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
 
+    assert.bigIntEquals(loadRequest(23).exitedAssets, wad.minus(BigInt.fromI32(1)))
     assert.assertTrue(!loadRequest(23)._isFinal)
+
+    // the next checkpoint adds the assets of the last ticket
+    mockExitRequests([23], BigInt.fromI32(9), [BigInt.zero()], [wad])
+    mockConfirmation(23, 10)
+
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+
+    assert.bigIntEquals(loadRequest(23).exitedAssets, wad)
+    assert.assertTrue(loadRequest(23)._isFinal)
   })
 
   test('verifies the final exit requests again after the vault upgrade', () => {
