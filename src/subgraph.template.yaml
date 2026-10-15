@@ -506,7 +506,7 @@ dataSources:
       eventHandlers:
         - event: RedeemablePositionsUpdated(indexed bytes32,string)
           handler: handleRedeemablePositionsUpdated
-        - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256)
+        - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256,uint256)
           handler: handleExitQueueEntered
         - event: ExitedAssetsClaimed(indexed address,uint256,uint256,uint256)
           handler: handleExitedAssetsClaimed
