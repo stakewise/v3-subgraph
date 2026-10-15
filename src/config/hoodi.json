@@ -126,9 +126,13 @@
     "address": "0xdC1347cC04d4a8945b98A09C3c5585286bbA5C2B",
     "startBlock": "99257"
   },
-  "osTokenRedeemer": {
+  "osTokenRedeemerV1": {
     "address": "0x3A422b2433f28CD123a8DE665887f7a040BF0258",
     "startBlock": "2657589"
+  },
+  "osTokenRedeemer": {
+    "address": "0xeDbb8A8B7a966a40352137AE375d069d48009D04",
+    "startBlock": "3809536"
   },
   "merkleDistributor": {
     "address": "0xc61847d6fc1f64162ff9f1d06205d9c4cdb2f239",
