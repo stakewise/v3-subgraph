@@ -520,9 +520,9 @@ dataSources:
     name: OsTokenRedeemer
     network: {{ network }}
     source:
-      address: '{{ address }}'
+      address: '{{ osTokenRedeemer.address }}'
       abi: OsTokenRedeemer
-      startBlock: {{ startBlock }}
+      startBlock: {{ osTokenRedeemer.startBlock }}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
