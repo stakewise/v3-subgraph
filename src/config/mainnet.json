@@ -126,7 +126,7 @@
     "address": "0x09e84205DF7c68907e619D07aFD90143c5763605",
     "startBlock": "21034500"
   },
-  "osTokenRedeemerV1": {
+  "osTokenRedeemer": {
     "address": "0xc43A7b16A7a167c0318390Cba16787C11e9e1FD0",
     "startBlock": "24923158"
   },

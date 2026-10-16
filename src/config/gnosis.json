@@ -111,7 +111,7 @@
     "address": "0x28F325dD287a5984B754d34CfCA38af3A8429e71",
     "startBlock": "36654333"
   },
-  "osTokenRedeemerV1": {
+  "osTokenRedeemer": {
     "address": "0xB790391ee99b9193Ebb80022bf127d24Bac586c4",
     "startBlock": "45773287"
   },

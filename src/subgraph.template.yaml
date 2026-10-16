@@ -484,45 +484,12 @@ dataSources:
             kind: polling
             every: {{ blocksInHour }}
   - kind: ethereum/contract
-    name: OsTokenRedeemerV1
-    network: {{ network }}
-    source:
-      address: '{{ osTokenRedeemerV1.address }}'
-      abi: OsTokenRedeemerV1
-      startBlock: {{ osTokenRedeemerV1.startBlock }}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.9
-      language: wasm/assemblyscript
-      file: ./mappings/osTokenRedeemer.ts
-      entities:
-        - Vault
-        - OsTokenRedeemer
-        - RedeemablePosition
-        - OsTokenRedeemerExitRequest
-      abis:
-        - name: OsTokenRedeemerV1
-          file: ./abis/OsTokenRedeemerV1.json
-        # the mapping imports all types from this ABI, so it must be generated on every network
-        - name: OsTokenRedeemer
-          file: ./abis/OsTokenRedeemer.json
-      eventHandlers:
-        - event: RedeemablePositionsUpdated(indexed bytes32,string)
-          handler: handleRedeemablePositionsUpdated
-        - event: ExitQueueEntered(indexed address,indexed address,uint256,uint256)
-          handler: handleExitQueueEnteredV1
-        - event: ExitedAssetsClaimed(indexed address,uint256,uint256,uint256)
-          handler: handleExitedAssetsClaimed
-        - event: CheckpointCreated(uint256,uint256)
-          handler: handleCheckpointCreated
-{{#osTokenRedeemer}}
-  - kind: ethereum/contract
     name: OsTokenRedeemer
     network: {{ network }}
     source:
-      address: '{{ address }}'
+      address: '{{ osTokenRedeemer.address }}'
       abi: OsTokenRedeemer
-      startBlock: {{ startBlock }}
+      startBlock: {{ osTokenRedeemer.startBlock }}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -545,7 +512,6 @@ dataSources:
           handler: handleExitedAssetsClaimed
         - event: CheckpointCreated(uint256,uint256)
           handler: handleCheckpointCreated
-{{/osTokenRedeemer}}
   - kind: ethereum/contract
     name: AaveLeverageStrategyV1
     network: {{ network }}
