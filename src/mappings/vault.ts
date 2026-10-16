@@ -50,7 +50,8 @@ import {
 } from '../entities/allocator'
 import { isGnosisNetwork, loadNetwork, updateNetworkTotalAssets } from '../entities/network'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
-import { DEPOSIT_DATA_REGISTRY, OS_TOKEN_REDEEMER, WAD } from '../helpers/constants'
+import { DEPOSIT_DATA_REGISTRY, WAD } from '../helpers/constants'
+import { getRedeemablePositionId, loadOsTokenRedeemer } from '../entities/osTokenRedeemer'
 import { MAIN_META_VAULT_ADDRESS, syncStaker } from '../entities/staker'
 import { isSubVaultsRegistrySupported } from '../helpers/utils'
 import { loadOsTokenConfig } from '../entities/osTokenConfig'
@@ -789,14 +790,15 @@ export function handleOsTokenRedeemed(event: OsTokenRedeemed): void {
     syncStaker(holder, convertOsTokenSharesToAssets(osToken, shares).minus(withdrawnAssets))
   }
 
-  if (event.params.caller.equals(OS_TOKEN_REDEEMER)) {
-    const position = RedeemablePosition.load(`${vaultAddress.toHex()}-${holder.toHex()}`)
+  const caller = event.params.caller
+  if (loadOsTokenRedeemer(caller) !== null) {
+    const position = RedeemablePosition.load(getRedeemablePositionId(caller, vaultAddress, holder))
 
     if (position === null) {
-      log.error('[Vault] OsTokenRedeemed redeemer initiated but no RedeemablePosition for vault={} owner={}', [
-        vaultAddress.toHex(),
-        holder.toHex(),
-      ])
+      log.error(
+        '[Vault] OsTokenRedeemed redeemer initiated but no RedeemablePosition for redeemer={} vault={} owner={}',
+        [caller.toHex(), vaultAddress.toHex(), holder.toHex()],
+      )
     } else {
       position.redeemableShares = position.redeemableShares.minus(shares)
 
