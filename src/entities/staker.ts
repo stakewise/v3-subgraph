@@ -5,6 +5,7 @@ import {
   Network,
   OsToken,
   OsTokenConfig,
+  OsTokenRedeemer,
   Staker,
   StakerSnapshot,
   Vault,
@@ -13,7 +14,7 @@ import {
   AAVE_LEVERAGE_STRATEGY_V1,
   AAVE_LEVERAGE_STRATEGY_V2,
   MAIN_META_VAULT,
-  OS_TOKEN_REDEEMER,
+  OS_TOKEN_REDEEMER_V1,
   OS_TOKEN_VAULT_ESCROW,
 } from '../helpers/constants'
 import { calculateApy, getAnnualReward, getSnapshotTimestamp } from '../helpers/utils'
@@ -38,7 +39,10 @@ export function isStakerAddressExcluded(stakerAddress: Address): boolean {
   if (stakerAddress.equals(Address.zero())) {
     return true
   }
-  if (stakerAddress.equals(OS_TOKEN_VAULT_ESCROW) || stakerAddress.equals(OS_TOKEN_REDEEMER)) {
+  if (stakerAddress.equals(OS_TOKEN_VAULT_ESCROW) || stakerAddress.equals(OS_TOKEN_REDEEMER_V1)) {
+    return true
+  }
+  if (OsTokenRedeemer.load(stakerAddress.toHex()) !== null) {
     return true
   }
   if (stakerAddress.equals(AAVE_LEVERAGE_STRATEGY_V1) || stakerAddress.equals(AAVE_LEVERAGE_STRATEGY_V2)) {
