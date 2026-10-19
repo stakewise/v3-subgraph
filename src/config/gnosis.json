@@ -116,8 +116,8 @@
     "startBlock": "45773287"
   },
   "osTokenRedeemer": {
-    "address": "0x0000000000000000000000000000000000000000",
-    "startBlock": "48834000"
+    "address": "0xe247C8A241772eA4519eaA6397390a0192c518B0",
+    "startBlock": "48836117"
   },
   "merkleDistributor": {
     "address": "0xFBceefdBB0ca25a4043b35EF49C2810425243710",
