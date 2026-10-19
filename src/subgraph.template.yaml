@@ -503,7 +503,7 @@ dataSources:
       abis:
         - name: OsTokenRedeemerV1
           file: ./abis/OsTokenRedeemerV1.json
-        # the mapping imports all types from this ABI, so it must be generated on every network
+        # the shared mapping imports event types and contract bindings from this ABI
         - name: OsTokenRedeemer
           file: ./abis/OsTokenRedeemer.json
       eventHandlers:
@@ -515,7 +515,6 @@ dataSources:
           handler: handleExitedAssetsClaimed
         - event: CheckpointCreated(uint256,uint256)
           handler: handleCheckpointCreated
-{{#osTokenRedeemer}}
   - kind: ethereum/contract
     name: OsTokenRedeemer
     network: {{ network }}
@@ -545,7 +544,6 @@ dataSources:
           handler: handleExitedAssetsClaimed
         - event: CheckpointCreated(uint256,uint256)
           handler: handleCheckpointCreated
-{{/osTokenRedeemer}}
   - kind: ethereum/contract
     name: AaveLeverageStrategyV1
     network: {{ network }}
