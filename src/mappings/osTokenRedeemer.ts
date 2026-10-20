@@ -1,18 +1,26 @@
 import { Address, BigInt, Bytes, ipfs, json, JSONValueKind, log, store } from '@graphprotocol/graph-ts'
 
-import { RedeemablePosition, OsTokenRedeemer, OsTokenRedeemerExitRequest } from '../../generated/schema'
+import { OsTokenRedeemerExitRequest, RedeemablePosition } from '../../generated/schema'
+import { ExitQueueEntered as ExitQueueEnteredV1 } from '../../generated/OsTokenRedeemerV1/OsTokenRedeemerV1'
 import {
   ExitQueueEntered,
   CheckpointCreated,
   ExitedAssetsClaimed,
   RedeemablePositionsUpdated,
-} from '../../generated/OsTokenRedeemer/OsTokenRedeemer'
+} from '../../generated/OsTokenRedeemerV1/OsTokenRedeemer'
 import { loadVault } from '../entities/vault'
 import { createTransaction } from '../entities/transaction'
 import { convertOsTokenSharesToAssets, loadOsToken } from '../entities/osToken'
-import { osTokenRedeemerId, updateOsTokenRedeemerExitRequests } from '../entities/osTokenRedeemer'
+import {
+  createOrLoadOsTokenRedeemer,
+  createOsTokenRedeemerExitRequest,
+  getOsTokenRedeemerExitRequestId,
+  getRedeemablePositionId,
+  updateOsTokenRedeemerExitRequests,
+} from '../entities/osTokenRedeemer'
 
 export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdated): void {
+  const redeemerAddress = event.address
   const merkleRoot = event.params.merkleRoot
   const ipfsHash = event.params.ipfsHash
 
@@ -36,19 +44,11 @@ export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdat
     return
   }
 
-  const existing = OsTokenRedeemer.load(osTokenRedeemerId)
+  const osTokenRedeemer = createOrLoadOsTokenRedeemer(redeemerAddress)
+  const previousPositions = osTokenRedeemer.positions.load()
 
-  let osTokenRedeemer: OsTokenRedeemer
-
-  if (existing === null) {
-    osTokenRedeemer = new OsTokenRedeemer(osTokenRedeemerId)
-  } else {
-    const previousPositions = existing.positions.load()
-
-    for (let i = 0; i < previousPositions.length; i++) {
-      store.remove('RedeemablePosition', previousPositions[i].id)
-    }
-    osTokenRedeemer = existing
+  for (let i = 0; i < previousPositions.length; i++) {
+    store.remove('RedeemablePosition', previousPositions[i].id)
   }
 
   osTokenRedeemer.merkleRoot = merkleRoot
@@ -110,59 +110,71 @@ export function handleRedeemablePositionsUpdated(event: RedeemablePositionsUpdat
       continue
     }
 
-    const position = new RedeemablePosition(`${vaultAddress.toHex()}-${owner.toHex()}`)
+    const position = new RedeemablePosition(getRedeemablePositionId(redeemerAddress, vaultAddress, owner))
 
     position.index = i
     position.owner = owner
     position.vault = vault.id
     position.leafShares = leafShares
     position.redeemableShares = leafShares
-    position.osTokenRedeemer = osTokenRedeemerId
+    position.osTokenRedeemer = osTokenRedeemer.id
     position.ownerAddressString = owner.toHexString()
     position.save()
   }
 
-  log.info('[OsTokenRedeemer] RedeemablePositionsUpdated merkleRoot={} ipfsHash={} count={}', [
+  log.info('[OsTokenRedeemer] RedeemablePositionsUpdated redeemer={} merkleRoot={} ipfsHash={} count={}', [
+    redeemerAddress.toHex(),
     merkleRoot.toHex(),
     ipfsHash,
     items.length.toString(),
   ])
 }
 
-export function handleExitQueueEntered(event: ExitQueueEntered): void {
-  const owner = event.params.owner
-  const shares = event.params.shares
-  const receiver = event.params.receiver
-  const positionTicket = event.params.positionTicket
-
+// V1 redeemer: event has no fee parameter
+export function handleExitQueueEnteredV1(event: ExitQueueEnteredV1): void {
   createTransaction(event.transaction.hash.toHex())
+  createOsTokenRedeemerExitRequest(
+    event.address,
+    event.params.owner,
+    event.params.receiver,
+    event.params.positionTicket,
+    event.params.shares,
+    event.block.timestamp,
+  )
 
-  const osToken = loadOsToken()!
-  const exitRequest = new OsTokenRedeemerExitRequest(positionTicket.toString())
+  log.info('[OsTokenRedeemer] ExitQueueEntered redeemer={} owner={} receiver={} positionTicket={} shares={}', [
+    event.address.toHex(),
+    event.params.owner.toHex(),
+    event.params.receiver.toHex(),
+    event.params.positionTicket.toString(),
+    event.params.shares.toString(),
+  ])
+}
 
-  exitRequest.owner = owner
-  exitRequest.isClaimed = false
-  exitRequest.isClaimable = false
-  exitRequest.receiver = receiver
-  exitRequest.totalShares = shares
-  exitRequest.exitQueueIndex = null
-  exitRequest.exitedAssets = BigInt.zero()
-  exitRequest.redeemer = osTokenRedeemerId
-  exitRequest.positionTicket = positionTicket
-  exitRequest.timestamp = event.block.timestamp
-  exitRequest.totalAssets = convertOsTokenSharesToAssets(osToken, shares)
+// shares are already net of the redemption fee
+export function handleExitQueueEntered(event: ExitQueueEntered): void {
+  createTransaction(event.transaction.hash.toHex())
+  createOsTokenRedeemerExitRequest(
+    event.address,
+    event.params.owner,
+    event.params.receiver,
+    event.params.positionTicket,
+    event.params.shares,
+    event.block.timestamp,
+  )
 
-  exitRequest.save()
-
-  log.info('[OsTokenRedeemer] ExitQueueEntered owner={} receiver={} positionTicket={} shares={}', [
-    owner.toHex(),
-    receiver.toHex(),
-    positionTicket.toString(),
-    shares.toString(),
+  log.info('[OsTokenRedeemer] ExitQueueEntered redeemer={} owner={} receiver={} positionTicket={} shares={} fee={}', [
+    event.address.toHex(),
+    event.params.owner.toHex(),
+    event.params.receiver.toHex(),
+    event.params.positionTicket.toString(),
+    event.params.shares.toString(),
+    event.params.fee.toString(),
   ])
 }
 
 export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
+  const redeemerAddress = event.address
   const receiver = event.params.receiver
   const claimedAssets = event.params.withdrawnAssets
   const newPositionTicket = event.params.newPositionTicket
@@ -170,10 +182,13 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
   createTransaction(event.transaction.hash.toHex())
 
-  const prevExitRequest = OsTokenRedeemerExitRequest.load(prevPositionTicket.toString())
+  const prevExitRequest = OsTokenRedeemerExitRequest.load(
+    getOsTokenRedeemerExitRequestId(redeemerAddress, prevPositionTicket),
+  )
 
   if (prevExitRequest === null) {
-    log.error('[OsTokenRedeemer] ExitedAssetsClaimed exit request not found for positionTicket={}', [
+    log.error('[OsTokenRedeemer] ExitedAssetsClaimed exit request not found for redeemer={} positionTicket={}', [
+      redeemerAddress.toHex(),
       prevPositionTicket.toString(),
     ])
     return
@@ -184,7 +199,9 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
 
   if (!isResolved) {
     const osToken = loadOsToken()!
-    const nextExitRequest = new OsTokenRedeemerExitRequest(newPositionTicket.toString())
+    const nextExitRequest = new OsTokenRedeemerExitRequest(
+      getOsTokenRedeemerExitRequestId(redeemerAddress, newPositionTicket),
+    )
 
     nextExitRequest.isClaimed = false
     nextExitRequest.isClaimable = false
@@ -207,15 +224,22 @@ export function handleExitedAssetsClaimed(event: ExitedAssetsClaimed): void {
   prevExitRequest.save()
 
   log.info(
-    '[OsTokenRedeemer] ExitedAssetsClaimed receiver={} prevPositionTicket={} newPositionTicket={} claimedAssets={}',
-    [receiver.toHex(), prevPositionTicket.toString(), newPositionTicket.toString(), claimedAssets.toString()],
+    '[OsTokenRedeemer] ExitedAssetsClaimed redeemer={} receiver={} prevPositionTicket={} newPositionTicket={} claimedAssets={}',
+    [
+      redeemerAddress.toHex(),
+      receiver.toHex(),
+      prevPositionTicket.toString(),
+      newPositionTicket.toString(),
+      claimedAssets.toString(),
+    ],
   )
 }
 
 export function handleCheckpointCreated(event: CheckpointCreated): void {
   updateOsTokenRedeemerExitRequests(event.address)
 
-  log.info('[OsTokenRedeemer] CheckpointCreated shares={} assets={}', [
+  log.info('[OsTokenRedeemer] CheckpointCreated redeemer={} shares={} assets={}', [
+    event.address.toHex(),
     event.params.shares.toString(),
     event.params.assets.toString(),
   ])
