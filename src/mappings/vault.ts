@@ -61,6 +61,7 @@ import {
   updateExitRequests,
 } from '../entities/exitRequest'
 import { convertSharesToAssets, loadVault, syncVault } from '../entities/vault'
+import { loadSimulatedSubVaults, simulateMetaVaultUpdateState } from '../entities/metaVault'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { loadAave } from '../entities/aave'
 import { loadXdaiConverter } from '../entities/xdaiConverter'
@@ -1143,6 +1144,7 @@ export function syncVaults(block: ethereum.Block): void {
 
   let vaultAddress: Address
   let vault: Vault
+  const metaVaults: Array<Vault> = []
   const vaultIds = network.vaultIds
   const totalVaults = vaultIds.length
   for (let i = 0; i < totalVaults; i++) {
@@ -1152,14 +1154,30 @@ export function syncVaults(block: ethereum.Block): void {
       continue
     }
 
-    if (!isKeeperUpdated || vault.isMetaVault) {
-      // only update timestamps of exit requests in case the keeper has not been updated or vault is a MetaVault
+    if (!isKeeperUpdated) {
+      // only update timestamps of exit requests in case the keeper has not been updated
       updateClaimableExitRequests(vault, newTimestamp)
+      continue
+    }
+
+    if (vault.isMetaVault) {
+      // meta vaults are synced after the sub vaults exit requests are updated
+      metaVaults.push(vault)
       continue
     }
 
     // update vault allocators, exit requests, reward splitters
     syncVault(network, osToken, vault, newTimestamp)
+  }
+
+  let subVaults: Array<Vault> | null
+  for (let i = 0; i < metaVaults.length; i++) {
+    vault = metaVaults[i]
+    subVaults = loadSimulatedSubVaults(vault)
+    if (subVaults === null || !simulateMetaVaultUpdateState(network, osToken, vault, subVaults, newTimestamp)) {
+      // only update timestamps of exit requests in case the meta vault state update cannot be simulated
+      updateClaimableExitRequests(vault, newTimestamp)
+    }
   }
 
   vaultsCheckpoint.timestamp = newTimestamp

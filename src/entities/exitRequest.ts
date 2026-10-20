@@ -30,7 +30,13 @@ export function updateClaimableExitRequests(vault: Vault, timestamp: BigInt): vo
   }
 }
 
-export function updateExitRequests(network: Network, vault: Vault, timestamp: BigInt): void {
+// The exit requests are queried on top of the passed vault state update call, the vault harvest call is used by default
+export function updateExitRequests(
+  network: Network,
+  vault: Vault,
+  timestamp: BigInt,
+  updateStateCall: ethereum.Value | null = null,
+): void {
   // If vault is in "genesis" mode, we need to wait for legacy migration
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     return
@@ -43,7 +49,7 @@ export function updateExitRequests(network: Network, vault: Vault, timestamp: Bi
   const vaultAddr = Address.fromString(vault.id)
 
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
-  const updateStateCalls = getUpdateStateCall(vault)
+  const updateStateCalls = updateStateCall !== null ? updateStateCall : getUpdateStateCall(vault)
 
   // ─────────────────────────────────────────────────────────────────────
   // STAGE 1: Query exitQueueIndex for all pending exit requests
