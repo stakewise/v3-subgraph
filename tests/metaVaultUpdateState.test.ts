@@ -482,23 +482,30 @@ describe('meta vault update state simulation', () => {
     createExitRequest(SUB_VAULT2, 7, 1, true)
     createExitRequest(SUB_VAULT2, 8, -1, false)
 
-    const exitRequests: Array<ExitRequest> = [
+    const subVault1Requests: Array<ExitRequest> = [
       ExitRequest.load(`${SUB_VAULT1.toHex()}-9`)!,
       ExitRequest.load(`${SUB_VAULT1.toHex()}-10`)!,
-      ExitRequest.load(`${SUB_VAULT2.toHex()}-7`)!,
     ]
-    const simulatedCalls: Array<ethereum.Value> = [
-      getUpdateStateCall(subVault1)!,
-      encodeClaimSubVaultsExitedAssetsCall(REGISTRY, exitRequests),
-      encodeMetaVaultUpdateStateCall(),
-    ]
+    const subVault2Requests: Array<ExitRequest> = [ExitRequest.load(`${SUB_VAULT2.toHex()}-7`)!]
     const claimedAssets = CLAIMED_ASSETS.times(BigInt.fromI32(3))
-    mockSimulation(
-      simulatedCalls,
-      true,
-      SUB_VAULTS_ASSETS_BEFORE,
-      SUB_VAULTS_ASSETS_BEFORE.minus(claimedAssets).plus(wad),
-    )
+    // the sub vaults order is not guaranteed, the exit requests of each sub vault are claimed in the queue order
+    const orders: Array<Array<ExitRequest>> = [
+      subVault1Requests.concat(subVault2Requests),
+      subVault2Requests.concat(subVault1Requests),
+    ]
+    for (let i = 0; i < orders.length; i++) {
+      const simulatedCalls: Array<ethereum.Value> = [
+        getUpdateStateCall(subVault1)!,
+        encodeClaimSubVaultsExitedAssetsCall(REGISTRY, orders[i]),
+        encodeMetaVaultUpdateStateCall(),
+      ]
+      mockSimulation(
+        simulatedCalls,
+        true,
+        SUB_VAULTS_ASSETS_BEFORE,
+        SUB_VAULTS_ASSETS_BEFORE.minus(claimedAssets).plus(wad),
+      )
+    }
 
     assert.assertTrue(simulate())
     assert.bigIntEquals(Vault.load(META_VAULT.toHex())!._periodEarnedAssets, wad)

@@ -151,43 +151,51 @@ export class MetaVaultState {
   subVaultsAssetsAfter: BigInt = BigInt.zero()
 }
 
-// Fetches the meta vault state. If the simulated state update call is passed, the state is read on top of it
-// together with the registry sub vaults total assets. Returns null if the simulated state update reverts.
-export function getMetaVaultState(vault: Vault, simulatedCall: ethereum.Value | null): MetaVaultState | null {
+export function getMetaVaultState(vault: Vault): MetaVaultState {
+  const results = chunkedMulticall(null, _getMetaVaultStateCalls(vault))
+  return _decodeMetaVaultState(results)
+}
+
+// Fetches the meta vault state and the registry sub vaults total assets before and after the simulated state update.
+// Returns null if the simulated state update reverts.
+export function getSimulatedMetaVaultState(vault: Vault, simulatedCall: ethereum.Value): MetaVaultState | null {
+  const subVaultsTotalAssetsCall = encodeContractCall(
+    Address.fromBytes(vault.subVaultsRegistry!),
+    Bytes.fromHexString(subVaultsTotalAssetsSelector),
+  )
+  // [sub vaults total assets, simulated call, state calls, sub vaults total assets]
+  const calls: Array<ethereum.Value> = [subVaultsTotalAssetsCall, simulatedCall]
+  const allCalls = calls.concat(_getMetaVaultStateCalls(vault))
+  allCalls.push(subVaultsTotalAssetsCall)
+
+  // the state calls must be executed in a single multicall on top of the simulated state update
+  const results = chunkedMulticall(null, allCalls, false, allCalls.length)
+  for (let i = 0; i < results.length; i++) {
+    if (results[i] === null) {
+      return null
+    }
+  }
+
+  const lastIndex = results.length - 1
+  const state = _decodeMetaVaultState(results.slice(2, lastIndex))
+  state.subVaultsAssetsBefore = ethereum.decode('uint256', results[0]!)!.toBigInt()
+  state.subVaultsAssetsAfter = ethereum.decode('uint256', results[lastIndex]!)!.toBigInt()
+  return state
+}
+
+function _getMetaVaultStateCalls(vault: Vault): Array<ethereum.Value> {
   const vaultAddr = Address.fromString(vault.id)
-  let calls: Array<ethereum.Value> = [
+  return [
     encodeContractCall(vaultAddr, getConvertToAssetsCall(BigInt.fromString(WAD))),
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalAssetsSelector)),
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalSharesSelector)),
     encodeContractCall(vaultAddr, Bytes.fromHexString(exitQueueDataSelector)),
     encodeContractCall(vaultAddr, getSharesCall(Address.fromBytes(vault.feeRecipient))),
   ]
+}
 
+function _decodeMetaVaultState(results: Array<Bytes | null>): MetaVaultState {
   const state = new MetaVaultState()
-  let results: Array<Bytes | null>
-  if (simulatedCall === null) {
-    results = chunkedMulticall(null, calls)
-  } else {
-    // [sub vaults total assets, simulated call, state calls, sub vaults total assets]
-    const subVaultsTotalAssetsCall = encodeContractCall(
-      Address.fromBytes(vault.subVaultsRegistry!),
-      Bytes.fromHexString(subVaultsTotalAssetsSelector),
-    )
-    const prefix: Array<ethereum.Value> = [subVaultsTotalAssetsCall, simulatedCall]
-    calls = prefix.concat(calls)
-    calls.push(subVaultsTotalAssetsCall)
-    // the state calls must be executed in a single multicall on top of the simulated state update
-    results = chunkedMulticall(null, calls, false, calls.length)
-    for (let i = 0; i < results.length; i++) {
-      if (results[i] === null) {
-        return null
-      }
-    }
-    state.subVaultsAssetsBefore = ethereum.decode('uint256', results[0]!)!.toBigInt()
-    state.subVaultsAssetsAfter = ethereum.decode('uint256', results[results.length - 1]!)!.toBigInt()
-    results = results.slice(2, results.length - 1)
-  }
-
   state.rate = ethereum.decode('uint256', results[0]!)!.toBigInt()
   state.totalAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
   state.totalShares = ethereum.decode('uint256', results[2]!)!.toBigInt()
@@ -302,7 +310,7 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
   const vault = loadVault(metaVaultAddress)!
 
   // fetch vault state
-  const newState = getMetaVaultState(vault, null)!
+  const newState = getMetaVaultState(vault)
 
   const subVaults: Array<SubVault> = vault.subVaults.load()
   if (subVaults.length == 0) {
@@ -425,7 +433,7 @@ export function simulateMetaVaultUpdateState(
   )
 
   const simulatedCall = encodeAggregateCall(calls)
-  const newState = getMetaVaultState(vault, simulatedCall)
+  const newState = getSimulatedMetaVaultState(vault, simulatedCall)
   if (newState === null) {
     log.error('[MetaVault] simulated state update reverted metaVault={}', [vault.id])
     return false
