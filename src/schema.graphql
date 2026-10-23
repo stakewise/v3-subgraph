@@ -403,6 +403,9 @@ type Vault @entity(immutable: false) {
   "The total period assets earned from staking"
   _periodEarnedAssets: BigInt!
 
+  "The meta vault sub vaults assets delta added to the period earned assets by the simulated state update since the last harvest"
+  _simulatedSubVaultsAssetsDelta: BigInt
+
   "The assets of the allocator from the previous snapshot to calculate vault APY"
   _prevAllocatorAssets: BigInt
 

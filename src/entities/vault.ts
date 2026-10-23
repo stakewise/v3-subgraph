@@ -53,13 +53,13 @@ import { convertStringToDistributionType, DistributionType, loadPeriodicDistribu
 
 const snapshotsPerWeek = 7
 const updateStateSelector = '0x1a7ff553'
-const totalAssetsSelector = '0x01e1d114'
-const totalSharesSelector = '0x3a98ef39'
+export const totalAssetsSelector = '0x01e1d114'
+export const totalSharesSelector = '0x3a98ef39'
 const convertToAssetsSelector = '0x07a2d13a'
 const getSharesSelector = '0xf04da65b'
 const exitingAssetsSelector = '0xee3bd5df'
 const queuedSharesSelector = '0xd83ad00c'
-const exitQueueDataSelector = '0x3e1655d3'
+export const exitQueueDataSelector = '0x3e1655d3'
 
 export function loadVault(vaultAddress: Address): Vault | null {
   return Vault.load(vaultAddress.toHex())
@@ -261,18 +261,31 @@ export function getUpdateStateCall(vault: Vault): ethereum.Value | null {
     return null
   }
 
+  return encodeUpdateStateCall(
+    Address.fromString(vault.id),
+    vault.rewardsRoot!,
+    vault.proofReward!,
+    vault.proofUnlockedMevReward!,
+    vault.proof!.map<Bytes>((p: string) => Bytes.fromHexString(p)),
+  )
+}
+
+export function encodeUpdateStateCall(
+  vault: Address,
+  rewardsRoot: Bytes,
+  reward: BigInt,
+  unlockedMevReward: BigInt,
+  proof: Array<Bytes>,
+): ethereum.Value {
   const updateStateArray: Array<ethereum.Value> = [
-    ethereum.Value.fromFixedBytes(vault.rewardsRoot!),
-    ethereum.Value.fromSignedBigInt(vault.proofReward!),
-    ethereum.Value.fromUnsignedBigInt(vault.proofUnlockedMevReward!),
-    ethereum.Value.fromFixedBytesArray(vault.proof!.map<Bytes>((p: string) => Bytes.fromHexString(p))),
+    ethereum.Value.fromFixedBytes(rewardsRoot),
+    ethereum.Value.fromSignedBigInt(reward),
+    ethereum.Value.fromUnsignedBigInt(unlockedMevReward),
+    ethereum.Value.fromFixedBytesArray(proof),
   ]
   // Encode the tuple
   const encodedUpdateStateArgs = ethereum.encode(ethereum.Value.fromTuple(changetype<ethereum.Tuple>(updateStateArray)))
-  return encodeContractCall(
-    Address.fromString(vault.id),
-    Bytes.fromHexString(updateStateSelector).concat(encodedUpdateStateArgs!),
-  )
+  return encodeContractCall(vault, Bytes.fromHexString(updateStateSelector).concat(encodedUpdateStateArgs!))
 }
 
 export function updateVaults(
@@ -537,8 +550,8 @@ export function getVaultState(vault: Vault): Array<BigInt> {
 
   const updateStateCalls = getUpdateStateCall(vault)
   const calls: Array<ethereum.Value> = [
-    encodeContractCall(vaultAddr, _getSharesCall(Address.fromBytes(vault.feeRecipient))),
-    encodeContractCall(vaultAddr, _getConvertToAssetsCall(BigInt.fromString(WAD))),
+    encodeContractCall(vaultAddr, getSharesCall(Address.fromBytes(vault.feeRecipient))),
+    encodeContractCall(vaultAddr, getConvertToAssetsCall(BigInt.fromString(WAD))),
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalAssetsSelector)),
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalSharesSelector)),
   ]
@@ -652,7 +665,13 @@ export function getVaultExtraApy(distributor: Distributor, vault: Vault): BigDec
   return extraApy
 }
 
-export function syncVault(network: Network, osToken: OsToken, vault: Vault, newTimestamp: BigInt): void {
+export function syncVault(
+  network: Network,
+  osToken: OsToken,
+  vault: Vault,
+  newTimestamp: BigInt,
+  updateStateCall: ethereum.Value | null = null,
+): void {
   let allocator: Allocator
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const allocators: Array<Allocator> = vault.allocators.load()
@@ -674,18 +693,18 @@ export function syncVault(network: Network, osToken: OsToken, vault: Vault, newT
   }
 
   // update exit requests
-  updateExitRequests(network, vault, newTimestamp)
+  updateExitRequests(network, vault, newTimestamp, updateStateCall)
 
   // update reward splitters
-  updateRewardSplitters(vault)
+  updateRewardSplitters(vault, updateStateCall)
 }
 
-function _getConvertToAssetsCall(shares: BigInt): Bytes {
+export function getConvertToAssetsCall(shares: BigInt): Bytes {
   const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(shares))
   return Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs!)
 }
 
-function _getSharesCall(user: Address): Bytes {
+export function getSharesCall(user: Address): Bytes {
   const encodedGetSharesArgs = ethereum.encode(ethereum.Value.fromAddress(user))
   return Bytes.fromHexString(getSharesSelector).concat(encodedGetSharesArgs!)
 }
