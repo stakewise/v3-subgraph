@@ -147,10 +147,12 @@ export class MetaVaultState {
   // the fee recipient shares are read after the harvest, so they already include the minted fee shares
   feeRecipientShares: BigInt = BigInt.zero()
   // the registry sub vaults total assets before and after the simulated state update
-  subVaultsAssetsBefore: BigInt = BigInt.zero()
-  subVaultsAssetsAfter: BigInt = BigInt.zero()
+  subVaultsAssetsBeforeSimulation: BigInt = BigInt.zero()
+  subVaultsAssetsAfterSimulation: BigInt = BigInt.zero()
 }
 
+// Fetches the actual meta vault state after the real harvest (SubVaultsHarvested), without simulation.
+// The sub vaults total assets fields are not set.
 export function getMetaVaultState(vault: Vault): MetaVaultState {
   const results = chunkedMulticall(null, _getMetaVaultStateCalls(vault))
   return _decodeMetaVaultState(results)
@@ -165,8 +167,7 @@ export function getSimulatedMetaVaultState(vault: Vault, simulatedCall: ethereum
   )
   // [sub vaults total assets, simulated call, state calls, sub vaults total assets]
   const calls: Array<ethereum.Value> = [subVaultsTotalAssetsCall, simulatedCall]
-  const allCalls = calls.concat(_getMetaVaultStateCalls(vault))
-  allCalls.push(subVaultsTotalAssetsCall)
+  const allCalls = calls.concat(_getMetaVaultStateCalls(vault)).concat([subVaultsTotalAssetsCall])
 
   // the state calls must be executed in a single multicall on top of the simulated state update
   const results = chunkedMulticall(null, allCalls, false, allCalls.length)
@@ -178,8 +179,8 @@ export function getSimulatedMetaVaultState(vault: Vault, simulatedCall: ethereum
 
   const lastIndex = results.length - 1
   const state = _decodeMetaVaultState(results.slice(2, lastIndex))
-  state.subVaultsAssetsBefore = ethereum.decode('uint256', results[0]!)!.toBigInt()
-  state.subVaultsAssetsAfter = ethereum.decode('uint256', results[lastIndex]!)!.toBigInt()
+  state.subVaultsAssetsBeforeSimulation = ethereum.decode('uint256', results[0]!)!.toBigInt()
+  state.subVaultsAssetsAfterSimulation = ethereum.decode('uint256', results[lastIndex]!)!.toBigInt()
   return state
 }
 
@@ -309,9 +310,6 @@ export function ejectSubVault(metaVaultAddress: Address, subVaultAddress: Addres
 export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: BigInt, timestamp: BigInt): void {
   const vault = loadVault(metaVaultAddress)!
 
-  // fetch vault state
-  const newState = getMetaVaultState(vault)
-
   const subVaults: Array<SubVault> = vault.subVaults.load()
   if (subVaults.length == 0) {
     log.error('[MetaVault] No sub vaults found for vault {}', [metaVaultAddress.toHex()])
@@ -319,17 +317,16 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
   }
   const subVault = loadVault(Address.fromString(subVaults[0].subVault))!
 
+  // fetch vault state
+  const newState = getMetaVaultState(vault)
+
   if (vault.subVaultsRegistry) {
     const registry = SubVaultsRegistryContract.bind(Address.fromBytes(vault.subVaultsRegistry!))
     vault.canHarvest = registry.canUpdateState()
   } else {
     vault.canHarvest = subVault.canHarvest
   }
-  // the delta added by the simulated state update is already included in the period earned assets
-  vault._periodEarnedAssets = vault._periodEarnedAssets
-    .plus(totalAssetsDelta)
-    .minus(_getSimulatedSubVaultsAssetsDelta(vault))
-  vault._simulatedSubVaultsAssetsDelta = BigInt.zero()
+  _addSubVaultsAssetsDelta(vault, totalAssetsDelta, BigInt.zero())
   vault.lastUpdateStateTimestamp = timestamp
 
   _applyMetaVaultState(loadNetwork()!, loadOsToken()!, vault, newState, subVault, timestamp, null)
@@ -440,18 +437,22 @@ export function simulateMetaVaultUpdateState(
   }
 
   // the claimed exited assets are deducted from the sub vaults total assets before the harvest
-  const subVaultsAssetsDelta = newState.subVaultsAssetsAfter.minus(newState.subVaultsAssetsBefore).plus(claimedAssets)
-  vault._periodEarnedAssets = vault._periodEarnedAssets
-    .plus(subVaultsAssetsDelta)
-    .minus(_getSimulatedSubVaultsAssetsDelta(vault))
-  vault._simulatedSubVaultsAssetsDelta = subVaultsAssetsDelta
+  const subVaultsAssetsDelta = newState.subVaultsAssetsAfterSimulation
+    .minus(newState.subVaultsAssetsBeforeSimulation)
+    .plus(claimedAssets)
+  _addSubVaultsAssetsDelta(vault, subVaultsAssetsDelta, subVaultsAssetsDelta)
 
   _applyMetaVaultState(network, osToken, vault, newState, subVaults[0], timestamp, simulatedCall)
   return true
 }
 
-function _getSimulatedSubVaultsAssetsDelta(vault: Vault): BigInt {
-  return vault._simulatedSubVaultsAssetsDelta !== null ? vault._simulatedSubVaultsAssetsDelta! : BigInt.zero()
+// Adds the sub vaults assets delta to the period earned assets excluding the delta
+// already added by the previous simulated state update
+function _addSubVaultsAssetsDelta(vault: Vault, subVaultsAssetsDelta: BigInt, simulatedAssetsDelta: BigInt): void {
+  const prevSimulatedAssetsDelta =
+    vault._simulatedSubVaultsAssetsDelta !== null ? vault._simulatedSubVaultsAssetsDelta! : BigInt.zero()
+  vault._periodEarnedAssets = vault._periodEarnedAssets.plus(subVaultsAssetsDelta).minus(prevSimulatedAssetsDelta)
+  vault._simulatedSubVaultsAssetsDelta = simulatedAssetsDelta
 }
 
 function _applyMetaVaultState(

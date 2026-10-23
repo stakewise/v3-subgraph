@@ -63,9 +63,7 @@ export function updateRewardSplitters(vault: Vault, updateStateCall: ethereum.Va
   }
 
   const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
-  if (updateStateCall === null) {
-    updateStateCall = getUpdateStateCall(vault)
-  }
+  const updateStateCalls = updateStateCall !== null ? updateStateCall : getUpdateStateCall(vault)
 
   let rewardSplitter: RewardSplitter
   const syncRewardsCall = Bytes.fromHexString(syncRewardsCallSelector)
@@ -85,7 +83,7 @@ export function updateRewardSplitters(vault: Vault, updateStateCall: ethereum.Va
       )
     }
 
-    let result = chunkedMulticall(updateStateCall, calls)
+    let result = chunkedMulticall(updateStateCalls, calls)
     // remove the first element (syncRewardsCall result)
     result = result.slice(1)
 
