@@ -25,6 +25,11 @@
         "internalType": "uint256",
         "name": "exitQueueUpdateDelay_",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxRedemptionFeePercent_",
+        "type": "uint256"
       }
     ],
     "stateMutability": "nonpayable",
@@ -85,6 +90,11 @@
   {
     "inputs": [],
     "name": "InvalidDelay",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidFeePercent",
     "type": "error"
   },
   {
@@ -274,6 +284,38 @@
       {
         "indexed": false,
         "internalType": "uint256",
+        "name": "redemptionFeePercent",
+        "type": "uint256"
+      }
+    ],
+    "name": "FeeUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      }
+    ],
+    "name": "FeesClaimed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
         "name": "shares",
         "type": "uint256"
       },
@@ -396,6 +438,19 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "accumulatedFees",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -461,6 +516,19 @@
       }
     ],
     "name": "claimExitedAssets",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      }
+    ],
+    "name": "claimFees",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -621,6 +689,19 @@
       {
         "internalType": "uint256",
         "name": "processedShares",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "maxRedemptionFeePercent",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -890,6 +971,19 @@
   },
   {
     "inputs": [],
+    "name": "redemptionFeePercent",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "renounceOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -929,6 +1023,19 @@
       }
     ],
     "name": "setRedeemablePositions",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "redemptionFeePercent_",
+        "type": "uint256"
+      }
+    ],
+    "name": "setRedemptionFeePercent",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

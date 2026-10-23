@@ -131,8 +131,8 @@
     "startBlock": "24923158"
   },
   "osTokenRedeemer": {
-    "address": "0x28Bd6b8d7EDd0Ae5DbE49DC4D6EFd41EE0fb92e0",
-    "startBlock": "26226158"
+    "address": "0xDc1956b33EA8649Bd5aa03bE8d8Fec2C9b3D5bbF",
+    "startBlock": "26254400"
   },
   "merkleDistributor": {
     "address": "0xa9dc250dF4EE9273D09CFa455da41FB1cAC78d34",
