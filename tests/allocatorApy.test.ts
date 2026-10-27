@@ -2,7 +2,12 @@ import { describe, test, afterEach, assert, clearStore } from 'matchstick-as'
 import { Address, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 import { Aave, LeverageStrategyPosition, OsToken, OsTokenConfig, Vault } from '../generated/schema'
 
-import { createOrLoadAllocator, getAllocatorApy, getAllocatorApyWithBoostPosition } from '../src/entities/allocator'
+import {
+  ALLOCATOR_DUST_ASSETS,
+  createOrLoadAllocator,
+  getAllocatorApy,
+  getAllocatorApyWithBoostPosition,
+} from '../src/entities/allocator'
 import { createOrLoadAavePosition } from '../src/entities/aave'
 import { WAD } from '../src/helpers/constants'
 
@@ -81,6 +86,13 @@ describe('allocator APY', () => {
     )
 
     allocator.assets = wad
+    assert.stringEquals(
+      getAllocatorApy(createAave(), createOsToken(), createOsTokenConfig(), vault, allocator).toString(),
+      '3.5',
+    )
+
+    // the dust position is skipped by the snapshots only, its APY is the vault APY
+    allocator.assets = ALLOCATOR_DUST_ASSETS.minus(BigInt.fromI32(1))
     assert.stringEquals(
       getAllocatorApy(createAave(), createOsToken(), createOsTokenConfig(), vault, allocator).toString(),
       '3.5',
