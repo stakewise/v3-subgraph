@@ -55,14 +55,15 @@ export function syncEarnedVaultAssets(vault: Vault, shareHolder: RewardSplitterS
   allocator.save()
 }
 
-export function updateRewardSplitters(vault: Vault): void {
+// The rewards are queried on top of the passed vault state update call, the vault harvest call is used by default
+export function updateRewardSplitters(vault: Vault, updateStateCall: ethereum.Value | null = null): void {
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     // wait for the migration
     return
   }
 
   const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
-  const updateStateCall = getUpdateStateCall(vault)
+  const updateStateCalls = updateStateCall !== null ? updateStateCall : getUpdateStateCall(vault)
 
   let rewardSplitter: RewardSplitter
   const syncRewardsCall = Bytes.fromHexString(syncRewardsCallSelector)
@@ -82,7 +83,7 @@ export function updateRewardSplitters(vault: Vault): void {
       )
     }
 
-    let result = chunkedMulticall(updateStateCall, calls)
+    let result = chunkedMulticall(updateStateCalls, calls)
     // remove the first element (syncRewardsCall result)
     result = result.slice(1)
 

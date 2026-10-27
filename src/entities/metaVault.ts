@@ -1,5 +1,5 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log, store } from '@graphprotocol/graph-ts'
-import { Allocator, SubVault, SubVaultsRegistryMap, Vault } from '../../generated/schema'
+import { Allocator, ExitRequest, Network, OsToken, SubVault, SubVaultsRegistryMap, Vault } from '../../generated/schema'
 import { SubVaultsRegistry as SubVaultsRegistryContract } from '../../generated/templates/SubVaultsRegistry/SubVaultsRegistry'
 import { MetaVaultCreated } from '../../generated/templates/MetaVaultFactory/MetaVaultFactory'
 import {
@@ -8,19 +8,29 @@ import {
   PrivateVault as PrivateVaultTemplate,
   Vault as VaultTemplate,
 } from '../../generated/templates'
-import { WAD } from '../helpers/constants'
+import { MULTICALL, WAD } from '../helpers/constants'
 import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 import { loadNetwork } from './network'
 import { loadOsToken } from './osToken'
 import { MAIN_META_VAULT_ADDRESS, syncStaker } from './staker'
 import { createTransaction } from './transaction'
-import { loadVault, syncFeeRecipientShares, syncVault } from './vault'
+import { loadAllocator } from './allocator'
+import {
+  encodeUpdateStateCall,
+  exitQueueDataSelector,
+  getConvertToAssetsCall,
+  getSharesCall,
+  getUpdateStateCall,
+  loadVault,
+  syncFeeRecipientShares,
+  syncVault,
+  totalAssetsSelector,
+  totalSharesSelector,
+} from './vault'
 
-const totalAssetsSelector = '0x01e1d114'
-const totalSharesSelector = '0x3a98ef39'
-const convertToAssetsSelector = '0x07a2d13a'
-const exitQueueDataSelector = '0x3e1655d3'
-const getSharesSelector = '0xf04da65b'
+const subVaultsTotalAssetsSelector = '0x829e6cab'
+const claimSubVaultsExitedAssetsSelector = '0xe620196c'
+const aggregateSelector = '0x252dba42'
 
 export function createMetaVault(event: MetaVaultCreated, version: BigInt, isPrivate: boolean, isErc20: boolean): void {
   const block = event.block
@@ -128,37 +138,97 @@ export function createMetaVault(event: MetaVaultCreated, version: BigInt, isPriv
   ])
 }
 
-export function getMetaVaultState(vault: Vault): Array<BigInt> {
+export class MetaVaultState {
+  rate: BigInt = BigInt.zero()
+  totalAssets: BigInt = BigInt.zero()
+  totalShares: BigInt = BigInt.zero()
+  queuedShares: BigInt = BigInt.zero()
+  exitingAssets: BigInt = BigInt.zero()
+  // the fee recipient shares are read after the harvest, so they already include the minted fee shares
+  feeRecipientShares: BigInt = BigInt.zero()
+  // the registry sub vaults total assets before and after the simulated state update
+  subVaultsAssetsBeforeSimulation: BigInt = BigInt.zero()
+  subVaultsAssetsAfterSimulation: BigInt = BigInt.zero()
+}
+
+// Fetches the actual meta vault state after the real harvest (SubVaultsHarvested), without simulation.
+// The sub vaults total assets fields are not set.
+export function getMetaVaultState(vault: Vault): MetaVaultState {
+  const results = chunkedMulticall(null, _getMetaVaultStateCalls(vault))
+  return _decodeMetaVaultState(results)
+}
+
+// Fetches the meta vault state and the registry sub vaults total assets before and after the simulated state update.
+// Returns null if the simulated state update reverts.
+export function getSimulatedMetaVaultState(vault: Vault, simulatedCall: ethereum.Value): MetaVaultState | null {
+  const subVaultsTotalAssetsCall = encodeContractCall(
+    Address.fromBytes(vault.subVaultsRegistry!),
+    Bytes.fromHexString(subVaultsTotalAssetsSelector),
+  )
+  // [sub vaults total assets, simulated call, state calls, sub vaults total assets]
+  const calls: Array<ethereum.Value> = [subVaultsTotalAssetsCall, simulatedCall]
+  const allCalls = calls.concat(_getMetaVaultStateCalls(vault)).concat([subVaultsTotalAssetsCall])
+
+  // the state calls must be executed in a single multicall on top of the simulated state update
+  const results = chunkedMulticall(null, allCalls, false, allCalls.length)
+  for (let i = 0; i < results.length; i++) {
+    if (results[i] === null) {
+      return null
+    }
+  }
+
+  const lastIndex = results.length - 1
+  const state = _decodeMetaVaultState(results.slice(2, lastIndex))
+  state.subVaultsAssetsBeforeSimulation = ethereum.decode('uint256', results[0]!)!.toBigInt()
+  state.subVaultsAssetsAfterSimulation = ethereum.decode('uint256', results[lastIndex]!)!.toBigInt()
+  return state
+}
+
+function _getMetaVaultStateCalls(vault: Vault): Array<ethereum.Value> {
   const vaultAddr = Address.fromString(vault.id)
-  const calls: Array<ethereum.Value> = [
-    encodeContractCall(vaultAddr, _getConvertToAssetsCall(BigInt.fromString(WAD))),
+  return [
+    encodeContractCall(vaultAddr, getConvertToAssetsCall(BigInt.fromString(WAD))),
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalAssetsSelector)),
     encodeContractCall(vaultAddr, Bytes.fromHexString(totalSharesSelector)),
     encodeContractCall(vaultAddr, Bytes.fromHexString(exitQueueDataSelector)),
-    encodeContractCall(vaultAddr, _getSharesCall(Address.fromBytes(vault.feeRecipient))),
+    encodeContractCall(vaultAddr, getSharesCall(Address.fromBytes(vault.feeRecipient))),
   ]
+}
 
-  let results = chunkedMulticall(null, calls)
-  const newRate = ethereum.decode('uint256', results[0]!)!.toBigInt()
-  const totalAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
-  const totalShares = ethereum.decode('uint256', results[2]!)!.toBigInt()
+function _decodeMetaVaultState(results: Array<Bytes | null>): MetaVaultState {
+  const state = new MetaVaultState()
+  state.rate = ethereum.decode('uint256', results[0]!)!.toBigInt()
+  state.totalAssets = ethereum.decode('uint256', results[1]!)!.toBigInt()
+  state.totalShares = ethereum.decode('uint256', results[2]!)!.toBigInt()
   const exitQueueData = ethereum.decode('(uint128,uint128,uint128,uint128,uint256)', results[3]!)!.toTuple()
-  const queuedShares = exitQueueData[0].toBigInt()
-  const exitingAssets = exitQueueData[3].toBigInt()
-  // the fee recipient shares are read after the harvest, so they already include the minted fee shares
-  const feeRecipientShares = ethereum.decode('uint256', results[4]!)!.toBigInt()
-
-  return [newRate, totalAssets, totalShares, queuedShares, exitingAssets, feeRecipientShares]
+  state.queuedShares = exitQueueData[0].toBigInt()
+  state.exitingAssets = exitQueueData[3].toBigInt()
+  state.feeRecipientShares = ethereum.decode('uint256', results[4]!)!.toBigInt()
+  return state
 }
 
-function _getConvertToAssetsCall(shares: BigInt): Bytes {
-  const encodedConvertToAssetsArgs = ethereum.encode(ethereum.Value.fromUnsignedBigInt(shares))
-  return Bytes.fromHexString(convertToAssetsSelector).concat(encodedConvertToAssetsArgs!)
+export function encodeClaimSubVaultsExitedAssetsCall(
+  registry: Address,
+  exitRequests: Array<ExitRequest>,
+): ethereum.Value {
+  const tuples: Array<ethereum.Tuple> = []
+  for (let i = 0; i < exitRequests.length; i++) {
+    const exitRequest = exitRequests[i]
+    const values: Array<ethereum.Value> = [
+      ethereum.Value.fromUnsignedBigInt(exitRequest.exitQueueIndex!),
+      ethereum.Value.fromAddress(Address.fromString(exitRequest.vault)),
+      ethereum.Value.fromUnsignedBigInt(exitRequest.timestamp),
+    ]
+    tuples.push(changetype<ethereum.Tuple>(values))
+  }
+  const encodedArgs = ethereum.encode(ethereum.Value.fromTupleArray(tuples))!
+  return encodeContractCall(registry, Bytes.fromHexString(claimSubVaultsExitedAssetsSelector).concat(encodedArgs))
 }
 
-function _getSharesCall(user: Address): Bytes {
-  const encodedGetSharesArgs = ethereum.encode(ethereum.Value.fromAddress(user))
-  return Bytes.fromHexString(getSharesSelector).concat(encodedGetSharesArgs!)
+// Wraps the calls into the multicall aggregate call that reverts if any of the calls fails
+export function encodeAggregateCall(calls: Array<ethereum.Value>): ethereum.Value {
+  const encodedArgs = ethereum.encode(ethereum.Value.fromArray(calls))!
+  return encodeContractCall(Address.fromString(MULTICALL), Bytes.fromHexString(aggregateSelector).concat(encodedArgs))
 }
 
 export function getMetaVaultAddress(registryAddress: Address): Address {
@@ -239,16 +309,6 @@ export function ejectSubVault(metaVaultAddress: Address, subVaultAddress: Addres
 
 export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: BigInt, timestamp: BigInt): void {
   const vault = loadVault(metaVaultAddress)!
-  const osToken = loadOsToken()!
-
-  // fetch vault state
-  const newState = getMetaVaultState(vault)
-  const newRate = newState[0]
-  const newTotalAssets = newState[1]
-  const newTotalShares = newState[2]
-  const newQueuedShares = newState[3]
-  const newExitingAssets = newState[4]
-  const feeRecipientShares = newState[5]
 
   const subVaults: Array<SubVault> = vault.subVaults.load()
   if (subVaults.length == 0) {
@@ -257,34 +317,173 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
   }
   const subVault = loadVault(Address.fromString(subVaults[0].subVault))!
 
-  // update vault. Network total assets are not updated here, because meta vault assets are
-  // delegated to the sub vaults and are already counted there (see updateNetworkTotalAssets).
-  vault.totalAssets = newTotalAssets
-  vault.totalShares = newTotalShares
-  vault.queuedShares = newQueuedShares
-  vault.exitingAssets = newExitingAssets
-  vault.rate = newRate
-  vault.rewardsRoot = subVault.rewardsRoot
+  // fetch vault state
+  const newState = getMetaVaultState(vault)
+
   if (vault.subVaultsRegistry) {
     const registry = SubVaultsRegistryContract.bind(Address.fromBytes(vault.subVaultsRegistry!))
     vault.canHarvest = registry.canUpdateState()
   } else {
     vault.canHarvest = subVault.canHarvest
   }
+  _addSubVaultsAssetsDelta(vault, totalAssetsDelta, BigInt.zero())
+  vault.lastUpdateStateTimestamp = timestamp
+
+  _applyMetaVaultState(loadNetwork()!, loadOsToken()!, vault, newState, subVault, timestamp, null)
+}
+
+// Returns the sub vaults of the meta vault if its state update can be simulated, otherwise null
+export function loadSimulatedSubVaults(vault: Vault): Array<Vault> | null {
+  if (vault.subVaultsRegistry === null || !vault.isCollateralized) {
+    return null
+  }
+  const subVaults: Array<SubVault> = vault.subVaults.load()
+  if (subVaults.length == 0) {
+    return null
+  }
+
+  const subVaultEntities: Array<Vault> = []
+  let rewardsRoot: Bytes | null = null
+  for (let i = 0; i < subVaults.length; i++) {
+    const subVault = loadVault(Address.fromString(subVaults[i].subVault))
+    if (subVault === null || subVault.isMetaVault || subVault.rewardsRoot === null) {
+      return null
+    }
+    // the sub vault missing from the latest rewards update keeps the old rewards root,
+    // the meta vault state update reverts until all the sub vaults are harvested with the same nonce
+    if (rewardsRoot === null) {
+      rewardsRoot = subVault.rewardsRoot
+    } else if (!rewardsRoot!.equals(subVault.rewardsRoot!)) {
+      return null
+    }
+    subVaultEntities.push(subVault)
+  }
+  return subVaultEntities
+}
+
+// Simulates the meta vault state update sent by the operator: harvests the sub vaults, claims the exited assets
+// of the sub vaults and updates the meta vault state. Returns false if the state update cannot be simulated.
+export function simulateMetaVaultUpdateState(
+  network: Network,
+  osToken: OsToken,
+  vault: Vault,
+  subVaults: Array<Vault>,
+  timestamp: BigInt,
+): boolean {
+  const vaultAddress = Address.fromString(vault.id)
+  const calls: Array<ethereum.Value> = []
+  const claimExitRequests: Array<ExitRequest> = []
+  let claimedAssets = BigInt.zero()
+  for (let i = 0; i < subVaults.length; i++) {
+    const subVault = subVaults[i]
+    const subVaultAddress = Address.fromString(subVault.id)
+    if (subVault.canHarvest) {
+      const updateStateCall = getUpdateStateCall(subVault)
+      if (updateStateCall === null) {
+        log.warning('[MetaVault] simulation skipped, missing sub vault proof metaVault={} subVault={}', [
+          vault.id,
+          subVault.id,
+        ])
+        return false
+      }
+      calls.push(updateStateCall)
+    }
+
+    // the meta vault state update reverts if there are unclaimed exited assets in the sub vaults
+    const allocator = loadAllocator(vaultAddress, subVaultAddress)
+    if (allocator === null) {
+      continue
+    }
+    const exitRequests: Array<ExitRequest> = allocator.exitRequests.load().filter((e: ExitRequest) => !e.isClaimed)
+    // the registry claims the exit positions in the order they were created
+    exitRequests.sort((a: ExitRequest, b: ExitRequest): i32 => (a.positionTicket.lt(b.positionTicket) ? -1 : 1))
+    for (let j = 0; j < exitRequests.length; j++) {
+      const exitRequest = exitRequests[j]
+      if (exitRequest.exitQueueIndex === null) {
+        break
+      }
+      if (!exitRequest.isClaimable) {
+        log.info('[MetaVault] simulation skipped, sub vault exit request is not claimable metaVault={} id={}', [
+          vault.id,
+          exitRequest.id,
+        ])
+        return false
+      }
+      claimExitRequests.push(exitRequest)
+      claimedAssets = claimedAssets.plus(exitRequest.exitedAssets)
+    }
+  }
+
+  const registryAddress = Address.fromBytes(vault.subVaultsRegistry!)
+  if (claimExitRequests.length > 0) {
+    calls.push(encodeClaimSubVaultsExitedAssetsCall(registryAddress, claimExitRequests))
+  }
+  // the meta vault ignores the harvest params
+  calls.push(
+    encodeUpdateStateCall(
+      vaultAddress,
+      Bytes.fromUint8Array(new Uint8Array(32)),
+      BigInt.zero(),
+      BigInt.zero(),
+      new Array<Bytes>(),
+    ),
+  )
+
+  const simulatedCall = encodeAggregateCall(calls)
+  const newState = getSimulatedMetaVaultState(vault, simulatedCall)
+  if (newState === null) {
+    log.error('[MetaVault] simulated state update reverted metaVault={}', [vault.id])
+    return false
+  }
+
+  // the claimed exited assets are deducted from the sub vaults total assets before the harvest
+  const subVaultsAssetsDelta = newState.subVaultsAssetsAfterSimulation
+    .minus(newState.subVaultsAssetsBeforeSimulation)
+    .plus(claimedAssets)
+  _addSubVaultsAssetsDelta(vault, subVaultsAssetsDelta, subVaultsAssetsDelta)
+
+  _applyMetaVaultState(network, osToken, vault, newState, subVaults[0], timestamp, simulatedCall)
+  return true
+}
+
+// Adds the sub vaults assets delta to the period earned assets excluding the delta
+// already added by the previous simulated state update
+function _addSubVaultsAssetsDelta(vault: Vault, subVaultsAssetsDelta: BigInt, simulatedAssetsDelta: BigInt): void {
+  const prevSimulatedAssetsDelta =
+    vault._simulatedSubVaultsAssetsDelta !== null ? vault._simulatedSubVaultsAssetsDelta! : BigInt.zero()
+  vault._periodEarnedAssets = vault._periodEarnedAssets.plus(subVaultsAssetsDelta).minus(prevSimulatedAssetsDelta)
+  vault._simulatedSubVaultsAssetsDelta = simulatedAssetsDelta
+}
+
+function _applyMetaVaultState(
+  network: Network,
+  osToken: OsToken,
+  vault: Vault,
+  newState: MetaVaultState,
+  subVault: Vault,
+  timestamp: BigInt,
+  simulatedCall: ethereum.Value | null,
+): void {
+  // update vault. Network total assets are not updated here, because meta vault assets are
+  // delegated to the sub vaults and are already counted there (see updateNetworkTotalAssets).
+  vault.rate = newState.rate
+  vault.totalAssets = newState.totalAssets
+  vault.totalShares = newState.totalShares
+  vault.queuedShares = newState.queuedShares
+  vault.exitingAssets = newState.exitingAssets
+  vault.rewardsRoot = subVault.rewardsRoot
   vault.rewardsIpfsHash = subVault.rewardsIpfsHash
   vault.rewardsTimestamp = subVault.rewardsTimestamp
-  vault._periodEarnedAssets = vault._periodEarnedAssets.plus(totalAssetsDelta)
-  vault.lastUpdateStateTimestamp = timestamp
   vault.save()
 
   // sync fee recipient shares with the state fetched from the chain (fee shares are minted on harvest)
-  syncFeeRecipientShares(osToken, vault, feeRecipientShares)
+  syncFeeRecipientShares(osToken, vault, newState.feeRecipientShares)
 
-  // update vault allocators, exit requests, reward splitters
-  syncVault(loadNetwork()!, osToken, vault, timestamp)
+  // update vault allocators, exit requests, reward splitters on top of the simulated state update
+  syncVault(network, osToken, vault, timestamp, simulatedCall)
 
-  // refresh the stakers with the harvested state
-  if (metaVaultAddress.equals(MAIN_META_VAULT_ADDRESS)) {
+  // refresh the stakers with the new state
+  if (Address.fromString(vault.id).equals(MAIN_META_VAULT_ADDRESS)) {
     const allocators: Array<Allocator> = vault.allocators.load()
     for (let i = 0; i < allocators.length; i++) {
       syncStaker(Address.fromBytes(allocators[i].address))
