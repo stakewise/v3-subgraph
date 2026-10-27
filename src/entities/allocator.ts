@@ -170,6 +170,7 @@ export function createAllocatorAction(
   owner: Address,
   assets: BigInt | null,
   shares: BigInt | null,
+  idSuffix: string = '',
 ): void {
   const allocatorActionString = AllocatorActionTypeStrings[actionType]
   if (assets === null && shares === null) {
@@ -177,7 +178,11 @@ export function createAllocatorAction(
     return
   }
   const txHash = event.transaction.hash.toHex()
-  const allocatorAction = new AllocatorAction(`${txHash}-${event.logIndex.toString()}`)
+  let allocatorActionId = `${txHash}-${event.logIndex.toString()}`
+  if (idSuffix.length > 0) {
+    allocatorActionId = `${allocatorActionId}-${idSuffix}`
+  }
+  const allocatorAction = new AllocatorAction(allocatorActionId)
   allocatorAction.hash = event.transaction.hash
   allocatorAction.vault = vaultAddress.toHex()
   allocatorAction.address = owner

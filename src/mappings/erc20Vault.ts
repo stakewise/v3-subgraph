@@ -40,7 +40,8 @@ export function handleTransfer(event: Transfer): void {
   decreaseAllocatorShares(osToken, osTokenConfig, vault, allocatorFrom, shares)
   allocatorFrom.apy = getAllocatorApy(aave, osToken, osTokenConfig, vault, allocatorFrom)
   allocatorFrom.save()
-  createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferOut, from, assets, shares)
+  // the same event also creates a TransferIn action, so the id needs a suffix to stay unique
+  createAllocatorAction(event, vaultAddress, AllocatorActionType.TransferOut, from, assets, shares, 'out')
 
   const allocatorTo = createOrLoadAllocator(to, vaultAddress)
   increaseAllocatorShares(osToken, osTokenConfig, vault, allocatorTo, shares)

@@ -491,7 +491,7 @@ enum AllocatorActionType {
 Allocator action
 """
 type AllocatorAction @entity(immutable: true) {
-  "Set to `transaction hash-log index`"
+  "Set to `transaction hash-log index` (`transaction hash-log index-out` for TransferOut)"
   id: ID!
 
   "The action hash"
