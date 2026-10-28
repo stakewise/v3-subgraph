@@ -353,7 +353,7 @@ export function loadSimulatedSubVaults(vault: Vault): Array<Vault> | null {
     // the meta vault state update reverts until all the sub vaults are harvested with the same nonce
     if (rewardsRoot === null) {
       rewardsRoot = subVault.rewardsRoot
-    } else if (!rewardsRoot!.equals(subVault.rewardsRoot!)) {
+    } else if (!rewardsRoot.equals(subVault.rewardsRoot!)) {
       return null
     }
     subVaultEntities.push(subVault)
