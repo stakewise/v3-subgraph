@@ -692,11 +692,14 @@ export function syncVault(
     allocator.save()
   }
 
+  // the vault harvest call is used by default
+  const stateUpdateCall = updateStateCall !== null ? updateStateCall : getUpdateStateCall(vault)
+
   // update exit requests
-  updateExitRequests(network, vault, newTimestamp, updateStateCall)
+  updateExitRequests(network, vault, newTimestamp, stateUpdateCall)
 
   // update reward splitters
-  updateRewardSplitters(vault, updateStateCall)
+  updateRewardSplitters(vault, stateUpdateCall)
 }
 
 export function getConvertToAssetsCall(shares: BigInt): Bytes {
