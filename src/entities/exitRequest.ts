@@ -1,7 +1,7 @@
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import { ExitRequest, Network, Vault } from '../../generated/schema'
 import { loadV2Pool } from './v2pool'
-import { convertSharesToAssets, getUpdateStateCall } from './vault'
+import { convertSharesToAssets } from './vault'
 import { loadAllocator } from './allocator'
 import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 import { isGnosisNetwork } from './network'
@@ -30,12 +30,12 @@ export function updateClaimableExitRequests(vault: Vault, timestamp: BigInt): vo
   }
 }
 
-// The exit requests are queried on top of the passed vault state update call, the vault harvest call is used by default
+// The exit requests are queried on top of the passed vault state update call
 export function updateExitRequests(
   network: Network,
   vault: Vault,
   timestamp: BigInt,
-  updateStateCall: ethereum.Value | null = null,
+  updateStateCall: ethereum.Value | null,
 ): void {
   // If vault is in "genesis" mode, we need to wait for legacy migration
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
@@ -49,7 +49,6 @@ export function updateExitRequests(
   const vaultAddr = Address.fromString(vault.id)
 
   const exitRequests: Array<ExitRequest> = vault.exitRequests.load()
-  const updateStateCalls = updateStateCall !== null ? updateStateCall : getUpdateStateCall(vault)
 
   // ─────────────────────────────────────────────────────────────────────
   // STAGE 1: Query exitQueueIndex for all pending exit requests
@@ -70,7 +69,7 @@ export function updateExitRequests(
   }
 
   // Execute in chunks of size 100
-  let stage1Results = chunkedMulticall(updateStateCalls, allCallsStage1, true, 100)
+  let stage1Results = chunkedMulticall(updateStateCall, allCallsStage1, true, 100)
 
   // Parse exitQueueIndex results
   for (let i = 0; i < stage1Results.length; i++) {
@@ -107,7 +106,7 @@ export function updateExitRequests(
   }
 
   // Execute in chunks of size 100
-  let stage2Results = chunkedMulticall(updateStateCalls, allCallsStage2, true, 100)
+  let stage2Results = chunkedMulticall(updateStateCall, allCallsStage2, true, 100)
 
   // The calls above can be executed on top of the simulated vault state update, and the vault reports
   // the last ticket as exited before the checkpoint covering it exists: the checkpoint created by the

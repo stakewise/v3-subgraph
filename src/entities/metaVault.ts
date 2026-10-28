@@ -12,9 +12,11 @@ import { MULTICALL, WAD } from '../helpers/constants'
 import { chunkedMulticall, encodeContractCall } from '../helpers/utils'
 import { loadNetwork } from './network'
 import { loadOsToken } from './osToken'
-import { MAIN_META_VAULT_ADDRESS, syncStaker } from './staker'
+import { isStakerAddressExcluded, MAIN_META_VAULT_ADDRESS, updateStaker } from './staker'
 import { createTransaction } from './transaction'
 import { loadAllocator } from './allocator'
+import { loadAave } from './aave'
+import { loadOsTokenConfig } from './osTokenConfig'
 import {
   encodeUpdateStateCall,
   exitQueueDataSelector,
@@ -484,9 +486,14 @@ function _applyMetaVaultState(
 
   // refresh the stakers with the new state
   if (Address.fromString(vault.id).equals(MAIN_META_VAULT_ADDRESS)) {
+    const aave = loadAave()
+    const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)
     const allocators: Array<Allocator> = vault.allocators.load()
     for (let i = 0; i < allocators.length; i++) {
-      syncStaker(Address.fromBytes(allocators[i].address))
+      const stakerAddress = Address.fromBytes(allocators[i].address)
+      if (!isStakerAddressExcluded(stakerAddress)) {
+        updateStaker(osToken, aave, vault, osTokenConfig, stakerAddress)
+      }
     }
   }
 }

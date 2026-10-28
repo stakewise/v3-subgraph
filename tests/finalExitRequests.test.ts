@@ -192,7 +192,7 @@ describe('final exit requests', () => {
     mockExitRequests([2, 1], BigInt.fromI32(7), [halfWad, BigInt.zero()], [halfWad, wad.plus(BigInt.fromI32(5))])
     mockConfirmation(1, 7)
 
-    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP, getUpdateStateCall(vault))
 
     const processed = loadRequest(1)
     assert.bigIntEquals(processed.exitedAssets, wad.plus(BigInt.fromI32(5)))
@@ -207,7 +207,7 @@ describe('final exit requests', () => {
 
     // only the partial exit request is queried by the next update
     mockExitRequests([2], BigInt.fromI32(7), [halfWad], [halfWad])
-    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP, getUpdateStateCall(vault))
   })
 
   test('keeps syncing the fully processed exit request until it is claimable', () => {
@@ -215,7 +215,7 @@ describe('final exit requests', () => {
     createExitRequest(1)
     mockExitRequests([1], BigInt.fromI32(7), [BigInt.zero()], [wad])
 
-    updateExitRequests(new Network('0'), vault, NOT_CLAIMABLE_TIMESTAMP)
+    updateExitRequests(new Network('0'), vault, NOT_CLAIMABLE_TIMESTAMP, getUpdateStateCall(vault))
     assert.assertTrue(!loadRequest(1).isClaimable)
     assert.assertTrue(!loadRequest(1)._isFinal)
 
@@ -224,7 +224,7 @@ describe('final exit requests', () => {
     assert.assertTrue(loadRequest(1).isClaimable)
     assert.assertTrue(!loadRequest(1)._isFinal)
 
-    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP, getUpdateStateCall(vault))
     assert.assertTrue(loadRequest(1)._isFinal)
   })
 
@@ -235,7 +235,7 @@ describe('final exit requests', () => {
     exitRequest.save()
     mockExitRequests([1], BigInt.fromI32(7), [BigInt.zero()], [wad])
 
-    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP, getUpdateStateCall(vault))
 
     assert.assertTrue(loadRequest(1).isClaimable)
     assert.assertTrue(!loadRequest(1)._isFinal)
@@ -251,7 +251,7 @@ describe('final exit requests', () => {
     createExitRequest(12)
     mockExitRequests([12], BigInt.fromI32(8), [wad], [BigInt.zero()])
 
-    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP, getUpdateStateCall(vault))
 
     assert.bigIntEquals(loadRequest(11).exitedAssets, wad)
     assert.assertTrue(!loadRequest(12)._isFinal)
@@ -264,7 +264,7 @@ describe('final exit requests', () => {
     // the last ticket is in the next checkpoint
     mockConfirmation(21, 10)
 
-    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP, getUpdateStateCall(vault))
 
     assert.bigIntEquals(loadRequest(21).exitedAssets, wad)
     assert.assertTrue(loadRequest(21).isClaimable)
@@ -278,7 +278,7 @@ describe('final exit requests', () => {
     // the checkpoint does not exist in the vault yet
     mockConfirmation(22, -1)
 
-    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP, getUpdateStateCall(vault))
 
     // the simulated values are indexed as before, but the exit request is not final
     assert.bigIntEquals(loadRequest(22).exitedAssets, wad)
@@ -293,7 +293,7 @@ describe('final exit requests', () => {
     mockExitRequests([23], BigInt.fromI32(9), [BigInt.zero()], [wad.minus(BigInt.fromI32(1))])
     mockConfirmation(23, -1)
 
-    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP, getUpdateStateCall(vault))
 
     assert.bigIntEquals(loadRequest(23).exitedAssets, wad.minus(BigInt.fromI32(1)))
     assert.assertTrue(!loadRequest(23)._isFinal)
@@ -302,7 +302,7 @@ describe('final exit requests', () => {
     mockExitRequests([23], BigInt.fromI32(9), [BigInt.zero()], [wad])
     mockConfirmation(23, 10)
 
-    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP)
+    updateExitRequests(new Network('0'), vault, CLAIMABLE_TIMESTAMP, getUpdateStateCall(vault))
 
     assert.bigIntEquals(loadRequest(23).exitedAssets, wad)
     assert.assertTrue(loadRequest(23)._isFinal)

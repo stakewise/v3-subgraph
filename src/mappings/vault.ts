@@ -61,7 +61,7 @@ import {
   updateClaimableExitRequests,
   updateExitRequests,
 } from '../entities/exitRequest'
-import { convertSharesToAssets, loadVault, syncVault } from '../entities/vault'
+import { convertSharesToAssets, getUpdateStateCall, loadVault, syncVault } from '../entities/vault'
 import { loadSimulatedSubVaults, simulateMetaVaultUpdateState } from '../entities/metaVault'
 import { CheckpointType, createOrLoadCheckpoint } from '../entities/checkpoint'
 import { loadAave } from '../entities/aave'
@@ -236,7 +236,7 @@ export function handleInitialized(event: Initialized): void {
 
   if (newVersion.equals(BigInt.fromI32(3))) {
     // update exit requests
-    updateExitRequests(loadNetwork()!, vault, timestamp)
+    updateExitRequests(loadNetwork()!, vault, timestamp, getUpdateStateCall(vault))
   }
 
   if (vault.isGenesis) {

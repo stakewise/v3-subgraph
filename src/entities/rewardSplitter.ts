@@ -1,6 +1,6 @@
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
 import { RewardSplitter, RewardSplitterShareHolder, Vault } from '../../generated/schema'
-import { convertSharesToAssets, getUpdateStateCall } from './vault'
+import { convertSharesToAssets } from './vault'
 import { loadV2Pool } from './v2pool'
 import { createOrLoadAllocator } from './allocator'
 import {
@@ -55,15 +55,14 @@ export function syncEarnedVaultAssets(vault: Vault, shareHolder: RewardSplitterS
   allocator.save()
 }
 
-// The rewards are queried on top of the passed vault state update call, the vault harvest call is used by default
-export function updateRewardSplitters(vault: Vault, updateStateCall: ethereum.Value | null = null): void {
+// The rewards are queried on top of the passed vault state update call
+export function updateRewardSplitters(vault: Vault, updateStateCall: ethereum.Value | null): void {
   if (vault.isGenesis && !loadV2Pool()!.migrated) {
     // wait for the migration
     return
   }
 
   const rewardSplitters: Array<RewardSplitter> = vault.rewardSplitters.load()
-  const updateStateCalls = updateStateCall !== null ? updateStateCall : getUpdateStateCall(vault)
 
   let rewardSplitter: RewardSplitter
   const syncRewardsCall = Bytes.fromHexString(syncRewardsCallSelector)
@@ -83,7 +82,7 @@ export function updateRewardSplitters(vault: Vault, updateStateCall: ethereum.Va
       )
     }
 
-    let result = chunkedMulticall(updateStateCalls, calls)
+    let result = chunkedMulticall(updateStateCall, calls)
     // remove the first element (syncRewardsCall result)
     result = result.slice(1)
 
