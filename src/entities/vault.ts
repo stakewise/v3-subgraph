@@ -665,13 +665,7 @@ export function getVaultExtraApy(distributor: Distributor, vault: Vault): BigDec
   return extraApy
 }
 
-export function syncVault(
-  network: Network,
-  osToken: OsToken,
-  vault: Vault,
-  newTimestamp: BigInt,
-  updateStateCall: ethereum.Value | null = null,
-): void {
+export function syncVault(network: Network, osToken: OsToken, vault: Vault, newTimestamp: BigInt): void {
   let allocator: Allocator
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const allocators: Array<Allocator> = vault.allocators.load()
@@ -692,14 +686,13 @@ export function syncVault(
     allocator.save()
   }
 
-  // the vault harvest call is used by default
-  const stateUpdateCall = updateStateCall !== null ? updateStateCall : getUpdateStateCall(vault)
+  const updateStateCall = getUpdateStateCall(vault)
 
   // update exit requests
-  updateExitRequests(network, vault, newTimestamp, stateUpdateCall)
+  updateExitRequests(network, vault, newTimestamp, updateStateCall)
 
   // update reward splitters
-  updateRewardSplitters(vault, stateUpdateCall)
+  updateRewardSplitters(vault, updateStateCall)
 }
 
 export function getConvertToAssetsCall(shares: BigInt): Bytes {
