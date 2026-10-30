@@ -329,7 +329,7 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
   _addSubVaultsAssetsDelta(vault, totalAssetsDelta, BigInt.zero())
   vault.lastUpdateStateTimestamp = timestamp
 
-  _applyMetaVaultState(loadNetwork()!, loadOsToken()!, vault, newState, subVault, timestamp, null)
+  _applyMetaVaultState(loadNetwork()!, loadOsToken()!, vault, newState, subVault, timestamp)
 }
 
 // Returns the sub vaults of the meta vault if its state update can be simulated, otherwise null
@@ -442,7 +442,7 @@ export function simulateMetaVaultUpdateState(
     .plus(claimedAssets)
   _addSubVaultsAssetsDelta(vault, subVaultsAssetsDelta, subVaultsAssetsDelta)
 
-  _applyMetaVaultState(network, osToken, vault, newState, subVaults[0], timestamp, simulatedCall)
+  _applyMetaVaultState(network, osToken, vault, newState, subVaults[0], timestamp)
   return true
 }
 
@@ -462,7 +462,6 @@ function _applyMetaVaultState(
   newState: MetaVaultState,
   subVault: Vault,
   timestamp: BigInt,
-  simulatedCall: ethereum.Value | null,
 ): void {
   // update vault. Network total assets are not updated here, because meta vault assets are
   // delegated to the sub vaults and are already counted there (see updateNetworkTotalAssets).
@@ -479,8 +478,10 @@ function _applyMetaVaultState(
   // sync fee recipient shares with the state fetched from the chain (fee shares are minted on harvest)
   syncFeeRecipientShares(osToken, vault, newState.feeRecipientShares)
 
-  // update vault allocators, exit requests, reward splitters on top of the simulated state update
-  syncVault(network, osToken, vault, timestamp, simulatedCall)
+  // update vault allocators, exit requests, reward splitters. The exit requests and reward splitters are read
+  // from the current chain state: the operator may not harvest the meta vault for a long time, and the exit
+  // requests processed by the simulated state update cannot be claimed until then
+  syncVault(network, osToken, vault, timestamp)
 
   // refresh the stakers with the new state
   if (Address.fromString(vault.id).equals(MAIN_META_VAULT_ADDRESS)) {

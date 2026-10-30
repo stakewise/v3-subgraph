@@ -283,20 +283,59 @@ function simulate(): boolean {
   )
 }
 
-// mocks the multicall executed on top of the simulated meta vault state update
-function mockSimulatedMulticall(
-  simulatedCall: ethereum.Value,
+// mocks the multicall executed on top of the vault state update call, if any
+function mockMulticall(
+  updateStateCall: ethereum.Value | null,
   calls: Array<ethereum.Value>,
   results: Array<Bytes>,
 ): void {
-  const prefix: Array<ethereum.Value> = [simulatedCall]
-  const encodedResults: Array<ethereum.Value> = [callResult(true, new Bytes(0))]
+  const prefix: Array<ethereum.Value> = []
+  const encodedResults: Array<ethereum.Value> = []
+  if (updateStateCall !== null) {
+    prefix.push(updateStateCall)
+    encodedResults.push(callResult(true, new Bytes(0)))
+  }
   for (let i = 0; i < results.length; i++) {
     encodedResults.push(callResult(true, results[i]))
   }
   createMockedFunction(Address.fromString(MULTICALL), 'tryAggregate', tryAggregateSig)
     .withArgs([ethereum.Value.fromBoolean(true), ethereum.Value.fromArray(prefix.concat(calls))])
     .returns([ethereum.Value.fromArray(encodedResults)])
+}
+
+// mocks the exit request update: the exit queue index and the exited assets queries
+function mockExitRequestUpdate(
+  updateStateCall: ethereum.Value | null,
+  vault: Address,
+  receiver: Address,
+  positionTicket: BigInt,
+  exitQueueIndex: BigInt,
+  leftTickets: BigInt,
+  exitedAssets: BigInt,
+): void {
+  mockMulticall(
+    updateStateCall,
+    [encodeContractCall(vault, getExitQueueIndexCall(positionTicket))],
+    [ethereum.encode(ethereum.Value.fromSignedBigInt(exitQueueIndex))!],
+  )
+  // the unprocessed exit request is queried with the max exit queue index
+  const queriedExitQueueIndex = exitQueueIndex.lt(BigInt.zero())
+    ? BigInt.fromI32(2).pow(255).minus(BigInt.fromI32(1))
+    : exitQueueIndex
+  mockMulticall(
+    updateStateCall,
+    [
+      encodeContractCall(
+        vault,
+        getCalculateExitedAssetsCall(receiver, positionTicket, ENTER_TIMESTAMP, queriedExitQueueIndex),
+      ),
+    ],
+    [
+      uint256(leftTickets)
+        .concat(uint256(wad.minus(leftTickets)))
+        .concat(uint256(exitedAssets)),
+    ],
+  )
 }
 
 function setKeeperUpdated(isKeeperUpdated: boolean): ethereum.Block {
@@ -433,41 +472,19 @@ describe('meta vault update state simulation', () => {
     )
   })
 
-  test('syncs the meta vault exit requests on top of the simulated state update', () => {
-    const simulatedCalls = setupSimulation()
-    mockSimulation(simulatedCalls, true, SUB_VAULTS_ASSETS_BEFORE, SUB_VAULTS_ASSETS_AFTER)
+  test('syncs the meta vault exit requests with the current chain state', () => {
+    mockSimulation(setupSimulation(), true, SUB_VAULTS_ASSETS_BEFORE, SUB_VAULTS_ASSETS_AFTER)
     createUserExitRequest(META_VAULT, USER, 5, -1, false)
 
-    // the exit request is processed by the simulated meta vault state update
-    const simulatedCall = encodeAggregateCall(simulatedCalls)
-    const exitQueueIndex = BigInt.fromI32(2)
-    const leftTickets = wad.div(BigInt.fromI32(2))
-    const exitedAssets = wad.div(BigInt.fromI32(2))
-    mockSimulatedMulticall(
-      simulatedCall,
-      [encodeContractCall(META_VAULT, getExitQueueIndexCall(BigInt.fromI32(5)))],
-      [ethereum.encode(ethereum.Value.fromSignedBigInt(exitQueueIndex))!],
-    )
-    mockSimulatedMulticall(
-      simulatedCall,
-      [
-        encodeContractCall(
-          META_VAULT,
-          getCalculateExitedAssetsCall(USER, BigInt.fromI32(5), ENTER_TIMESTAMP, exitQueueIndex),
-        ),
-      ],
-      [
-        uint256(leftTickets)
-          .concat(uint256(wad.minus(leftTickets)))
-          .concat(uint256(exitedAssets)),
-      ],
-    )
+    // the exit request is not processed until the meta vault is harvested
+    mockExitRequestUpdate(null, META_VAULT, USER, BigInt.fromI32(5), BigInt.fromI32(-1), wad, BigInt.zero())
 
     assert.assertTrue(simulate())
 
     const exitRequest = ExitRequest.load(`${META_VAULT.toHex()}-5`)!
-    assert.bigIntEquals(exitRequest.exitQueueIndex!, exitQueueIndex)
-    assert.bigIntEquals(exitRequest.exitedAssets, exitedAssets)
+    assert.assertTrue(exitRequest.exitQueueIndex === null)
+    assert.bigIntEquals(exitRequest.exitedAssets, BigInt.zero())
+    assert.assertTrue(!exitRequest.isClaimable)
   })
 
   test('claims the exit requests of all the sub vaults in the exit queue order', () => {
@@ -577,5 +594,51 @@ describe('meta vault update state simulation', () => {
     syncVaults(block)
 
     assert.bigIntEquals(Vault.load(META_VAULT.toHex())!.rate, wad)
+  })
+
+  test('syncs the sub vaults exit requests before simulating the meta vault state update', () => {
+    createNetwork()
+    createOsToken()
+    createMetaVault()
+    const subVault1 = createSubVault(SUB_VAULT1, true)
+    createSubVault(SUB_VAULT2, false)
+    // the meta vault exit request is processed by the sub vault 1 harvest in the keeper update block
+    createExitRequest(SUB_VAULT1, 10, -1, false)
+    const block = setKeeperUpdated(true)
+    // the meta vault goes before its sub vaults
+    const network = Network.load('0')!
+    network.vaultIds = [META_VAULT.toHex(), SUB_VAULT1.toHex(), SUB_VAULT2.toHex()]
+    network.save()
+
+    const subVault1UpdateStateCall = getUpdateStateCall(subVault1)!
+    mockExitRequestUpdate(
+      subVault1UpdateStateCall,
+      SUB_VAULT1,
+      META_VAULT,
+      BigInt.fromI32(10),
+      BigInt.fromI32(3),
+      wad.div(BigInt.fromI32(2)),
+      CLAIMED_ASSETS,
+    )
+    // the simulation claims the exit request refreshed by the sub vault sync
+    const exitRequest = ExitRequest.load(`${SUB_VAULT1.toHex()}-10`)!
+    exitRequest.exitQueueIndex = BigInt.fromI32(3)
+    mockSimulation(
+      [
+        subVault1UpdateStateCall,
+        encodeClaimSubVaultsExitedAssetsCall(REGISTRY, [exitRequest]),
+        encodeMetaVaultUpdateStateCall(),
+      ],
+      true,
+      SUB_VAULTS_ASSETS_BEFORE,
+      SUB_VAULTS_ASSETS_AFTER,
+    )
+
+    syncVaults(block)
+
+    const vault = Vault.load(META_VAULT.toHex())!
+    assert.bigIntEquals(vault.rate, NEW_RATE)
+    // the claimed exited assets are included in the sub vaults assets delta
+    assert.bigIntEquals(vault._simulatedSubVaultsAssetsDelta!, wad)
   })
 })
