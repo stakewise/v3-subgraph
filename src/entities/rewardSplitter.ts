@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts'
+import { Address, BigInt, Bytes, ethereum, log } from '@graphprotocol/graph-ts'
 import { RewardSplitter, RewardSplitterShareHolder, Vault } from '../../generated/schema'
 import { convertSharesToAssets } from './vault'
 import { loadV2Pool } from './v2pool'
@@ -82,7 +82,13 @@ export function updateRewardSplitters(vault: Vault, updateStateCall: ethereum.Va
       )
     }
 
-    let result = chunkedMulticall(updateStateCall, calls)
+    // without the state update call, syncRewards reverts while the vault state update is required.
+    // The reward splitter is skipped and catches up on the next vault harvest
+    let result = chunkedMulticall(updateStateCall, calls, updateStateCall !== null)
+    if (result[0] === null) {
+      log.warning('[RewardSplitter] syncRewards reverted, skipping rewardSplitter={}', [rewardSplitter.id])
+      continue
+    }
     // remove the first element (syncRewardsCall result)
     result = result.slice(1)
 

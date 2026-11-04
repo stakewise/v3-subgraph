@@ -332,7 +332,7 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
 
   _applyMetaVaultState(loadNetwork()!, loadOsToken()!, vault, newState, subVault, timestamp)
 
-  // not updated by the simulation: RewardSplitter.syncRewards reverts until the meta vault is really harvested
+  // not updated by the simulation: RewardSplitter.syncRewards reverts while the vault state update is required
   updateRewardSplitters(vault, null)
 }
 

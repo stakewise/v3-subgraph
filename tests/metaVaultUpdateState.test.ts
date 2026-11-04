@@ -347,6 +347,43 @@ function mockExitRequestUpdate(
   )
 }
 
+// creates the meta vault reward splitter with one shareholder, returns the shareholder ID
+function createRewardSplitterShareHolder(): string {
+  const rewardSplitter = new RewardSplitter(FEE_RECIPIENT.toHex())
+  rewardSplitter.version = BigInt.fromI32(3)
+  rewardSplitter.owner = USER
+  rewardSplitter.totalShares = BigInt.fromI32(1)
+  rewardSplitter.vault = META_VAULT.toHex()
+  rewardSplitter.save()
+  const shareHolder = new RewardSplitterShareHolder(`${FEE_RECIPIENT.toHex()}-${USER.toHex()}`)
+  shareHolder.rewardSplitter = rewardSplitter.id
+  shareHolder.vault = META_VAULT.toHex()
+  shareHolder.address = USER
+  shareHolder.shares = BigInt.fromI32(1)
+  shareHolder.earnedVaultShares = BigInt.zero()
+  shareHolder.earnedVaultAssets = BigInt.zero()
+  shareHolder.save()
+  return shareHolder.id
+}
+
+// mocks the reward splitter multicall without the vault state update call, the syncRewards call may revert
+function mockRewardSplitterSync(syncRewardsSuccess: boolean, earnedVaultShares: BigInt): void {
+  const calls: Array<ethereum.Value> = [
+    encodeContractCall(FEE_RECIPIENT, Bytes.fromHexString('0x72c0c211')),
+    encodeContractCall(
+      FEE_RECIPIENT,
+      Bytes.fromHexString('0x479ba7ae').concat(ethereum.encode(ethereum.Value.fromAddress(USER))!),
+    ),
+  ]
+  const results: Array<ethereum.Value> = [
+    callResult(syncRewardsSuccess, new Bytes(0)),
+    callResult(true, uint256(earnedVaultShares)),
+  ]
+  createMockedFunction(Address.fromString(MULTICALL), 'tryAggregate', tryAggregateSig)
+    .withArgs([ethereum.Value.fromBoolean(false), ethereum.Value.fromArray(calls)])
+    .returns([ethereum.Value.fromArray(results)])
+}
+
 function setKeeperUpdated(isKeeperUpdated: boolean): ethereum.Block {
   const keeperCheckpoint = createOrLoadCheckpoint(CheckpointType.KEEPER)
   keeperCheckpoint.timestamp = TIMESTAMP
@@ -498,41 +535,31 @@ describe('meta vault update state simulation', () => {
 
   test('updates the meta vault reward splitters on the real harvest only', () => {
     mockSimulation(setupSimulation(), true, SUB_VAULTS_ASSETS_BEFORE, SUB_VAULTS_ASSETS_AFTER)
-    const rewardSplitter = new RewardSplitter(FEE_RECIPIENT.toHex())
-    rewardSplitter.version = BigInt.fromI32(3)
-    rewardSplitter.owner = USER
-    rewardSplitter.totalShares = BigInt.fromI32(1)
-    rewardSplitter.vault = META_VAULT.toHex()
-    rewardSplitter.save()
-    const shareHolder = new RewardSplitterShareHolder(`${FEE_RECIPIENT.toHex()}-${USER.toHex()}`)
-    shareHolder.rewardSplitter = rewardSplitter.id
-    shareHolder.vault = META_VAULT.toHex()
-    shareHolder.address = USER
-    shareHolder.shares = BigInt.fromI32(1)
-    shareHolder.earnedVaultShares = BigInt.zero()
-    shareHolder.earnedVaultAssets = BigInt.zero()
-    shareHolder.save()
+    const shareHolderId = createRewardSplitterShareHolder()
 
-    // the rewards are not mocked yet, querying them would fail the test: syncRewards reverts on chain until the harvest
+    // the rewards are not mocked yet, querying them would fail the test:
+    // syncRewards reverts on chain while the meta vault state update is required
     assert.assertTrue(simulate())
-    assert.bigIntEquals(RewardSplitterShareHolder.load(shareHolder.id)!.earnedVaultShares, BigInt.zero())
+    assert.bigIntEquals(RewardSplitterShareHolder.load(shareHolderId)!.earnedVaultShares, BigInt.zero())
 
     const earnedVaultShares = wad.times(BigInt.fromI32(2))
     mockHarvest()
-    mockMulticall(
-      null,
-      [
-        encodeContractCall(FEE_RECIPIENT, Bytes.fromHexString('0x72c0c211')),
-        encodeContractCall(
-          FEE_RECIPIENT,
-          Bytes.fromHexString('0x479ba7ae').concat(ethereum.encode(ethereum.Value.fromAddress(USER))!),
-        ),
-      ],
-      [new Bytes(0), uint256(earnedVaultShares)],
-    )
+    mockRewardSplitterSync(true, earnedVaultShares)
     harvestSubVaults(META_VAULT, wad, TIMESTAMP)
 
-    assert.bigIntEquals(RewardSplitterShareHolder.load(shareHolder.id)!.earnedVaultShares, earnedVaultShares)
+    assert.bigIntEquals(RewardSplitterShareHolder.load(shareHolderId)!.earnedVaultShares, earnedVaultShares)
+  })
+
+  test('skips the meta vault reward splitter when syncRewards reverts on the harvest', () => {
+    setupSimulation()
+    const shareHolderId = createRewardSplitterShareHolder()
+
+    mockHarvest()
+    mockRewardSplitterSync(false, wad)
+    harvestSubVaults(META_VAULT, wad, TIMESTAMP)
+
+    assert.bigIntEquals(Vault.load(META_VAULT.toHex())!.rate, NEW_RATE)
+    assert.bigIntEquals(RewardSplitterShareHolder.load(shareHolderId)!.earnedVaultShares, BigInt.zero())
   })
 
   test('claims the exit requests of all the sub vaults in the exit queue order', () => {
