@@ -15,6 +15,7 @@ import { loadOsToken } from './osToken'
 import { MAIN_META_VAULT_ADDRESS, syncStaker } from './staker'
 import { createTransaction } from './transaction'
 import { loadAllocator } from './allocator'
+import { updateRewardSplitters } from './rewardSplitter'
 import {
   encodeUpdateStateCall,
   exitQueueDataSelector,
@@ -23,7 +24,7 @@ import {
   getUpdateStateCall,
   loadVault,
   syncFeeRecipientShares,
-  syncVault,
+  syncVaultAllocators,
   totalAssetsSelector,
   totalSharesSelector,
 } from './vault'
@@ -330,6 +331,9 @@ export function harvestSubVaults(metaVaultAddress: Address, totalAssetsDelta: Bi
   vault.lastUpdateStateTimestamp = timestamp
 
   _applyMetaVaultState(loadNetwork()!, loadOsToken()!, vault, newState, subVault, timestamp)
+
+  // not updated by the simulation: RewardSplitter.syncRewards reverts while the vault state update is required
+  updateRewardSplitters(vault, null)
 }
 
 // Returns the sub vaults of the meta vault if its state update can be simulated, otherwise null
@@ -478,10 +482,11 @@ function _applyMetaVaultState(
   // sync fee recipient shares with the state fetched from the chain (fee shares are minted on harvest)
   syncFeeRecipientShares(osToken, vault, newState.feeRecipientShares)
 
-  // update vault allocators, exit requests, reward splitters. The exit requests and reward splitters are read
-  // from the current chain state: the operator may not harvest the meta vault for a long time, and the exit
-  // requests processed by the simulated state update cannot be claimed until then
-  syncVault(network, osToken, vault, timestamp)
+  // update vault allocators and exit requests. The exit requests are read from the current chain state
+  // (getUpdateStateCall returns null for the meta vaults): the operator may not harvest the meta vault for a long
+  // time, and the exit requests processed by the simulated state update cannot be claimed until then. Until the
+  // real harvest, the queued shares and exiting assets are already processed while the exit requests are pending
+  syncVaultAllocators(network, osToken, vault, timestamp)
 
   // refresh the stakers with the new state
   if (Address.fromString(vault.id).equals(MAIN_META_VAULT_ADDRESS)) {

@@ -666,6 +666,14 @@ export function getVaultExtraApy(distributor: Distributor, vault: Vault): BigDec
 }
 
 export function syncVault(network: Network, osToken: OsToken, vault: Vault, newTimestamp: BigInt): void {
+  syncVaultAllocators(network, osToken, vault, newTimestamp)
+
+  // update reward splitters
+  updateRewardSplitters(vault, getUpdateStateCall(vault))
+}
+
+// Updates the vault allocators and exit requests
+export function syncVaultAllocators(network: Network, osToken: OsToken, vault: Vault, newTimestamp: BigInt): void {
   let allocator: Allocator
   const osTokenConfig = loadOsTokenConfig(vault.osTokenConfig)!
   const allocators: Array<Allocator> = vault.allocators.load()
@@ -686,13 +694,8 @@ export function syncVault(network: Network, osToken: OsToken, vault: Vault, newT
     allocator.save()
   }
 
-  const updateStateCall = getUpdateStateCall(vault)
-
   // update exit requests
-  updateExitRequests(network, vault, newTimestamp, updateStateCall)
-
-  // update reward splitters
-  updateRewardSplitters(vault, updateStateCall)
+  updateExitRequests(network, vault, newTimestamp, getUpdateStateCall(vault))
 }
 
 export function getConvertToAssetsCall(shares: BigInt): Bytes {
